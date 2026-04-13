@@ -20,14 +20,6 @@
  *   ESC          – back to menu
  */
 
-// ── Enable optional SDL3pp subsystems ────────────────────────────────────────
-#ifndef SDL3PP_ENABLE_TTF
-#define SDL3PP_ENABLE_TTF
-#endif
-#ifndef SDL3PP_ENABLE_MIXER
-#define SDL3PP_ENABLE_MIXER
-#endif
-
 #define SDL3PP_MAIN_USE_CALLBACKS 1
 #include <SDL3pp/SDL3pp.h>
 #include <SDL3pp/SDL3pp_main.h>
@@ -1581,22 +1573,21 @@ struct Main
                 .W(200)
                 .AlignSelf(SDL::UI::Align::Center)
                 .Style(SDL::UI::Theme::PrimaryButton({70, 75, 100, 255}))
-                .OnClick([this]
-                         {
-              appState = AppState::Menu;
-              window.SetRelativeMouseMode(false);
-              _ShowPage(AppState::Menu); }));
+                .OnClick([this] {
+                    appState = AppState::Menu;
+                    window.SetRelativeMouseMode(false);
+                    _ShowPage(AppState::Menu);
+                }));
 
         auto page = ui.Column("go_page", 0.f, 0.f)
                         .W(SDL::UI::Value::Ww(100))
                         .H(SDL::UI::Value::Wh(100))
                         .Padding(0)
                         .Align(SDL::UI::Align::Center)
-                        .WithStyle([](auto &s)
-                                   {
-                                       s.borders = SDL::FBox(0.f);
-                                       s.bgColor = {0, 0, 0, 0}; // background drawn raw
-                                   })
+                        .WithStyle([](auto &s) {
+                            s.borders = SDL::FBox(0.f);
+                            s.bgColor = {0, 0, 0, 0}; // background drawn raw
+                        })
                         .Child(card);
 
         return page;
