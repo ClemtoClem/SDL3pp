@@ -1,0 +1,43 @@
+# longueur de la map
+width           = 14
+# hauteur de la map
+height          = 12
+# nombre de calques
+tracings		= 4
+# si le numéro 0 ne correspond pas à l'id du premier tile dans le tileset
+zeroIsNotTile   = true
+# tile à afficher en arrière plan sur toutes la surface de la map
+backgroundTile  = 24
+# nombre de calques supperposés à afficher devant les entités
+nbTracingsInFrontOf = 1
+# valeur mimimale d'un tile à soustaire pour le normaliser (ici min = 1394)
+tileCollisionIdOffset = 1393
+
+musics = [
+	"glass.ogg"
+]
+
+configEntities = {
+	%2 = {
+		name = "PNJ1"
+		x = 3.5
+		y = 4.5
+		direction = "SOUTH"
+	}
+}
+messages = {
+}
+transitions = {
+	8_10 = {
+		changeMap = true
+		name = "world"
+		x = 22.5
+		y = 51.5
+	}
+	9_10 = {
+		changeMap = true
+		name = "world"
+		x = 22.5
+		y = 51.5
+	}
+}

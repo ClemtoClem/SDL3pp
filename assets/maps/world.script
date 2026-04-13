@@ -1,0 +1,75 @@
+# longueur de la map
+width    = 200
+# hauteur de la map
+height   = 120
+# nombre de calques
+tracings = 6
+# nombre de calques supperposés à afficher devant les entités
+nbTracingsInFrontOf = 2
+# si le numéro 0 ne correspond pas à l'id du premier tile dans le tileset
+zeroIsNotTile   = true
+# tile à afficher en arrière plan sur toutes la surface de la map
+backgroundTile  = 245
+# valeur mimimale d'un tile à soustaire pour le normaliser (ici min = 1394)
+tileCollisionIdOffset = 1393
+
+musics = [
+	"grassy.ogg"
+]
+
+configEntities = {
+	%1 = {
+		type = "player"
+		x = 28.5f
+		y = 88.5f
+		#x = 161.5f
+		#y = 50.5f
+		direction = "SOUTH"
+	}
+	%2 =  {
+		type = "blob"
+		x = 28.5f
+		y = 72.5f
+		direction = "NORTH"
+	}
+	%3 =  {
+		type = "blob"
+		x = 32.5f
+		y = 82.5f
+		direction = "WEST"
+	}
+	%4 =  {
+		type = "blob"
+		x = 27.5f
+		y = 66.5f
+		direction = "SOUTH"
+	}
+}
+
+messages = {
+	24_84 = {
+		%1 = "Welcome to the island Polyland"
+	}
+	53_22 = {
+		%1 = "Welcome to SeaSide village"
+	}
+	53_22 = {
+		%1 = "Entrance to the Dragon Cave"
+		%2 = "Good luck !!"
+	}
+}
+
+transitions = {
+	22_52 = {
+		changeMap = true
+		name = "house1"
+		x = 8.5f
+		y = 10.5f
+	}
+	161_50 = {
+		changeMap = true
+		name = "cave1"
+		x = 89.5f
+		y = 14.5f
+	}
+}

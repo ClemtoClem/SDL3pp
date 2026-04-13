@@ -1,0 +1,33 @@
+static float4 gl_Position;
+static float2 _18;
+static float4 _27;
+static float4 _29;
+
+struct SPIRV_Cross_Input
+{
+    float2 _18 : TEXCOORD0;
+    float4 _29 : TEXCOORD1;
+};
+
+struct SPIRV_Cross_Output
+{
+    float4 _27 : TEXCOORD0;
+    float4 gl_Position : SV_Position;
+};
+
+void vert_main()
+{
+    gl_Position = float4(_18, 0.0f, 1.0f);
+    _27 = _29;
+}
+
+SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
+{
+    _18 = stage_input._18;
+    _29 = stage_input._29;
+    vert_main();
+    SPIRV_Cross_Output stage_output;
+    stage_output.gl_Position = gl_Position;
+    stage_output._27 = _27;
+    return stage_output;
+}

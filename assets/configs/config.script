@@ -1,0 +1,166 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PolyAdventure — config.script
+# SDL3pp C++20 rewrite — main configuration file
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Window ────────────────────────────────────────────────────────────────────
+screenTitle  = "POLYADVENTURE"
+screenWidth  = 860
+screenHeight = 640
+
+# ── Tile display ──────────────────────────────────────────────────────────────
+# dispTileSize  : pixels per tile on screen
+# tilesetImgName: tileset image filename (relative to assets/textures/)
+# tileSize      : source tile size in the tileset image (pixels)
+dispTileSize   = 64
+tilesetImgName = "tileset1.png"
+tileSize       = 16
+
+# ── Map ───────────────────────────────────────────────────────────────────────
+firstMapName = "world"
+
+# ── Entity definitions ────────────────────────────────────────────────────────
+# Keys MUST match the uppercase type names used in map .script files.
+# Each sub-section provides rendering + physics parameters for one entity type.
+#
+#   texture        : sprite sheet filename (relative to assets/textures/)
+#   tileSize         : source frame size in pixels (sprite sheet)
+#   firstTileIsStanding : col 0 = standing frame; otherwise first col = walk
+#   frameBetweenEachTile: game ticks between animation frame advances
+#   scale             : display scale relative to dispTileSize
+#   speed            : walk speed in world-units/tick
+#   pushForce        : knockback force (mobs only)
+#   bodyBox          : collision body   rect(x, y, w, h)  in source-frame px
+#   stepBox          : collision step   rect(…) or sub-section {default/north/south/west/east}
+# ─────────────────────────────────────────────────────────────────────────────
+
+infoEntities = {
+    PLAYER = {
+        texture            = "polyman.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 1.5
+        bodyBox              = rect(9, 4, 47, 58)
+        stepBox = {
+            default = rect(18, 50, 28, 12)
+            west    = rect(23, 50, 20, 12)
+            east    = rect(23, 50, 20, 12)
+        }
+        speed = 0.05
+    }
+
+    PNJ1 = {
+        texture            = "personnage_1.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 1.75
+        bodyBox              = rect(9, 4, 47, 58)
+        stepBox              = rect(18, 50, 28, 12)
+        speed                = 0.05
+    }
+
+    PNJ2 = {
+        texture            = "personnage_2.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 1.75
+        bodyBox              = rect(11, 4, 43, 58)
+        stepBox              = rect(18, 48, 28, 6)
+        speed                = 0.05
+    }
+
+    MINI_BLOB = {
+        texture            = "blob.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 1.2
+        bodyBox              = rect(11, 15, 41, 37)
+        stepBox              = rect(11, 41, 41, 11)
+        speed                = 0.00125
+        pushForce            = 8
+    }
+
+    BLOB = {
+        texture            = "blob.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 1.2
+        bodyBox              = rect(11, 15, 41, 37)
+        stepBox              = rect(11, 41, 41, 11)
+        speed                = 0.025
+        pushForce            = 8
+    }
+
+    DRAGON = {
+        texture            = "dragon.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 1.75
+        bodyBox              = rect(5, 4, 57, 55)
+        stepBox = {
+            default = rect(17, 44, 30, 14)
+            north   = rect(17, 44, 30, 8)
+            south   = rect(16, 52, 30, 8)
+        }
+        speed     = 0.025
+        pushForce = 17
+    }
+
+    DRAGON_BOSS = {
+        texture            = "dragon.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 6.0
+        bodyBox              = rect(5, 4, 57, 55)
+        stepBox = {
+            default = rect(17, 44, 30, 14)
+            north   = rect(17, 44, 30, 8)
+            south   = rect(16, 52, 30, 8)
+        }
+        speed     = 0.04
+        pushForce = 17
+    }
+
+    SKELETON = {
+        texture            = "skeleton.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 1.5
+        bodyBox              = rect(20, 8, 24, 48)
+        stepBox              = rect(25, 50, 13, 6)
+        speed                = 0.04
+        pushForce            = 10
+    }
+
+    MINI_GOBLIN = {
+        texture            = "goblin.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 0.5
+        bodyBox              = rect(15, 6, 34, 49)
+        stepBox              = rect(21, 49, 22, 6)
+        speed                = 0.099
+        pushForce            = 17
+    }
+
+    GOBLIN = {
+        texture            = "goblin.png"
+        tileSize             = 64
+        firstTileIsStanding  = true
+        frameBetweenEachTile = 5
+        scale                 = 1.0
+        bodyBox              = rect(15, 6, 34, 49)
+        stepBox              = rect(21, 49, 22, 6)
+        speed                = 0.099
+        pushForce            = 17
+    }
+}

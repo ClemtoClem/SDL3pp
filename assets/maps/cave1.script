@@ -1,0 +1,110 @@
+# longueur de la map
+width           = 100
+# hauteur de la map
+height          = 140
+# nombre de calques
+tracings		= 5
+# si le numéro 0 ne correspond pas à l'id du premier tile dans le tileset
+zeroIsNotTile   = true
+# tile à afficher en arrière plan sur toutes la surface de la map
+backgroundTile  = 761
+# nombre de calques supperposés à afficher devant les entités
+nbTracingsInFrontOf = 1
+# valeur mimimale d'un tile à soustaire pour le normaliser (ici min = 1394)
+tileCollisionIdOffset = 1393
+
+musics = [
+	"cave.ogg"
+]
+
+configEntities = {
+	%2 = {
+		type = "DRAGON"
+		x = 55.5f
+		y = 36.5f
+		direction = "WEST"
+	}
+	%3 = {
+		type = "DRAGON"
+		x = 39.5f
+		y = 34.5f
+		direction = "WEST"
+	}
+	%4 = {
+		type = "DRAGON"
+		x = 37.5f
+		y = 36.5f
+		direction = "WEST"
+	}
+	%5 = {
+		type = "SKELETON"
+		x = 88.5f
+		y = 38.5f
+		direction = "NORTH"
+	}
+	%6 = {
+		type = "SKELETON"
+		x = 84.5f
+		y = 36.5f
+		direction = "NORTH"
+	}
+	%7 = {
+		type = "SKELETON"
+		x = 68.5f
+		y = 45.5f
+		direction = "WEST"
+	}
+	%8 = {
+		type = "SKELETON"
+		x = 73.5f
+		y = 48.5f
+		direction = "NORTH"
+	}
+	%9 = {
+		type = "DRAGON"
+		x = 21.5f
+		y = 36.5f
+		direction = "WEST"
+	}
+	%10 = {
+		type = "DRAGON_BOSS"
+		x = 36.5f
+		y = 90.5f
+		direction = "SOUTH"
+	}
+}
+messages = {
+	
+}
+transitions = {
+	(89,14) = {
+		changeMap = true
+		type = "world"
+		x = 161.5f
+		y = 49.5f
+	}
+# ladder 1 to come down
+	(89,8) = {
+		changeMap = false
+		x = 86.5f
+		y = 30.5f
+	}
+# ladder 1 to go up
+	(86,30) = {
+		changeMap = false
+		x = 89.5f
+		y = 7.5f
+	}
+# go to boss room
+	(9,23) = {
+		changeMap = false
+		x = 40.5f
+		y = 132.5f
+	}
+# return to cave
+	(40,132) = {
+		changeMap = false
+		x = 9.5f
+		y = 22.5f
+	}
+}
