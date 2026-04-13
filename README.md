@@ -72,8 +72,7 @@ struct Main {
         }
         SDL::SetLogPriorities(priority);
 
-        SDL::SetAppMetadata(
-        "Template", "1.0", "com.example.template");
+        SDL::SetAppMetadata("Template", "1.0", "com.example.template");
         SDL::Init(SDL::INIT_VIDEO);
         *m = new Main();
         return SDL::APP_CONTINUE;
@@ -398,8 +397,7 @@ struct Main {
         }
         SDL::SetLogPriorities(priority);
 
-        SDL::SetAppMetadata(
-        "Template", "1.0", "com.example.template");
+        SDL::SetAppMetadata("Template", "1.0", "com.example.template");
         SDL::Init(SDL::INIT_VIDEO);
         *m = new Main();
         return SDL::APP_CONTINUE;
