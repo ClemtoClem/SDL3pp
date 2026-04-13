@@ -37,7 +37,6 @@ On top of these thin wrappers the library also provides several high-level syste
 Optional satellite libraries are enabled by defining the corresponding macro before the main include:
 
 ```cpp
-#define SDL3PP_ENABLE_IMAGE
 #define SDL3PP_ENABLE_MIXER
 #define SDL3PP_ENABLE_TTF
 #include <SDL3pp/SDL3pp.h>
@@ -52,37 +51,74 @@ Optional satellite libraries are enabled by defining the corresponding macro bef
 #include <SDL3pp/SDL3pp.h>
 #include <SDL3pp/SDL3pp_main.h>
 
-struct App {
-    SDL::Window   window;
-    SDL::Renderer renderer;
+struct Main {
+    static constexpr SDL::Point windowSz = {640, 480};
+
+    static SDL::AppResult Init(Main** m, SDL::AppArgs args) {
+        SDL::LogPriority priority = SDL::LOG_PRIORITY_WARN;
+        for (auto arg : args) {
+            if (arg == "--verbose") priority = SDL::LOG_PRIORITY_VERBOSE;
+            else if (arg == "--debug") priority = SDL::LOG_PRIORITY_DEBUG;
+            else if (arg == "--info") priority = SDL::LOG_PRIORITY_INFO;
+            else if (arg == "--help") {
+                SDL::Log("Usage: %s [options]", SDL::GetBasePath());
+                SDL::Log("Options:");
+                SDL::Log("  --verbose    Set log priority to verbose");
+                SDL::Log("  --debug      Set log priority to debug");
+                SDL::Log("  --info       Set log priority to info");
+                SDL::Log("  --help       Show this help message");
+                return SDL::APP_EXIT_SUCCESS;
+            }
+        }
+        SDL::SetLogPriorities(priority);
+
+        SDL::SetAppMetadata(
+        "Template", "1.0", "com.example.template");
+        SDL::Init(SDL::INIT_VIDEO);
+        *m = new Main();
+        return SDL::APP_CONTINUE;
+    }
+
+    static void Quit(Main* m, SDL::AppResult) {
+        delete m;
+    }
+
+    static SDL::Window InitAndCreateWindow() {
+        return SDL::CreateWindowAndRenderer(
+        "Hello SDL3pp", windowSz, 0, nullptr);
+    }
+
+    SDL::Window      window   {InitAndCreateWindow()};
+    SDL::RendererRef renderer {window.GetRenderer()};
+    SDL::FrameTimer  frame    {60.f};
+
+    Main() {
+
+    }
+
+    ~Main() {
+
+    }
+
+    SDL::AppResult Event(const SDL::Event& ev) {
+        if (ev.type == SDL::EVENT_QUIT) return SDL::APP_SUCCESS;
+        return SDL::APP_CONTINUE;
+    }
+
+    SDL::AppResult Iterate() {
+        frame.Begin();
+        renderer.SetDrawColor({30, 30, 30, 255});
+        renderer.Clear();
+
+        renderer.SetDrawColor({255, 255, 255, 255});
+        renderer.RenderDebugTextFormat({8.f, 10.f}, "Time     : {:.1f}", frame.GetTimer())
+        renderer.RenderDebugTextFormat({8.f, 20.f}, "Delta    : {:.1f}", frame.GetDelta())
+        renderer.RenderDebugTextFormat({8.f, 30.f}, "FPS      : {:.1f}", frame.GetFPS())
+
+        renderer.Present();
+        frame.End();
+    }
 };
-
-SDL_AppResult SDL_AppInit(void** appstate, int, char**)
-{
-    auto* app = new App{
-        SDL::Window  {"Hello SDL3pp", 640, 480},
-        SDL::Renderer{app->window}
-    };
-    *appstate = app;
-    return SDL_APP_CONTINUE;
-}
-
-SDL_AppResult SDL_AppIterate(void* appstate)
-{
-    auto& [window, renderer] = *static_cast<App*>(appstate);
-    renderer.SetDrawColor({30, 30, 30, 255});
-    renderer.Clear();
-    renderer.Present();
-    return SDL_APP_CONTINUE;
-}
-
-SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
-{
-    if (event->type == SDL_EVENT_QUIT) return SDL_APP_SUCCESS;
-    return SDL_APP_CONTINUE;
-}
-
-void SDL_AppQuit(void* appstate, SDL_AppResult) { delete static_cast<App*>(appstate); }
 ```
 
 ---
@@ -327,7 +363,6 @@ Au-delà des enveloppes légères, la bibliothèque propose plusieurs systèmes 
 Les bibliothèques satellite optionnelles sont activées en définissant la macro correspondante avant l'inclusion principale :
 
 ```cpp
-#define SDL3PP_ENABLE_IMAGE
 #define SDL3PP_ENABLE_MIXER
 #define SDL3PP_ENABLE_TTF
 #include <SDL3pp/SDL3pp.h>
@@ -342,37 +377,74 @@ Les bibliothèques satellite optionnelles sont activées en définissant la macr
 #include <SDL3pp/SDL3pp.h>
 #include <SDL3pp/SDL3pp_main.h>
 
-struct App {
-    SDL::Window   window;
-    SDL::Renderer renderer;
+struct Main {
+    static constexpr SDL::Point windowSz = {640, 480};
+
+    static SDL::AppResult Init(Main** m, SDL::AppArgs args) {
+        SDL::LogPriority priority = SDL::LOG_PRIORITY_WARN;
+        for (auto arg : args) {
+            if (arg == "--verbose") priority = SDL::LOG_PRIORITY_VERBOSE;
+            else if (arg == "--debug") priority = SDL::LOG_PRIORITY_DEBUG;
+            else if (arg == "--info") priority = SDL::LOG_PRIORITY_INFO;
+            else if (arg == "--help") {
+                SDL::Log("Usage: %s [options]", SDL::GetBasePath());
+                SDL::Log("Options:");
+                SDL::Log("  --verbose    Set log priority to verbose");
+                SDL::Log("  --debug      Set log priority to debug");
+                SDL::Log("  --info       Set log priority to info");
+                SDL::Log("  --help       Show this help message");
+                return SDL::APP_EXIT_SUCCESS;
+            }
+        }
+        SDL::SetLogPriorities(priority);
+
+        SDL::SetAppMetadata(
+        "Template", "1.0", "com.example.template");
+        SDL::Init(SDL::INIT_VIDEO);
+        *m = new Main();
+        return SDL::APP_CONTINUE;
+    }
+
+    static void Quit(Main* m, SDL::AppResult) {
+        delete m;
+    }
+
+    static SDL::Window InitAndCreateWindow() {
+        return SDL::CreateWindowAndRenderer(
+        "Hello SDL3pp", windowSz, 0, nullptr);
+    }
+
+    SDL::Window      window   {InitAndCreateWindow()};
+    SDL::RendererRef renderer {window.GetRenderer()};
+    SDL::FrameTimer  frame    {60.f};
+
+    Main() {
+
+    }
+
+    ~Main() {
+
+    }
+
+    SDL::AppResult Event(const SDL::Event& ev) {
+        if (ev.type == SDL::EVENT_QUIT) return SDL::APP_SUCCESS;
+        return SDL::APP_CONTINUE;
+    }
+
+    SDL::AppResult Iterate() {
+        frame.Begin();
+        renderer.SetDrawColor({30, 30, 30, 255});
+        renderer.Clear();
+
+        renderer.SetDrawColor({255, 255, 255, 255});
+        renderer.RenderDebugTextFormat({8.f, 10.f}, "Time     : {:.1f}", frame.GetTimer())
+        renderer.RenderDebugTextFormat({8.f, 20.f}, "Delta    : {:.1f}", frame.GetDelta())
+        renderer.RenderDebugTextFormat({8.f, 30.f}, "FPS      : {:.1f}", frame.GetFPS())
+
+        renderer.Present();
+        frame.End();
+    }
 };
-
-SDL_AppResult SDL_AppInit(void** appstate, int, char**)
-{
-    auto* app = new App{
-        SDL::Window  {"Bonjour SDL3pp", 640, 480},
-        SDL::Renderer{app->window}
-    };
-    *appstate = app;
-    return SDL_APP_CONTINUE;
-}
-
-SDL_AppResult SDL_AppIterate(void* appstate)
-{
-    auto& [window, renderer] = *static_cast<App*>(appstate);
-    renderer.SetDrawColor({30, 30, 30, 255});
-    renderer.Clear();
-    renderer.Present();
-    return SDL_APP_CONTINUE;
-}
-
-SDL_AppResult SDL_AppEvent(void* appstate, SDL_Event* event)
-{
-    if (event->type == SDL_EVENT_QUIT) return SDL_APP_SUCCESS;
-    return SDL_APP_CONTINUE;
-}
-
-void SDL_AppQuit(void* appstate, SDL_AppResult) { delete static_cast<App*>(appstate); }
 ```
 
 ---
