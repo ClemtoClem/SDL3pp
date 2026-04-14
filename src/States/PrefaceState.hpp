@@ -30,8 +30,8 @@ public:
         // Full-screen canvas — drives all drawing
         m_ui->CanvasWidget("canvas", nullptr, nullptr,
             [this](SDL::RendererRef r, SDL::FRect rect){ _Draw(r, rect); })
-            .W(SDL::UI::Value::Rw(100.f))
-            .H(SDL::UI::Value::Rh(100.f))
+            .W(SDL::UI::Value::Ww(100.f))
+            .H(SDL::UI::Value::Wh(100.f))
             .AsRoot();
     }
 
@@ -79,28 +79,28 @@ private:
     // ── Animated canvas drawing ───────────────────────────────────────────────
     void _Draw(SDL::RendererRef r, SDL::FRect rect) {
         // Gradient background
-        for (int i = 0; i < 12; ++i) {
-            float t  = (float)i / 12.f;
-            auto  v  = (uint8_t)(6 + 28 * t);
-            r.SetDrawColor({v, v, (uint8_t)(v + 12), 255});
-            r.RenderFillRect(SDL::FRect{rect.x, rect.y + rect.h * t / 12.f,
-                               rect.w, rect.h / 12.f + 1.f});
+        for (int i = 0; i < (int)rect.h; ++i) {
+            float t  = (float)i / rect.h;
+            r.SetDrawColorFloat(SDL::FColor{t*0.3f, t*0.3f, t*0.6f, 1.f});
+            r.RenderFillRect(SDL::FRect{rect.x, rect.y + rect.h * t, rect.w, rect.h / 12.f});
         }
+
         // Stars
         for (int i = 0; i < 80; ++i) {
             float blink = 0.5f + 0.5f * SDL::Sin(m_time * 1.3f + i * 0.7f);
-            r.SetDrawColor({220, 220, 255, (uint8_t)(blink * 200)});
+            r.SetDrawColor({220, 220, 255, SDL::Clamp8(blink * 200)});
             r.RenderFillRect(SDL::FRect{
                 rect.x + rect.w * ((i * 137 + 17) % 100 / 100.f),
                 rect.y + rect.h * ((i * 241 +  7) % 100 / 100.f),
                 2.f, 2.f});
         }
+
         // Color-cycling title
         float th = m_time * 0.6f;
         r.SetDrawColor({
-            (uint8_t)(128 + 127 * SDL::Sin(th)),
-            (uint8_t)(128 + 127 * SDL::Sin(th + 2.09f)),
-            (uint8_t)(128 + 127 * SDL::Sin(th + 4.19f)), 255 });
+            SDL::Clamp8(128 + 127 * SDL::Sin(th)),
+            SDL::Clamp8(128 + 127 * SDL::Sin(th + 2.09f)),
+            SDL::Clamp8(128 + 127 * SDL::Sin(th + 4.19f)), 255 });
         _Text(r, "POLYADVENTURE", rect.x + rect.w*0.5f, rect.y + rect.h*0.38f, 4.f);
 
         r.SetDrawColor({170, 170, 200, 180});
@@ -111,6 +111,7 @@ private:
             _Text(r, "Press SPACE to start",
                   rect.x + rect.w*0.5f, rect.y + rect.h*0.68f, 1.5f);
         }
+        
         // Fade-in vignette
         float fade = SDL::Clamp(1.f - m_time / 0.8f, 0.f, 1.f);
         if (fade > 0.02f) {

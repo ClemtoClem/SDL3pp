@@ -638,6 +638,16 @@ public:
     m_pools.clear();
   }
 
+  /**
+   * Update all pools (pump async results).  Call once per frame if you cannot
+   */
+  void UpdateAll() {
+    std::lock_guard lock(m_mutex);
+    for (auto& [name, pool] : m_pools) {
+      pool->Update();
+    }
+  }
+
   /// Number of pools currently managed.
   size_t PoolCount() const {
     std::lock_guard lock(m_mutex);

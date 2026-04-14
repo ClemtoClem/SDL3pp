@@ -159,6 +159,46 @@ static std::vector<ClipVert> ClipNear(const std::vector<ClipVert> &poly, float n
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GPU vertex layout (world-space pos + UV + RGBA color)
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct GpuVert
+{
+    float x, y, z; ///< world-space position
+    float u, v;    ///< texture UV
+    float r, g, b, a; ///< RGBA color tint [0,1]
+};
+static_assert(sizeof(GpuVert) == 36, "GpuVert size mismatch");
+
+/// Load a SPIR-V shader from assets/shaders/bin/gpu/<path>.
+static SDL::GPUShader LoadGpuShader(SDL::GPUDeviceRef device,
+                                    const char *path,
+                                    SDL::GPUShaderStage stage,
+                                    Uint32 numSamplers = 0,
+                                    Uint32 numUniformBuffers = 0)
+{
+    std::string fullPath =
+        std::string(SDL::GetBasePath()) + "../../../assets/shaders/bin/gpu/" + path;
+    SDL::IOStream io = SDL::IOStream::FromFile(fullPath, "rb");
+    Sint64 size = io.GetSize();
+    if (size < 0)
+        throw SDL::Error(std::string("Cannot open shader: ") + path);
+    std::vector<Uint8> code(static_cast<size_t>(size));
+    io.Read(code);
+    io.Close();
+
+    SDL::GPUShaderCreateInfo info{};
+    info.code_size           = code.size();
+    info.code                = code.data();
+    info.entrypoint          = "main";
+    info.format              = SDL::GPU_SHADERFORMAT_SPIRV;
+    info.stage               = stage;
+    info.num_samplers        = numSamplers;
+    info.num_uniform_buffers = numUniformBuffers;
+    return device.CreateShader(info);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Geometry builders
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -234,8 +274,27 @@ struct Main
 {
     // ── SDL callbacks ──────────────────────────────────────────────────────────
 
-    static SDL::AppResult Init(Main **out, SDL::AppArgs)
+    static SDL::AppResult Init(Main **out, SDL::AppArgs args)
     {
+        SDL::LogPriority priority = SDL::LOG_PRIORITY_WARN;
+        for (auto arg : args) {
+        if (arg == "--verbose") priority = SDL::LOG_PRIORITY_VERBOSE;
+        else if (arg == "--debug") priority = SDL::LOG_PRIORITY_DEBUG;
+        else if (arg == "--info") priority = SDL::LOG_PRIORITY_INFO;
+        else if (arg == "--help") {
+            SDL::Log("Usage: %s [options]", SDL::GetBasePath());
+            SDL::Log("Options:");
+            SDL::Log("  --verbose    Set log priority to VERBOSE");
+            SDL::Log("  --debug      Set log priority to DEBUG");
+            SDL::Log("  --info       Set log priority to INFO");
+            SDL::Log("  --help       Show this help message");
+            SDL::Log("Press Escape or close the window to quit.");
+            SDL::Log("Press arrow keys to rotate the cube.");
+            return SDL::APP_EXIT_SUCCESS;
+        }
+        }
+        SDL::SetLogPriorities(priority);
+
         SDL::SetAppMetadata("Woodeneye-008 GPU", "3.0", "com.example.woodeneye");
         SDL::Init(SDL::INIT_VIDEO);
         SDL::TTF::Init();
@@ -257,6 +316,20 @@ struct Main
 
     SDL::Texture texDirt;  ///< assets/dirt.png   – floor tile
     SDL::Texture texCrate; ///< assets/crate.jpg  – obstacle faces
+
+    // ── GPU resources (borrowed device from renderer) ─────────────────────────
+
+    SDL::GPUDeviceRef         gpuDevice;       ///< non-owning ref from renderer
+    SDL::GPUGraphicsPipeline  pipelineTex;     ///< textured triangle pipeline
+    SDL::GPUGraphicsPipeline  pipelineCol;     ///< solid-color triangle pipeline
+    SDL::GPUSampler           samplerRepeat;   ///< wrapping sampler for floor tile
+    SDL::GPUSampler           samplerClamp;    ///< clamping sampler for crate faces
+    SDL::GPUBuffer            sceneVertBuf;    ///< dynamic vertex buffer
+    SDL::GPUTexture           sceneColorTex;   ///< offscreen color render target
+    SDL::GPUTexture           sceneDepthTex;   ///< offscreen depth buffer
+    SDL::Texture              sceneSDLTex;     ///< SDL_Texture wrapping sceneColorTex
+    Uint32                    sceneW = 0, sceneH = 0;
+    static constexpr Uint32   kMaxSceneVerts = 4096;
 
     // ── Timing ────────────────────────────────────────────────────────────────
 
@@ -339,6 +412,30 @@ struct Main
                          "Cannot load assets/crate.jpg");
         }
         _BuildUI();
+        _BuildGPU();
+    }
+
+    ~Main()
+    {
+        // GPU resources must be released before the renderer/window are destroyed
+        sceneSDLTex = {};
+        if (gpuDevice)
+        {
+            if (static_cast<SDL::GPUTextureRaw>(sceneColorTex))
+                gpuDevice.ReleaseTexture(sceneColorTex);
+            if (static_cast<SDL::GPUTextureRaw>(sceneDepthTex))
+                gpuDevice.ReleaseTexture(sceneDepthTex);
+            if (static_cast<SDL::GPUBufferRaw>(sceneVertBuf))
+                gpuDevice.ReleaseBuffer(sceneVertBuf);
+            if (static_cast<SDL::GPUSamplerRaw>(samplerRepeat))
+                gpuDevice.ReleaseSampler(samplerRepeat);
+            if (static_cast<SDL::GPUSamplerRaw>(samplerClamp))
+                gpuDevice.ReleaseSampler(samplerClamp);
+            if (static_cast<SDL::GPUGraphicsPipelineRaw>(pipelineTex))
+                gpuDevice.ReleaseGraphicsPipeline(pipelineTex);
+            if (static_cast<SDL::GPUGraphicsPipelineRaw>(pipelineCol))
+                gpuDevice.ReleaseGraphicsPipeline(pipelineCol);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -426,7 +523,12 @@ struct Main
         if (!texDirt.Get())
         {
             // Fallback: solid dark-grey fill using 2 triangles
-            SDL::FVector3 fp[4] = {{-mapScale, -mapScale, mapScale}, {mapScale, -mapScale, mapScale}, {mapScale, -mapScale, -mapScale}, {-mapScale, -mapScale, -mapScale}};
+            SDL::FVector3 fp[4] = {
+                {-mapScale, -mapScale, mapScale},
+                {mapScale, -mapScale, mapScale},
+                {mapScale, -mapScale, -mapScale},
+                {-mapScale, -mapScale, -mapScale}
+            };
             static constexpr SDL::FVector2 noUV[4] = {};
             DrawFace(fp, noUV, 0.3f, cam, look, cx, cy, fov, nullptr);
             return;
@@ -437,7 +539,10 @@ struct Main
         const float tiles = s / kFloorTile; // UV scale so dirt tiles naturally
 
         SDL::FVector3 wp[4] = {
-            {-s, y, s}, // winding CCW viewed from above (+Y) { s, y,  s}, { s, y, -s}, {-s, y, -s},
+            {-s, y, s}, // winding CCW viewed from above (+Y)
+            { s, y,  s},
+            { s, y, -s},
+            {-s, y, -s},
         };
         SDL::FVector2 uvs[4] = {{0, 0}, {tiles, 0}, {tiles, tiles}, {0, tiles}};
 
@@ -499,6 +604,389 @@ struct Main
                 uvs[i] = kUV[i];
             DrawFace(wp, uvs, f.shade, cam, look, cx, cy, fov, tex);
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GPU pipeline initialisation
+    // ─────────────────────────────────────────────────────────────────────────
+
+    void _BuildGPU()
+    {
+        try
+        {
+            gpuDevice = renderer.GetGPUDevice();
+            if (!gpuDevice)
+                return;
+
+        // ── Vertex layout ────────────────────────────────────────────────────
+        SDL::GPUVertexBufferDescription vbDesc{};
+        vbDesc.slot       = 0;
+        vbDesc.pitch      = sizeof(GpuVert);
+        vbDesc.input_rate = SDL::GPU_VERTEXINPUTRATE_VERTEX;
+
+        SDL::GPUVertexAttribute attrs[3]{};
+        attrs[0].location    = 0;
+        attrs[0].buffer_slot = 0;
+        attrs[0].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT3;
+        attrs[0].offset      = offsetof(GpuVert, x);
+        attrs[1].location    = 1;
+        attrs[1].buffer_slot = 0;
+        attrs[1].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT2;
+        attrs[1].offset      = offsetof(GpuVert, u);
+        attrs[2].location    = 2;
+        attrs[2].buffer_slot = 0;
+        attrs[2].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT4;
+        attrs[2].offset      = offsetof(GpuVert, r);
+
+        // ── Colour-target format ─────────────────────────────────────────────
+        SDL::GPUColorTargetDescription ctd{};
+        ctd.format = SDL::GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+
+        // ── Pipeline create info (shared) ────────────────────────────────────
+        SDL::GPUGraphicsPipelineCreateInfo pi{};
+        pi.vertex_input_state.vertex_buffer_descriptions = &vbDesc;
+        pi.vertex_input_state.num_vertex_buffers         = 1;
+        pi.vertex_input_state.vertex_attributes          = attrs;
+        pi.vertex_input_state.num_vertex_attributes      = 3;
+        pi.primitive_type = SDL::GPU_PRIMITIVETYPE_TRIANGLELIST;
+
+        pi.rasterizer_state.cull_mode   = SDL::GPU_CULLMODE_NONE; // no cull; depth handles it
+        pi.rasterizer_state.fill_mode   = SDL::GPU_FILLMODE_FILL;
+
+        pi.depth_stencil_state.enable_depth_test  = true;
+        pi.depth_stencil_state.enable_depth_write = true;
+        pi.depth_stencil_state.compare_op         = SDL::GPU_COMPAREOP_LESS;
+
+        pi.target_info.color_target_descriptions = &ctd;
+        pi.target_info.num_color_targets         = 1;
+        pi.target_info.depth_stencil_format      = SDL::GPU_TEXTUREFORMAT_D16_UNORM;
+        pi.target_info.has_depth_stencil_target  = true;
+
+        // ── Shaders ──────────────────────────────────────────────────────────
+        auto vertShader = LoadGpuShader(gpuDevice, "woodeneye.vert.spv",
+                                        SDL::GPU_SHADERSTAGE_VERTEX, 0, 1);
+        auto fragTex    = LoadGpuShader(gpuDevice, "woodeneye_tex.frag.spv",
+                                        SDL::GPU_SHADERSTAGE_FRAGMENT, 1, 0);
+        auto fragCol    = LoadGpuShader(gpuDevice, "woodeneye_col.frag.spv",
+                                        SDL::GPU_SHADERSTAGE_FRAGMENT, 0, 0);
+
+        pi.vertex_shader   = vertShader;
+        pi.fragment_shader = fragTex;
+        pipelineTex = gpuDevice.CreateGraphicsPipeline(pi);
+
+        pi.fragment_shader = fragCol;
+        pipelineCol = gpuDevice.CreateGraphicsPipeline(pi);
+
+        gpuDevice.ReleaseShader(vertShader);
+        gpuDevice.ReleaseShader(fragTex);
+        gpuDevice.ReleaseShader(fragCol);
+
+        // ── Samplers ─────────────────────────────────────────────────────────
+        SDL::GPUSamplerCreateInfo si{};
+        si.min_filter = SDL::GPU_FILTER_LINEAR;
+        si.mag_filter = SDL::GPU_FILTER_LINEAR;
+        si.address_mode_u = SDL::GPU_SAMPLERADDRESSMODE_REPEAT;
+        si.address_mode_v = SDL::GPU_SAMPLERADDRESSMODE_REPEAT;
+        samplerRepeat = gpuDevice.CreateSampler(si);
+
+        si.address_mode_u = SDL::GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        si.address_mode_v = SDL::GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        samplerClamp = gpuDevice.CreateSampler(si);
+
+        // ── Persistent vertex buffer ─────────────────────────────────────────
+        SDL::GPUBufferCreateInfo vbInfo{};
+        vbInfo.usage = SDL::GPU_BUFFERUSAGE_VERTEX;
+        vbInfo.size  = kMaxSceneVerts * sizeof(GpuVert);
+        sceneVertBuf = gpuDevice.CreateBuffer(vbInfo);
+        }
+        catch (const std::exception &e)
+        {
+            SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
+                         "GPU pipeline init failed (%s) – falling back", e.what());
+            gpuDevice = {};
+        }
+        catch (...)
+        {
+            SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
+                         "GPU pipeline init failed – falling back");
+            gpuDevice = {};
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Ensure offscreen scene render targets match the current window size
+    // ─────────────────────────────────────────────────────────────────────────
+
+    void _EnsureSceneTarget(Uint32 w, Uint32 h)
+    {
+        if (!gpuDevice || (sceneW == w && sceneH == h))
+            return;
+
+        // Destroy old SDL_Texture wrapper before releasing the GPU texture
+        sceneSDLTex = {};
+
+        if (static_cast<SDL::GPUTextureRaw>(sceneColorTex))
+            gpuDevice.ReleaseTexture(sceneColorTex);
+        if (static_cast<SDL::GPUTextureRaw>(sceneDepthTex))
+            gpuDevice.ReleaseTexture(sceneDepthTex);
+
+        SDL::GPUTextureCreateInfo ci{};
+        ci.type                 = SDL::GPU_TEXTURETYPE_2D;
+        ci.width                = w;
+        ci.height               = h;
+        ci.layer_count_or_depth = 1;
+        ci.num_levels           = 1;
+        ci.sample_count         = SDL::GPU_SAMPLECOUNT_1;
+
+        // Color render target (also sampled by the renderer for blitting)
+        ci.format = SDL::GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        ci.usage  = SDL::GPU_TEXTUREUSAGE_COLOR_TARGET | SDL::GPU_TEXTUREUSAGE_SAMPLER;
+        sceneColorTex = gpuDevice.CreateTexture(ci);
+
+        // Depth buffer
+        ci.format = SDL::GPU_TEXTUREFORMAT_D16_UNORM;
+        ci.usage  = SDL::GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
+        sceneDepthTex = gpuDevice.CreateTexture(ci);
+
+        // Wrap the color target as an SDL_Texture so the renderer can blit it
+        auto props = SDL::Properties::Create();
+        props.SetPointerProperty(SDL_PROP_TEXTURE_CREATE_GPU_TEXTURE_POINTER,
+                                 (SDL_GPUTexture*)(SDL::GPUTextureRaw)sceneColorTex);
+        sceneSDLTex = renderer.CreateTextureWithProperties(props);
+
+        sceneW = w;
+        sceneH = h;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Build VP matrix for player pi given their viewport clip rect
+    // ─────────────────────────────────────────────────────────────────────────
+
+    SDL::FMatrix4 _VPMatrix(int pi, int clipW, int clipH) const
+    {
+        const SDL::FVector3 &cam  = *world.Get<Pos3>(playerIds[pi]);
+        const Look          &look = *world.Get<Look>(playerIds[pi]);
+
+        // Forward direction from yaw/pitch (same convention as FireBullet)
+        const SDL::FVector3 fwd = {
+            -SDL::Sin(look.yaw) * SDL::Cos(look.pitch),
+             SDL::Sin(look.pitch),
+            -SDL::Cos(look.yaw) * SDL::Cos(look.pitch)
+        };
+        SDL::FMatrix4 view = SDL::FMatrix4::LookAt(cam, cam + fwd, {0.f, 1.f, 0.f});
+
+        // Match the focal-length-based FOV used by the CPU renderer
+        float fov  = 0.5f * SDL::Sqrt((float)(clipW * clipW + clipH * clipH));
+        float fovY = 2.f * SDL_atanf((float)clipH * 0.5f / fov);
+        float aspect = (float)clipW / (float)clipH;
+        SDL::FMatrix4 proj = SDL::FMatrix4::Perspective(fovY, aspect, kNearPlane, 400.f);
+
+        return proj * view;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Vertex generation helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Append the two floor triangles (dirt-tiled, shade = 0.82).
+    void _AppendFloor(std::vector<GpuVert> &v) const
+    {
+        const float s     = mapScale;
+        const float y     = -s;
+        const float tiles = s / kFloorTile;
+        const float sh    = 0.82f;
+
+        // CCW quad viewed from above: (-s,y,s), (s,y,s), (s,y,-s), (-s,y,-s)
+        GpuVert q[4] = {
+            {-s, y,  s,      0.f,   0.f, sh, sh, sh, 1.f},
+            { s, y,  s,  tiles,   0.f, sh, sh, sh, 1.f},
+            { s, y, -s,  tiles, tiles, sh, sh, sh, 1.f},
+            {-s, y, -s,      0.f, tiles, sh, sh, sh, 1.f},
+        };
+        // Triangle fan: (0,1,2), (0,2,3)
+        v.push_back(q[0]); v.push_back(q[1]); v.push_back(q[2]);
+        v.push_back(q[0]); v.push_back(q[2]); v.push_back(q[3]);
+    }
+
+    /// Append all visible crate face triangles.
+    void _AppendCrateFaces(std::vector<GpuVert> &v) const
+    {
+        // 6 corners indexed as XYZ bit pattern (0=min, 1=max)
+        struct FD { int vi[4]; float shade; };
+        static constexpr FD kFaces[6] = {
+            {{0, 2, 3, 1}, 0.65f}, // -Z
+            {{5, 7, 6, 4}, 0.65f}, // +Z
+            {{4, 6, 2, 0}, 0.50f}, // -X
+            {{1, 3, 7, 5}, 0.50f}, // +X
+            {{2, 6, 7, 3}, 1.00f}, // +Y top
+            {{0, 1, 5, 4}, 0.18f}, // -Y bottom
+        };
+        // Per-corner UV (same as kUV in DrawFace)
+        static constexpr float kU[4] = {0.f, 0.f, 1.f, 1.f};
+        static constexpr float kV[4] = {0.f, 1.f, 1.f, 0.f};
+
+        for (const auto &tc : terrain)
+        {
+            const SDL::FVector3 &mn = tc.box.Min;
+            const SDL::FVector3 &mx = tc.box.Max;
+            const SDL::FVector3 c[8] = {
+                {mn.x, mn.y, mn.z}, {mx.x, mn.y, mn.z},
+                {mn.x, mx.y, mn.z}, {mx.x, mx.y, mn.z},
+                {mn.x, mn.y, mx.z}, {mx.x, mn.y, mx.z},
+                {mn.x, mx.y, mx.z}, {mx.x, mx.y, mx.z},
+            };
+            for (const auto &f : kFaces)
+            {
+                GpuVert q[4];
+                for (int k = 0; k < 4; ++k)
+                    q[k] = {c[f.vi[k]].x, c[f.vi[k]].y, c[f.vi[k]].z,
+                            kU[k], kV[k],
+                            f.shade, f.shade, f.shade, 1.f};
+                // Fan: (0,1,2), (0,2,3)
+                v.push_back(q[0]); v.push_back(q[1]); v.push_back(q[2]);
+                v.push_back(q[0]); v.push_back(q[2]); v.push_back(q[3]);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GPU scene render – draws floor + crates into the offscreen target
+    // ─────────────────────────────────────────────────────────────────────────
+
+    void _DrawSceneGPU(int winW, int winH)
+    {
+        if (!gpuDevice)
+            return;
+        _EnsureSceneTarget((Uint32)winW, (Uint32)winH);
+
+        // Build CPU-side vertex array (same geometry for all players)
+        std::vector<GpuVert> verts;
+        verts.reserve(512);
+        const Uint32 floorStart = 0;
+        _AppendFloor(verts);
+        const Uint32 floorCount = (Uint32)verts.size();
+        const Uint32 crateStart = floorCount;
+        _AppendCrateFaces(verts);
+        const Uint32 crateCount = (Uint32)verts.size() - crateStart;
+
+        if (verts.empty())
+            return;
+
+        // Upload vertices to the GPU buffer
+        const Uint32 uploadBytes = (Uint32)(verts.size() * sizeof(GpuVert));
+
+        SDL::GPUTransferBufferCreateInfo tbInfo{};
+        tbInfo.usage = SDL::GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        tbInfo.size  = uploadBytes;
+        auto tb = gpuDevice.CreateTransferBuffer(tbInfo);
+
+        auto *dst = static_cast<GpuVert *>(gpuDevice.MapTransferBuffer(tb, true));
+        SDL_memcpy(dst, verts.data(), uploadBytes);
+        gpuDevice.UnmapTransferBuffer(tb);
+
+        auto cmdBuf = gpuDevice.AcquireCommandBuffer();
+        {
+            auto cp = cmdBuf.BeginCopyPass();
+            SDL::GPUTransferBufferLocation src{tb, 0};
+            SDL::GPUBufferRegion           dst_region{sceneVertBuf, 0, uploadBytes};
+            cp.UploadToBuffer(src, dst_region, true);
+            cp.End();
+        }
+        gpuDevice.ReleaseTransferBuffer(tb);
+
+        // Get GPU textures from the renderer-managed SDL_Textures
+        SDL_GPUTexture *dirtGpuTex  = nullptr;
+        SDL_GPUTexture *crateGpuTex = nullptr;
+        if (texDirt.Get())
+            dirtGpuTex = (SDL_GPUTexture *)SDL_GetPointerProperty(
+                SDL_GetTextureProperties(texDirt.Get()),
+                SDL_PROP_TEXTURE_GPU_TEXTURE_POINTER, nullptr);
+        if (texCrate.Get())
+            crateGpuTex = (SDL_GPUTexture *)SDL_GetPointerProperty(
+                SDL_GetTextureProperties(texCrate.Get()),
+                SDL_PROP_TEXTURE_GPU_TEXTURE_POINTER, nullptr);
+
+        // Per-player viewport rendering
+        int partH  = numPlayers > 2 ? 2 : 1;
+        int partV  = numPlayers > 1 ? 2 : 1;
+        int clipW_ = winW / partH;
+        int clipH_ = winH / partV;
+
+        SDL::GPUBufferBinding vbBind{sceneVertBuf, 0};
+
+        for (int pi = 0; pi < numPlayers; ++pi)
+        {
+            if (playerIds[pi] == SDL::ECS::NullEntity || !world.IsAlive(playerIds[pi]))
+                continue;
+
+            const int vpX = (pi % partH) * clipW_;
+            const int vpY = (pi / partH) * clipH_;
+
+            // VP matrix
+            SDL::FMatrix4 vp = _VPMatrix(pi, clipW_, clipH_);
+            cmdBuf.PushVertexUniformData(0, SDL::SourceBytes{vp.m, sizeof(vp.m)});
+
+            // Color target: first player clears; subsequent players load
+            SDL::GPUColorTargetInfo ct{};
+            ct.texture     = sceneColorTex;
+            ct.clear_color = {8.f / 255.f, 10.f / 255.f, 22.f / 255.f, 1.f};
+            ct.load_op     = (pi == 0) ? SDL::GPU_LOADOP_CLEAR : SDL::GPU_LOADOP_LOAD;
+            ct.store_op    = SDL::GPU_STOREOP_STORE;
+
+            // Depth: always clear for a fresh depth test per viewport
+            SDL::GPUDepthStencilTargetInfo dt{};
+            dt.texture          = sceneDepthTex;
+            dt.clear_depth      = 1.f;
+            dt.load_op          = SDL::GPU_LOADOP_CLEAR;
+            dt.store_op         = SDL::GPU_STOREOP_DONT_CARE;
+            dt.stencil_load_op  = SDL::GPU_LOADOP_DONT_CARE;
+            dt.stencil_store_op = SDL::GPU_STOREOP_DONT_CARE;
+
+            auto pass = cmdBuf.BeginRenderPass(std::span{&ct, 1}, dt);
+
+            SDL::GPUViewport vp_rect{(float)vpX, (float)vpY,
+                                     (float)clipW_, (float)clipH_,
+                                     0.f, 1.f};
+            pass.SetViewport(vp_rect);
+            SDL::Rect scissor{vpX, vpY, clipW_, clipH_};
+            pass.SetScissor(scissor);
+
+            pass.BindVertexBuffers(0, std::span{&vbBind, 1});
+
+            // ── Draw floor ────────────────────────────────────────────────
+            if (dirtGpuTex && floorCount > 0)
+            {
+                pass.BindPipeline(pipelineTex);
+                SDL::GPUTextureSamplerBinding dirtBind{dirtGpuTex, samplerRepeat};
+                pass.BindFragmentSamplers(0, std::span{&dirtBind, 1});
+            }
+            else
+            {
+                pass.BindPipeline(pipelineCol);
+            }
+            if (floorCount > 0)
+                pass.DrawPrimitives(floorCount, 1, floorStart, 0);
+
+            // ── Draw crates ───────────────────────────────────────────────
+            if (crateCount > 0)
+            {
+                if (crateGpuTex)
+                {
+                    pass.BindPipeline(pipelineTex);
+                    SDL::GPUTextureSamplerBinding crateBind{crateGpuTex, samplerClamp};
+                    pass.BindFragmentSamplers(0, std::span{&crateBind, 1});
+                }
+                else
+                {
+                    pass.BindPipeline(pipelineCol);
+                }
+                pass.DrawPrimitives(crateCount, 1, crateStart, 0);
+            }
+
+            pass.End();
+        }
+
+        cmdBuf.Submit();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -776,8 +1264,8 @@ struct Main
                 float dirX = (wasd & 8 ? 1.f : 0.f) - (wasd & 2 ? 1.f : 0.f);
                 float dirZ = (wasd & 4 ? 1.f : 0.f) - (wasd & 1 ? 1.f : 0.f);
                 float norm = dirX * dirX + dirZ * dirZ;
-                float accX = mult * (norm == 0.f ? 0.f : (cosY * dirX + sinY * dirZ) / std::sqrt(norm));
-                float accZ = mult * (norm == 0.f ? 0.f : (-sinY * dirX + cosY * dirZ) / std::sqrt(norm));
+                float accX = mult * (norm == 0.f ? 0.f : (cosY * dirX + sinY * dirZ) / SDL::Sqrt(norm));
+                float accZ = mult * (norm == 0.f ? 0.f : (-sinY * dirX + cosY * dirZ) / SDL::Sqrt(norm));
                 float vx = vel.x, vy = vel.y, vz = vel.z;
                 vel.x = vel.x * drag + diff * accX / rate;
                 vel.y -= grav * dt;
@@ -840,17 +1328,15 @@ struct Main
                 const SDL::FVector3 &tgt = *world.Get<Pos3>(tid);
                 SDL::FVector3 toTgt = tgt - pos;
                 float dist = toTgt.Length();
-                look.yaw = std::atan2(-toTgt.x, -toTgt.z);
-                look.pitch = std::atan2(toTgt.y,
-                                        std::sqrt(toTgt.x * toTgt.x + toTgt.z * toTgt.z));
+                look.yaw = SDL::Atan2(-toTgt.x, -toTgt.z);
+                look.pitch = SDL::Atan2(toTgt.y,
+                                        SDL::Sqrt(toTgt.x * toTgt.x + toTgt.z * toTgt.z));
                 if (dist > cap.radius * 3.f)
                 {
                     SDL::FVector3 dir2D = SDL::FVector3{toTgt.x, 0.f, toTgt.z}.Normalize();
                     vel.x = dir2D.x * 5.f;
                     vel.z = dir2D.z * 5.f;
-                }
-                else
-                {
+                } else {
                     vel.x *= 0.8f;
                     vel.z *= 0.8f;
                 }
@@ -944,29 +1430,19 @@ struct Main
         const SDL::FVector3 &cam = *world.Get<Pos3>(playerIds[pi]);
         const Look &look = *world.Get<Look>(playerIds[pi]);
 
-        // ── 1. Textured floor ─────────────────────────────────────────────────
-        DrawFloor(cam, look, cx, cy, fov);
+        // Floor and crates are rendered by the GPU pipeline (_DrawSceneGPU).
+        // Here we only draw 2D-projected overlays: wireframes, bullets, entities.
 
-        // ── 2. Crate cubes (textured, painter's order: far → near) ───────────
-        for (auto &tc : terrain)
-            tc.distToCam = (tc.box.Center() - cam).LengthSq();
-        std::vector<int> order((int)terrain.size());
-        std::iota(order.begin(), order.end(), 0);
-        std::sort(order.begin(), order.end(), [&](int a, int b_)
-                  { return terrain[a].distToCam > terrain[b_].distToCam; });
-        for (int idx : order)
-            DrawCrateBox(terrain[idx].box, cam, look, cx, cy, fov);
-
-        // ── 3. Wireframe edge outlines on top of faces ────────────────────────
-        renderer.SetDrawColor({20, 12, 5, 160});
-        for (int idx : order)
-            for (const auto &[a, b] : terrain[idx].edges)
-                DrawSeg(ToView(a, cam, look), ToView(b, cam, look), cx, cy, fov);
-
-        // Arena boundary (soft blue-grey)
+        // ── 1. Arena boundary wireframe ───────────────────────────────────────
         renderer.SetDrawColor({45, 50, 70, 180});
         for (const auto &[a, b] : arenaEdges)
             DrawSeg(ToView(a, cam, look), ToView(b, cam, look), cx, cy, fov);
+
+        // ── 2. Crate wireframe edges ──────────────────────────────────────────
+        renderer.SetDrawColor({20, 12, 5, 160});
+        for (const auto &tc : terrain)
+            for (const auto &[a, b] : tc.edges)
+                DrawSeg(ToView(a, cam, look), ToView(b, cam, look), cx, cy, fov);
 
         // ── 4. Bullet tracers ─────────────────────────────────────────────────
         for (const auto &bd : bullets)
@@ -1091,7 +1567,7 @@ struct Main
                                            "P{} Score:{}", pi + 1, sc ? sc->points : 0);
             if (pi == 0)
                 renderer.RenderDebugTextFormat({clipX + 4.f, clipY + 16.f},
-                                               "{:.0f} fps  bullets:{}", frameTimer.GetFPS(), (int)bullets.size());
+                    "{:.0f} fps  bullets:{}", frameTimer.GetFPS(), (int)bullets.size());
         }
     }
 
@@ -1105,11 +1581,23 @@ struct Main
         renderer.SetDrawColor({8, 10, 22, 255});
         renderer.RenderClear();
 
+        // ── GPU 3D scene (floor + crates with depth testing) ─────────────────
+        _DrawSceneGPU(sz.x, sz.y);
+
+        // Blit the GPU-rendered scene onto the renderer's output
+        if (sceneSDLTex.Get())
+        {
+            renderer.ResetClipRect();
+            renderer.RenderTexture(sceneSDLTex, std::nullopt,
+                                   SDL::FRect{0.f, 0.f, (float)sz.x, (float)sz.y});
+        }
+
         int partH = numPlayers > 2 ? 2 : 1;
         int partV = numPlayers > 1 ? 2 : 1;
         float sizeH = (float)sz.x / partH;
         float sizeV = (float)sz.y / partV;
 
+        // ── 2D overlays per viewport (wireframes, bullets, entities) ─────────
         for (int i = 0; i < numPlayers; ++i)
         {
             if (playerIds[i] == SDL::ECS::NullEntity || !world.IsAlive(playerIds[i]))
@@ -1189,9 +1677,10 @@ struct Main
         ui.ProcessEvent(ev);
         if (ev.type != SDL::EVENT_KEY_DOWN)
             return SDL::APP_CONTINUE;
-        static constexpr int kMapScales[] = {16, 32, 48};
+        static constexpr int kMapScales[] = {16, 32, 48, 64};
         int mapIdx = (config.mapScale == 32) ? 1 : (config.mapScale == 48) ? 2
-                                                                           : 0;
+                                                                           : (config.mapScale == 64) ? 3
+                                                                                                      : 0;
         switch (ev.key.key)
         {
         case SDL::KEYCODE_ESCAPE:
@@ -1396,6 +1885,8 @@ struct Main
             return "Medium (32)";
         if (config.mapScale == 48)
             return "Large  (48)";
+        if (config.mapScale == 64)
+            return "Extra-Large (64)";
         return "Small  (16)";
     }
     std::string PlayersStr() const
@@ -1475,28 +1966,29 @@ struct Main
                          auto onLeft, auto onRight) -> SDL::ECS::EntityId
         {
             auto valLbl = ui.Label(valId, initVal)
-                              .W(140)
-                              .TextColor(kDim)
-                              .AlignSelf(SDL::UI::Align::Center);
+                .W(140)
+                .TextColor(kDim)
+                .AlignH(SDL::UI::Align::Center);
+            
             panel.Child(
                 ui.Row(rowId, 8.f, 0.f)
                     .Style(SDL::UI::Theme::Transparent())
                     .H(30)
                     .Children(
-                        ui.Label(std::string(rowId) + "_lbl", label).W(110).TextColor(kDim).AlignSelf(SDL::UI::Align::Center),
-                        ui.Button(std::string(rowId) + "_l", " < ").W(28).H(26).Style(SDL::UI::Theme::PrimaryButton(kBtnBg)).AlignSelf(SDL::UI::Align::Center).OnClick(onLeft),
+                        ui.Label(std::string(rowId) + "_lbl", label).W(110).TextColor(kDim).AlignH(SDL::UI::Align::Center),
+                        ui.Button(std::string(rowId) + "_l", " < ").W(28).H(26).Style(SDL::UI::Theme::PrimaryButton(kBtnBg)).AlignH(SDL::UI::Align::Center).OnClick(onLeft),
                         valLbl,
-                        ui.Button(std::string(rowId) + "_r", " > ").W(28).H(26).Style(SDL::UI::Theme::PrimaryButton(kBtnBg)).AlignSelf(SDL::UI::Align::Center).OnClick(onRight)));
+                        ui.Button(std::string(rowId) + "_r", " > ").W(28).H(26).Style(SDL::UI::Theme::PrimaryButton(kBtnBg)).AlignH(SDL::UI::Align::Center).OnClick(onRight)));
             return valLbl.Id();
         };
 
-        static constexpr int kMapScales[] = {16, 32, 48};
+        static constexpr int kMapScales[] = {16, 32, 48, 64};
 
         eid_mapVal = mkRow("menu_map", "Map size:", "menu_map_val", MapSizeName(), [this]
-                           { int i=(config.mapScale==32)?1:(config.mapScale==48)?2:0;
-                config.mapScale=kMapScales[(i+2)%3]; _UpdateMenuLabels(); }, [this]
-                           { int i=(config.mapScale==32)?1:(config.mapScale==48)?2:0;
-                config.mapScale=kMapScales[(i+1)%3]; _UpdateMenuLabels(); });
+                           { int i=(config.mapScale==32)?1:(config.mapScale==48)?2:(config.mapScale==64)?3:0;
+                config.mapScale=kMapScales[(i+2)%4]; _UpdateMenuLabels(); }, [this]
+                           { int i=(config.mapScale==32)?1:(config.mapScale==48)?2:(config.mapScale==64)?3:0;
+                config.mapScale=kMapScales[(i+1)%4]; _UpdateMenuLabels(); });
 
         eid_plVal = mkRow("menu_pl", "Players:", "menu_pl_val", PlayersStr(), [this]
                           { config.playerCount=std::max(1,config.playerCount-1); _UpdateMenuLabels(); }, [this]
@@ -1512,8 +2004,7 @@ struct Main
                 .H(36)
                 .W(SDL::UI::Value::Pw(100))
                 .Style(SDL::UI::Theme::PrimaryButton(kStartC))
-                .OnClick([this]
-                         { StartGame(); }));
+                .OnClick([this] { StartGame(); }));
 
         // Hint row below the panel
         auto hints = ui.Column("menu_hints", 4.f, 0.f)
@@ -1527,16 +2018,16 @@ struct Main
 
         // Page: transparent (scanlines drawn raw before ui.Frame()), panel centered
         auto page = ui.Column("menu_page", 16.f, 0.f)
-                        .W(SDL::UI::Value::Ww(100))
-                        .H(SDL::UI::Value::Wh(100))
-                        .Padding(0)
-                        .PaddingTop(80.f)
-                        .Align(SDL::UI::Align::Center)
-                        .WithStyle([](auto &s)
-                                   {
-            s.borders = SDL::FBox(0.f);
-            s.bgColor = {0, 0, 0, 0}; })
-                        .Children(panel, hints);
+            .W(SDL::UI::Value::Ww(100))
+            .H(SDL::UI::Value::Wh(100))
+            .Padding(0)
+            .PaddingTop(80.f)
+            .AlignH(SDL::UI::Align::Center)
+            .WithStyle([](auto &s) {
+                s.borders = SDL::FBox(0.f);
+                s.bgColor = {0, 0, 0, 0};
+            })
+            .Children(panel, hints);
 
         return page;
     }
@@ -1571,7 +2062,7 @@ struct Main
             ui.Button("go_return", "Return to Menu")
                 .H(32)
                 .W(200)
-                .AlignSelf(SDL::UI::Align::Center)
+                .AlignH(SDL::UI::Align::Center)
                 .Style(SDL::UI::Theme::PrimaryButton({70, 75, 100, 255}))
                 .OnClick([this] {
                     appState = AppState::Menu;
@@ -1583,7 +2074,7 @@ struct Main
                         .W(SDL::UI::Value::Ww(100))
                         .H(SDL::UI::Value::Wh(100))
                         .Padding(0)
-                        .Align(SDL::UI::Align::Center)
+                        .AlignH(SDL::UI::Align::Center)
                         .WithStyle([](auto &s) {
                             s.borders = SDL::FBox(0.f);
                             s.bgColor = {0, 0, 0, 0}; // background drawn raw

@@ -1,11 +1,11 @@
 /**
  * @file 06_signal-generator.cpp
- * @brief Signal generator with UI — 3 parameterizable oscillators.
+ * @brief Signal generator with UI — 4 parameterizable oscillators.
  *
  * Uses SDL3pp_audioProcessing for signal synthesis, FFT spectrum analysis,
  * RMS/Peak metering, and waveform display.
  *
- * Left panel  — output device selector + 3 oscillator cards
+ * Left panel  — output device selector + 4 oscillator cards
  *               (shape, frequency, amplitude, on/off per oscillator)
  * Right panel — waveform graph + FFT spectrum + level meters
  *
@@ -31,18 +31,22 @@
 //  Colour palette
 // ─────────────────────────────────────────────────────────────────────────────
 namespace pal {
-    constexpr SDL::Color BG      = {  10,  12,  20, 255};
-    constexpr SDL::Color PANEL   = {  16,  18,  28, 255};
-    constexpr SDL::Color ACCENT  = {  60, 140, 220, 255};
-    constexpr SDL::Color ACCENTH = {  85, 165, 245, 255};
-    constexpr SDL::Color ACCENTP = {  40, 110, 190, 255};
-    constexpr SDL::Color GREEN   = {  45, 195, 110, 255};
-    constexpr SDL::Color ORANGE  = { 230, 145,  30, 255};
-    constexpr SDL::Color RED     = { 200,  60,  50, 255};
-    constexpr SDL::Color PURPLE  = { 155,  75, 220, 255};
-    constexpr SDL::Color WHITE   = { 220, 220, 228, 255};
-    constexpr SDL::Color GREY    = { 120, 125, 145, 255};
-    constexpr SDL::Color BORDER  = {  40,  44,  64, 255};
+    constexpr SDL::Color BG      = {  10,  12,  20, 255}; ///< Background color
+    constexpr SDL::Color BORDER  = {  40,  44,  64, 255}; ///< Border color
+    constexpr SDL::Color PANEL   = {  16,  18,  28, 255}; ///< Panel background color
+    constexpr SDL::Color ACCENT  = {  60, 140, 220, 255}; ///< Accent color
+    constexpr SDL::Color ACCENTH = {  85, 165, 245, 255}; ///< Accent hovered color
+    constexpr SDL::Color ACCENTP = {  40, 110, 190, 255}; ///< Accent pressed color
+    constexpr SDL::Color GREEN   = {  45, 195, 110, 255}; ///< Green color
+    constexpr SDL::Color GREENH  = {  70, 220, 135, 255}; ///< Green hovered color
+    constexpr SDL::Color ORANGE  = { 230, 145,  30, 255}; ///< Orange color
+    constexpr SDL::Color ORANGEH = { 245, 165,  50, 255}; ///< Orange hovered color
+    constexpr SDL::Color RED     = { 200,  60,  50, 255}; ///< Red color
+    constexpr SDL::Color REDH    = { 220,  80,  65, 255}; ///< Red hovered color
+    constexpr SDL::Color PURPLE  = { 155,  75, 220, 255}; ///< Purple color
+    constexpr SDL::Color PURPLEH = { 175, 100, 235, 255}; ///< Purple hovered color
+    constexpr SDL::Color WHITE   = { 220, 220, 228, 255}; ///< White color
+    constexpr SDL::Color GREY    = { 120, 125, 145, 255}; ///< Grey color
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,18 +60,18 @@ static constexpr const char* kShapeLabels[kNumShapes] = {
 };
 // Active-state colour for each shape button
 static constexpr SDL::Color kShapeColor[kNumShapes] = {
-    { 60, 140, 220, 255},   // Sine     - blue
-    { 45, 195, 110, 255},   // Square   - green
-    {230, 145,  30, 255},   // Triangle - orange
-    {200,  60,  50, 255},   // Sawtooth - red
-    {155,  75, 220, 255},   // Noise    - purple
+    pal::ACCENT,   // Sine     - blue
+    pal::GREEN,    // Square   - green
+    pal::ORANGE,   // Triangle - orange
+    pal::RED,      // Sawtooth - red
+    pal::PURPLE,   // Noise    - purple
 };
 static constexpr SDL::Color kShapeColorH[kNumShapes] = {
-    { 85, 165, 245, 255},
-    { 70, 220, 135, 255},
-    {245, 165,  50, 255},
-    {220,  80,  65, 255},
-    {175, 100, 235, 255},
+    pal::ACCENTH,
+    pal::GREENH,
+    pal::ORANGEH,
+    pal::REDH,
+    pal::PURPLEH,
 };
 static constexpr SDL::Color kShapeColorP[kNumShapes] = {
     { 40, 110, 190, 255},
@@ -78,10 +82,12 @@ static constexpr SDL::Color kShapeColorP[kNumShapes] = {
 };
 
 // Per-oscillator accent colours (used for freq/amp sliders)
-static constexpr SDL::Color kOscAccent[3] = {
-    { 60, 140, 220, 255},
-    { 45, 195, 110, 255},
-    {230, 145,  30, 255},
+static constexpr int kNumOsc = 4;
+static constexpr SDL::Color kOscAccent[kNumOsc] = {
+    pal::ACCENT,
+    pal::GREEN,
+    pal::ORANGE,
+    pal::PURPLE,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -209,7 +215,7 @@ struct Main {
         SDL::ECS::EntityId lblFreq                     = SDL::ECS::NullEntity;
         SDL::ECS::EntityId lblAmp                      = SDL::ECS::NullEntity;
     };
-    OscUI m_oscUI[3];
+    OscUI m_oscUI[kNumOsc];
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     SDL::OwnArray<SDL::AudioDeviceRef> m_devices;
@@ -217,7 +223,7 @@ struct Main {
     int                m_selDevice = -1;
     float              m_master    = 0.7f;
 
-    Oscillator m_osc[3];
+    Oscillator m_osc[kNumOsc];
 
     // ── DSP display state ─────────────────────────────────────────────────────
     std::deque<float> m_specBuf;  // rolling buffer for spectrum (main thread)
@@ -466,7 +472,7 @@ struct Main {
             });
 
         col.Child(_BuildDeviceCard());
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < kNumOsc; ++i)
             col.Child(_BuildOscCard(i));
 
         m_lblStatus = ui.Label("lbl_status", "Défaut système actif")
@@ -511,7 +517,7 @@ struct Main {
         // ── Header: title + toggle ────────────────────────────────────────────
         auto hdr = ui.Row(idBase + "_hdr", 6.f, 0.f)
             .Style(SDL::UI::Theme::Transparent())
-            .Align(SDL::UI::Align::Center)
+            .AlignH(SDL::UI::Align::Center)
             .H(28.f);
 
         hdr.Child(
@@ -522,7 +528,7 @@ struct Main {
 
         auto tog = ui.Toggle(idBase + "_tog", "")
             .W(40.f).H(20.f)
-            .AlignSelf(SDL::UI::Align::Right)
+            .AlignH(SDL::UI::Align::Right)
             .OnToggle([this, idx](bool on){
                 m_osc[idx].enabled = on;
                 if (on) m_osc[idx].resetPhase();
@@ -612,7 +618,7 @@ struct Main {
         auto row = ui.Row("row_master", 8.f, 0.f)
             .Style(SDL::UI::Theme::Transparent())
             .H(28.f)
-            .Align(SDL::UI::Align::Center);
+            .AlignH(SDL::UI::Align::Center);
 
         m_lblMaster = ui.Label("lbl_master",
                                std::format("Volume: {:.0f}%", m_master * 100.f))
@@ -685,7 +691,8 @@ struct Main {
             .Grow(1).H(10.f).FillColor(pal::GREEN).Id();
         auto rmsRow = ui.Row("rms_row", 8.f, 0.f)
             .Style(SDL::UI::Theme::Transparent())
-            .H(18.f).Align(SDL::UI::Align::Center)
+            .W(SDL::UI::Value::Pw(70.f))
+            .H(20.f)
             .Children(m_lblRMS, m_progRMS);
 
         // Peak
@@ -695,7 +702,8 @@ struct Main {
             .Grow(1).H(10.f).FillColor(pal::RED).Id();
         auto peakRow = ui.Row("peak_row", 8.f, 0.f)
             .Style(SDL::UI::Theme::Transparent())
-            .H(18.f).Align(SDL::UI::Align::Center)
+            .W(SDL::UI::Value::Pw(70.f))
+            .H(20.f)
             .Children(m_lblPeak, m_progPeak);
 
         card.Children(rmsRow, peakRow);
@@ -706,7 +714,7 @@ struct Main {
     //  Shape selection
     // ─────────────────────────────────────────────────────────────────────────
     void _SelectShape(int oscIdx, int shapeIdx) {
-        if (oscIdx < 0 || oscIdx >= 3 || shapeIdx < 0 || shapeIdx >= kNumShapes) return;
+        if (oscIdx < 0 || oscIdx >= kNumOsc || shapeIdx < 0 || shapeIdx >= kNumShapes) return;
         m_osc[oscIdx].shape = static_cast<OscShape>(shapeIdx);
 
         auto& oi = m_oscUI[oscIdx];

@@ -273,9 +273,9 @@ namespace UI {
         End,
         Stretch,
 
-        Left = Start,
-        Top = Start,
-        Right = End,
+        Left   = Start,
+        Top    = Start,
+        Right  = End,
         Bottom = End
     };
 
@@ -325,11 +325,12 @@ namespace UI {
         FPoint windowSize     = {0.f, 0.f};
 
         FPoint rootSize       = {0.f, 0.f};
-        FBox   rootPadding    = {0.f, 0.f};
+        FBox   rootPadding    = {0.f, 0.f, 0.f, 0.f};
         float  rootFontSize   = SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 
         FPoint parentSize     = {0.f, 0.f};
-        FBox   parentPadding  = {0.f, 0.f};
+        FBox   parentPadding  = {0.f, 0.f, 0.f, 0.f};
+        FBox   parentBorders  = {0.f, 0.f, 0.f, 0.f};
         float  parentFontSize = SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
     };
 
@@ -408,10 +409,10 @@ namespace UI {
                     base = (val / 100.f) * ctx.parentSize.y;
                     break;
                 case Unit::Pcw:
-                    base = (val / 100.f) * (ctx.parentSize.x - ctx.parentPadding.GetH());
+                    base = (val / 100.f) * (ctx.parentSize.x - ctx.parentPadding.GetH() - ctx.parentBorders.GetH());
                     break;
                 case Unit::Pch:
-                    base = (val / 100.f) * (ctx.parentSize.y - ctx.parentPadding.GetV());
+                    base = (val / 100.f) * (ctx.parentSize.y - ctx.parentPadding.GetV() - ctx.parentBorders.GetV());
                     break;
                 case Unit::Pfs:
                     base = (val / 100.f) * ctx.parentFontSize;
@@ -507,11 +508,14 @@ namespace UI {
         SDL::FBox margin    = {0.f, 0.f, 0.f, 0.f};
         SDL::FBox padding   = {8.f, 6.f, 8.f, 6.f};
         Layout layout       = Layout::InColumn;
-        Align alignItems    = Align::Stretch;
-        Align alignSelf     = Align::Stretch;
+        Align alignChildrenH   = Align::Stretch;  ///< Default cross-axis alignment for children in InColumn (horizontal).
+        Align alignChildrenV   = Align::Stretch;  ///< Default cross-axis alignment for children in InRow / Stack (vertical).
+        Align alignSelfH    = Align::Stretch;  ///< Cross-axis alignment in InColumn (horizontal).
+        Align alignSelfV    = Align::Stretch;  ///< Cross-axis alignment in InRow / Stack (vertical).
         AttachLayout attach = AttachLayout::Relative;
         BoxSizing boxSizing = BoxSizing::BorderBox;
-        float gap = 4.f, grow = 0.f;
+        float gap = 4.f;    ///< Gap between children in InColumn / InLine / Stack (px).  Does not apply to Separator.
+        float grow = 0.f;   ///< Relative grow factor for distributing extra space in layout direction (default 0 = no grow).
         float scrollX = 0.f, scrollY = 0.f;
         float contentW = 0.f, contentH = 0.f;
 
@@ -1656,10 +1660,8 @@ namespace UI {
                 return;
             }
 
-            // Always derive the viewport from the current renderer output size.
-            // This picks up window resizes even without an explicit event.
-            SDL::Point sz  = m_renderer.GetOutputSize();
-            FRect newVp    = {0.f, 0.f, (float)sz.x, (float)sz.y};
+            SDL::Point sz    = m_renderer.GetWindow().GetSize();
+            SDL::FRect newVp = {0.f, 0.f, (float)sz.x, (float)sz.y};
             if (newVp.w != m_viewport.w || newVp.h != m_viewport.h)
                 m_layoutDirty = true;
             m_viewport = newVp;
@@ -1888,7 +1890,7 @@ namespace UI {
         /// Build a child LayoutContext from the current viewport + root info + the
         /// resolved parent content area and layout props.
         LayoutContext _MakeChildCtx(const LayoutContext &parentCtx,
-                                    FPoint contentSize,
+                                    const FPoint& contentSize, const FBox& borders,
                                     const LayoutProps &lp) const noexcept { 
             LayoutContext cc;
             cc.windowSize     = parentCtx.windowSize;
@@ -1897,6 +1899,7 @@ namespace UI {
             cc.rootFontSize   = parentCtx.rootFontSize;
             cc.parentSize     = contentSize;
             cc.parentPadding  = lp.padding;
+            cc.parentBorders  = borders;
             cc.parentFontSize = parentCtx.rootFontSize; 
             return cc;
         }
@@ -1979,6 +1982,7 @@ namespace UI {
             auto *w  = m_world.Get<Widget>(e);
             auto *lp = m_world.Get<LayoutProps>(e);
             auto *cr = m_world.Get<ComputedRect>(e);
+            auto *s  = m_world.Get<Style>(e);
             if (!w || !lp || !cr)
                 return {};
             if (!Has(w->behavior, BehaviorFlag::Visible)) {
@@ -2009,7 +2013,7 @@ namespace UI {
             FPoint intr = _IntrinsicSize(e);
 
             // Contexte transmis aux enfants.
-            LayoutContext cc = _MakeChildCtx(ctx, {cW, cH}, *lp);
+            LayoutContext cc = _MakeChildCtx(ctx, {cW, cH}, s ? s->borders : FBox(0.f), *lp);
 
             float chW = 0.f, chH = 0.f;
             float curLineW = 0.f, curLineH = 0.f;
@@ -2213,7 +2217,7 @@ namespace UI {
                     float py = cy + cl->margin.top;
 
                     if (lp->layout == Layout::InColumn) {
-                        switch (cl->alignSelf) {
+                        switch (cl->alignSelfH) {
                             case Align::Stretch: childW = SDL::Max(0.f, cw - cl->margin.left - cl->margin.right); [[fallthrough]];
                             case Align::Start:   break;
                             case Align::Center:  px = cx + (cw - childW) * 0.5f; break;
@@ -2222,7 +2226,7 @@ namespace UI {
                         cc->screen = {px, py, childW, childH};
                         cy += childH + cl->margin.top + cl->margin.bottom;
                     } else {
-                        switch (cl->alignSelf) {
+                        switch (cl->alignSelfV) {
                             case Align::Stretch: childH = SDL::Max(0.f, ch2 - cl->margin.top - cl->margin.bottom); [[fallthrough]];
                             case Align::Start:   break;
                             case Align::Center:  py = cy + (ch2 - childH) * 0.5f; break;
@@ -2292,7 +2296,7 @@ namespace UI {
                         float px = cx + cl->margin.left;
                         float py = cy + cl->margin.top;
 
-                        switch (cl->alignSelf) {
+                        switch (cl->alignSelfV) {
                             case Align::Stretch: childH = SDL::Max(0.f, rowMaxH - cl->margin.top - cl->margin.bottom); [[fallthrough]];
                             case Align::Start:   break;
                             case Align::Center:  py = cy + (rowMaxH - childH) * 0.5f; break;
@@ -4560,12 +4564,32 @@ namespace UI {
             sys.GetLayout(id).layout = l;
             return *this;
         }
-        Builder &Align(UI::Align a) {
-            sys.GetLayout(id).alignItems = a;
+        Builder &AlignChildrenH(UI::Align a) {
+            sys.GetLayout(id).alignChildrenH = a;
             return *this;
         }
-        Builder &AlignSelf(UI::Align a) {
-            sys.GetLayout(id).alignSelf = a;
+        Builder &AlignChildrenV(UI::Align a) {
+            sys.GetLayout(id).alignChildrenV = a;
+            return *this;
+        }
+        Builder &AlignChildren(UI::Align h, UI::Align v) {
+            auto &lp = sys.GetLayout(id);
+            lp.alignChildrenH = h;
+            lp.alignChildrenV = v;
+            return *this;
+        }
+        Builder &AlignH(UI::Align a) {
+            sys.GetLayout(id).alignSelfH = a;
+            return *this;
+        }
+        Builder &AlignV(UI::Align a) {
+            sys.GetLayout(id).alignSelfV = a;
+            return *this;
+        }
+        Builder &Align(UI::Align h, UI::Align v) {
+            auto &lp = sys.GetLayout(id);
+            lp.alignSelfH = h;
+            lp.alignSelfV = v;
             return *this;
         }
         Builder &BoxSizingMode(BoxSizing b) {
@@ -4866,7 +4890,8 @@ namespace UI {
 
     inline Builder System::Row(const std::string &n, float gap, float pad) {
         auto b = Container(n);
-        b.Layout(Layout::InLine).Gap(gap).Padding(pad).Align(Align::Center);
+        b.Layout(Layout::InLine).Gap(gap).Padding(pad)
+            .AlignH(Align::Center);
         return b;
     }
 

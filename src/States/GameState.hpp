@@ -136,12 +136,12 @@ public:
 
         if (ev.type == SDL::EVENT_KEY_DOWN) {
             switch (ev.key.key) {
+                case SDL::KEYCODE_F1:
+                    m_debugMode = !m_debugMode;
+                    break;
                 case SDL::KEYCODE_ESCAPE:
                     m_paused = !m_paused;
                     m_ui->SetVisible(m_pausePanel, m_paused);
-                    break;
-                case SDL::KEYCODE_I:
-                    m_debugMode = !m_debugMode;
                     break;
                 case SDL::KEYCODE_RETURN:
                 case SDL::KEYCODE_KP_ENTER:
@@ -305,10 +305,11 @@ private:
 
         // ── Root ──────────────────────────────────────────────────────────────
         auto root = m_ui->Column("root", 0.f, 0.f)
-            .W(Value::Rw(100.f)).H(Value::Rh(100.f))
+            .W(Value::Ww(100.f)).H(Value::Wh(100.f))
             .BgColor({0,0,0,255})
             .AutoScrollable(false, false)
-            .Children(hud, canvas);
+            .Children(hud, canvas)
+            .AsRoot();
 
         // ── Message panel (Fixed overlay, initially hidden) ───────────────────
         m_lblMsg = m_ui->Label("msgTxt", "").TextColor(kTxt).FontSize(14.f);
@@ -324,7 +325,7 @@ private:
             .Borders(SDL::FBox(2.f)).Radius(SDL::FCorners(8.f));
 
         m_ui->AppendChild(m_msgPanel, m_lblMsg);
-        m_ui->AppendChild(root, m_msgPanel);
+        root.Child(m_msgPanel);
 
         // ── Pause panel (Fixed overlay, initially hidden) ─────────────────────
         auto mkPBtn = [&](const char* id, const char* lbl,
@@ -340,7 +341,7 @@ private:
 
         auto pauseTitle = m_ui->Label("pauseTitle", "⏸  PAUSE")
             .TextColor({200,200,230,255}).FontSize(18.f)
-            .AlignSelf(Align::Center)
+            .AlignH(Align::Center)
             .MarginV(8.f);
 
         auto bResume = mkPBtn("bResume", "  Reprendre",  kAcc,   kAccH,
@@ -496,13 +497,18 @@ private:
             r.SetScale({1.f, 1.f});
         });
 
-        // Collision step-box outlines
+        // Collision step-box and body-box outlines
         m_gameWorld.Each<Transform, CollisionBoxes, DirectionComp>(
             [&](SDL::ECS::EntityId, Transform& t, CollisionBoxes& cb, DirectionComp& d) {
-            auto [l, top, ri, bot] = Systems::BoxToWorld(cb.step[(int)d.dir], t.x, t.y, cb.tileSize);
+            SDL::FBox box = Systems::BoxToWorld(cb.step[(int)d.dir], t.x, t.y, cb.tileSize);
             r.SetDrawColor({255,60,60,160});
-            r.RenderRect(SDL::FRect{m_camera.ScreenX(l),   m_camera.ScreenY(top),
-                           (ri-l)*(float)m_dispTileSize, (bot-top)*(float)m_dispTileSize});
+            r.RenderRect(SDL::FRect{m_camera.ScreenX(box.left), m_camera.ScreenY(box.top),
+                           (box.right-box.left)*(float)m_dispTileSize, (box.bottom-box.top)*(float)m_dispTileSize});
+            
+            box = Systems::BoxToWorld(cb.body[(int)d.dir], t.x, t.y, cb.tileSize);
+            r.SetDrawColor({60,255,60,160});
+            r.RenderRect(SDL::FRect{m_camera.ScreenX(box.left), m_camera.ScreenY(box.top),
+                           (box.right-box.left)*(float)m_dispTileSize, (box.bottom-box.top)*(float)m_dispTileSize});
         });
 
         // Scene transform debug (crosses at each entity)

@@ -30,20 +30,22 @@
 //  Colour palette
 // ─────────────────────────────────────────────────────────────────────────────
 namespace pal {
-    constexpr SDL::Color BG       = {  10,  12,  20, 255};
-    constexpr SDL::Color PANEL    = {  16,  18,  28, 255};
-    constexpr SDL::Color HEADER   = {  20,  22,  34, 255};
-    constexpr SDL::Color ACCENT   = {  60, 140, 220, 255};
-    constexpr SDL::Color ACCENTH  = {  85, 165, 245, 255};
-    constexpr SDL::Color ACCENTP  = {  40, 110, 190, 255};
-    constexpr SDL::Color GREEN    = {  45, 195, 110, 255};
-    constexpr SDL::Color ORANGE   = { 230, 145,  30, 255};
-    constexpr SDL::Color RED      = { 200,  60,  50, 255};
-    constexpr SDL::Color WHITE    = { 220, 220, 228, 255};
-    constexpr SDL::Color GREY     = { 120, 125, 145, 255};
-    constexpr SDL::Color BORDER   = {  40,  44,  64, 255};
-    constexpr SDL::Color WAVE_CLR = {  55, 220, 140, 255};
-    constexpr SDL::Color SPEC_CLR = {  70, 130, 220, 255};
+    constexpr SDL::Color BG       = {  10,  12,  20, 255}; ///< Background color
+    constexpr SDL::Color BORDER   = {  40,  44,  64, 255}; ///< Border color
+    constexpr SDL::Color PANEL    = {  16,  18,  28, 255}; ///< Panel background color
+    constexpr SDL::Color ACCENT   = {  60, 140, 220, 255}; ///< Accent color
+    constexpr SDL::Color ACCENTH  = {  85, 165, 245, 255}; ///< Accent hovered color
+    constexpr SDL::Color ACCENTP  = {  40, 110, 190, 255}; ///< Accent pressed color
+    constexpr SDL::Color GREEN    = {  45, 195, 110, 255}; ///< Green color
+    constexpr SDL::Color GREENH   = {  70, 220, 135, 255}; ///< Green hovered color
+    constexpr SDL::Color ORANGE   = { 230, 145,  30, 255}; ///< Orange color
+    constexpr SDL::Color ORANGEH  = { 245, 165,  50, 255}; ///< Orange hovered color
+    constexpr SDL::Color RED      = { 200,  60,  50, 255}; ///< Red color
+    constexpr SDL::Color REDH     = { 220,  80,  65, 255}; ///< Red hovered color
+    constexpr SDL::Color PURPLE   = { 155,  75, 220, 255}; ///< Purple color
+    constexpr SDL::Color PURPLEH  = { 175, 100, 235, 255}; ///< Purple hovered color
+    constexpr SDL::Color WHITE    = { 220, 220, 228, 255}; ///< White color
+    constexpr SDL::Color GREY     = { 120, 125, 145, 255}; ///< Grey color
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -289,8 +291,8 @@ struct Main {
                 gd->showFill   = false;
                 gd->barMode    = false;
                 gd->logFreq    = false;
-                gd->lineColor  = pal::WAVE_CLR;
-                gd->fillColor  = SDL::Color{45, 220, 140, 40};
+                gd->lineColor  = pal::GREEN;
+                gd->fillColor  = SDL::Color(pal::GREEN).SetA(100);
                 gd->xLabel     = "ms";
                 gd->yLabel     = "amp";
             }
@@ -333,8 +335,8 @@ struct Main {
                 gd->showFill   = true;
                 gd->barMode    = false;
                 gd->logFreq    = (m_freqMin < 100.f); // log scale when showing sub-100 Hz
-                gd->lineColor  = pal::SPEC_CLR;
-                gd->fillColor  = SDL::Color{70, 130, 220, 55};
+                gd->lineColor  = pal::ACCENT;
+                gd->fillColor  = SDL::Color(pal::ACCENT).SetA(100);
                 gd->xLabel     = "Hz";
                 gd->yLabel     = "dB";
             }
@@ -631,7 +633,7 @@ struct Main {
             gd->showFill    = false;
             gd->barMode     = false;
             gd->logFreq     = false;
-            gd->lineColor   = pal::WAVE_CLR;
+            gd->lineColor   = pal::GREEN;
             gd->fillColor   = SDL::Color{45, 220, 140, 40};
             gd->xLabel      = "ms";
             gd->yLabel      = "amp";
@@ -660,7 +662,7 @@ struct Main {
             gd->showFill    = true;
             gd->barMode     = false;
             gd->logFreq     = true;
-            gd->lineColor   = pal::SPEC_CLR;
+            gd->lineColor   = pal::ACCENT;
             gd->fillColor   = SDL::Color{70, 130, 220, 55};
             gd->xLabel      = "Hz";
             gd->yLabel      = "dB";

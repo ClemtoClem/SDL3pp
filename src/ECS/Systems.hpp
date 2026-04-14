@@ -26,8 +26,7 @@ inline float dist2(float ax, float ay, float bx, float by) noexcept {
 // Convert a box in source-frame pixels to world-unit bounds centred on (cx, cy).
 // boxTileSize = source frame size (e.g. 64 px per tile in the sprite sheet)
 // worldScale  = 1 world unit = worldScale source pixels
-inline std::tuple<float,float,float,float>
-BoxToWorld(const SDL::FRect& b, float cx, float cy, int boxTileSize) noexcept {
+inline SDL::FBox BoxToWorld(const SDL::FRect& b, float cx, float cy, int boxTileSize) noexcept {
     float half  = boxTileSize * 0.5f;
     float left  = cx + (b.x - half) / boxTileSize;
     float top   = cy + (b.y - half) / boxTileSize;
@@ -77,9 +76,9 @@ inline void Collision(World& world, const core::MapData& map) {
         int ts = boxes.tileSize;
 
         auto isTileBlocking = [&](float cx, float cy) {
-            auto [l, top, r, bot] = BoxToWorld(step, cx, cy, ts);
-            for (int ty = (int)std::floor(top); ty <= (int)std::floor(bot); ++ty) {
-                for (int tx = (int)std::floor(l); tx <= (int)std::floor(r); ++tx) {
+            auto box = BoxToWorld(step, cx, cy, ts);
+            for (int ty = (int)SDL::Floor(box.top); ty <= (int)SDL::Floor(box.bottom); ++ty) {
+                for (int tx = (int)SDL::Floor(box.left); tx <= (int)SDL::Floor(box.right); ++tx) {
                     if (core::IsBlocking(map.GetCollision(tx, ty))) return true;
                 }
             }

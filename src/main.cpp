@@ -152,10 +152,10 @@ struct Main {
         LOG_INFO << std::format("=== {} {} ===", kDefaultTitle, kAppVersion);
 
         // ── Config ─────────────────────────────────────────────────────────────
-        const std::string assetsBase = std::string(SDL::GetBasePath()) + "assets";
+        const std::string assetsBase = std::string(SDL::GetBasePath()) + "assets/";
         core::ScriptSectionPtr config;
         try {
-            config = core::ParseConfFile(assetsBase + "/configs/config.script");
+            config = core::ParseConfFile(assetsBase + "configs/config.script");
             LOG_SUCCESS << "config.script loaded";
         } catch (const std::exception& e) {
             LOG_WARNING << "config.script: " << e.what() << " — using defaults";
@@ -184,7 +184,7 @@ struct Main {
         m_ctx.pool        = &pool;
         m_ctx.config      = config;
         m_ctx.assetsBasePath = assetsBase;
-        m_ctx.savePath    = assetsBase + "/saves/save.dat";
+        m_ctx.savePath    = assetsBase + "saves/save.dat";
 
         m_ctx.quit = [this] {
             m_wantsQuit = true;
@@ -228,6 +228,9 @@ struct Main {
         // ── Deferred quit ───────────────────────────────────────────────────────
         if (m_wantsQuit) return SDL::APP_SUCCESS;
 
+        // ── Update resource loading (async or sync) ─────────────────────────────
+        rm.UpdateAll();   // update resource loading (async or sync)
+
         // ── State transition ────────────────────────────────────────────────────
         if (m_next) {
             if (m_current) m_current->Leave();
@@ -246,7 +249,7 @@ struct Main {
         m_current->Update(dt);   // game logic
         m_current->Render(dt);   // calls m_ui->Frame(dt) internally
 
-        _DrawOverlay();          // FPS counter, always on top
+        //_DrawOverlay();          // FPS counter, always on top
 
         renderer.Present();
         m_timer.End();           // sleep if frame ran faster than target FPS
@@ -271,11 +274,6 @@ struct Main {
         return SDL::APP_CONTINUE;
     }
 
-    // =========================================================================
-    // Private helpers
-    // =========================================================================
-
-private:
 
     // ── Minimal FPS / time overlay (top-right corner, always visible) ─────────
     void _DrawOverlay() {
@@ -296,9 +294,5 @@ private:
             { xRight - static_cast<float>(timeStr.size()) * 8.f - 6.f, 14.f }, timeStr);
     }
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Wire the four SDL AppXxx C callbacks to the Main struct
-// ─────────────────────────────────────────────────────────────────────────────
 
 SDL3PP_DEFINE_CALLBACKS(Main)

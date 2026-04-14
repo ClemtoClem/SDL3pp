@@ -215,6 +215,7 @@ struct Main {
 
     SDL::ECS::EntityId _BuildHeader() {
         auto header = ui.Row("header", 8.f, 0.f)
+            .W(SDL::UI::Value::Ww(100.f))
             .H(52.f).PaddingH(16.f).PaddingV(0.f)
             .BgColor(pal::HEADER)
             .BorderColor(pal::BORDER)
@@ -230,7 +231,7 @@ struct Main {
             tabBtns[i] = ui.Button(
                     std::string("tab_") + kPageNames[i], kPageNames[i])
                 .W(130).H(36)
-                .AlignSelf(SDL::UI::Align::Center)
+                .AlignH(SDL::UI::Align::Center)
                 .Style(SDL::UI::Theme::PrimaryButton(
                     first ? pal::TAB_ON : pal::TAB_OFF))
                 .WithStyle([](auto& s){ s.radius = SDL::FCorners(5.f); })
@@ -297,7 +298,7 @@ struct Main {
             std::string txt = std::string(sp.l) + " clicked!";
             btnRow.Child(
                 ui.Button(sp.n, sp.l).W(100).H(34)
-                    .AlignSelf(SDL::UI::Align::Center)
+                    .AlignH(SDL::UI::Align::Center)
                     .Style(SDL::UI::Theme::PrimaryButton(sp.c))
                     .ClickSoundKey(key::CLICK)
                     .HoverSoundKey(key::HOVER)
@@ -344,10 +345,14 @@ struct Main {
 
         auto cols = ui.Row("basics_cols", 12.f, 0.f)
             .Grow(1).Style(SDL::UI::Theme::Transparent())
-            .Align(SDL::UI::Align::Start);
-        auto leftC  = ui.Column("bc_left",  12.f, 0.f).Grow(1).Children(cardLbl, cardBtn);
-        auto rightC = ui.Column("bc_right", 12.f, 0.f).Grow(1).Children(cardTog, cardRad);
-        cols.Children(leftC, rightC);
+            .AlignH(SDL::UI::Align::Left);
+        auto left  = ui.Column("bc_left",  12.f, 0.f)
+            .W(SDL::UI::Value::Pcw(50.f))
+            .Children(cardLbl, cardBtn);
+        auto right = ui.Column("bc_right", 12.f, 0.f)
+            .W(SDL::UI::Value::Pcw(50.f))
+            .Children(cardTog, cardRad);
+        cols.Children(left, right);
         page.Child(cols);
         return page;
     }
@@ -375,7 +380,7 @@ struct Main {
             cardSld.Child(
                 ui.Row(std::string(id) + "_row", 10.f, 0.f)
                     .Style(SDL::UI::Theme::Transparent())
-                    .Align(SDL::UI::Align::Center)
+                    .AlignH(SDL::UI::Align::Center)
                     .Children(
                         ui.Label(std::string(id) + "_lbl", lbl)
                         .W(120).TextColor(pal::WHITE),
@@ -388,7 +393,8 @@ struct Main {
         mkSliderRow("sld_opc",  "Opacity", 0, 1, 1.f, pal::PURPLE);
         cardSld.Child(
             ui.Row("sld_dis_row", 10.f, 0.f)
-                .Style(SDL::UI::Theme::Transparent()).Align(SDL::UI::Align::Center)
+                .Style(SDL::UI::Theme::Transparent())
+                .AlignH(SDL::UI::Align::Center)
                 .Children(
                     ui.Label("sld_dis_lbl", "Disabled").W(120),
                     ui.Slider("sld_dis", 0, 1, .3f).Grow(1).Enable(false))
@@ -402,20 +408,20 @@ struct Main {
 
         auto sldV = ui.Slider("sld_v", 0, 1, .5f, SDL::UI::Orientation::Vertical)
             .H(120).W(24)
-            .AlignSelf(SDL::UI::Align::Center)
+            .AlignH(SDL::UI::Align::Center)
             .FillColor(pal::ACCENT);
 
         auto knobRow = ui.Row("knob_row", 16.f, 0.f)
             .Style(SDL::UI::Theme::Transparent())
-            .Align(SDL::UI::Align::Center)
+            .AlignH(SDL::UI::Align::Center)
             .Children(sldV,
-                ui.Column("k1_col", 4.f, 0.f).Align(SDL::UI::Align::Center)
+                ui.Column("k1_col", 4.f, 0.f).AlignH(SDL::UI::Align::Center)
                     .Children(
                         ui.Knob("knob1", 0, 1, .5f).W(64).H(64)
                         .FillColor(pal::ACCENT).ThumbColor(pal::ACCENT)
                         .OnChange([this](float val){
                             ui.SetText(lblKnob1, std::format("Knob 1: {:.2f}", val)); }), lblKnob1),
-                ui.Column("k2_col", 4.f, 0.f).Align(SDL::UI::Align::Center)
+                ui.Column("k2_col", 4.f, 0.f).AlignH(SDL::UI::Align::Center)
                     .Children(
                         ui.Knob("knob2", 0, 100, 50.f).W(64).H(64)
                         .FillColor(pal::PURPLE).ThumbColor(pal::PURPLE)
@@ -438,7 +444,7 @@ struct Main {
         lblProgress  = ui.Label("lbl_prog", "0%").W(45).TextColor(pal::WHITE);
         auto btnPause = ui.Button("btn_pause", "Pause")
             .Style(SDL::UI::Theme::PrimaryButton(pal::ORANGE))
-            .W(80).H(28).AlignSelf(SDL::UI::Align::Center)
+            .W(80).H(28).AlignH(SDL::UI::Align::Center)
             .ClickSoundKey(key::CLICK);
         btnPause.OnClick([this, btnPause](){
             m_animRunning = !m_animRunning;
@@ -449,19 +455,21 @@ struct Main {
 
         cardProg.Children(
             ui.Row("anim_row", 10.f, 0.f)
-              .Style(SDL::UI::Theme::Transparent()).Align(SDL::UI::Align::Center)
+              .Style(SDL::UI::Theme::Transparent()).AlignH(SDL::UI::Align::Center)
               .Children(progAnimated, lblProgress, btnPause),
             ui.Row("spd_row", 8.f, 0.f)
-              .Style(SDL::UI::Theme::Transparent()).Align(SDL::UI::Align::Center)
+              .Style(SDL::UI::Theme::Transparent()).AlignH(SDL::UI::Align::Center)
               .Children(ui.Label("lbl_spd","Speed").W(50), sldSpd)
         );
 
         auto cols = ui.Row("ctrl_cols", 12.f, 0.f)
             .Grow(1).Style(SDL::UI::Theme::Transparent())
-            .Align(SDL::UI::Align::Start);
-        auto left  = ui.Column("cc_l", 12.f, 0.f).Grow(1)
+            .AlignH(SDL::UI::Align::Left);
+        auto left  = ui.Column("cc_l", 12.f, 0.f)
+            .W(SDL::UI::Value::Pcw(50.f))
             .Children(cardSld, cardKnob);
-        auto right = ui.Column("cc_r", 12.f, 0.f).Grow(1)
+        auto right = ui.Column("cc_r", 12.f, 0.f)
+            .W(SDL::UI::Value::Pcw(50.f))
             .Child(cardProg);
         cols.Children(left, right);
         page.Child(cols);
@@ -492,17 +500,17 @@ struct Main {
         auto cardSB = ui.Card("card_sb");
         lblSB = ui.Label("lbl_sb", "Offset: 0.00").TextColor(pal::GREY);
         sbV = ui.ScrollBar("sb_v", 200.f, 80.f, SDL::UI::Orientation::Vertical)
-            .H(120).AlignSelf(SDL::UI::Align::Center)
+            .H(120).AlignH(SDL::UI::Align::Center)
             .OnScroll([this](float off){
                 ui.SetText(lblSB, std::format("Offset: {:.0f}", off)); });
         auto sbH = ui.ScrollBar("sb_h", 300.f, 100.f,
                                 SDL::UI::Orientation::Horizontal)
-            .W(SDL::UI::Value::Pw(80.f)).AlignSelf(SDL::UI::Align::Center);
+            .W(SDL::UI::Value::Pw(80.f)).AlignH(SDL::UI::Align::Center);
 
         cardSB.Children(
             ui.SectionTitle("ScrollBar (vertical + horizontal)"),
             ui.Row("sb_row", 12.f, 0.f)
-              .Style(SDL::UI::Theme::Transparent()).Align(SDL::UI::Align::Center)
+              .Style(SDL::UI::Theme::Transparent()).AlignH(SDL::UI::Align::Center)
               .Children(sbV,
                   ui.Column("sb_info", 6.f, 0.f).Children(
                       ui.Label("lbl_sb_tip","Drag the thumb").TextColor(pal::GREY),
@@ -532,9 +540,13 @@ struct Main {
 
         auto cols = ui.Row("is_cols", 12.f, 0.f)
             .Grow(1).Style(SDL::UI::Theme::Transparent())
-            .Align(SDL::UI::Align::Start);
-        auto left  = ui.Column("is_l", 12.f, 0.f).Grow(1).Child(cardInp);
-        auto right = ui.Column("is_r", 12.f, 0.f).Grow(1).Children(cardSB, cardSV);
+            .AlignH(SDL::UI::Align::Left);
+        auto left  = ui.Column("is_l", 12.f, 0.f)
+            .W(SDL::UI::Value::Pcw(50.f))
+            .Child(cardInp);
+        auto right = ui.Column("is_r", 12.f, 0.f)
+            .W(SDL::UI::Value::Pcw(50.f))
+            .Children(cardSB, cardSV);
         cols.Children(left, right);
         page.Child(cols);
         return page;
@@ -548,7 +560,7 @@ struct Main {
             std::format("Image widget - pool key \"{}\"", key::CRATE)));
 
         auto imgRow = ui.Row("img_row", 8.f, 0.f)
-            .Style(SDL::UI::Theme::Transparent()).Align(SDL::UI::Align::Start);
+            .Style(SDL::UI::Theme::Transparent()).AlignH(SDL::UI::Align::Left);
 
         auto mkImg = [&](const char* id, const char* lbl, SDL::UI::ImageFit fit){
             auto col = ui.Column(std::string(id) + "_c", 4.f, 0.f);
@@ -661,11 +673,13 @@ struct Main {
 
         auto cols = ui.Row("ic_cols", 12.f, 0.f)
             .Grow(1).Style(SDL::UI::Theme::Transparent())
-            .Align(SDL::UI::Align::Start);
+            .AlignH(SDL::UI::Align::Left);
         
-        auto left  = ui.Column("ic_l", 12.f, 0.f).Grow(1)
+        auto left  = ui.Column("ic_l", 12.f, 0.f)
+            .W(SDL::UI::Value::Pw(50.f))
             .Children(cardImg, cardCvs);
-        auto right = ui.Column("ic_r", 12.f, 0.f).Grow(1)
+        auto right = ui.Column("ic_r", 12.f, 0.f)
+            .W(SDL::UI::Value::Pw(50.f))
             .Child(cardInfo);
         
         cols.Children(left, right);

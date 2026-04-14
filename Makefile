@@ -6,7 +6,7 @@ TARGET_NAME := Game
 LIB_NAME	:= SDL3pp
 
 CXX		  	:= g++
-CXX_VERSION := 20
+CXX_VERSION := 23
 
 INCDIR	   	:= include
 SRCDIR	  	:= src
