@@ -4,94 +4,111 @@
 #include <SDL3pp/SDL3pp_main.h>
 
 struct Main {
-  static constexpr SDL::Point windowSz = {640, 480};
+	static constexpr SDL::Point windowSz = {640, 480};
 
-  static SDL::AppResult Init(Main** m, SDL::AppArgs args) {
-    SDL::SetAppMetadata(
-      "Example TTF Showfont", "1.0", "com.example.ttf-showfont");
-    SDL::Init(SDL::INIT_VIDEO);
-    SDL::TTF::Init();
-    *m = new Main();
-    return SDL::APP_CONTINUE;
-  }
+	static SDL::AppResult Init(Main** m, SDL::AppArgs args) {
+		SDL::LogPriority priority = SDL::LOG_PRIORITY_WARN;
+		for (auto arg : args) {
+			if (arg == "--verbose") priority = SDL::LOG_PRIORITY_VERBOSE;
+			else if (arg == "--debug") priority = SDL::LOG_PRIORITY_DEBUG;
+			else if (arg == "--info") priority = SDL::LOG_PRIORITY_INFO;
+			else if (arg == "--help") {
+				SDL::Log("Usage: %s [options]", SDL::GetBasePath());
+				SDL::Log("Options:");
+				SDL::Log("  --verbose    Set log priority to verbose");
+				SDL::Log("  --debug      Set log priority to debug");
+				SDL::Log("  --info       Set log priority to info");
+				SDL::Log("  --help       Show this help message");
+				return SDL::APP_EXIT_SUCCESS;
+			}
+		}
+		SDL::SetLogPriorities(priority);
 
-  SDL::Window window{"Test", windowSz};
-  SDL::Renderer renderer{window};
-  SDL::Font font;
-  std::string testString = "the quick brown fox jumps over the lazy dog\n"
-                           "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG\n"
-                           "0123456789!@#$%&*(){}[]\"'";
-  SDL::Texture testTexture;
-  SDL::FRect testRect;
-  int ptSize = 20;
-  int testQuality = 1;
-  static constexpr int testQualityCount = 2;
-  SDL::Color testColor{0, 0, 0};
+		SDL::SetAppMetadata(
+			"Example TTF Showfont", "1.0", "com.example.ttf-showfont");
+		SDL::Init(SDL::INIT_VIDEO);
+		SDL::TTF::Init();
+		*m = new Main();
+		return SDL::APP_CONTINUE;
+	}
 
-  SDL::AppResult Iterate() {
-    renderer.SetDrawColorFloat(SDL::FColor{.75f, .75f, .75f, 1.f});
-    renderer.RenderClear();
+	SDL::Window window{"Test", windowSz};
+	SDL::Renderer renderer{window};
+	SDL::Font font;
+	std::string testString = "the quick brown fox jumps over the lazy dog\n"
+							"THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG\n"
+							"0123456789!@#$%&*(){}[]\"'";
+	SDL::Texture testTexture;
+	SDL::FRect testRect;
+	int ptSize = 20;
+	int testQuality = 1;
+	static constexpr int testQualityCount = 2;
+	SDL::Color testColor{0, 0, 0};
 
-    if (testTexture) renderer.RenderTexture(testTexture, {}, testRect);
+	SDL::AppResult Iterate() {
+		renderer.SetDrawColorFloat(SDL::FColor{.75f, .75f, .75f, 1.f});
+		renderer.RenderClear();
 
-    renderer.Present();
-    return SDL::APP_CONTINUE;
-  }
+		if (testTexture) renderer.RenderTexture(testTexture, {}, testRect);
 
-  SDL::AppResult Event(const SDL::Event& ev) {
-    switch (ev.type) {
-    case SDL::EVENT_QUIT: return SDL::APP_SUCCESS;
-    case SDL::EVENT_KEY_DOWN: {
-      switch (ev.key.key) {
-      case SDL::KEYCODE_COMMA:
-        if (ptSize > 1) {
-          --ptSize;
-          if (font) font.SetSize(ptSize);
-          refreshText();
-        }
-        break;
-      case SDL::KEYCODE_PERIOD:
-        if (ptSize < 50) {
-          ++ptSize;
-          if (font) font.SetSize(ptSize);
-          refreshText();
-        }
-        break;
-      case SDL::KEYCODE_SPACE:
-        testQuality = (testQuality + 1) % testQualityCount;
-        refreshText();
-        break;
-      default: break;
-      }
-      break;
-    }
-    case SDL::EVENT_DROP_FILE:
-      font = SDL::Font(ev.drop.data, ptSize);
-      refreshText();
-      break;
-    default: break;
-    }
-    return SDL::APP_CONTINUE;
-  }
+		renderer.Present();
+		return SDL::APP_CONTINUE;
+	}
 
-  void refreshText() {
-    if (!font) return;
-    SDL::Surface surface;
-    switch (testQuality) {
-    case 0:
-      surface =
-        font.RenderText_Solid_Wrapped(testString, testColor, windowSz.x);
-      break;
-    case 1:
-      surface =
-        font.RenderText_Blended_Wrapped(testString, testColor, windowSz.x);
-      break;
-    default: break;
-    }
-    testTexture = SDL::Texture(renderer, surface);
-    testRect.w = testTexture.GetWidth();
-    testRect.h = testTexture.GetHeight();
-  }
+	SDL::AppResult Event(const SDL::Event& ev) {
+		switch (ev.type) {
+		case SDL::EVENT_QUIT: return SDL::APP_SUCCESS;
+		case SDL::EVENT_KEY_DOWN: {
+			switch (ev.key.key) {
+			case SDL::KEYCODE_COMMA:
+				if (ptSize > 1) {
+					--ptSize;
+					if (font) font.SetSize(ptSize);
+					refreshText();
+				}
+				break;
+			case SDL::KEYCODE_PERIOD:
+				if (ptSize < 50) {
+					++ptSize;
+					if (font) font.SetSize(ptSize);
+					refreshText();
+				}
+				break;
+			case SDL::KEYCODE_SPACE:
+				testQuality = (testQuality + 1) % testQualityCount;
+				refreshText();
+				break;
+			default: break;
+			}
+			break;
+		}
+		case SDL::EVENT_DROP_FILE:
+			font = SDL::Font(ev.drop.data, ptSize);
+			refreshText();
+			break;
+		default: break;
+		}
+		return SDL::APP_CONTINUE;
+	}
+
+	void refreshText() {
+		if (!font) return;
+		SDL::Surface surface;
+		switch (testQuality) {
+		case 0:
+			surface =
+				font.RenderText_Solid_Wrapped(testString, testColor, windowSz.x);
+			break;
+		case 1:
+			surface =
+				font.RenderText_Blended_Wrapped(testString, testColor, windowSz.x);
+			break;
+		default: break;
+		}
+		testTexture = SDL::Texture(renderer, surface);
+		testRect.w = testTexture.GetWidth();
+		testRect.h = testTexture.GetHeight();
+	}
 };
 
 SDL3PP_DEFINE_CALLBACKS(Main)

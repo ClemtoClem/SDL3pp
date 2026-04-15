@@ -42,6 +42,32 @@ namespace res_key {
     constexpr const char* CLICK = "click";
     constexpr const char* FAIL  = "fail";
 }
+namespace icon_key {
+    constexpr const char* NEW        = "icon_new";
+    constexpr const char* OPEN       = "icon_open";
+    constexpr const char* SAVE       = "icon_save";
+    constexpr const char* SAVE_AS    = "icon_save_as";
+    constexpr const char* IMPORT     = "icon_import";
+    constexpr const char* LAYER_ADD  = "icon_layer_add";
+    constexpr const char* LAYER_DEL  = "icon_layer_remove";
+    constexpr const char* PENCIL     = "icon_pencil";
+    constexpr const char* BRUSH      = "icon_brush";
+    constexpr const char* FILL       = "icon_fill";
+    constexpr const char* ERASE      = "icon_erase";
+    constexpr const char* SELECT     = "icon_select";
+    constexpr const char* UNDO       = "icon_undo";
+    constexpr const char* REDO       = "icon_redo";
+    constexpr const char* GRID       = "icon_grid";
+    constexpr const char* ZOOM_IN    = "icon_zoom_in";
+    constexpr const char* ZOOM_OUT   = "icon_zoom_out";
+    constexpr const char* VISIBILITY = "icon_visibility";
+    constexpr const char* UP         = "icon_up_arrow";
+    constexpr const char* DOWN       = "icon_down_arrow";
+    constexpr const char* LEFT       = "icon_left_arrow";
+    constexpr const char* RIGHT      = "icon_right_arrow";
+    constexpr const char* LOCK       = "icon_collision";
+    constexpr const char* STAMP      = "icon_stamp";
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Palette
@@ -577,7 +603,6 @@ struct Main {
     static constexpr int kMaxLayers = 32;
     static constexpr int kLeftW     = 172;
     static constexpr int kRightW    = 212;
-    static constexpr int kToolCount = 5;
 
     // ── SDL objects ───────────────────────────────────────────────────────────
     static SDL::Window MakeWindow() {
@@ -609,12 +634,10 @@ struct Main {
     SDL::ECS::EntityId eMapCanvas      = SDL::ECS::NullEntity;
     SDL::ECS::EntityId eTilesetCanvas  = SDL::ECS::NullEntity;
     SDL::ECS::EntityId eStatusLabel    = SDL::ECS::NullEntity;
-    SDL::ECS::EntityId eProjectBtns    = SDL::ECS::NullEntity;
     SDL::ECS::EntityId eTilesetName    = SDL::ECS::NullEntity;
     SDL::ECS::EntityId eTileInfo       = SDL::ECS::NullEntity;
     SDL::ECS::EntityId eLayerContent   = SDL::ECS::NullEntity;
 
-    SDL::ECS::EntityId toolBtns[kToolCount] = {};
 
     struct LayerSlot {
         SDL::ECS::EntityId row     = SDL::ECS::NullEntity;
@@ -761,6 +784,32 @@ struct Main {
         ui.SetDefaultFont(res_key::FONT, 13.f);
         ui.LoadAudio(res_key::CLICK, base + "sounds/effect-click.mp3");
         ui.LoadAudio(res_key::FAIL,  base + "sounds/effect-fail.mp3");
+
+        const std::string icons = base + "textures/icons/";
+        ui.LoadTexture(icon_key::NEW,        icons + "icon_new.png");
+        ui.LoadTexture(icon_key::OPEN,       icons + "icon_open.png");
+        ui.LoadTexture(icon_key::SAVE,       icons + "icon_save.png");
+        ui.LoadTexture(icon_key::SAVE_AS,    icons + "icon_save_as.png");
+        ui.LoadTexture(icon_key::IMPORT,     icons + "icon_import.png");
+        ui.LoadTexture(icon_key::LAYER_ADD,  icons + "icon_layer_add.png");
+        ui.LoadTexture(icon_key::LAYER_DEL,  icons + "icon_layer_remove.png");
+        ui.LoadTexture(icon_key::PENCIL,     icons + "icon_pencil.png");
+        ui.LoadTexture(icon_key::BRUSH,      icons + "icon_brush.png");
+        ui.LoadTexture(icon_key::FILL,       icons + "icon_fill.png");
+        ui.LoadTexture(icon_key::ERASE,      icons + "icon_erase.png");
+        ui.LoadTexture(icon_key::SELECT,     icons + "icon_select.png");
+        ui.LoadTexture(icon_key::UNDO,       icons + "icon_undo.png");
+        ui.LoadTexture(icon_key::REDO,       icons + "icon_redo.png");
+        ui.LoadTexture(icon_key::GRID,       icons + "icon_grid.png");
+        ui.LoadTexture(icon_key::ZOOM_IN,    icons + "icon_zoom_in.png");
+        ui.LoadTexture(icon_key::ZOOM_OUT,   icons + "icon_zoom_out.png");
+        ui.LoadTexture(icon_key::VISIBILITY, icons + "icon_visibility.png");
+        ui.LoadTexture(icon_key::UP,         icons + "icon_up_arrow.png");
+        ui.LoadTexture(icon_key::DOWN,       icons + "icon_down_arrow.png");
+        ui.LoadTexture(icon_key::LEFT,       icons + "icon_left_arrow.png");
+        ui.LoadTexture(icon_key::RIGHT,      icons + "icon_right_arrow.png");
+        ui.LoadTexture(icon_key::LOCK,       icons + "icon_collision.png");
+        ui.LoadTexture(icon_key::STAMP,      icons + "icon_stamp.png");
     }
 
     // =========================================================================
@@ -784,28 +833,108 @@ struct Main {
     // ── Toolbar ──────────────────────────────────────────────────────────────
 
     SDL::ECS::EntityId _BuildToolbar() {
-        auto bar = ui.Row("toolbar", 6.f, 0.f)
+        auto bar = ui.Row("toolbar", 2.f, 0.f)
             .W(SDL::UI::Value::Ww(100.f)).H(42.f)
-            .PaddingH(10.f).PaddingV(5.f)
+            .PaddingH(6.f).PaddingV(4.f)
             .BgColor(pal::HEADER)
             .WithStyle([](auto& s){
-                s.borders     = SDL::FBox(0.f, 0.f, 1.f, 0.f);
+                s.borders = SDL::FBox(0.f, 0.f, 1.f, 0.f);
                 s.bdColor = pal::BORDER;
-                s.radius      = SDL::FCorners(0.f);
+                s.radius  = SDL::FCorners(0.f);
             });
 
-        // Helper: creates a toolbar button
-        auto mkBtn = [&](const char* id, const char* lbl, SDL::Color c,
+        // ── Shared icon-button state ──────────────────────────────────────
+        struct BS { bool hov = false; bool press = false; };
+
+        // Generic click icon button
+        auto mkBtn = [&](const char* id, const char* key, const char* tip,
                          std::function<void()> cb) -> SDL::ECS::EntityId {
-            return ui.Button(id, lbl)
-                .W(SDL::UI::Value::Auto()).H(30).PaddingH(8).PaddingV(4)
-                .Style(SDL::UI::Theme::PrimaryButton(c))
-                .FontKey(res_key::FONT).FontSize(13.f)
-                .WithStyle([](auto& s){ s.radius = SDL::FCorners(4.f); })
-                .ClickSoundKey(res_key::CLICK)
-                .OnClick(std::move(cb));
+            auto bs = std::make_shared<BS>();
+            return ui.CanvasWidget(id,
+                [bs](SDL::Event& ev){
+                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN
+                        && ev.button.button == SDL::BUTTON_LEFT) bs->press = true;
+                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_UP)   bs->press = false;
+                }, nullptr,
+                [this, bs, key](SDL::RendererRef r, SDL::FRect rect){
+                    SDL::Color bg = bs->press ? pal::ACCENT
+                                  : bs->hov   ? SDL::Color{42,54,78,220}
+                                  :             SDL::Color{0,0,0,0};
+                    if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
+                    _DrawIconCentered(r, rect, key, bs->hov || bs->press, 5.f);
+                }
+            ).W(32).H(32).Padding(0.f)
+             .OnHoverEnter([bs]{ bs->hov   = true;  })
+             .OnHoverLeave([bs]{ bs->hov   = false; bs->press = false; })
+             .Tooltip(tip, 0.6f)
+             .OnClick(std::move(cb)).Id();
         };
-        // Vertical divider
+
+        // Tool icon button (active when current tool matches)
+        auto mkTool = [&](const char* id, const char* key, const char* tip,
+                          ToolType t) -> SDL::ECS::EntityId {
+            auto bs = std::make_shared<BS>();
+            return ui.CanvasWidget(id,
+                [bs](SDL::Event& ev){
+                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN
+                        && ev.button.button == SDL::BUTTON_LEFT) bs->press = true;
+                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_UP)   bs->press = false;
+                }, nullptr,
+                [this, bs, key, t](SDL::RendererRef r, SDL::FRect rect){
+                    bool act = (state.tool == t);
+                    SDL::Color bg = (act || bs->press) ? pal::ACCENT
+                                  : bs->hov            ? SDL::Color{42,54,78,220}
+                                  :                      SDL::Color{0,0,0,0};
+                    if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
+                    if (act){
+                        r.SetDrawColor({pal::ACCENT.r, pal::ACCENT.g, pal::ACCENT.b, 140});
+                        r.RenderRect(rect);
+                    }
+                    _DrawIconCentered(r, rect, key, true, 5.f);
+                }
+            ).W(32).H(32).Padding(0.f)
+             .OnHoverEnter([bs]{ bs->hov   = true;  })
+             .OnHoverLeave([bs]{ bs->hov   = false; bs->press = false; })
+             .Tooltip(tip, 0.6f)
+             .OnClick([this, t]{ _SetTool(t); }).Id();
+        };
+
+        // Toggle icon button (shows active state for a bool)
+        auto mkToggle = [&](const char* id, const char* key, const char* tip,
+                            std::function<bool()> isOn,
+                            std::function<void()> cb) -> SDL::ECS::EntityId {
+            auto bs = std::make_shared<BS>();
+            return ui.CanvasWidget(id,
+                [bs](SDL::Event& ev){
+                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN
+                        && ev.button.button == SDL::BUTTON_LEFT) bs->press = true;
+                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_UP)   bs->press = false;
+                }, nullptr,
+                [this, bs, key, isOn](SDL::RendererRef r, SDL::FRect rect){
+                    bool on = isOn();
+                    SDL::Color bg = bs->press ? pal::ACCENT
+                                  : on        ? SDL::Color{26,58,38,220}
+                                  : bs->hov   ? SDL::Color{42,54,78,220}
+                                  :             SDL::Color{0,0,0,0};
+                    if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
+                    if (auto h = pool_ui.Get<SDL::Texture>(key)){
+                        float p = 5.f, sz = SDL::Min(rect.w, rect.h) - p * 2.f;
+                        SDL::TextureRef tex{*h};
+                        if (on) tex.SetColorMod(pal::GREEN.r, pal::GREEN.g, pal::GREEN.b);
+                        r.RenderTexture(tex, {},
+                            SDL::FRect{rect.x+(rect.w-sz)*.5f,
+                                       rect.y+(rect.h-sz)*.5f, sz, sz});
+                        if (on) tex.SetColorMod(255, 255, 255);
+                    }
+                }
+            ).W(32).H(32).Padding(0.f)
+             .OnHoverEnter([bs]{ bs->hov   = true;  })
+             .OnHoverLeave([bs]{ bs->hov   = false; bs->press = false; })
+             .Tooltip(tip, 0.6f)
+             .OnClick(std::move(cb)).Id();
+        };
+
+        // Thin vertical divider
         auto mkSep = [&](const char* id) -> SDL::ECS::EntityId {
             return ui.Container(id).W(1).H(28)
                 .WithStyle([](auto& s){
@@ -815,57 +944,40 @@ struct Main {
                 });
         };
 
-        // ── File ops
         bar.Children(
-            mkBtn("btn_new",     "New",     pal::NEUTRAL, [this]{ _NewMap();   }),
-            mkBtn("btn_open",    "Open",    pal::NEUTRAL, [this]{ _OpenMap();  }),
-            mkBtn("btn_save",    "Save",    pal::NEUTRAL, [this]{ _SaveMap();  }),
-            mkBtn("btn_save_as", "Save As", pal::NEUTRAL, [this]{ _SaveMapAs();}),
-            mkSep("sep1")
+            // File ops
+            mkBtn("btn_new",      icon_key::NEW,       "New Map  (Ctrl+N)",       [this]{ _NewMap();    }),
+            mkBtn("btn_open",     icon_key::OPEN,      "Open Map (Ctrl+O)",       [this]{ _OpenMap();   }),
+            mkBtn("btn_save",     icon_key::SAVE,      "Save     (Ctrl+S)",       [this]{ _SaveMap();   }),
+            mkBtn("btn_save_as",  icon_key::SAVE_AS,   "Save As  (Ctrl+Shift+S)", [this]{ _SaveMapAs(); }),
+            mkSep("sep1"),
+            // Layer / tileset ops
+            mkBtn("btn_import",   icon_key::IMPORT,    "Import Tileset",          [this]{ _ImportTileset();  }),
+            mkBtn("btn_add_lyr",  icon_key::LAYER_ADD, "Add Tile Layer",          [this]{ _AddTileLayer();   }),
+            mkBtn("btn_add_obj",  icon_key::STAMP,     "Add Object Layer",        [this]{ _AddObjectLayer(); }),
+            mkSep("sep2"),
+            // Tools
+            mkTool("btn_pencil",  icon_key::PENCIL,    "Pencil (P)",              ToolType::Pencil),
+            mkTool("btn_brush",   icon_key::BRUSH,     "Brush  (B)",              ToolType::Brush),
+            mkTool("btn_fill",    icon_key::FILL,      "Fill   (F)",              ToolType::Fill),
+            mkTool("btn_erase",   icon_key::ERASE,     "Erase  (E)",              ToolType::Erase),
+            mkTool("btn_select",  icon_key::SELECT,    "Select (S)",              ToolType::Select),
+            mkSep("sep3"),
+            // Undo / Redo
+            mkBtn("btn_undo",     icon_key::UNDO,      "Undo (Ctrl+Z)",           [this]{ _Undo(); }),
+            mkBtn("btn_redo",     icon_key::REDO,      "Redo (Ctrl+Y)",           [this]{ _Redo(); }),
+            mkSep("sep4"),
+            // View toggles
+            mkToggle("btn_grid",     icon_key::GRID,     "Grid (G)",
+                     [this]{ return state.showGrid; },
+                     [this]{ state.showGrid = !state.showGrid; }),
+            mkBtn("btn_zoom_in",  icon_key::ZOOM_IN,  "Zoom In  (+)",
+                  [this]{ _ZoomAt(1.25f, {kWinSz.x / 2.f, kWinSz.y / 2.f}); }),
+            mkBtn("btn_zoom_out", icon_key::ZOOM_OUT, "Zoom Out (-)",
+                  [this]{ _ZoomAt(0.8f,  {kWinSz.x / 2.f, kWinSz.y / 2.f}); })
         );
 
-        // ── Project actions (Import, Add layers …)
-        eProjectBtns = ui.Row("proj_btns", 6.f, 0.f)
-            .WithStyle([](auto& s){
-                s.bgColor = SDL::Color(0,0,0,0);
-                s.borders = SDL::FBox(0.f);
-                s.radius  = SDL::FCorners(0.f);
-            })
-            .WithLayout([](auto& l){
-                l.padding = SDL::FBox(0.f);
-                l.margin  = SDL::FBox(0.f);
-            })
-            .Children(
-                mkBtn("btn_import",    "Import Tileset", pal::NEUTRAL, [this]{ _ImportTileset(); }),
-                mkBtn("btn_add_layer", "+Tile Layer",    pal::NEUTRAL, [this]{ _AddTileLayer();  }),
-                mkBtn("btn_add_obj",   "+Objects",       pal::NEUTRAL, [this]{ _AddObjectLayer();}),
-                mkSep("sep2")
-            );
-        bar.Child(eProjectBtns);
-
-        // ── Tools
-        struct ToolSpec { const char* id; const char* lbl; ToolType t; };
-        static constexpr ToolSpec kTools[kToolCount] = {
-            {"btn_pencil","Pencil",ToolType::Pencil},
-            {"btn_brush", "Brush", ToolType::Brush},
-            {"btn_fill",  "Fill",  ToolType::Fill},
-            {"btn_erase", "Erase", ToolType::Erase},
-            {"btn_select","Select",ToolType::Select},
-        };
-        for (int i = 0; i < kToolCount; ++i) {
-            SDL::Color c = (state.tool == kTools[i].t) ? pal::ACCENT : pal::NEUTRAL;
-            toolBtns[i]  = mkBtn(kTools[i].id, kTools[i].lbl, c,
-                                 [this, t = kTools[i].t]{ _SetTool(t); });
-            bar.Child(toolBtns[i]);
-        }
-
-        // ── Grid toggle
-        bar.Child(mkSep("sep3"));
-        bar.Child(ui.Toggle("tog_grid", "Grid")
-            .Check(state.showGrid)
-            .OnToggle([this](bool v){ state.showGrid = v; }));
-
-        // ── Spacer + title
+        // Spacer + title
         bar.Child(ui.Container("spacer_bar").Grow(1)
             .WithStyle([](auto& s){
                 s.bgColor = SDL::Color(0,0,0,0);
@@ -942,22 +1054,64 @@ struct Main {
                 .Visible(false);
             slot.row = row;
 
-            slot.btnVis = ui.Button(std::format("ls_vis{}", i), "V")
-                .W(20).H(20).PaddingH(2).PaddingV(2)
-                .Style(SDL::UI::Theme::PrimaryButton(pal::GREEN))
-                .WithStyle([](auto& s){ s.radius = SDL::FCorners(3.f); })
-                .OnClick([this, i]{ _ToggleLayerVisible(i); });
+            // Visibility icon button
+            {
+                struct BS { bool hov = false; };
+                auto bs = std::make_shared<BS>();
+                slot.btnVis = ui.CanvasWidget(std::format("ls_vis{}", i),
+                    nullptr, nullptr,
+                    [this, bs, i](SDL::RendererRef r, SDL::FRect rect){
+                        bool vis = (i < (int)map.layers.size()) && map.layers[i].visible;
+                        SDL::Color bg = bs->hov ? SDL::Color{42,54,78,180}
+                                      :           SDL::Color{0,0,0,0};
+                        if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
+                        if (auto h = pool_ui.Get<SDL::Texture>(icon_key::VISIBILITY)){
+                            float p = 3.f, sz = SDL::Min(rect.w, rect.h) - p * 2.f;
+                            SDL::TextureRef tex{*h};
+                            if (!vis){ tex.SetAlphaModFloat(0.3f); }
+                            else     { tex.SetColorMod(pal::GREEN.r, pal::GREEN.g, pal::GREEN.b); }
+                            r.RenderTexture(tex, {}, SDL::FRect{rect.x+(rect.w-sz)*.5f, rect.y+(rect.h-sz)*.5f, sz, sz});
+                            tex.SetAlphaModFloat(1.f); tex.SetColorMod(255,255,255);
+                        }
+                    }
+                ).W(20).H(20).Padding(0.f)
+                 .OnHoverEnter([bs]{ bs->hov = true;  })
+                 .OnHoverLeave([bs]{ bs->hov = false; })
+                 .OnClick([this, i]{ _ToggleLayerVisible(i); })
+                 .Id();
+            }
 
             slot.lblName = ui.Label(std::format("ls_name{}", i), "Layer")
                 .Grow(1).TextColor(pal::WHITE)
                 .PaddingH(4).PaddingV(0)
                 .OnClick([this, i]{ _SelectLayer(i); });
 
-            slot.btnLock = ui.Button(std::format("ls_lock{}", i), "L")
-                .W(20).H(20).PaddingH(2).PaddingV(2)
-                .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-                .WithStyle([](auto& s){ s.radius = SDL::FCorners(3.f); })
-                .OnClick([this, i]{ _ToggleLayerLock(i); });
+            // Lock icon button
+            {
+                struct BS { bool hov = false; };
+                auto bs = std::make_shared<BS>();
+                slot.btnLock = ui.CanvasWidget(std::format("ls_lock{}", i),
+                    nullptr, nullptr,
+                    [this, bs, i](SDL::RendererRef r, SDL::FRect rect){
+                        bool lk = (i < (int)map.layers.size()) && map.layers[i].locked;
+                        SDL::Color bg = lk     ? SDL::Color{70,40,10,200}
+                                      : bs->hov ? SDL::Color{42,54,78,180}
+                                      :           SDL::Color{0,0,0,0};
+                        if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
+                        if (auto h = pool_ui.Get<SDL::Texture>(icon_key::LOCK)){
+                            float p = 3.f, sz = SDL::Min(rect.w, rect.h) - p * 2.f;
+                            SDL::TextureRef tex{*h};
+                            if (lk) tex.SetColorMod(pal::ORANGE.r, pal::ORANGE.g, pal::ORANGE.b);
+                            r.RenderTexture(tex, {}, SDL::FRect{rect.x+(rect.w-sz)*.5f, rect.y+(rect.h-sz)*.5f, sz, sz});
+                            if (lk) tex.SetColorMod(255, 255, 255);
+                        }
+                    }
+                ).W(20).H(20).Padding(0.f)
+                 .OnHoverEnter([bs]{ bs->hov = true;  })
+                 .OnHoverLeave([bs]{ bs->hov = false; })
+                 .OnClick([this, i]{ _ToggleLayerLock(i); })
+                 .Id();
+            }
 
             row.Children(slot.btnVis, slot.lblName, slot.btnLock);
             ui.AppendChild(eLayerContent, slot.row);
@@ -966,26 +1120,39 @@ struct Main {
         panel.Child(sv);
 
         // Layer operation buttons (move up / move down / delete)
+        auto mkLayerOpBtn = [&](const char* id, const char* key, const char* tip,
+                                SDL::Color tint, std::function<void()> cb) -> SDL::ECS::EntityId {
+            struct BS { bool hov = false; };
+            auto bs = std::make_shared<BS>();
+            return ui.CanvasWidget(id, nullptr, nullptr,
+                [this, bs, key, tint](SDL::RendererRef r, SDL::FRect rect){
+                    SDL::Color bg = bs->hov ? SDL::Color{42,54,78,200}
+                                  :           SDL::Color{0,0,0,0};
+                    if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
+                    if (auto h = pool_ui.Get<SDL::Texture>(key)){
+                        float p = 4.f, sz = SDL::Min(rect.w, rect.h) - p * 2.f;
+                        SDL::TextureRef tex{*h};
+                        if (bs->hov){ tex.SetColorMod(tint.r, tint.g, tint.b); }
+                        r.RenderTexture(tex, {}, SDL::FRect{rect.x+(rect.w-sz)*.5f, rect.y+(rect.h-sz)*.5f, sz, sz});
+                        if (bs->hov){ tex.SetColorMod(255,255,255); }
+                    }
+                }
+            ).W(30).H(24).Padding(0.f)
+             .OnHoverEnter([bs]{ bs->hov = true;  })
+             .OnHoverLeave([bs]{ bs->hov = false; })
+             .Tooltip(tip, 0.6f)
+             .OnClick(std::move(cb)).Id();
+        };
+
         panel.Child(
             ui.Row("layer_op_row", 4.f, 4.f)
-                .W(SDL::UI::Value::Pw(100.f)).H(28.f)
+                .W(SDL::UI::Value::Pw(100.f)).H(30.f)
                 .WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
                 .Children(
-                    ui.Button("btn_lyr_up",  "↑").W(28).H(22)
-                        .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-                        .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
-                        .ClickSoundKey(res_key::CLICK)
-                        .OnClick([this]{ _MoveActiveLayer(-1); }),
-                    ui.Button("btn_lyr_dn",  "↓").W(28).H(22)
-                        .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-                        .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
-                        .ClickSoundKey(res_key::CLICK)
-                        .OnClick([this]{ _MoveActiveLayer(+1); }),
-                    ui.Button("btn_lyr_del", "Del").Grow(1).H(22)
-                        .Style(SDL::UI::Theme::PrimaryButton(pal::RED))
-                        .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
-                        .ClickSoundKey(res_key::CLICK)
-                        .OnClick([this]{ _DeleteActiveLayer(); })
+                    mkLayerOpBtn("btn_lyr_up",  icon_key::UP,        "Move Layer Up",   pal::ACCENT, [this]{ _MoveActiveLayer(-1);    }),
+                    mkLayerOpBtn("btn_lyr_dn",  icon_key::DOWN,      "Move Layer Down", pal::ACCENT, [this]{ _MoveActiveLayer(+1);    }),
+                    mkLayerOpBtn("btn_lyr_add", icon_key::LAYER_ADD, "Add Tile Layer",  pal::GREEN,  [this]{ _AddTileLayer();         }),
+                    mkLayerOpBtn("btn_lyr_del", icon_key::LAYER_DEL, "Delete Layer",    pal::RED,    [this]{ _DeleteActiveLayer();    })
                 )
         );
 
@@ -1040,14 +1207,16 @@ struct Main {
                 .W(SDL::UI::Value::Pw(100.f)).H(26.f)
                 .WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
                 .Children(
-                    ui.Button("btn_ts_prev", "◀").W(26).H(22)
+                    ui.Button("btn_ts_prev", "").W(26).H(22)
                         .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
+                        .ImageKey(icon_key::LEFT)
                         .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
                         .OnClick([this]{
                             if (state.activeTileset > 0) --state.activeTileset;
                         }),
-                    ui.Button("btn_ts_next", "▶").W(26).H(22)
+                    ui.Button("btn_ts_next", "").W(26).H(22)
                         .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
+                        .ImageKey(icon_key::RIGHT)
                         .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
                         .OnClick([this]{
                             if (state.activeTileset < (int)map.tilesets.size()-1)
@@ -1055,6 +1224,7 @@ struct Main {
                         }),
                     ui.Button("btn_ts_smart", "Smart").Grow(1).H(22)
                         .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
+                        .FontKey(res_key::FONT).FontSize(11)
                         .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
                         .OnClick([this]{
                             if (state.activeTileset < (int)map.tilesets.size())
@@ -1106,6 +1276,23 @@ struct Main {
         eStatusLabel = ui.Label("lbl_status", "Ready").TextColor(pal::GREY);
         bar.Child(eStatusLabel);
         return bar;
+    }
+
+    // =========================================================================
+    // Icon drawing helper
+    // =========================================================================
+
+    void _DrawIconCentered(SDL::RendererRef r, SDL::FRect rect,
+                           const char* key, bool bright, float pad = 4.f) {
+        auto h = pool_ui.Get<SDL::Texture>(key);
+        if (!h) return;
+        float sz = SDL::Min(rect.w, rect.h) - pad * 2.f;
+        SDL::TextureRef tex{*h};
+        if (!bright) tex.SetAlphaModFloat(0.65f);
+        r.RenderTexture(tex, {},
+            SDL::FRect{rect.x + (rect.w - sz) * .5f,
+                       rect.y + (rect.h - sz) * .5f, sz, sz});
+        if (!bright) tex.SetAlphaModFloat(1.f);
     }
 
     // =========================================================================
@@ -1696,14 +1883,8 @@ struct Main {
 
     void _SetTool(ToolType t) {
         state.tool = t;
-        static constexpr ToolType kOrder[kToolCount] = {
-            ToolType::Pencil, ToolType::Brush, ToolType::Fill,
-            ToolType::Erase,  ToolType::Select
-        };
-        for (int i = 0; i < kToolCount; ++i)
-            if (toolBtns[i] != SDL::ECS::NullEntity)
-                ui.GetStyle(toolBtns[i]).bgColor =
-                    (kOrder[i] == t) ? pal::ACCENT : pal::NEUTRAL;
+        // Tool button visuals update automatically via render callbacks
+        // (each tool button's canvas render checks state.tool directly)
     }
 
     // =========================================================================
@@ -1831,16 +2012,17 @@ struct Main {
             my >= state.mapRect.y && my < state.mapRect.y + state.mapRect.h)
             ScreenToTile(mx, my, tx, ty);
 
-        static constexpr const char* kToolNames[kToolCount] =
+        static const char* const kToolNames[] =
             {"Pencil","Brush","Fill","Erase","Select"};
 
+        std::string tilePos = (tx >= 0) ? std::format("[{},{}]", tx, ty) : "---";
         std::string s = std::format(
             "{} | Map {}x{} ({}x{}px) | Layer {}/{} | Zoom {:.0f}% | {}{}",
             kToolNames[(int)state.tool],
             map.width, map.height, map.tileW, map.tileH,
             map.activeLayer + 1, (int)map.layers.size(),
             state.zoom * 100.f,
-            (tx >= 0) ? std::format("[{},{}]", tx, ty) : "---",
+            tilePos,
             map.dirty ? " [unsaved]" : ""
         );
         ui.SetText(eStatusLabel, s);

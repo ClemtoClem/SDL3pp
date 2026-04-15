@@ -275,6 +275,7 @@ namespace UI {
 
         Left   = Start,
         Top    = Start,
+        Middle = Center,
         Right  = End,
         Bottom = End
     };
@@ -293,11 +294,11 @@ namespace UI {
     };*/
 
     enum class ImageFit : Uint8 {
-        Fill,
-        Contain,
-        Cover,
-        Tile,
-        None
+        Fill,    ///< Stretch to fill the widget's content box (may distort aspect ratio).
+        Contain, ///< Scale to fit the widget's content box while preserving aspect ratio (may letterbox).
+        Cover,   ///< Scale to fill the widget's content box while preserving aspect ratio (may crop).
+        Tile,    ///< Repeat the image to fill the widget's content box (preserves aspect ratio).
+        None     ///< No scaling; place the image at the top-left of the content box (may overflow).
     };
 
     // ==================================================================================
@@ -318,7 +319,7 @@ namespace UI {
         Rch  = 10, ///< Percentage of Root Content Height
         Pfs  = 11, ///< Percentage of Parent Font Size
         Rfs  = 12, ///< Percentage of Root Font Size
-        Auto = 13
+        Auto = 13  ///< Shrink-to-content + optional px offset
     };
 
     struct LayoutContext {
@@ -496,6 +497,10 @@ namespace UI {
         std::string scrollSound;
         std::string showSound;
         std::string hideSound;
+
+        SDL::Color tooltipBg    = { 30,  32,  44, 245};  ///< Fond de l'info-bulle.
+        SDL::Color tooltipBd    = { 75,  80, 108, 255};  ///< Bordure de l'info-bulle.
+        SDL::Color tooltipText  = {215, 218, 228, 255};  ///< Texte de l'info-bulle.
     };
 
     struct LayoutProps {
@@ -660,6 +665,16 @@ namespace UI {
         // Scroll position is stored in LayoutProps::scrollY (shared with container
         // drag infrastructure). ContainerScrollState::thumbY is updated each frame
         // by _DrawListBox so that thumb drag works out of the box.
+    };
+
+    // ==================================================================================
+    // TooltipData — ECS component attachable to any widget
+    // ==================================================================================
+
+    /// @brief Tooltip info-bulle affichée après un survol prolongé.
+    struct TooltipData {
+        std::string text;         ///< Texte affiché dans la bulle.
+        float       delay = 1.f;  ///< Durée de survol (secondes) avant affichage.
     };
 
     // ==================================================================================
@@ -944,7 +959,6 @@ namespace UI {
     // ==================================================================================
     class UIManager;
     class System;
-
     struct Builder;
 
     // ==================================================================================
@@ -1226,7 +1240,8 @@ namespace UI {
             m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
                                               | BehaviorFlag::Selectable
                                               | BehaviorFlag::Focusable
-                                              | BehaviorFlag::AutoScrollableY;
+                                              | BehaviorFlag::AutoScrollableY
+                                              | BehaviorFlag::AutoScrollableX;
             auto &lb = m_world.Add<ListBoxData>(e);
             lb.items = items;
             m_world.Get<LayoutProps>(e)->padding = {2.f, 2.f, 2.f, 2.f};
@@ -1344,6 +1359,18 @@ namespace UI {
                 lb->selectedIndex = (idx >= 0 && idx < (int)lb->items.size()) ? idx : -1;
         }
         ListBoxData* GetListBoxData(ECS::EntityId e) { return m_world.Get<ListBoxData>(e); }
+
+        // ── Tooltip accessors ─────────────────────────────────────────────────────────
+
+        /// Attache (ou met à jour) un tooltip sur le widget @p e.
+        void SetTooltip(ECS::EntityId e, const std::string &text, float delay = 1.f) {
+            auto *td = m_world.Get<TooltipData>(e);
+            if (!td) td = &m_world.Add<TooltipData>(e);
+            td->text  = text;
+            td->delay = delay;
+        }
+        /// Supprime le tooltip du widget @p e.
+        void RemoveTooltip(ECS::EntityId e) { m_world.Remove<TooltipData>(e); }
 
         // ── Graph accessors ───────────────────────────────────────────────────────────
 
@@ -1718,6 +1745,7 @@ namespace UI {
 
             _ProcessLayout();
             _ProcessInput();
+            _ProcessTooltip(dt);
             _ProcessRender();
             _ProcessAnimate(dt);
             _ResetOneShots();
@@ -1740,6 +1768,12 @@ namespace UI {
         float       m_defaultFontSize = 0.f;
         ECS::EntityId m_root = ECS::NullEntity, m_focused = ECS::NullEntity, m_hovered = ECS::NullEntity, m_pressed = ECS::NullEntity;
         float m_dt = 0.f;
+
+        // ── Tooltip state ─────────────────────────────────────────────────────────────
+        ECS::EntityId m_tooltipEntity  = ECS::NullEntity; ///< Entité dédiée au cache de texte du tooltip.
+        ECS::EntityId m_tooltipTarget  = ECS::NullEntity; ///< Entité actuellement survol-minutée.
+        float         m_tooltipTimer   = 0.f;             ///< Temps de survol accumulé (secondes).
+        bool          m_tooltipVisible = false;           ///< Vrai si le tooltip est visible ce frame.
         FRect m_viewport = {};
         FPoint m_mousePos = {}, m_mouseDelta = {};
         bool m_mouseDown = false, m_mousePressed = false, m_mouseReleased = false;
@@ -2217,8 +2251,14 @@ namespace UI {
 
             if (w->type == WidgetType::ListBox) {
                 if (auto *lb = m_world.Get<ListBoxData>(e)) {
-                    // La hauteur totale est le nombre d'items * la hauteur d'un item
-                    lp->contentH = lb->items.size() * lb->itemHeight;
+                    lp->contentH = (float)lb->items.size() * lb->itemHeight;
+                    // Largeur max des items pour la scrollbar horizontale
+                    if (auto *st = m_world.Get<Style>(e)) {
+                        float maxW = 0.f;
+                        for (const auto &item : lb->items)
+                            maxW = SDL::Max(maxW, _TW(item, *st));
+                        lp->contentW = maxW;
+                    }
                 }
             } else if (w->type == WidgetType::TextArea) {
                 auto *st = m_world.Get<Style>(e);
@@ -2298,8 +2338,11 @@ namespace UI {
                     chW = SDL::Max(chW, curLineW);
                     chH += curLineH;
                 }
-                lp->contentW = chW;
-                lp->contentH = chH;
+                // Ne pas écraser le contenu déjà calculé pour ListBox / TextArea
+                if (w->type != WidgetType::ListBox && w->type != WidgetType::TextArea) {
+                    lp->contentW = chW;
+                    lp->contentH = chH;
+                }
             }
 
             float bW = wa ? SDL::Max(intr.x, chW) + lp->padding.left + lp->padding.right : fw;
@@ -3463,12 +3506,76 @@ namespace UI {
             }
         }
 
+        // ── Tooltip ────────────────────────────────────────────────────────
+
+        void _ProcessTooltip(float dt) {
+            // Hovered entity changed → reset timer
+            if (m_hovered != m_tooltipTarget) {
+                m_tooltipTarget  = m_hovered;
+                m_tooltipTimer   = 0.f;
+                m_tooltipVisible = false;
+            }
+            if (m_tooltipTarget == ECS::NullEntity || !m_world.IsAlive(m_tooltipTarget)) {
+                m_tooltipVisible = false;
+                return;
+            }
+            auto *td = m_world.Get<TooltipData>(m_tooltipTarget);
+            if (!td || td->text.empty()) {
+                m_tooltipVisible = false;
+                return;
+            }
+            m_tooltipTimer  += dt;
+            m_tooltipVisible = (m_tooltipTimer >= td->delay);
+        }
+
+        void _DrawTooltip() {
+            if (!m_tooltipVisible || m_tooltipTarget == ECS::NullEntity) return;
+            auto *td = m_world.Get<TooltipData>(m_tooltipTarget);
+            if (!td || td->text.empty()) return;
+
+            // Couleurs et police depuis le widget survolé
+            auto *hs = m_world.Get<Style>(m_tooltipTarget);
+            static const Style kDef{};
+            const Style &s = hs ? *hs : kDef;
+
+            // Entité dédiée au cache de texte TTF (ne participe pas au layout)
+            if (m_tooltipEntity == ECS::NullEntity || !m_world.IsAlive(m_tooltipEntity)) {
+                m_tooltipEntity = m_world.CreateEntity();
+                m_world.Add<Style>(m_tooltipEntity);
+            }
+            auto &ts = *m_world.Get<Style>(m_tooltipEntity);
+            ts.fontKey       = s.fontKey;
+            ts.fontSize      = s.fontSize;
+            ts.usedDebugFont = s.usedDebugFont;
+
+            constexpr float kPadH = 8.f, kPadV = 5.f;
+            const float tw = _TW(td->text, ts);
+            const float th = _TH(ts);
+            const float bw = tw + kPadH * 2.f + 2.f;
+            const float bh = th + kPadV * 2.f;
+
+            // Position : sous le curseur, basculée si proche du bord
+            float x = m_mousePos.x + 14.f;
+            float y = m_mousePos.y + 22.f;
+            if (x + bw > m_viewport.w - 4.f) x = m_mousePos.x - bw - 6.f;
+            if (y + bh > m_viewport.h - 4.f) y = m_mousePos.y - bh - 6.f;
+            x = SDL::Clamp(x, 4.f, SDL::Max(4.f, m_viewport.w - bw - 4.f));
+            y = SDL::Clamp(y, 4.f, SDL::Max(4.f, m_viewport.h - bh - 4.f));
+
+            const FRect r = {x, y, bw, bh};
+            m_renderer.ResetClipRect();
+            _FillRR(r,   s.tooltipBg, SDL::FCorners(4.f), 1.f);
+            _StrokeRR(r, s.tooltipBd, {1.f, 1.f, 1.f, 1.f}, SDL::FCorners(4.f), 1.f);
+            _Text(m_tooltipEntity, td->text, x + kPadH, y + kPadV, s.tooltipText, 1.f, ts);
+        }
+
         // ── Render ─────────────────────────────────────────────────────────
 
         void _ProcessRender() {
             m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
             _RenderNode(m_root);
             m_renderer.ResetClipRect();
+            _DrawTooltip();
         }
 
         void _RenderNode(ECS::EntityId e) {
@@ -4321,7 +4428,7 @@ namespace UI {
             const float viewH  = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
             const float t      = lp->sbThickness;
             const float itemW  = r.w - s.borders.left - s.borders.right - (showY ? t : 0.f);
-            const float px     = r.x + lp->padding.left;
+            const float px     = r.x + lp->padding.left - lp->scrollX;
 
             // SAUVEGARDE DU CLIP (Pour ne pas clipper la scrollbar qui arrive ensuite)
             SDL_Rect prevClip = {};
@@ -5011,6 +5118,29 @@ namespace UI {
         }
         Builder &TextAreaSpan(int start, int end, TextSpanStyle style) {
             sys.AddTextAreaSpan(id, start, end, style);
+            return *this;
+        }
+
+        // ── Tooltip ───────────────────────────────────────────────────────────────────
+
+        /// Attache une info-bulle à ce widget (affichée après @p delay secondes de survol).
+        Builder &Tooltip(const std::string &text, float delay = 1.f) {
+            sys.SetTooltip(id, text, delay);
+            return *this;
+        }
+        /// Couleur de fond de l'info-bulle (héritée du widget survolé).
+        Builder &TooltipBg(SDL::Color c) {
+            sys.GetStyle(id).tooltipBg = c;
+            return *this;
+        }
+        /// Couleur de bordure de l'info-bulle.
+        Builder &TooltipBd(SDL::Color c) {
+            sys.GetStyle(id).tooltipBd = c;
+            return *this;
+        }
+        /// Couleur du texte de l'info-bulle.
+        Builder &TooltipTextColor(SDL::Color c) {
+            sys.GetStyle(id).tooltipText = c;
             return *this;
         }
 

@@ -53,7 +53,7 @@ struct Main {
   // This function runs once at startup.
   Main() {
     // set up the data for a bunch of points.
-    for (int i = 0; i < points.size(); ++i) {
+    for (int i = 0; i < (int)points.size(); ++i) {
       points[i] = {SDL::Randf() * windowSz.GetX(),
                    SDL::Randf() * windowSz.GetY()};
       point_speeds[i] =
@@ -70,7 +70,7 @@ struct Main {
     const auto elapsed = SDL::ToSeconds(now - last_time);
 
     // let's move all our points a little for a new frame.
-    for (int i = 0; i < points.size(); i++) {
+    for (int i = 0; i < (int)points.size(); i++) {
       const float distance = elapsed * point_speeds[i];
       points[i] += SDL::FPoint{distance, distance};
       if ((points[i].x >= windowSz.x) || (points[i].y >= windowSz.y)) {

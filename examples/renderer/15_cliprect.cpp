@@ -77,7 +77,7 @@ struct Main {
 
     // Set a new clipping rectangle position
     renderer.SetClipRect(cliprect);
-    cliprect_position += cliprect_direction * distance;
+    cliprect_position += cliprect_direction * (float)distance;
     if (cliprect_position.x < 0.0f) {
       cliprect_position.x = 0.0f;
       cliprect_direction.x = 1.0f;

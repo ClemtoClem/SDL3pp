@@ -98,7 +98,7 @@ struct Main {
     renderer.RenderFillRect(rects[0]);
 
     // ...and also fill a bunch of rectangles at once...
-    for (int i = 0; i < rects.size(); i++) {
+    for (int i = 0; i < (int)rects.size(); i++) {
       const float w = float(windowSz.x) / rects.size();
       const float h = i * 8.0f;
       rects[i].x = i * w;

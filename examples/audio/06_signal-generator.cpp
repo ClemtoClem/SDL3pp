@@ -618,6 +618,7 @@ struct Main {
         auto row = ui.Row("row_master", 8.f, 0.f)
             .Style(SDL::UI::Theme::Transparent())
             .H(28.f)
+            .W(SDL::UI::Value::Pw(50.f))
             .AlignH(SDL::UI::Align::Center);
 
         m_lblMaster = ui.Label("lbl_master",

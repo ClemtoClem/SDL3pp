@@ -73,9 +73,6 @@ struct Main {
     SDL::FRect dst_rect = {(SDL::FPoint(windowSz) - textureSz) / 2.f,
                            textureSz};
 
-    // rotate it around the center of the texture; you can rotate it from a
-    // different point, too!
-    SDL::FPoint center = textureSz / 2.f;
     renderer.RenderTexture(texture, {}, dst_rect);
 
     renderer.Present();       // put it all on the screen!
