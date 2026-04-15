@@ -52,7 +52,7 @@ public:
     void Update(float dt) override { m_time += dt; }
 
     void Render(float dt) override {
-        if (m_ui) m_ui->Frame(dt);
+        if (m_ui) m_ui->Iterate(dt);
     }
 
 private:
@@ -71,6 +71,9 @@ private:
         constexpr SDL::Color kAccP  = {40, 110, 190, 255};
         constexpr SDL::Color kTxt   = {235,235,245, 255};
         constexpr SDL::Color kDanger= {145, 35, 35, 255};
+
+        m_ui->LoadFont("DejaVuSans", m_ctx->assetsBasePath + "fonts/DejaVuSans.ttf");
+        m_ui->SetDefaultFont("DejaVuSans", 16.f);
 
         // ── Background canvas ─────────────────────────────────────────────────────
         auto background = m_ui->CanvasWidget("background", nullptr, nullptr,

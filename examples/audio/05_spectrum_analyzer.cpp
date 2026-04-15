@@ -350,14 +350,14 @@ struct Main {
         timer.Begin();
         const float dt = timer.GetDelta();
 
-        pool.Update();
+        rm.UpdateAll();
 
         _ProcessAudio();
         _UpdateGraphs();
 
         renderer.SetDrawColor(pal::BG);
         renderer.RenderClear();
-        ui.Frame(dt);
+        ui.Iterate(dt);
         renderer.Present();
 
         timer.End();
@@ -366,7 +366,7 @@ struct Main {
 
     SDL::AppResult Event(const SDL::Event& ev) {
         if (ev.type == SDL::EVENT_QUIT) return SDL::APP_SUCCESS;
-        if (ev.type == SDL::EVENT_KEY_DOWN) {
+        else if (ev.type == SDL::EVENT_KEY_DOWN) {
             if ((ev.key.mod & SDL::KMOD_CTRL) && ev.key.key == SDL::KEYCODE_Q)
                 return SDL::APP_SUCCESS;
         }

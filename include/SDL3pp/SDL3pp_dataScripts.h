@@ -291,9 +291,9 @@ namespace SDL
     class NoneDataNode final : public DataNode
     {
     public:
-        static std::shared_ptr<NoneDataNode> Build() { return std::make_shared<NoneDataNode>(); }
+        static std::shared_ptr<NoneDataNode> Make() { return std::make_shared<NoneDataNode>(); }
         NoneDataNode() : DataNode(DataNodeType::NONE) {}
-        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Build(); }
+        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Make(); }
     };
 
     // ========================================================================= //
@@ -466,7 +466,7 @@ namespace SDL
     class ArrayDataNode : public DataNode
     {
     public:
-        static std::shared_ptr<ArrayDataNode> Build() { return std::make_shared<ArrayDataNode>(); }
+        static std::shared_ptr<ArrayDataNode> Make() { return std::make_shared<ArrayDataNode>(); }
         ArrayDataNode() : DataNode(DataNodeType::ARRAY) {}
 
         [[nodiscard]] std::shared_ptr<DataNode> clone() const override
@@ -516,7 +516,7 @@ namespace SDL
     class ObjectDataNode : public DataNode
     {
     public:
-        static std::shared_ptr<ObjectDataNode> Build() { return std::make_shared<ObjectDataNode>(); }
+        static std::shared_ptr<ObjectDataNode> Make() { return std::make_shared<ObjectDataNode>(); }
         ObjectDataNode() : DataNode(DataNodeType::OBJECT) {}
 
         [[nodiscard]] std::shared_ptr<DataNode> clone() const override
@@ -706,7 +706,7 @@ namespace SDL
                 if (up == "FALSE")
                     return BoolDataNode::Build(false);
                 if (up == "NULL" || up == "~")
-                    return NoneDataNode::Build();
+                    return NoneDataNode::Make();
             }
             {
                 char *end;
@@ -1178,14 +1178,14 @@ namespace SDL
         if (token == "false")
             return BoolDataNode::Build(false);
         if (token == "null")
-            return NoneDataNode::Build();
+            return NoneDataNode::Make();
         return NodeSerializer::parseScalar(token);
     }
 
     inline std::shared_ptr<ArrayDataNode> JSONDataDocument::parseArray(std::istream &is)
     {
         is.get();
-        auto arr = ArrayDataNode::Build();
+        auto arr = ArrayDataNode::Make();
         skipWS(is);
         if (is.peek() == ']')
         {
@@ -1207,7 +1207,7 @@ namespace SDL
     inline std::shared_ptr<ObjectDataNode> JSONDataDocument::parseObject(std::istream &is)
     {
         is.get();
-        auto obj = ObjectDataNode::Build();
+        auto obj = ObjectDataNode::Make();
         skipWS(is);
         if (is.peek() == '}')
         {
@@ -1289,7 +1289,7 @@ namespace SDL
     {
         try
         {
-            auto root = ObjectDataNode::Build();
+            auto root = ObjectDataNode::Make();
             setRoot(root);
             skipWS(is);
             if (is.peek() == '<')
@@ -1431,7 +1431,7 @@ namespace SDL
 
     inline std::shared_ptr<ObjectDataNode> XMLDataDocument::parseAttributes(std::istream &is)
     {
-        auto attrs = ObjectDataNode::Build();
+        auto attrs = ObjectDataNode::Make();
         while (is.good())
         {
             skipWS(is);
@@ -1503,7 +1503,7 @@ namespace SDL
         outTag = readName(is);
         if (outTag.empty())
             throw std::runtime_error("missing tag name");
-        auto elem = ObjectDataNode::Build();
+        auto elem = ObjectDataNode::Make();
         auto attrs = parseAttributes(is);
         if (!attrs->getValues().empty())
             elem->set(ATTR_KEY, attrs);
@@ -1552,7 +1552,7 @@ namespace SDL
             }
             else
             {
-                auto arr = ArrayDataNode::Build();
+                auto arr = ArrayDataNode::Make();
                 arr->add(existing);
                 arr->add(newNode);
                 parent->set(key, arr);
@@ -1798,7 +1798,7 @@ namespace SDL
     {
         std::string t = trim(raw);
         if (t.empty() || t == "~" || t == "null" || t == "Null" || t == "NULL")
-            return NoneDataNode::Build();
+            return NoneDataNode::Make();
         if (t == "true" || t == "True" || t == "TRUE")
             return BoolDataNode::Build(true);
         if (t == "false" || t == "False" || t == "FALSE")
@@ -1872,7 +1872,7 @@ namespace SDL
     inline std::shared_ptr<DataNode> YAMLDataDocument::parseBlock(const YLines &lines, size_t &pos, int)
     {
         if (pos >= lines.size())
-            return NoneDataNode::Build();
+            return NoneDataNode::Make();
         const auto &first = lines[pos];
         if (first.content.size() >= 2 && first.content[0] == '-' && first.content[1] == ' ')
             return parseSequence(lines, pos, first.indent);
@@ -1889,7 +1889,7 @@ namespace SDL
 
     inline std::shared_ptr<ObjectDataNode> YAMLDataDocument::parseMapping(const YLines &lines, size_t &pos, int indent)
     {
-        auto obj = ObjectDataNode::Build();
+        auto obj = ObjectDataNode::Make();
         while (pos < lines.size() && lines[pos].indent == indent)
         {
             const auto &line = lines[pos];
@@ -1911,7 +1911,7 @@ namespace SDL
 
     inline std::shared_ptr<ArrayDataNode> YAMLDataDocument::parseSequence(const YLines &lines, size_t &pos, int indent)
     {
-        auto arr = ArrayDataNode::Build();
+        auto arr = ArrayDataNode::Make();
         while (pos < lines.size() && lines[pos].indent == indent)
         {
             const auto &line = lines[pos];
@@ -1924,7 +1924,7 @@ namespace SDL
                 if (pos < lines.size() && lines[pos].indent > indent)
                     arr->add(parseBlock(lines, pos, lines[pos].indent));
                 else
-                    arr->add(NoneDataNode::Build());
+                    arr->add(NoneDataNode::Make());
             }
             else
             {
@@ -1959,7 +1959,7 @@ namespace SDL
             auto lines = preprocess(is);
             if (lines.empty())
             {
-                setRoot(ObjectDataNode::Build());
+                setRoot(ObjectDataNode::Make());
                 return std::nullopt;
             }
             size_t pos = 0;
@@ -1968,7 +1968,7 @@ namespace SDL
                 setRoot(std::dynamic_pointer_cast<ObjectDataNode>(node));
             else
             {
-                auto root = ObjectDataNode::Build();
+                auto root = ObjectDataNode::Make();
                 root->set("value", node);
                 setRoot(root);
             }
@@ -2143,7 +2143,7 @@ namespace SDL
 
     inline std::optional<DataParseError> INIDataDocument::decodeImpl(std::istream &is)
     {
-        auto root = ObjectDataNode::Build();
+        auto root = ObjectDataNode::Make();
         setRoot(root);
         auto cur = root;
         std::string line;
@@ -2159,7 +2159,7 @@ namespace SDL
                 std::string sec = trim(line.substr(1, line.size() - 2));
                 if (sec.empty())
                     return DataParseError{"empty section name", lineNum};
-                auto ns = ObjectDataNode::Build();
+                auto ns = ObjectDataNode::Make();
                 root->set(sec, ns);
                 cur = ns;
                 continue;
@@ -2369,7 +2369,7 @@ namespace SDL
     inline std::shared_ptr<DataNode> TOMLDataDocument::parseInlineArr(const std::string &text, size_t &pos, int lineNum)
     {
         ++pos;
-        auto arr = ArrayDataNode::Build();
+        auto arr = ArrayDataNode::Make();
         while (pos < text.size())
         {
             while (pos < text.size() && std::isspace((unsigned char)text[pos]))
@@ -2423,7 +2423,7 @@ namespace SDL
     inline std::shared_ptr<DataNode> TOMLDataDocument::parseInlineTab(const std::string &text, size_t &pos, int lineNum)
     {
         ++pos;
-        auto obj = ObjectDataNode::Build();
+        auto obj = ObjectDataNode::Make();
         while (pos < text.size())
         {
             while (pos < text.size() && std::isspace((unsigned char)text[pos]))
@@ -2484,7 +2484,7 @@ namespace SDL
             for (size_t i = 0; i + 1 < keys.size(); ++i)
             {
                 if (!tgt->has(keys[i]))
-                    tgt->set(keys[i], ObjectDataNode::Build());
+                    tgt->set(keys[i], ObjectDataNode::Make());
                 tgt = std::dynamic_pointer_cast<ObjectDataNode>(tgt->get(keys[i]));
             }
             tgt->set(keys.back(), val);
@@ -2566,13 +2566,13 @@ namespace SDL
             {
                 if (isLast && createArr)
                 {
-                    auto arr = ArrayDataNode::Build();
-                    auto e = ObjectDataNode::Build();
+                    auto arr = ArrayDataNode::Make();
+                    auto e = ObjectDataNode::Make();
                     arr->add(e);
                     cur->set(key, arr);
                     return e;
                 }
-                auto ch = ObjectDataNode::Build();
+                auto ch = ObjectDataNode::Make();
                 cur->set(key, ch);
                 cur = ch;
             }
@@ -2584,7 +2584,7 @@ namespace SDL
                     auto arr = std::dynamic_pointer_cast<ArrayDataNode>(ex);
                     if (isLast && createArr)
                     {
-                        auto e = ObjectDataNode::Build();
+                        auto e = ObjectDataNode::Make();
                         arr->add(e);
                         return e;
                     }
@@ -2607,7 +2607,7 @@ namespace SDL
     {
         try
         {
-            auto root = ObjectDataNode::Build();
+            auto root = ObjectDataNode::Make();
             setRoot(root);
             auto cur = root;
             std::string line;
@@ -2658,7 +2658,7 @@ namespace SDL
                 {
                     const std::string &k = keys[i];
                     if (!tgt->has(k))
-                        tgt->set(k, ObjectDataNode::Build());
+                        tgt->set(k, ObjectDataNode::Make());
                     tgt = std::dynamic_pointer_cast<ObjectDataNode>(tgt->get(k));
                 }
                 tgt->set(keys.back(), value);
@@ -2936,7 +2936,7 @@ namespace SDL
 
     inline std::optional<DataParseError> CSVDataDocument::decodeImpl(std::istream &is)
     {
-        auto root = ObjectDataNode::Build();
+        auto root = ObjectDataNode::Make();
         setRoot(root);
 
         std::string line;
@@ -2951,7 +2951,7 @@ namespace SDL
         headers = splitLine(line);
         for (const auto &h : headers)
         {
-            auto col = ArrayDataNode::Build();
+            auto col = ArrayDataNode::Make();
             root->set(trim(h), col);
             columns.push_back(col);
         }

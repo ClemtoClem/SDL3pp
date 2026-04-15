@@ -269,6 +269,14 @@ public:
     , m_size_bytes(data != nullptr ? size_bytes : 0) {
   }
 
+  /**
+   * From std::string_view
+   */
+  constexpr SourceBytes(const std::string_view& str)
+    : m_data(str.data()),
+      m_size_bytes(str.size()) {
+  }
+
   /// Retrieves contained size
   constexpr size_t size() const { return m_size_bytes; }
 

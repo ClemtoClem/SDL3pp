@@ -424,7 +424,7 @@ struct Main {
 
         renderer.SetDrawColor(pal::BG);
         renderer.RenderClear();
-        ui.Frame(dt);
+        ui.Iterate(dt);
         renderer.Present();
 
         timer.End();

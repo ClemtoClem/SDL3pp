@@ -27,6 +27,9 @@ public:
         m_ui      = std::make_unique<SDL::UI::System>(
             *m_uiWorld, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
 
+        m_ui->LoadFont("DejaVuSans", m_ctx->assetsBasePath + "fonts/DejaVuSans.ttf");
+        m_ui->SetDefaultFont("DejaVuSans", 16.f);
+
         // Full-screen canvas — drives all drawing
         m_ui->CanvasWidget("canvas", nullptr, nullptr,
             [this](SDL::RendererRef r, SDL::FRect rect){ _Draw(r, rect); })
@@ -67,7 +70,7 @@ public:
     }
 
     void Render(float dt) override {
-        if (m_ui) m_ui->Frame(dt);
+        if (m_ui) m_ui->Iterate(dt);
     }
 
 private:
@@ -111,7 +114,7 @@ private:
             _Text(r, "Press SPACE to start",
                   rect.x + rect.w*0.5f, rect.y + rect.h*0.68f, 1.5f);
         }
-        
+
         // Fade-in vignette
         float fade = SDL::Clamp(1.f - m_time / 0.8f, 0.f, 1.f);
         if (fade > 0.02f) {

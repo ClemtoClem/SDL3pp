@@ -84,6 +84,7 @@ namespace SDL {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ResourcePool;
+struct ResourcePoolPtr;
 class ResourceManager;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -566,6 +567,31 @@ private:
       m_pendingCount.fetch_sub(1, std::memory_order_acq_rel);
     }
   }
+};
+
+struct ResourcePoolPtr {
+  ResourcePool* pool;
+
+  /**
+   * A non-owning reference to a ResourcePool, used for passing pools around
+   * without transferring ownership.  This is just a thin wrapper around a raw
+   */
+  ResourcePoolPtr() : pool(nullptr) {}
+
+  /**
+   * Construct from a raw pointer.  This does not take ownership; the caller is
+   * responsible for ensuring the pointer remains valid while the ResourcePoolPtr is used.
+   */
+  explicit ResourcePoolPtr(ResourcePool* p) : pool(p) {}
+
+  /**
+   * Allow implicit conversion from ResourcePool* to ResourcePoolPtr for convenience.
+   * This does not take ownership; the caller is responsible for ensuring the pointer remains valid while the ResourcePoolPtr is used.
+   */
+  ResourcePool* operator->() { return pool; }
+  const ResourcePool* operator->() const { return pool; }
+
+  explicit operator bool() const noexcept { return pool != nullptr; }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

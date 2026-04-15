@@ -195,7 +195,7 @@ public:
     }
 
     void Render(float dt) override {
-        if (m_ui) m_ui->Frame(dt); // triggers Canvas renderCb → _RenderGame
+        if (m_ui) m_ui->Iterate(dt); // triggers Canvas renderCb → _RenderGame
     }
 
     // ── Public map loader (used by teleportation too) ─────────────────────────
@@ -271,6 +271,9 @@ private:
         constexpr SDL::Color kGreen   = {80, 220, 120, 255};
         constexpr SDL::Color kYellow  = {240,200,  60, 255};
         constexpr SDL::Color kDark    = {35,  40,  58, 255};
+
+        m_ui->LoadFont("DejaVuSans", m_ctx->assetsBasePath + "fonts/DejaVuSans.ttf");
+        m_ui->SetDefaultFont("DejaVuSans", 16.f);
 
         // ── Health group ──────────────────────────────────────────────────────
         m_lblHealth = m_ui->Label("hpLbl", "HP: 100/100")
@@ -728,6 +731,8 @@ private:
             }
         }
         if (m_tilesetTex) {
+            m_tilesetTex.SetBlendMode(SDL::BLENDMODE_BLEND);
+            m_tilesetTex.SetScaleMode(SDL::SCALEMODE_NEAREST);
             SDL::Point sz = m_tilesetTex.GetSize();
             m_tilesetCols = std::max(1, sz.x / m_tilesetTileSize);
         }

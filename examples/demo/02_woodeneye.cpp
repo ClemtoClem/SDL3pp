@@ -1619,7 +1619,7 @@ struct Main
         }
 
         // HUD overlay: crosshair, HP bar, score, FPS via SDL3pp_ui Canvas
-        ui.Frame(frameTimer.GetDelta());
+        ui.Iterate(frameTimer.GetDelta());
         renderer.Present();
     }
 
@@ -1637,7 +1637,7 @@ struct Main
         for (int y = 0; y < sz.y; y += 4)
             renderer.RenderLine({0.f, (float)y}, {(float)sz.x, (float)y});
 
-        ui.Frame(frameTimer.GetDelta());
+        ui.Iterate(frameTimer.GetDelta());
         renderer.Present();
     }
 
@@ -1649,7 +1649,7 @@ struct Main
     {
         renderer.SetDrawColor({5, 0, 0, 255});
         renderer.RenderClear();
-        ui.Frame(frameTimer.GetDelta());
+        ui.Iterate(frameTimer.GetDelta());
         renderer.Present();
     }
 
@@ -2016,7 +2016,7 @@ struct Main
             ui.Label("hint2", "WASD+Space: move   Mouse: look   LMB: fire   ESC: quit")
                 .TextColor(kHint));
 
-        // Page: transparent (scanlines drawn raw before ui.Frame()), panel centered
+        // Page: transparent (scanlines drawn raw before ui.Iterate()), panel centered
         auto page = ui.Column("menu_page", 16.f, 0.f)
             .W(SDL::UI::Value::Ww(100))
             .H(SDL::UI::Value::Wh(100))

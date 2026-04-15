@@ -160,7 +160,7 @@
  *   .AsRoot();
  *
  * // Each frame:
- * ui.Frame(dt);
+ * ui.Iterate(dt);
  * ```
  */
 
@@ -330,7 +330,6 @@ namespace UI {
 
         FPoint parentSize     = {0.f, 0.f};
         FBox   parentPadding  = {0.f, 0.f, 0.f, 0.f};
-        FBox   parentBorders  = {0.f, 0.f, 0.f, 0.f};
         float  parentFontSize = SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
     };
 
@@ -409,10 +408,10 @@ namespace UI {
                     base = (val / 100.f) * ctx.parentSize.y;
                     break;
                 case Unit::Pcw:
-                    base = (val / 100.f) * (ctx.parentSize.x - ctx.parentPadding.GetH() - ctx.parentBorders.GetH());
+                    base = (val / 100.f) * (ctx.parentSize.x - ctx.parentPadding.GetH());
                     break;
                 case Unit::Pch:
-                    base = (val / 100.f) * (ctx.parentSize.y - ctx.parentPadding.GetV() - ctx.parentBorders.GetV());
+                    base = (val / 100.f) * (ctx.parentSize.y - ctx.parentPadding.GetV());
                     break;
                 case Unit::Pfs:
                     base = (val / 100.f) * ctx.parentFontSize;
@@ -1651,7 +1650,7 @@ namespace UI {
             _CanvasEvent(ev);
         }
 
-        void Frame(float dt) {
+        void Iterate(float dt) {
             m_pool.Update();
 
             m_dt = dt;
@@ -1890,7 +1889,7 @@ namespace UI {
         /// Build a child LayoutContext from the current viewport + root info + the
         /// resolved parent content area and layout props.
         LayoutContext _MakeChildCtx(const LayoutContext &parentCtx,
-                                    const FPoint& contentSize, const FBox& borders,
+                                    const FPoint& contentSize,
                                     const LayoutProps &lp) const noexcept { 
             LayoutContext cc;
             cc.windowSize     = parentCtx.windowSize;
@@ -1899,7 +1898,6 @@ namespace UI {
             cc.rootFontSize   = parentCtx.rootFontSize;
             cc.parentSize     = contentSize;
             cc.parentPadding  = lp.padding;
-            cc.parentBorders  = borders;
             cc.parentFontSize = parentCtx.rootFontSize; 
             return cc;
         }
@@ -1982,7 +1980,6 @@ namespace UI {
             auto *w  = m_world.Get<Widget>(e);
             auto *lp = m_world.Get<LayoutProps>(e);
             auto *cr = m_world.Get<ComputedRect>(e);
-            auto *s  = m_world.Get<Style>(e);
             if (!w || !lp || !cr)
                 return {};
             if (!Has(w->behavior, BehaviorFlag::Visible)) {
@@ -2013,7 +2010,7 @@ namespace UI {
             FPoint intr = _IntrinsicSize(e);
 
             // Contexte transmis aux enfants.
-            LayoutContext cc = _MakeChildCtx(ctx, {cW, cH}, s ? s->borders : FBox(0.f), *lp);
+            LayoutContext cc = _MakeChildCtx(ctx, {cW, cH}, *lp);
 
             float chW = 0.f, chH = 0.f;
             float curLineW = 0.f, curLineH = 0.f;

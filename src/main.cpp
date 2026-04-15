@@ -247,7 +247,7 @@ struct Main {
         renderer.RenderClear();
 
         m_current->Update(dt);   // game logic
-        m_current->Render(dt);   // calls m_ui->Frame(dt) internally
+        m_current->Render(dt);   // calls m_ui->Iterate(dt) internally
 
         //_DrawOverlay();          // FPS counter, always on top
 

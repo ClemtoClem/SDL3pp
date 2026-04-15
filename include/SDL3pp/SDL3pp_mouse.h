@@ -657,6 +657,9 @@ inline WindowRef GetMouseFocus() { return {SDL_GetMouseFocus()}; }
 inline MouseButtonFlags GetMouseState(float* x, float* y) {
   return SDL_GetMouseState(x, y);
 }
+inline MouseButtonFlags GetMouseState(float& x, float& y) {
+  return SDL_GetMouseState(&x, &y);
+}
 
 /**
  * Query the platform for the asynchronous mouse button state and the
@@ -696,6 +699,9 @@ inline MouseButtonFlags GetMouseState(float* x, float* y) {
 inline MouseButtonFlags GetGlobalMouseState(float* x, float* y) {
   return SDL_GetGlobalMouseState(x, y);
 }
+inline MouseButtonFlags GetGlobalMouseState(float& x, float& y) {
+  return SDL_GetGlobalMouseState(&x, &y);
+}
 
 /**
  * Query SDL's cache for the synchronous mouse button state and accumulated
@@ -732,6 +738,9 @@ inline MouseButtonFlags GetGlobalMouseState(float* x, float* y) {
  */
 inline MouseButtonFlags GetRelativeMouseState(float* x, float* y) {
   return SDL_GetRelativeMouseState(x, y);
+}
+inline MouseButtonFlags GetRelativeMouseState(float& x, float& y) {
+  return SDL_GetRelativeMouseState(&x, &y);
 }
 
 inline void Window::WarpMouse(const FPointRaw& p) {

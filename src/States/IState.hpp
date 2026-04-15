@@ -46,7 +46,7 @@ struct IState {
     /// Game-logic update (called every frame, before Render).
     virtual void Update(float dt) = 0;
 
-    /// Rendering pass — calls ui.Frame(dt) internally.
+    /// Rendering pass — calls ui.Iterate(dt) internally.
     virtual void Render(float dt) = 0;
 };
 

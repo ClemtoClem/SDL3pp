@@ -189,7 +189,7 @@ struct Main {
 
         renderer.SetDrawColor(pal::BG);
         renderer.RenderClear();
-        ui.Frame(dt);
+        ui.Iterate(dt);
         renderer.Present();
         m_frameTimer.End();
         return SDL::APP_CONTINUE;
@@ -347,10 +347,10 @@ struct Main {
             .Grow(1).Style(SDL::UI::Theme::Transparent())
             .AlignH(SDL::UI::Align::Left);
         auto left  = ui.Column("bc_left",  12.f, 0.f)
-            .W(SDL::UI::Value::Pcw(50.f))
+            .W(SDL::UI::Value::Pcw(50.f)-6.f)
             .Children(cardLbl, cardBtn);
         auto right = ui.Column("bc_right", 12.f, 0.f)
-            .W(SDL::UI::Value::Pcw(50.f))
+            .W(SDL::UI::Value::Pcw(50.f)-6.f)
             .Children(cardTog, cardRad);
         cols.Children(left, right);
         page.Child(cols);
@@ -466,10 +466,10 @@ struct Main {
             .Grow(1).Style(SDL::UI::Theme::Transparent())
             .AlignH(SDL::UI::Align::Left);
         auto left  = ui.Column("cc_l", 12.f, 0.f)
-            .W(SDL::UI::Value::Pcw(50.f))
+            .W(SDL::UI::Value::Pcw(50.f)-6.f)
             .Children(cardSld, cardKnob);
         auto right = ui.Column("cc_r", 12.f, 0.f)
-            .W(SDL::UI::Value::Pcw(50.f))
+            .W(SDL::UI::Value::Pcw(50.f)-6.f)
             .Child(cardProg);
         cols.Children(left, right);
         page.Child(cols);
@@ -542,10 +542,10 @@ struct Main {
             .Grow(1).Style(SDL::UI::Theme::Transparent())
             .AlignH(SDL::UI::Align::Left);
         auto left  = ui.Column("is_l", 12.f, 0.f)
-            .W(SDL::UI::Value::Pcw(50.f))
+            .W(SDL::UI::Value::Pcw(50.f)-6.f)
             .Child(cardInp);
         auto right = ui.Column("is_r", 12.f, 0.f)
-            .W(SDL::UI::Value::Pcw(50.f))
+            .W(SDL::UI::Value::Pcw(50.f)-6.f)
             .Children(cardSB, cardSV);
         cols.Children(left, right);
         page.Child(cols);
@@ -676,10 +676,10 @@ struct Main {
             .AlignH(SDL::UI::Align::Left);
         
         auto left  = ui.Column("ic_l", 12.f, 0.f)
-            .W(SDL::UI::Value::Pw(50.f))
+            .W(SDL::UI::Value::Pcw(50.f)-6.f)
             .Children(cardImg, cardCvs);
         auto right = ui.Column("ic_r", 12.f, 0.f)
-            .W(SDL::UI::Value::Pw(50.f))
+            .W(SDL::UI::Value::Pcw(50.f)-6.f)
             .Child(cardInfo);
         
         cols.Children(left, right);

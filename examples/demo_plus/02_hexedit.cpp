@@ -511,7 +511,7 @@ struct Main {
 
         renderer.SetDrawColor(pal::background);
         renderer.RenderClear();
-        ui.Frame((float)hex.delta.count() * 1e-9f);
+        ui.Iterate((float)hex.delta.count() * 1e-9f);
         renderer.Present();
         return SDL::APP_CONTINUE;
     }
