@@ -323,7 +323,7 @@ namespace SDL
     class BoolDataNode final : public ValueDataNode<bool>
     {
     public:
-        static std::shared_ptr<BoolDataNode> Build(bool v = false) { return std::make_shared<BoolDataNode>(v); }
+        static std::shared_ptr<BoolDataNode> Make(bool v = false) { return std::make_shared<BoolDataNode>(v); }
         explicit BoolDataNode(bool v = false) : ValueDataNode(DataNodeType::BOOLEAN, v) {}
         bool parse(const std::string &text) override
         {
@@ -341,20 +341,20 @@ namespace SDL
             }
             return false;
         }
-        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Build(_value); }
+        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Make(_value); }
     };
 
     class StringDataNode final : public ValueDataNode<std::string>
     {
     public:
-        static std::shared_ptr<StringDataNode> Build(std::string v = {}) { return std::make_shared<StringDataNode>(std::move(v)); }
+        static std::shared_ptr<StringDataNode> Make(std::string v = {}) { return std::make_shared<StringDataNode>(std::move(v)); }
         explicit StringDataNode(std::string v = {}) : ValueDataNode(DataNodeType::STRING, std::move(v)) {}
         bool parse(const std::string &text) override
         {
             _value = text;
             return true;
         }
-        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Build(_value); }
+        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Make(_value); }
     };
 
     // ========================================================================= //
@@ -383,7 +383,7 @@ namespace SDL
     class ClassName final : public ValueDataNode<CppType>                                        \
     {                                                                                            \
     public:                                                                                      \
-        static std::shared_ptr<ClassName> Build(CppType v = 0)                                   \
+        static std::shared_ptr<ClassName> Make(CppType v = 0)                                   \
         {                                                                                        \
             return std::make_shared<ClassName>(v);                                               \
         }                                                                                        \
@@ -396,14 +396,14 @@ namespace SDL
             _value = static_cast<CppType>(r);                                                    \
             return true;                                                                         \
         }                                                                                        \
-        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Build(_value); } \
+        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Make(_value); } \
     };
 
 #define SDL3PP_DS_UINT_NODE(ClassName, CppType, TypeEnum)                                        \
     class ClassName final : public ValueDataNode<CppType>                                        \
     {                                                                                            \
     public:                                                                                      \
-        static std::shared_ptr<ClassName> Build(CppType v = 0)                                   \
+        static std::shared_ptr<ClassName> Make(CppType v = 0)                                   \
         {                                                                                        \
             return std::make_shared<ClassName>(v);                                               \
         }                                                                                        \
@@ -416,14 +416,14 @@ namespace SDL
             _value = static_cast<CppType>(r);                                                    \
             return true;                                                                         \
         }                                                                                        \
-        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Build(_value); } \
+        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Make(_value); } \
     };
 
 #define SDL3PP_DS_FLOAT_NODE(ClassName, CppType, TypeEnum, StdFn)                                \
     class ClassName final : public ValueDataNode<CppType>                                        \
     {                                                                                            \
     public:                                                                                      \
-        static std::shared_ptr<ClassName> Build(CppType v = 0)                                   \
+        static std::shared_ptr<ClassName> Make(CppType v = 0)                                   \
         {                                                                                        \
             return std::make_shared<ClassName>(v);                                               \
         }                                                                                        \
@@ -440,7 +440,7 @@ namespace SDL
                 return false;                                                                    \
             }                                                                                    \
         }                                                                                        \
-        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Build(_value); } \
+        [[nodiscard]] std::shared_ptr<DataNode> clone() const override { return Make(_value); } \
     };
 
     SDL3PP_DS_INT_NODE(S8DataNode, int8_t, S8)
@@ -702,9 +702,9 @@ namespace SDL
                 std::string up = text;
                 std::transform(up.begin(), up.end(), up.begin(), ::toupper);
                 if (up == "TRUE")
-                    return BoolDataNode::Build(true);
+                    return BoolDataNode::Make(true);
                 if (up == "FALSE")
-                    return BoolDataNode::Build(false);
+                    return BoolDataNode::Make(false);
                 if (up == "NULL" || up == "~")
                     return NoneDataNode::Make();
             }
@@ -712,21 +712,21 @@ namespace SDL
                 char *end;
                 long v = std::strtol(text.c_str(), &end, 10);
                 if (*end == '\0' && end != text.c_str())
-                    return S64DataNode::Build(static_cast<int64_t>(v));
+                    return S64DataNode::Make(static_cast<int64_t>(v));
             }
             {
                 char *end;
                 unsigned long v = std::strtoul(text.c_str(), &end, 10);
                 if (*end == '\0' && end != text.c_str())
-                    return U64DataNode::Build(static_cast<uint64_t>(v));
+                    return U64DataNode::Make(static_cast<uint64_t>(v));
             }
             {
                 char *end;
                 double v = std::strtod(text.c_str(), &end);
                 if (*end == '\0' && end != text.c_str())
-                    return F64DataNode::Build(v);
+                    return F64DataNode::Make(v);
             }
-            return StringDataNode::Build(text);
+            return StringDataNode::Make(text);
         }
 
     } // namespace NodeSerializer
@@ -1163,7 +1163,7 @@ namespace SDL
         }
         if (is.get() != '"')
             throw std::runtime_error("unterminated string");
-        return StringDataNode::Build(value);
+        return StringDataNode::Make(value);
     }
 
     inline std::shared_ptr<DataNode> JSONDataDocument::parseLiteral(std::istream &is)
@@ -1174,9 +1174,9 @@ namespace SDL
         if (token.empty())
             throw std::runtime_error("expected value");
         if (token == "true")
-            return BoolDataNode::Build(true);
+            return BoolDataNode::Make(true);
         if (token == "false")
-            return BoolDataNode::Build(false);
+            return BoolDataNode::Make(false);
         if (token == "null")
             return NoneDataNode::Make();
         return NodeSerializer::parseScalar(token);
@@ -1444,7 +1444,7 @@ namespace SDL
             skipWS(is);
             if (is.get() != '=')
                 throw std::runtime_error("expected '=' after attribute: " + name);
-            attrs->set(name, StringDataNode::Build(readAttributeValue(is)));
+            attrs->set(name, StringDataNode::Make(readAttributeValue(is)));
         }
         return attrs;
     }
@@ -1489,7 +1489,7 @@ namespace SDL
                 if (text.find_first_not_of(" \t\n\r") != std::string::npos)
                 {
                     std::string key = std::string(1, CHILD_PFX) + std::to_string(childIdx++) + ":" + TEXT_KEY;
-                    parent->set(key, StringDataNode::Build(text));
+                    parent->set(key, StringDataNode::Make(text));
                 }
             }
         }
@@ -1800,9 +1800,9 @@ namespace SDL
         if (t.empty() || t == "~" || t == "null" || t == "Null" || t == "NULL")
             return NoneDataNode::Make();
         if (t == "true" || t == "True" || t == "TRUE")
-            return BoolDataNode::Build(true);
+            return BoolDataNode::Make(true);
         if (t == "false" || t == "False" || t == "FALSE")
-            return BoolDataNode::Build(false);
+            return BoolDataNode::Make(false);
         if (t.size() >= 2 && ((t.front() == '"' && t.back() == '"') || (t.front() == '\'' && t.back() == '\'')))
         {
             std::string val = unquote(t);
@@ -1837,23 +1837,23 @@ namespace SDL
                     else
                         unesc += val[i];
                 }
-                return StringDataNode::Build(unesc);
+                return StringDataNode::Make(unesc);
             }
-            return StringDataNode::Build(val);
+            return StringDataNode::Make(val);
         }
         if (t == ".inf" || t == "+.inf")
-            return F64DataNode::Build(std::numeric_limits<double>::infinity());
+            return F64DataNode::Make(std::numeric_limits<double>::infinity());
         if (t == "-.inf")
-            return F64DataNode::Build(-std::numeric_limits<double>::infinity());
+            return F64DataNode::Make(-std::numeric_limits<double>::infinity());
         if (t == ".nan")
-            return F64DataNode::Build(std::numeric_limits<double>::quiet_NaN());
+            return F64DataNode::Make(std::numeric_limits<double>::quiet_NaN());
         {
             auto dc = std::count(t.begin(), t.end(), '.');
             if ((dc == 1 || t.find('e') != std::string::npos || t.find('E') != std::string::npos) && dc < 2)
             {
                 try
                 {
-                    return F64DataNode::Build(std::stod(t));
+                    return F64DataNode::Make(std::stod(t));
                 }
                 catch (...)
                 {
@@ -1864,9 +1864,9 @@ namespace SDL
             char *end;
             long v = std::strtol(t.c_str(), &end, 10);
             if (*end == '\0' && end != t.c_str())
-                return S64DataNode::Build(static_cast<int64_t>(v));
+                return S64DataNode::Make(static_cast<int64_t>(v));
         }
-        return StringDataNode::Build(t);
+        return StringDataNode::Make(t);
     }
 
     inline std::shared_ptr<DataNode> YAMLDataDocument::parseBlock(const YLines &lines, size_t &pos, int)
@@ -2170,7 +2170,7 @@ namespace SDL
             std::string key = trim(line.substr(0, eq));
             std::string val = trim(line.substr(eq + 1));
             if (val.size() >= 2 && ((val.front() == '"' && val.back() == '"') || (val.front() == '\'' && val.back() == '\'')))
-                cur->set(key, StringDataNode::Build(val.substr(1, val.size() - 2)));
+                cur->set(key, StringDataNode::Make(val.substr(1, val.size() - 2)));
             else
                 cur->set(key, NodeSerializer::parseScalar(val));
         }
@@ -2364,7 +2364,7 @@ namespace SDL
         }
         if (pos < text.size())
             ++pos;
-        return StringDataNode::Build(val);
+        return StringDataNode::Make(val);
     }
     inline std::shared_ptr<DataNode> TOMLDataDocument::parseInlineArr(const std::string &text, size_t &pos, int lineNum)
     {
@@ -2497,9 +2497,9 @@ namespace SDL
         if (t.empty())
             throw std::runtime_error("empty value (line " + std::to_string(lineNum) + ")");
         if (t == "true")
-            return BoolDataNode::Build(true);
+            return BoolDataNode::Make(true);
         if (t == "false")
-            return BoolDataNode::Build(false);
+            return BoolDataNode::Make(false);
         if (t.front() == '"' || t.front() == '\'')
         {
             size_t pos = 0;
@@ -2516,18 +2516,18 @@ namespace SDL
             return parseInlineTab(t, pos, lineNum);
         }
         if (t.size() >= 10 && t[4] == '-' && t[7] == '-')
-            return StringDataNode::Build(t);
+            return StringDataNode::Make(t);
         if (t.find('.') != std::string::npos || t.find('e') != std::string::npos || t.find('E') != std::string::npos)
         {
             if (t == "inf" || t == "+inf")
-                return F64DataNode::Build(std::numeric_limits<double>::infinity());
+                return F64DataNode::Make(std::numeric_limits<double>::infinity());
             if (t == "-inf")
-                return F64DataNode::Build(-std::numeric_limits<double>::infinity());
+                return F64DataNode::Make(-std::numeric_limits<double>::infinity());
             if (t == "nan" || t == "+nan" || t == "-nan")
-                return F64DataNode::Build(std::numeric_limits<double>::quiet_NaN());
+                return F64DataNode::Make(std::numeric_limits<double>::quiet_NaN());
             try
             {
-                return F64DataNode::Build(std::stod(t));
+                return F64DataNode::Make(std::stod(t));
             }
             catch (...)
             {
@@ -2541,18 +2541,18 @@ namespace SDL
             try
             {
                 if (cl.substr(0, 2) == "0x")
-                    return S64DataNode::Build(static_cast<int64_t>(std::stoll(cl.substr(2), nullptr, 16)));
+                    return S64DataNode::Make(static_cast<int64_t>(std::stoll(cl.substr(2), nullptr, 16)));
                 if (cl.substr(0, 2) == "0o")
-                    return S64DataNode::Build(static_cast<int64_t>(std::stoll(cl.substr(2), nullptr, 8)));
+                    return S64DataNode::Make(static_cast<int64_t>(std::stoll(cl.substr(2), nullptr, 8)));
                 if (cl.substr(0, 2) == "0b")
-                    return S64DataNode::Build(static_cast<int64_t>(std::stoll(cl.substr(2), nullptr, 2)));
-                return S64DataNode::Build(std::stoll(cl));
+                    return S64DataNode::Make(static_cast<int64_t>(std::stoll(cl.substr(2), nullptr, 2)));
+                return S64DataNode::Make(std::stoll(cl));
             }
             catch (...)
             {
             }
         }
-        return StringDataNode::Build(t);
+        return StringDataNode::Make(t);
     }
     inline std::shared_ptr<ObjectDataNode> TOMLDataDocument::resolveTable(
         std::shared_ptr<ObjectDataNode> root, const std::vector<std::string> &path, bool createArr)

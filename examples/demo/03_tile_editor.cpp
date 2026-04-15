@@ -277,16 +277,16 @@ static void SaveMap(const TileMap& map, const std::string& path) {
     // <map attributes>
     {
         auto a = SDL::ObjectDataNode::Make();
-        a->set("version",     SDL::StringDataNode::Build("1.0"));
-        a->set("name",        SDL::StringDataNode::Build(map.name));
-        a->set("width",       SDL::S32DataNode::Build(map.width));
-        a->set("height",      SDL::S32DataNode::Build(map.height));
-        a->set("tilewidth",   SDL::S32DataNode::Build(map.tileW));
-        a->set("tileheight",  SDL::S32DataNode::Build(map.tileH));
+        a->set("version",     SDL::StringDataNode::Make("1.0"));
+        a->set("name",        SDL::StringDataNode::Make(map.name));
+        a->set("width",       SDL::S32DataNode::Make(map.width));
+        a->set("height",      SDL::S32DataNode::Make(map.height));
+        a->set("tilewidth",   SDL::S32DataNode::Make(map.tileW));
+        a->set("tileheight",  SDL::S32DataNode::Make(map.tileH));
         const char* ori = "orthogonal";
         if (map.orientation == MapOrient::Isometric) ori = "isometric";
         if (map.orientation == MapOrient::Hexagonal) ori = "hexagonal";
-        a->set("orientation", SDL::StringDataNode::Build(ori));
+        a->set("orientation", SDL::StringDataNode::Make(ori));
         mNode->set("@attributes", a);
     }
 
@@ -294,16 +294,16 @@ static void SaveMap(const TileMap& map, const std::string& path) {
     for (const auto& ts : map.tilesets) {
         auto tn = SDL::ObjectDataNode::Make();
         auto a  = SDL::ObjectDataNode::Make();
-        a->set("name",       SDL::StringDataNode::Build(ts.name));
-        a->set("source",     SDL::StringDataNode::Build(ts.path));
-        a->set("firstgid",   SDL::S32DataNode::Build((int)ts.firstGid));
-        a->set("tilewidth",  SDL::S32DataNode::Build(ts.tileW));
-        a->set("tileheight", SDL::S32DataNode::Build(ts.tileH));
-        a->set("spacing",    SDL::S32DataNode::Build(ts.spacing));
-        a->set("margin",     SDL::S32DataNode::Build(ts.margin));
-        a->set("columns",    SDL::S32DataNode::Build(ts.columns));
-        a->set("tilecount",  SDL::S32DataNode::Build(ts.tileCount));
-        a->set("smart",      SDL::BoolDataNode::Build(ts.smart));
+        a->set("name",       SDL::StringDataNode::Make(ts.name));
+        a->set("source",     SDL::StringDataNode::Make(ts.path));
+        a->set("firstgid",   SDL::S32DataNode::Make((int)ts.firstGid));
+        a->set("tilewidth",  SDL::S32DataNode::Make(ts.tileW));
+        a->set("tileheight", SDL::S32DataNode::Make(ts.tileH));
+        a->set("spacing",    SDL::S32DataNode::Make(ts.spacing));
+        a->set("margin",     SDL::S32DataNode::Make(ts.margin));
+        a->set("columns",    SDL::S32DataNode::Make(ts.columns));
+        a->set("tilecount",  SDL::S32DataNode::Make(ts.tileCount));
+        a->set("smart",      SDL::BoolDataNode::Make(ts.smart));
         tn->set("@attributes", a);
         mNode->set("tileset", tn);   // merges to array for multiple tilesets
     }
@@ -312,10 +312,10 @@ static void SaveMap(const TileMap& map, const std::string& path) {
     for (const auto& layer : map.layers) {
         auto ln = SDL::ObjectDataNode::Make();
         auto a  = SDL::ObjectDataNode::Make();
-        a->set("name",    SDL::StringDataNode::Build(layer.name));
-        a->set("visible", SDL::BoolDataNode::Build(layer.visible));
-        a->set("locked",  SDL::BoolDataNode::Build(layer.locked));
-        a->set("opacity", SDL::F32DataNode::Build(layer.opacity));
+        a->set("name",    SDL::StringDataNode::Make(layer.name));
+        a->set("visible", SDL::BoolDataNode::Make(layer.visible));
+        a->set("locked",  SDL::BoolDataNode::Make(layer.locked));
+        a->set("opacity", SDL::F32DataNode::Make(layer.opacity));
         ln->set("@attributes", a);
 
         if (layer.type == LayerType::Tile) {
@@ -326,27 +326,27 @@ static void SaveMap(const TileMap& map, const std::string& path) {
                 if (i) csv += ',';
                 csv += std::to_string((int)layer.tiles[i]);
             }
-            ln->set("data", SDL::StringDataNode::Build(csv));
+            ln->set("data", SDL::StringDataNode::Make(csv));
             mNode->set("layer", ln);
         } else {
             for (const auto& obj : layer.objects) {
                 auto on = SDL::ObjectDataNode::Make();
                 auto oa = SDL::ObjectDataNode::Make();
-                oa->set("id",       SDL::S32DataNode::Build(obj.id));
-                oa->set("name",     SDL::StringDataNode::Build(obj.name));
-                oa->set("x",        SDL::F32DataNode::Build(obj.x));
-                oa->set("y",        SDL::F32DataNode::Build(obj.y));
-                oa->set("width",    SDL::F32DataNode::Build(obj.w));
-                oa->set("height",   SDL::F32DataNode::Build(obj.h));
-                oa->set("rotation", SDL::F32DataNode::Build(obj.rotation));
+                oa->set("id",       SDL::S32DataNode::Make(obj.id));
+                oa->set("name",     SDL::StringDataNode::Make(obj.name));
+                oa->set("x",        SDL::F32DataNode::Make(obj.x));
+                oa->set("y",        SDL::F32DataNode::Make(obj.y));
+                oa->set("width",    SDL::F32DataNode::Make(obj.w));
+                oa->set("height",   SDL::F32DataNode::Make(obj.h));
+                oa->set("rotation", SDL::F32DataNode::Make(obj.rotation));
                 const char* tp = "rect";
                 if (obj.type == ObjectType::Ellipse) tp = "ellipse";
                 if (obj.type == ObjectType::Point)   tp = "point";
                 if (obj.type == ObjectType::Polygon) tp = "polygon";
                 if (obj.type == ObjectType::Tile)    tp = "tile";
-                oa->set("type", SDL::StringDataNode::Build(tp));
+                oa->set("type", SDL::StringDataNode::Make(tp));
                 if (obj.type == ObjectType::Tile)
-                    oa->set("tileid", SDL::S32DataNode::Build((int)obj.tileId));
+                    oa->set("tileid", SDL::S32DataNode::Make((int)obj.tileId));
                 on->set("@attributes", oa);
                 ln->set("object", on);
             }

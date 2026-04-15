@@ -259,8 +259,8 @@ private:
 
     // ── Rect args helper (handles 'f' suffix per value) ───────────────────────
     static std::shared_ptr<SDL::ObjectDataNode> _BuildRect(const std::string& args) {
-        auto obj = SDL::ObjectDataNode::Build();
-        obj->set(kRectTag, SDL::BoolDataNode::Build(true));
+        auto obj = SDL::ObjectDataNode::Make();
+        obj->set(kRectTag, SDL::BoolDataNode::Make(true));
         float vals[4] = {};
         int idx = 0;
         std::istringstream ss(args);
@@ -273,7 +273,7 @@ private:
             ++idx;
         }
         static const char* keys[4] = { kRectX, kRectY, kRectW, kRectH };
-        for (int i = 0; i < 4; ++i) obj->set(keys[i], SDL::F32DataNode::Build(vals[i]));
+        for (int i = 0; i < 4; ++i) obj->set(keys[i], SDL::F32DataNode::Make(vals[i]));
         return obj;
     }
 
@@ -284,7 +284,7 @@ private:
 
         if (c == '{') {
             _Get();
-            auto obj = SDL::ObjectDataNode::Build();
+            auto obj = SDL::ObjectDataNode::Make();
             _ParseBody(*obj, '}');
             return obj;
         }
@@ -292,7 +292,7 @@ private:
             _Get();
             return _ParseArray();
         }
-        if (c == '"') return SDL::StringDataNode::Build(_ParseString());
+        if (c == '"') return SDL::StringDataNode::Make(_ParseString());
 
         return _ParseSimple();
     }
@@ -352,24 +352,24 @@ private:
                 break;
             tok += _Get();
         }
-        if (tok.empty()) return SDL::NoneDataNode::Build();
+        if (tok.empty()) return SDL::NoneDataNode::Make();
 
-        if (tok == "true"  || tok == "yes") return SDL::BoolDataNode::Build(true);
-        if (tok == "false" || tok == "no")  return SDL::BoolDataNode::Build(false);
+        if (tok == "true"  || tok == "yes") return SDL::BoolDataNode::Make(true);
+        if (tok == "false" || tok == "no")  return SDL::BoolDataNode::Make(false);
 
         // Float with 'f' suffix
         if (tok.back() == 'f' || tok.back() == 'F') {
             std::string num(tok.begin(), tok.end() - 1);
-            try { return SDL::F32DataNode::Build(std::stof(num)); } catch (...) {}
+            try { return SDL::F32DataNode::Make(std::stof(num)); } catch (...) {}
         }
         // Float with '.'
         if (tok.find('.') != std::string::npos) {
-            try { return SDL::F32DataNode::Build(std::stof(tok)); } catch (...) {}
+            try { return SDL::F32DataNode::Make(std::stof(tok)); } catch (...) {}
         }
         // Integer
-        try { return SDL::S32DataNode::Build(std::stoi(tok)); } catch (...) {}
+        try { return SDL::S32DataNode::Make(std::stoi(tok)); } catch (...) {}
 
-        return SDL::StringDataNode::Build(tok);
+        return SDL::StringDataNode::Make(tok);
     }
 
     // ── Body (key=value pairs) ────────────────────────────────────────────────
@@ -391,18 +391,18 @@ private:
 
     // ── Array (anonymous items) ───────────────────────────────────────────────
     std::shared_ptr<SDL::ArrayDataNode> _ParseArray() {
-        auto arr = SDL::ArrayDataNode::Build();
+        auto arr = SDL::ArrayDataNode::Make();
         int idx = 0;
         while (true) {
             _SkipWS();
             if (m_pos >= m_src.size() || _At(']')) { if (_At(']')) _Get(); break; }
             if (_At('{')) {
                 _Get();
-                auto sub = SDL::ObjectDataNode::Build();
+                auto sub = SDL::ObjectDataNode::Make();
                 _ParseBody(*sub, '}');
                 arr->add(sub);
             } else if (_At('"')) {
-                arr->add(SDL::StringDataNode::Build(_ParseString()));
+                arr->add(SDL::StringDataNode::Make(_ParseString()));
             } else {
                 arr->add(_ParseSimple());
             }
@@ -427,7 +427,7 @@ public:
 protected:
     std::optional<SDL::DataParseError> decodeImpl(std::istream& is) override {
         std::string src(std::istreambuf_iterator<char>(is), {});
-        auto root = SDL::ObjectDataNode::Build();
+        auto root = SDL::ObjectDataNode::Make();
         setRoot(root);
         try {
             GameScriptParser parser(std::move(src));

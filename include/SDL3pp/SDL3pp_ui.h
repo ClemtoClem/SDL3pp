@@ -542,6 +542,42 @@ namespace UI {
         std::string text, placeholder;
         int cursor = 0;
         float blinkTimer = 0.f;
+
+        // ── Selection ──────────────────────────────────────────────────────────
+        int  selAnchor = -1;
+        int  selFocus  = -1;
+        bool selectDragging = false;
+        SDL::Color highlightColor = {70, 130, 210, 90};
+
+        [[nodiscard]] bool HasSelection() const noexcept {
+            return selAnchor >= 0 && selFocus >= 0 && selAnchor != selFocus;
+        }
+        [[nodiscard]] int SelMin() const noexcept { return (selAnchor < selFocus) ? selAnchor : selFocus; }
+        [[nodiscard]] int SelMax() const noexcept { return (selAnchor > selFocus) ? selAnchor : selFocus; }
+        
+        [[nodiscard]] std::string GetSelectedText() const {
+            if (!HasSelection()) return {};
+            int a = std::clamp(SelMin(), 0, (int)text.size());
+            int b = std::clamp(SelMax(), 0, (int)text.size());
+            return (a < b) ? text.substr(a, b - a) : std::string{};
+        }
+        
+        void ClearSelection() noexcept { selAnchor = selFocus = -1; }
+        
+        void SetSelection(int anchor, int focus) noexcept {
+            int sz = (int)text.size();
+            selAnchor = std::clamp(anchor, 0, sz);
+            selFocus  = std::clamp(focus,  0, sz);
+        }
+
+        void DeleteSelection() {
+            if (!HasSelection()) return;
+            int a = std::clamp(SelMin(), 0, (int)text.size());
+            int b = std::clamp(SelMax(), 0, (int)text.size());
+            if (a < b) text.erase(a, b - a);
+            cursor = a;
+            ClearSelection();
+        }
     };
 
     struct SliderData {
@@ -1644,6 +1680,18 @@ namespace UI {
                 case SDL::EVENT_MOUSE_WHEEL:
                     _HandleScroll(ev.wheel.x, ev.wheel.y);
                     break;
+                case SDL::EVENT_DROP_TEXT:
+                    if (m_focused != ECS::NullEntity && m_world.IsAlive(m_focused)) {
+                        auto *w = m_world.Get<Widget>(m_focused);
+                        if (w && Has(w->behavior, BehaviorFlag::Enable)) {
+                            auto processDrop = [&]<typename T>(T* data) {
+                                if (data) _InsertText(data, std::string_view(ev.drop.data));
+                            };
+                            if (w->type == WidgetType::Input) processDrop(m_world.Get<Content>(m_focused));
+                            else if (w->type == WidgetType::TextArea) processDrop(m_world.Get<TextAreaData>(m_focused));
+                        }
+                    }
+                    break;
                 default:
                     break;
             }
@@ -1830,7 +1878,7 @@ namespace UI {
         }
 
 
-
+        // ── Make widget ─────────────────────────────────────────────────────────────────────────────
         ECS::EntityId _Make(const std::string &n, WidgetType k) {
             ECS::EntityId e = m_world.CreateEntity();
 
@@ -1937,6 +1985,177 @@ namespace UI {
                 showY = !autoY || (lp.contentH > viewH - t);
         }
 
+        // ── Text Edition Helpers ──────────────────────────────────────────────────────
+
+        /// Unifie l'accès au curseur entre Content et TextAreaData
+        template <typename T>
+        int& _GetCursor(T* data) {
+            if constexpr (std::is_same_v<T, TextAreaData>) return data->cursorPos;
+            else return data->cursor;
+        }
+
+        /// Insère du texte en écrasant la sélection éventuelle
+        template <typename T>
+        void _InsertText(T* data, std::string_view text) {
+            if constexpr (std::is_same_v<T, TextAreaData>) {
+                data->Insert(text); // TextAreaData s'occupe des Spans
+            } else {
+                if (data->HasSelection()) data->DeleteSelection();
+                data->text.insert(_GetCursor(data), text);
+                _GetCursor(data) += (int)text.size();
+                data->ClearSelection();
+            }
+        }
+
+        /// Déplace le curseur et gère la sélection continue (touche Shift)
+        template <typename T>
+        void _MoveTextCursor(T* data, int newPos, bool shift) {
+            int& cursor = _GetCursor(data);
+            if (shift) {
+                if (!data->HasSelection()) data->selAnchor = cursor;
+                cursor = newPos;
+                data->selFocus = newPos;
+            } else {
+                cursor = newPos;
+                data->ClearSelection();
+            }
+        }
+
+        [[nodiscard]] static int _TextWordLeft(const std::string& text, int pos) noexcept {
+            if (pos <= 0) return 0; 
+            --pos;
+            while (pos > 0 && !std::isalnum((unsigned char)text[pos - 1])) --pos;
+            while (pos > 0 && std::isalnum((unsigned char)text[pos - 1])) --pos;
+            return pos;
+        }
+
+        [[nodiscard]] static int _TextWordRight(const std::string& text, int pos) noexcept {
+            int sz = (int)text.size();
+            while (pos < sz && !std::isalnum((unsigned char)text[pos])) ++pos;
+            while (pos < sz && std::isalnum((unsigned char)text[pos])) ++pos;
+            return pos;
+        }
+
+        /// Gère tous les raccourcis communs (Ctrl+C, Ctrl+V, Flèches, Suppr...)
+        template <typename T>
+        bool _HandleCommonTextKeys(T* data, SDL::Keycode k, SDL::Keymod mod, Callbacks* cb) {
+            int& cursor = _GetCursor(data);
+            const bool ctrl  = (mod & SDL::KMOD_CTRL)  != 0;
+            const bool shift = (mod & SDL::KMOD_SHIFT) != 0;
+
+            switch (k) {
+                case SDL::KEYCODE_BACKSPACE:
+                    if (data->HasSelection()) {
+                        data->DeleteSelection();
+                    } else if (cursor > 0) {
+                        data->text.erase((size_t)(cursor - 1), 1);
+                        if constexpr (std::is_same_v<T, TextAreaData>) data->_ShiftSpans(cursor - 1, -1);
+                        --cursor;
+                    }
+                    if (cb && cb->onTextChange) cb->onTextChange(data->text);
+                    return true;
+
+                case SDL::KEYCODE_DELETE:
+                    if (data->HasSelection()) {
+                        data->DeleteSelection();
+                    } else if (cursor < (int)data->text.size()) {
+                        data->text.erase((size_t)cursor, 1);
+                        if constexpr (std::is_same_v<T, TextAreaData>) data->_ShiftSpans(cursor, -1);
+                    }
+                    if (cb && cb->onTextChange) cb->onTextChange(data->text);
+                    return true;
+
+                case SDL::KEYCODE_LEFT:
+                    if (!shift && data->HasSelection()) _MoveTextCursor(data, data->SelMin(), false);
+                    else if (ctrl) _MoveTextCursor(data, _TextWordLeft(data->text, cursor), shift);
+                    else _MoveTextCursor(data, SDL::Max(0, cursor - 1), shift);
+                    return true;
+
+                case SDL::KEYCODE_RIGHT:
+                    if (!shift && data->HasSelection()) _MoveTextCursor(data, data->SelMax(), false);
+                    else if (ctrl) _MoveTextCursor(data, _TextWordRight(data->text, cursor), shift);
+                    else _MoveTextCursor(data, SDL::Min((int)data->text.size(), cursor + 1), shift);
+                    return true;
+
+                case SDL::KEYCODE_HOME:
+                    if constexpr (std::is_same_v<T, TextAreaData>) {
+                        if (ctrl) _MoveTextCursor(data, 0, shift);
+                        else      _MoveTextCursor(data, data->LineStart(data->LineOf(cursor)), shift);
+                    } else {
+                        _MoveTextCursor(data, 0, shift);
+                    }
+                    return true;
+
+                case SDL::KEYCODE_END:
+                    if constexpr (std::is_same_v<T, TextAreaData>) {
+                        if (ctrl) _MoveTextCursor(data, (int)data->text.size(), shift);
+                        else      _MoveTextCursor(data, data->LineEnd(data->LineOf(cursor)), shift);
+                    } else {
+                        _MoveTextCursor(data, (int)data->text.size(), shift);
+                    }
+                    return true;
+
+                case SDL::KEYCODE_A:
+                    if (ctrl) {
+                        data->SetSelection(0, (int)data->text.size());
+                        cursor = (int)data->text.size();
+                    }
+                    return true;
+
+                case SDL::KEYCODE_C:
+                    if (ctrl && data->HasSelection()) {
+                        try { SDL::SetClipboardText(data->GetSelectedText().c_str()); } catch (...) {}
+                    }
+                    return true;
+
+                case SDL::KEYCODE_X:
+                    if (ctrl && data->HasSelection()) {
+                        try { SDL::SetClipboardText(data->GetSelectedText().c_str()); } catch (...) {}
+                        data->DeleteSelection();
+                        if (cb && cb->onTextChange) cb->onTextChange(data->text);
+                    }
+                    return true;
+
+                case SDL::KEYCODE_V:
+                    if (ctrl) {
+                        try {
+                            if (SDL::HasClipboardText()) {
+                                auto clip = SDL::GetClipboardText();
+                                _InsertText(data, static_cast<std::string_view>(clip));
+                                if (cb && cb->onTextChange) cb->onTextChange(data->text);
+                            }
+                        } catch (...) {}
+                    }
+                    return true;
+            }
+            return false;
+        }
+
+        // Helper pour fusionner les logiques de Clic et de Drag
+        void _ProcessTextClickOrDrag(ECS::EntityId e, bool isDrag) {
+            auto *w   = m_world.Get<Widget>(e);
+            auto *s   = m_world.Get<Style>(e);
+            auto *cr  = m_world.Get<ComputedRect>(e);
+            auto *lp  = m_world.Get<LayoutProps>(e);
+            if (!w || !s || !cr || !lp) return;
+
+            float relX = m_mousePos.x - (cr->screen.x + lp->padding.left);
+            float relY = m_mousePos.y - (cr->screen.y + lp->padding.top);
+
+            auto applyHit = [&](auto* data, int hitPos) {
+                if (isDrag && !data->selectDragging) return;
+                _GetCursor(data) = hitPos;
+                if (isDrag) data->selFocus = hitPos;
+                else { data->SetSelection(hitPos, hitPos); data->selectDragging = true; }
+            };
+
+            if (w->type == WidgetType::TextArea) {
+                if (auto *ta = m_world.Get<TextAreaData>(e)) applyHit(ta, _TextAreaHitPos(ta, relX, relY, *s));
+            } else if (w->type == WidgetType::Input) {
+                if (auto *c = m_world.Get<Content>(e)) applyHit(c, _InputHitPos(c, relX, *s));
+            }
+        }
+
         // ── Layout ────────────────────────────────────────────────────────────────────
 
         void _ProcessLayout() {
@@ -1996,11 +2215,33 @@ namespace UI {
             float cW = SDL::Max(0.f, (wa ? ctx.parentSize.x : fw) - lp->padding.left - lp->padding.right);
             float cH = SDL::Max(0.f, (ha ? ctx.parentSize.y : fh) - lp->padding.top  - lp->padding.bottom);
 
+            if (w->type == WidgetType::ListBox) {
+                if (auto *lb = m_world.Get<ListBoxData>(e)) {
+                    // La hauteur totale est le nombre d'items * la hauteur d'un item
+                    lp->contentH = lb->items.size() * lb->itemHeight;
+                }
+            } else if (w->type == WidgetType::TextArea) {
+                auto *st = m_world.Get<Style>(e);
+                auto *ta = m_world.Get<TextAreaData>(e);
+                if (st && ta) {
+                    float lineH = _TH(*st) + 2.f;
+                    lp->contentH = ta->LineCount() * lineH;
+                    
+                    // On calcule la largeur de la ligne la plus longue (en pixels)
+                    float maxW = 0.f;
+                    for (int i = 0; i < ta->LineCount(); ++i) {
+                        float lw = _TextAreaLineX(ta, i, ta->LineEnd(i) - ta->LineStart(i), *st);
+                        maxW = SDL::Max(maxW, lw);
+                    }
+                    lp->contentW = maxW;
+                }
+            }
+
             // Pour les containers avec scrollbars automatiques, on doit pré-calculer
             // si les barres seront visibles afin de réserver leur place dans l'espace
             // contenu.  On utilise les données contentW/H du frame précédent (première
             // frame = 0, ce qui est correct car le contenu ne déborde pas encore).
-            if (w->type == WidgetType::Container) {
+            if (w->type == WidgetType::Container || w->type == WidgetType::ListBox || w->type == WidgetType::TextArea) {
                 bool showX = false, showY = false;
                 _ContainerScrollbars(*w, *lp, cW, cH, showX, showY);
                 if (showY) cW = SDL::Max(0.f, cW - lp->sbThickness);
@@ -2126,7 +2367,7 @@ namespace UI {
             float ch2 = self.h - lp->padding.top  - lp->padding.bottom;
 
             // Réserver la place des scrollbars inline pour les containers.
-            if (w->type == WidgetType::Container) {
+            if (w->type == WidgetType::Container || w->type == WidgetType::ListBox) {
                 bool showX = false, showY = false;
                 _ContainerScrollbars(*w, *lp, cw, ch2, showX, showY);
                 if (showY) cw  = SDL::Max(0.f, cw  - lp->sbThickness);
@@ -2310,6 +2551,31 @@ namespace UI {
                     i = j;
                 }
             }
+
+            if (w->type == WidgetType::Container) {
+                float maxContentX = 0.f;
+                float maxContentY = 0.f;
+
+                for (ECS::EntityId cid : ch->ids) {
+                    if (!m_world.IsAlive(cid)) continue;
+                    auto *cw2 = m_world.Get<Widget>(cid);
+                    auto *cc  = m_world.Get<ComputedRect>(cid);
+                    auto *cl  = m_world.Get<LayoutProps>(cid);
+                    if (!cw2 || !cc || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+                    if (cl->attach == AttachLayout::Fixed) continue; // Fixed ne scrolle pas
+
+                    // On calcule la position de l'enfant relativement au coin (0,0) du contenu
+                    // On rajoute lp->scrollX/Y car cr->screen est déjà décalé par l'affichage
+                    float childRelativeRight  = (cc->screen.x + cc->screen.w + cl->margin.right)  - (self.x + lp->padding.left) + lp->scrollX;
+                    float childRelativeBottom = (cc->screen.y + cc->screen.h + cl->margin.bottom) - (self.y + lp->padding.top)  + lp->scrollY;
+
+                    maxContentX = SDL::Max(maxContentX, childRelativeRight);
+                    maxContentY = SDL::Max(maxContentY, childRelativeBottom);
+                }
+
+                lp->contentW = maxContentX;
+                lp->contentH = maxContentY;
+            }
         }
 
         void _UpdateClips(ECS::EntityId e, FRect parentClip) {
@@ -2321,18 +2587,29 @@ namespace UI {
             auto *cr  = m_world.Get<ComputedRect>(e);
             if (!w || !lp || !cr) return;
 
+            // 1. Calcul du clip de base du widget lui-même
             cr->clip = cr->screen.GetIntersection(parentClip);
             cr->outer_clip = cr->clip.Extend(s->borders);
 
             FRect childClip = cr->clip; 
             
-            if (w->type == WidgetType::Container) {
+            // 2. Si c'est un container, la zone allouée aux enfants est plus petite
+            if (w->type == WidgetType::Container || w->type == WidgetType::ListBox || w->type == WidgetType::TextArea) {
+                float innerW = cr->screen.w - lp->padding.left - lp->padding.right;
+                float innerH = cr->screen.h - lp->padding.top  - lp->padding.bottom;
+                
+                // On vérifie quelles scrollbars sont physiquement présentes
+                bool showX = false, showY = false;
+                _ContainerScrollbars(*w, *lp, innerW, innerH, showX, showY);
+
+                // On soustrait les paddings ET l'épaisseur des scrollbars
                 childClip = cr->screen;
                 childClip.x += lp->padding.left;
                 childClip.y += lp->padding.top;
-                childClip.w -= (lp->padding.left + lp->padding.right);
-                childClip.h -= (lp->padding.top + lp->padding.bottom);
+                childClip.w = innerW - (showY ? lp->sbThickness : 0.f);
+                childClip.h = innerH - (showX ? lp->sbThickness : 0.f);
                 
+                // On restreint au clip du parent
                 childClip = childClip.GetIntersection(parentClip);
             }
 
@@ -2345,6 +2622,41 @@ namespace UI {
         }
 
         // ── Input ─────────────────────────────────────────────────────────────────────
+        
+        /// Convertit une position pixel X (relative à la zone de texte) en index de caractère pour Input
+        [[nodiscard]] int _InputHitPos(const Content *c, float px, const Style &s) { 
+            if (!c || c->text.empty() || px <= 0.f) return 0;
+            
+            float currentX = 0.f;
+            float bestDist = SDL::Abs(px);
+            int bestIdx = 0;
+            
+            float fallbackCharW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+
+            for (int i = 0; i <= (int)c->text.size(); ++i) {
+                float dist = SDL::Abs(px - currentX);
+                if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+                
+                // Si on a dépassé largement le clic, inutile de continuer
+                if (currentX > px + fallbackCharW * 2.f) break;
+
+                if (i < (int)c->text.size()) {
+                    float charW = fallbackCharW;
+#if UI_HAS_TTF
+                    if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
+                        if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+                            int cw = 0, ch = 0;
+                            char buf[2] = {c->text[i], 0};
+                            font.GetStringSize(buf, &cw, &ch);
+                            charW = (float)cw;
+                        }
+                    }
+#endif
+                    currentX += charW;
+                }
+            }
+            return bestIdx;
+        }
 
         void _ProcessInput() {
             // ── Scrollbars inline des containers (drag en cours) ──────────────────
@@ -2413,35 +2725,21 @@ namespace UI {
                                                          ? m_mousePos.x : m_mousePos.y;
                                     sd->dragStartVal = sd->val;
                                 }
-                            }
-                            if (pw->type == WidgetType::ScrollBar) {
+                            } else if (pw->type == WidgetType::ScrollBar) {
                                 if (auto *sb = m_world.Get<ScrollBarData>(m_pressed)) {
                                     sb->drag        = true;
                                     sb->dragStartPos = (sb->orientation == Orientation::Vertical)
                                                          ? m_mousePos.y : m_mousePos.x;
                                     sb->dragStartOff = sb->offset;
                                 }
-                            }
-                            if (pw->type == WidgetType::Knob) {
+                            } else if (pw->type == WidgetType::Knob) {
                                 if (auto *kd = m_world.Get<KnobData>(m_pressed)) {
                                     kd->drag         = true;
                                     kd->dragStartY   = m_mousePos.y;
                                     kd->dragStartVal = kd->val;
                                 }
-                            }
-                            if (pw->type == WidgetType::TextArea) {
-                                auto *ta = m_world.Get<TextAreaData>(m_pressed);
-                                auto *s2 = m_world.Get<Style>(m_pressed);
-                                auto *cr = m_world.Get<ComputedRect>(m_pressed);
-                                auto *lp2 = m_world.Get<LayoutProps>(m_pressed);
-                                if (ta && s2 && cr && lp2) {
-                                    float relX = m_mousePos.x - (cr->screen.x + lp2->padding.left);
-                                    float relY = m_mousePos.y - (cr->screen.y + lp2->padding.top);
-                                    int hitPos = _TAHitPos(ta, relX, relY, *s2);
-                                    ta->cursorPos = hitPos;
-                                    ta->SetSelection(hitPos, hitPos);
-                                    ta->selectDragging = true;
-                                }
+                            } else if (pw->type == WidgetType::TextArea || pw->type == WidgetType::Input) {
+                                _ProcessTextClickOrDrag(m_pressed, false); // false = c'est un clic, pas un drag
                             }
                         }
                     }
@@ -2450,21 +2748,11 @@ namespace UI {
 
             // ── Drag ──────────────────────────────────────────────────────────────
             if (m_mouseDown && m_pressed != ECS::NullEntity && m_world.IsAlive(m_pressed)) { 
-                // TextArea drag-selection
+                // TextArea drag-selection and Input drag-cursor-move can continue even if the mouse goes out of the widget bounds, so we check them before the hit-test of the current mouse position.
                 {
                     auto *pw2 = m_world.Get<Widget>(m_pressed);
-                    if (pw2 && pw2->type == WidgetType::TextArea) {
-                        auto *ta  = m_world.Get<TextAreaData>(m_pressed);
-                        auto *s2  = m_world.Get<Style>(m_pressed);
-                        auto *cr  = m_world.Get<ComputedRect>(m_pressed);
-                        auto *lp2 = m_world.Get<LayoutProps>(m_pressed);
-                        if (ta && ta->selectDragging && s2 && cr && lp2) {
-                            float relX = m_mousePos.x - (cr->screen.x + lp2->padding.left);
-                            float relY = m_mousePos.y - (cr->screen.y + lp2->padding.top);
-                            int hitPos = _TAHitPos(ta, relX, relY, *s2);
-                            ta->cursorPos = hitPos;
-                            ta->selFocus  = hitPos;
-                        }
+                    if (pw2 && (pw2->type == WidgetType::TextArea || pw2->type == WidgetType::Input)) {
+                        _ProcessTextClickOrDrag(m_pressed, true); // true = c'est un drag
                     }
                 }
                 auto *pw = m_world.Get<Widget>(m_pressed);
@@ -2492,8 +2780,7 @@ namespace UI {
                                 }
                             }
                         }
-                    }
-                    if (pw->type == WidgetType::ScrollBar) {
+                    } else if (pw->type == WidgetType::ScrollBar) {
                         if (auto *sb = m_world.Get<ScrollBarData>(m_pressed); sb && sb->drag) {
                             bool v    = (sb->orientation == Orientation::Vertical);
                             float cur = v ? m_mousePos.y : m_mousePos.x;
@@ -2510,8 +2797,7 @@ namespace UI {
                                 if (cb && cb->onChange) cb->onChange(noff);
                             }
                         }
-                    }
-                    if (pw->type == WidgetType::Knob) {
+                    } else if (pw->type == WidgetType::Knob) {
                         if (auto *kd = m_world.Get<KnobData>(m_pressed); kd && kd->drag) {
                             float range = kd->max - kd->min;
                             if (range <= 0.f) range = 1.f;
@@ -2546,6 +2832,9 @@ namespace UI {
                     if (auto *kd = m_world.Get<KnobData>(m_pressed))      kd->drag = false;
                     if (auto *ta = m_world.Get<TextAreaData>(m_pressed))  ta->selectDragging = false;
                     m_pressed = ECS::NullEntity;
+                }
+                if (auto *c = m_world.Get<Content>(m_pressed)) {
+                    c->selectDragging = false;
                 }
             }
         }
@@ -2729,34 +3018,224 @@ namespace UI {
             auto *w = m_world.Get<Widget>(m_focused);
             if (!w || !Has(w->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) return;
 
-            if (w->type == WidgetType::Input) {
-                auto *c = m_world.Get<Content>(m_focused);
-                auto *cb = m_world.Get<Callbacks>(m_focused);
-                if (!c) return;
-                c->text.insert((size_t)c->cursor, txt);
-                c->cursor += (int)SDL::Strlen(txt);
-                if (cb && cb->onTextChange) cb->onTextChange(c->text);
-            } else if (w->type == WidgetType::TextArea) {
-                auto *ta = m_world.Get<TextAreaData>(m_focused);
-                auto *cb = m_world.Get<Callbacks>(m_focused);
-                if (!ta) return;
-                ta->Insert(txt);
-                if (cb && cb->onTextChange) cb->onTextChange(ta->text);
+            auto processInput = [&]<typename T>(T* data) {
+                if (data) {
+                    _InsertText(data, std::string_view(txt));
+                    if (auto *cb = m_world.Get<Callbacks>(m_focused); cb && cb->onTextChange) 
+                        cb->onTextChange(data->text);
+                }
+            };
+
+            if (w->type == WidgetType::Input) processInput(m_world.Get<Content>(m_focused));
+            else if (w->type == WidgetType::TextArea) processInput(m_world.Get<TextAreaData>(m_focused));
+        }
+
+        void _HandleKeyDownInput(SDL::Keycode k, SDL::Keymod mod) {
+            auto *c = m_world.Get<Content>(m_focused);
+            if (!c) return;
+            
+            if (k == SDL::KEYCODE_ESCAPE) { _SetFocus(ECS::NullEntity); return; }
+
+            // Laisse le Helper s'occuper de tout
+            _HandleCommonTextKeys(c, k, mod, m_world.Get<Callbacks>(m_focused));
+        }
+
+        void _HandleKeyDownTextArea(SDL::Keycode k, SDL::Keymod mod) {
+            auto *ta = m_world.Get<TextAreaData>(m_focused);
+            auto *cb = m_world.Get<Callbacks>(m_focused);
+            if (!ta) return;
+            
+            if (k == SDL::KEYCODE_ESCAPE) { _SetFocus(ECS::NullEntity); return; }
+
+            // Si le Helper a géré une touche standard (Copier, Flèches, Suppr...), on s'arrête
+            if (_HandleCommonTextKeys(ta, k, mod, cb)) return;
+
+            // Sinon, on traite les spécificités multilignes du TextArea
+            const bool ctrl  = (mod & SDL::KMOD_CTRL)  != 0;
+            const bool shift = (mod & SDL::KMOD_SHIFT) != 0;
+
+            switch (k) { 
+                case SDL::KEYCODE_TAB:
+                    if (ctrl) break; // Laisse passer pour basculer le focus du widget
+                    if (shift) {
+                        int ls = ta->LineStart(ta->LineOf(ta->cursorPos));
+                        int spaces = 0;
+                        while (ls + spaces < (int)ta->text.size() && ta->text[ls + spaces] == ' ' && spaces < ta->tabSize) ++spaces;
+                        if (spaces > 0) {
+                            ta->text.erase(ls, spaces);
+                            ta->_ShiftSpans(ls, -spaces);
+                            ta->cursorPos = std::max(ls, ta->cursorPos - spaces);
+                            ta->ClearSelection();
+                            if (cb && cb->onTextChange) cb->onTextChange(ta->text);
+                        }
+                    } else {
+                        _InsertText(ta, "\t");
+                        if (cb && cb->onTextChange) cb->onTextChange(ta->text);
+                    }
+                    return;
+
+                case SDL::KEYCODE_RETURN:
+                case SDL::KEYCODE_RETURN2:
+                case SDL::KEYCODE_KP_ENTER:
+                    _InsertText(ta, "\n");
+                    if (cb && cb->onTextChange) cb->onTextChange(ta->text);
+                    return;
+
+                case SDL::KEYCODE_UP: {
+                    int line = ta->LineOf(ta->cursorPos);
+                    if (line > 0) {
+                        int col = ta->ColOf(ta->cursorPos);
+                        int ns = ta->LineStart(line - 1);
+                        int ne = ta->LineEnd(line - 1);
+                        _MoveTextCursor(ta, std::min(ns + col, ne), shift);
+                    }
+                    return;
+                }
+                case SDL::KEYCODE_DOWN: {
+                    int line = ta->LineOf(ta->cursorPos);
+                    if (line < ta->LineCount() - 1) {
+                        int col = ta->ColOf(ta->cursorPos);
+                        int ns = ta->LineStart(line + 1);
+                        int ne = ta->LineEnd(line + 1);
+                        _MoveTextCursor(ta, std::min(ns + col, ne), shift);
+                    }
+                    return;
+                }
+
+                case SDL::KEYCODE_PAGEUP: {
+                    if (auto *s2 = m_world.Get<Style>(m_focused)) {
+                        float lineH = _TH(*s2) + 2.f;
+                        int linesPerPage = SDL::Max(1, (int)(_TextAreaViewH() / lineH));
+                        int line = SDL::Max(0, ta->LineOf(ta->cursorPos) - linesPerPage);
+                        _MoveTextCursor(ta, ta->LineStart(line), shift);
+                    }
+                    return;
+                }
+                case SDL::KEYCODE_PAGEDOWN: {
+                    if (auto *s2 = m_world.Get<Style>(m_focused)) {
+                        float lineH = _TH(*s2) + 2.f;
+                        int linesPerPage = SDL::Max(1, (int)(_TextAreaViewH() / lineH));
+                        int line = SDL::Min(ta->LineCount() - 1, ta->LineOf(ta->cursorPos) + linesPerPage);
+                        _MoveTextCursor(ta, ta->LineStart(line), shift);
+                    }
+                    return;
+                }
+                case SDL::KEYCODE_Z:
+                    if (ctrl && !shift) ta->ClearSelection(); // Undo not implemented
+                    return;
+
+                default: break;
             }
+        }
+
+        // TextArea helpers ──────────────────────────────────────────────────────────
+
+        /// View height of the focused TextArea (0 if not a TextArea).
+        [[nodiscard]] float _TextAreaViewH() const noexcept {
+            if (m_focused == ECS::NullEntity || !m_world.IsAlive(m_focused)) return 0.f; 
+            auto *cr = m_world.Get<ComputedRect>(m_focused);
+            auto *lp = m_world.Get<LayoutProps>(m_focused);
+            if (!cr || !lp) return 0.f;
+            return SDL::Max(0.f, cr->screen.h - lp->padding.top - lp->padding.bottom);
+        }
+
+        /// Pixel X offset for a column within a line (tabs expanded).
+        [[nodiscard]] float _TextAreaLineX(const TextAreaData *ta, int line, int col, const Style &s) { 
+            int lineStart = ta->LineStart(line);
+            col = std::clamp(col, 0, ta->LineEnd(line) - lineStart);
+            float x = 0.f;
+            float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+#if UI_HAS_TTF
+            if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
+                if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+                    int sw = 0, sh = 0;
+                    font.GetStringSize(" ", &sw, &sh);
+                    charW = (float)sw;
+                }
+            }
+#endif
+            int colCount = 0;
+            for (int i = 0; i < col; ++i) {
+                unsigned char ch = (unsigned char)ta->text[lineStart + i];
+                if (ch == '\t') {
+                    int spaces = ta->tabSize - (colCount % ta->tabSize);
+                    if (spaces == 0) spaces = ta->tabSize;
+                    x += spaces * charW;
+                    colCount += spaces;
+                } else {
+#if UI_HAS_TTF
+                    if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
+                        if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+                            char buf[2] = {(char)ch, 0};
+                            int cw = 0, ch2 = 0;
+                            font.GetStringSize(buf, &cw, &ch2);
+                            x += (float)cw;
+                        } else { x += charW; }
+                    } else
+#endif
+                    { x += charW; }
+                    ++colCount;
+                }
+            }
+            return x;
+        }
+
+        /// Convert a pixel position (relative to content area origin) to a document offset.
+        [[nodiscard]] int _TextAreaHitPos(const TextAreaData *ta, float px, float py, const Style &s) { 
+            float lineH = _TH(s) + 2.f;
+            float pyDoc = py + ta->scrollY;
+            int line = std::clamp((int)(pyDoc / lineH), 0, ta->LineCount() - 1);
+            int lineStart = ta->LineStart(line);
+            int lineEnd   = ta->LineEnd(line);
+
+            // Walk character by character finding the closest hit.
+            float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+            int best = lineStart;
+            float bestDist = SDL::Abs(px);
+            for (int i = lineStart; i <= lineEnd; ++i) {
+                float xOff = _TextAreaLineX(ta, line, i - lineStart, s);
+                float dist = SDL::Abs(px - xOff);
+                if (dist < bestDist) { bestDist = dist; best = i; }
+                if (xOff > px + charW * 3.f) break;
+            }
+            return best;
+        }
+
+        /// Scroll the TextArea so the cursor is visible.
+        void _TextAreaScrollToCursor(TextAreaData *ta, const ComputedRect *cr, const LayoutProps *lp, const Style *s) { 
+            if (!ta || !cr || !lp || !s) return;
+            float lineH = _TH(*s) + 2.f;
+            float viewH = cr->screen.h - lp->padding.top - lp->padding.bottom;
+            int   curLine = ta->LineOf(ta->cursorPos);
+            float curY    = curLine * lineH;
+            if (curY < ta->scrollY)
+                ta->scrollY = curY;
+            else if (curY + lineH > ta->scrollY + viewH)
+                ta->scrollY = curY + lineH - viewH;
+            float maxScroll = SDL::Max(0.f, ta->LineCount() * lineH - viewH);
+            ta->scrollY = SDL::Clamp(ta->scrollY, 0.f, maxScroll);
         }
 
         void _HandleKeyDown(SDL::Keycode k, SDL::Keymod mod) {
             if (m_focused != ECS::NullEntity && m_world.IsAlive(m_focused)) { 
                 auto *fw = m_world.Get<Widget>(m_focused);
-                if (fw && fw->type == WidgetType::TextArea
-                       && Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
-                    _HandleKeyDownTextArea(k, mod);
-                    return;
-                }
-                if (fw && fw->type == WidgetType::ListBox
-                       && Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
-                    _HandleKeyDownListBox(k);
-                    return;
+                if (fw) {
+                    if (fw->type == WidgetType::TextArea) {
+                        if (Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
+                            _HandleKeyDownTextArea(k, mod);
+                            return;
+                        }   
+                    } else if (fw->type == WidgetType::Input) {
+                        if (Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
+                            _HandleKeyDownInput(k, mod);
+                            return;
+                        }
+                    } else if (fw->type == WidgetType::ListBox) {
+                        if (Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
+                            _HandleKeyDownListBox(k);
+                            return;
+                        }
+                    }
                 }
             }
 
@@ -2806,303 +3285,6 @@ namespace UI {
                 default:
                     break;
             }
-        }
-
-        /// Full keyboard handler for the focused TextArea.
-        void _HandleKeyDownTextArea(SDL::Keycode k, SDL::Keymod mod) {
-            auto *ta = m_world.Get<TextAreaData>(m_focused);
-            auto *cb = m_world.Get<Callbacks>(m_focused);
-            if (!ta) return;
-            
-            const bool ctrl  = (mod & SDL::KMOD_CTRL)  != 0;
-            const bool shift = (mod & SDL::KMOD_SHIFT) != 0;
-
-            auto moveCursor = [&](int newPos) {
-                if (shift) {
-                    if (!ta->HasSelection()) ta->selAnchor = ta->cursorPos;
-                    ta->cursorPos = newPos;
-                    ta->selFocus  = newPos;
-                } else {
-                    ta->cursorPos = newPos;
-                    ta->ClearSelection();
-                }
-            };
-
-            switch (k) { 
-            // ── Focus / Tab ────────────────────────────────────────────────────
-            case SDL::KEYCODE_TAB:
-                if (ctrl) break; // Ctrl+Tab → cycle focus (fall through)
-                if (shift) {
-                    // Shift+Tab: back-dedent — remove up to tabSize leading spaces
-                    int ls = ta->LineStart(ta->LineOf(ta->cursorPos));
-                    int spaces = 0;
-                    while (ls + spaces < (int)ta->text.size()
-                           && ta->text[ls + spaces] == ' '
-                           && spaces < ta->tabSize) ++spaces;
-                    if (spaces > 0) {
-                        ta->text.erase(ls, spaces);
-                        ta->_ShiftSpans(ls, -spaces); // NOLINT (private, but same TU)
-                        ta->cursorPos = std::max(ls, ta->cursorPos - spaces);
-                        ta->ClearSelection();
-                        if (cb && cb->onTextChange) cb->onTextChange(ta->text);
-                    }
-                } else {
-                    ta->Insert("\t");
-                    if (cb && cb->onTextChange) cb->onTextChange(ta->text);
-                }
-                return;
-            case SDL::KEYCODE_ESCAPE:
-                _SetFocus(ECS::NullEntity);
-                return;
-
-            // ── Newline ────────────────────────────────────────────────────────
-            case SDL::KEYCODE_RETURN:
-            case SDL::KEYCODE_RETURN2:
-            case SDL::KEYCODE_KP_ENTER:
-                ta->Insert("\n");
-                if (cb && cb->onTextChange) cb->onTextChange(ta->text);
-                return;
-
-            // ── Delete ─────────────────────────────────────────────────────────
-            case SDL::KEYCODE_BACKSPACE:
-                if (ta->HasSelection()) {
-                    ta->DeleteSelection();
-                } else if (ta->cursorPos > 0) {
-                    ta->text.erase((size_t)(ta->cursorPos - 1), 1);
-                    ta->_ShiftSpans(ta->cursorPos - 1, -1);
-                    --ta->cursorPos;
-                }
-                if (cb && cb->onTextChange) cb->onTextChange(ta->text);
-                return;
-            case SDL::KEYCODE_DELETE:
-                if (ta->HasSelection()) {
-                    ta->DeleteSelection();
-                } else if (ta->cursorPos < (int)ta->text.size()) {
-                    ta->text.erase((size_t)ta->cursorPos, 1);
-                    ta->_ShiftSpans(ta->cursorPos, -1);
-                }
-                if (cb && cb->onTextChange) cb->onTextChange(ta->text);
-                return;
-
-            // ── Horizontal motion ──────────────────────────────────────────────
-            case SDL::KEYCODE_LEFT:
-                if (!shift && ta->HasSelection())
-                    moveCursor(ta->SelMin());
-                else if (ctrl)
-                    moveCursor(_TAWordLeft(ta, ta->cursorPos));
-                else
-                    moveCursor(SDL::Max(0, ta->cursorPos - 1));
-                return;
-            case SDL::KEYCODE_RIGHT:
-                if (!shift && ta->HasSelection())
-                    moveCursor(ta->SelMax());
-                else if (ctrl)
-                    moveCursor(_TAWordRight(ta, ta->cursorPos));
-                else
-                    moveCursor(SDL::Min((int)ta->text.size(), ta->cursorPos + 1));
-                return;
-
-            // ── Vertical motion ────────────────────────────────────────────────
-            case SDL::KEYCODE_UP: {
-                int line = ta->LineOf(ta->cursorPos);
-                if (line > 0) {
-                    int col = ta->ColOf(ta->cursorPos);
-                    int ns = ta->LineStart(line - 1);
-                    int ne = ta->LineEnd(line - 1);
-                    moveCursor(std::min(ns + col, ne));
-                }
-                return;
-            }
-            case SDL::KEYCODE_DOWN: {
-                int line = ta->LineOf(ta->cursorPos);
-                if (line < ta->LineCount() - 1) {
-                    int col = ta->ColOf(ta->cursorPos);
-                    int ns = ta->LineStart(line + 1);
-                    int ne = ta->LineEnd(line + 1);
-                    moveCursor(std::min(ns + col, ne));
-                }
-                return;
-            }
-
-            // ── Home / End ─────────────────────────────────────────────────────
-            case SDL::KEYCODE_HOME:
-                if (ctrl) moveCursor(0);
-                else      moveCursor(ta->LineStart(ta->LineOf(ta->cursorPos)));
-                return;
-            case SDL::KEYCODE_END:
-                if (ctrl) moveCursor((int)ta->text.size());
-                else      moveCursor(ta->LineEnd(ta->LineOf(ta->cursorPos)));
-                return;
-
-            // ── Page Up / Down ─────────────────────────────────────────────────
-            case SDL::KEYCODE_PAGEUP: {
-                auto *s2 = m_world.Get<Style>(m_focused);
-                if (s2) {
-                    float lineH = _TH(*s2) + 2.f;
-                    int linesPerPage = SDL::Max(1, (int)(_TAViewH() / lineH));
-                    int line = SDL::Max(0, ta->LineOf(ta->cursorPos) - linesPerPage);
-                    moveCursor(ta->LineStart(line));
-                }
-                return;
-            }
-            case SDL::KEYCODE_PAGEDOWN: {
-                auto *s2 = m_world.Get<Style>(m_focused);
-                if (s2) {
-                    float lineH = _TH(*s2) + 2.f;
-                    int linesPerPage = SDL::Max(1, (int)(_TAViewH() / lineH));
-                    int line = SDL::Min(ta->LineCount() - 1, ta->LineOf(ta->cursorPos) + linesPerPage);
-                    moveCursor(ta->LineStart(line));
-                }
-                return;
-            }
-
-            // ── Clipboard ─────────────────────────────────────────────────────
-            case SDL::KEYCODE_A:
-                if (ctrl) {
-                    ta->SetSelection(0, (int)ta->text.size());
-                    ta->cursorPos = (int)ta->text.size();
-                }
-                return;
-            case SDL::KEYCODE_C:
-                if (ctrl && ta->HasSelection()) {
-                    try { SDL::SetClipboardText(ta->GetSelectedText()); } catch (...) {}
-                }
-                return;
-            case SDL::KEYCODE_X:
-                if (ctrl) {
-                    if (ta->HasSelection()) {
-                        try { SDL::SetClipboardText(ta->GetSelectedText()); } catch (...) {}
-                        ta->DeleteSelection();
-                        if (cb && cb->onTextChange) cb->onTextChange(ta->text);
-                    }
-                }
-                return;
-            case SDL::KEYCODE_V:
-                if (ctrl) {
-                    try {
-                        if (SDL::HasClipboardText()) {
-                            auto clip = SDL::GetClipboardText();
-                            ta->Insert(static_cast<std::string_view>(clip));
-                            if (cb && cb->onTextChange) cb->onTextChange(ta->text);
-                        }
-                    } catch (...) {}
-                }
-                return;
-            case SDL::KEYCODE_Z:
-                if (ctrl && !shift) {
-                    // Undo not implemented — just reset selection
-                    ta->ClearSelection();
-                }
-                return;
-
-            default:
-                break;
-            }
-        }
-
-        // TextArea helpers ──────────────────────────────────────────────────────────
-
-        /// View height of the focused TextArea (0 if not a TextArea).
-        [[nodiscard]] float _TAViewH() const noexcept {
-            if (m_focused == ECS::NullEntity || !m_world.IsAlive(m_focused)) return 0.f; 
-            auto *cr = m_world.Get<ComputedRect>(m_focused);
-            auto *lp = m_world.Get<LayoutProps>(m_focused);
-            if (!cr || !lp) return 0.f;
-            return SDL::Max(0.f, cr->screen.h - lp->padding.top - lp->padding.bottom);
-        }
-
-        /// Move left to the start of the previous word.
-        [[nodiscard]] static int _TAWordLeft(const TextAreaData *ta, int pos) noexcept {
-            if (pos <= 0) return 0; 
-            --pos;
-            while (pos > 0 && !std::isalnum((unsigned char)ta->text[pos - 1])) --pos;
-            while (pos > 0 && std::isalnum((unsigned char)ta->text[pos - 1])) --pos;
-            return pos;
-        }
-
-        /// Move right to the end of the next word.
-        [[nodiscard]] static int _TAWordRight(const TextAreaData *ta, int pos) noexcept {
-            int sz = (int)ta->text.size();
-            while (pos < sz && !std::isalnum((unsigned char)ta->text[pos])) ++pos;
-            while (pos < sz && std::isalnum((unsigned char)ta->text[pos])) ++pos;
-            return pos;
-        }
-
-        /// Pixel X offset for a column within a line (tabs expanded).
-        [[nodiscard]] float _TALineX(const TextAreaData *ta, int line, int col, const Style &s) { 
-            int lineStart = ta->LineStart(line);
-            col = std::clamp(col, 0, ta->LineEnd(line) - lineStart);
-            float x = 0.f;
-            float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
-#if UI_HAS_TTF
-            if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-                if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
-                    int sw = 0, sh = 0;
-                    font.GetStringSize(" ", &sw, &sh);
-                    charW = (float)sw;
-                }
-            }
-#endif
-            int colCount = 0;
-            for (int i = 0; i < col; ++i) {
-                unsigned char ch = (unsigned char)ta->text[lineStart + i];
-                if (ch == '\t') {
-                    int spaces = ta->tabSize - (colCount % ta->tabSize);
-                    if (spaces == 0) spaces = ta->tabSize;
-                    x += spaces * charW;
-                    colCount += spaces;
-                } else {
-#if UI_HAS_TTF
-                    if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-                        if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
-                            char buf[2] = {(char)ch, 0};
-                            int cw = 0, ch2 = 0;
-                            font.GetStringSize(buf, &cw, &ch2);
-                            x += (float)cw;
-                        } else { x += charW; }
-                    } else
-#endif
-                    { x += charW; }
-                    ++colCount;
-                }
-            }
-            return x;
-        }
-
-        /// Convert a pixel position (relative to content area origin) to a document offset.
-        [[nodiscard]] int _TAHitPos(const TextAreaData *ta, float px, float py, const Style &s) { 
-            float lineH = _TH(s) + 2.f;
-            float pyDoc = py + ta->scrollY;
-            int line = std::clamp((int)(pyDoc / lineH), 0, ta->LineCount() - 1);
-            int lineStart = ta->LineStart(line);
-            int lineEnd   = ta->LineEnd(line);
-
-            // Walk character by character finding the closest hit.
-            float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
-            int best = lineStart;
-            float bestDist = SDL::Abs(px);
-            for (int i = lineStart; i <= lineEnd; ++i) {
-                float xOff = _TALineX(ta, line, i - lineStart, s);
-                float dist = SDL::Abs(px - xOff);
-                if (dist < bestDist) { bestDist = dist; best = i; }
-                if (xOff > px + charW * 3.f) break;
-            }
-            return best;
-        }
-
-        /// Scroll the TextArea so the cursor is visible.
-        void _TAScrollToCursor(TextAreaData *ta, const ComputedRect *cr, const LayoutProps *lp, const Style *s) { 
-            if (!ta || !cr || !lp || !s) return;
-            float lineH = _TH(*s) + 2.f;
-            float viewH = cr->screen.h - lp->padding.top - lp->padding.bottom;
-            int   curLine = ta->LineOf(ta->cursorPos);
-            float curY    = curLine * lineH;
-            if (curY < ta->scrollY)
-                ta->scrollY = curY;
-            else if (curY + lineH > ta->scrollY + viewH)
-                ta->scrollY = curY + lineH - viewH;
-            float maxScroll = SDL::Max(0.f, ta->LineCount() * lineH - viewH);
-            ta->scrollY = SDL::Clamp(ta->scrollY, 0.f, maxScroll);
         }
 
         void _HandleScroll(float dx, float dy) {
@@ -3241,7 +3423,7 @@ namespace UI {
             _SetFocus(nextFocus);
         }
 
-        // ── §8.10b  Canvas update ─────────────────────────────────────────────────
+        // ── Canvas update ─────────────────────────────────────────────────
 
         void _ProcessCanvasUpdate(float dt) {
             // Call updateCb for every visible, enabled Canvas widget.
@@ -3252,7 +3434,7 @@ namespace UI {
             });
         }
 
-        // ── §8.11  Animate ────────────────────────────────────────────────────────
+        // ── Animate ────────────────────────────────────────────────────────
 
         void _ProcessAnimate(float dt) {
             if (dt <= 0.f)
@@ -3276,12 +3458,12 @@ namespace UI {
                     auto *cr2 = m_world.Get<ComputedRect>(m_focused);
                     auto *lp2 = m_world.Get<LayoutProps>(m_focused);
                     auto *s2  = m_world.Get<Style>(m_focused);
-                    _TAScrollToCursor(ta, cr2, lp2, s2);
+                    _TextAreaScrollToCursor(ta, cr2, lp2, s2);
                 }
             }
         }
 
-        // ── §8.12  Render ─────────────────────────────────────────────────────────
+        // ── Render ─────────────────────────────────────────────────────────
 
         void _ProcessRender() {
             m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
@@ -3463,7 +3645,7 @@ namespace UI {
                     _DrawCanvas(e, r);
                     break;
                 case WidgetType::ListBox:
-                    _DrawListBox(e, r, *s, *st);
+                    _DrawListBox(e, r, *s, *st, *w);
                     break;
                 case WidgetType::Graph:
                     _DrawGraph(e, r, *s, *st);
@@ -3471,45 +3653,89 @@ namespace UI {
             }
         }
 
-        void _DrawContainer(ECS::EntityId e, const FRect &r, const Style &s,
-                            const WidgetState &st, const Widget &w) { 
-            // ── Background & border ───────────────────────────────────────────────
-            SDL::Color bgColor = st.pressed ? s.bgPressed
-                               : st.hovered ? s.bgHovered
-                               : s.bgColor;
-            _FillRR(r, bgColor, s.radius, s.opacity);
-            _StrokeRR(r, st.hovered ? s.bdHovered : s.bdColor, s.borders, s.radius, s.opacity);
 
-            // ── Inline scrollbars ─────────────────────────────────────────────────
+
+        // ── 9-slice tileset draw ───────────────────────────────────────
+
+        /**
+         * Draw a 9-slice widget using a tileset texture.
+         *
+         * The nine tiles are indexed relative to `ts.firstTileIdx`:
+         *   0=TL, 1=TC, 2=TR, 3=ML, 4=MC, 5=MR, 6=BL, 7=BC, 8=BR
+         *
+         * @param r   Screen rect of the widget.
+         * @param ts  Tileset style configuration.
+         * @param tex Resolved tileset texture.
+         */
+        void _Draw9Slice(const FRect& r, const TilesetStyle& ts, TextureRef tex) { 
+            if (!tex) return;
+
+            const float bw  = SDL::Min(ts.BorderW(), r.w * 0.5f);
+            const float bh  = SDL::Min(ts.BorderH(), r.h * 0.5f);
+            const float cx  = r.x + bw;
+            const float cy  = r.y + bh;
+            const float cw  = r.w - 2.f * bw;
+            const float ch  = r.h - 2.f * bh;
+
+            tex.SetAlphaMod(SDL::Clamp8(static_cast<int>(255 * ts.opacity)));
+
+            auto draw = [&](int rel, FRect dst) {
+                FRect src = ts.TileRect(rel);
+                m_renderer.RenderTexture(tex, src, dst);
+            };
+
+            // Corners (always drawn)
+            draw(0, {r.x,            r.y,            bw, bh});
+            draw(2, {r.x + r.w - bw, r.y,            bw, bh});
+            draw(6, {r.x,            r.y + r.h - bh, bw, bh});
+            draw(8, {r.x + r.w - bw, r.y + r.h - bh, bw, bh});
+
+            // Top / bottom edges
+            if (cw > 0.f) {
+                draw(1, {cx, r.y,            cw, bh});
+                draw(7, {cx, r.y + r.h - bh, cw, bh});
+            }
+
+            // Left / right edges
+            if (ch > 0.f) {
+                draw(3, {r.x,            cy, bw, ch});
+                draw(5, {r.x + r.w - bw, cy, bw, ch});
+            }
+
+            // Center fill
+            if (cw > 0.f && ch > 0.f)
+                draw(4, {cx, cy, cw, ch});
+
+            tex.SetAlphaMod(255);
+        }
+
+        void _DrawInlineScrollbars(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
             auto *lp  = m_world.Get<LayoutProps>(e);
             auto *css = m_world.Get<ContainerScrollState>(e);
             if (!lp || !css) return;
 
-            // Inner content area (padding applied, no scrollbar reservation yet).
             const float innerW = r.w - lp->padding.left - lp->padding.right;
             const float innerH = r.h - lp->padding.top  - lp->padding.bottom;
 
+            // Déterminer la visibilité des scrollbars
             bool showX = false, showY = false;
             _ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
 
-            // Effective content area after reserving scrollbar space.
             const float viewW = showY ? SDL::Max(0.f, innerW - lp->sbThickness) : innerW;
             const float viewH = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
             const float t     = lp->sbThickness;
 
-            // Clamp scroll offsets so they remain valid.
+            // SÉCURITÉ : Empêcher le contenu de rester scrollé dans le vide
             lp->scrollX = SDL::Clamp(lp->scrollX, 0.f, SDL::Max(0.f, lp->contentW - viewW));
             lp->scrollY = SDL::Clamp(lp->scrollY, 0.f, SDL::Max(0.f, lp->contentH - viewH));
 
-            // Track colour (semi-transparent overlay on the container bg).
             SDL::Color trackCol = s.track;
             trackCol.a = SDL::Clamp8((int)(trackCol.a * s.opacity * 0.85f));
 
-            // ── Vertical scrollbar ────────────────────────────────────────────────
+            // ── Scrollbar Verticale ──
             css->thumbY = {}; 
             if (showY) {
                 FRect barY = {r.x + r.w - t, r.y + lp->padding.top, t, viewH};
-                // Track
                 _FillRR(barY, trackCol, SDL::FCorners(t * 0.5f), 1.f);
 
                 if (lp->contentH > 0.f && lp->contentH > viewH) {
@@ -3528,12 +3754,11 @@ namespace UI {
                 }
             }
 
-            // ── Horizontal scrollbar ──────────────────────────────────────────────
+            // ── Scrollbar Horizontale ──
             css->thumbX = {}; 
             if (showX) {
-                float barW  = showY ? viewW : innerW;     // leave corner gap when both shown
+                float barW  = showY ? viewW : innerW;
                 FRect barX  = {r.x + lp->padding.left, r.y + r.h - t, barW, t};
-                // Track
                 _FillRR(barX, trackCol, SDL::FCorners(t * 0.5f), 1.f);
 
                 if (lp->contentW > 0.f && lp->contentW > viewW) {
@@ -3552,12 +3777,26 @@ namespace UI {
                 }
             }
 
-            // ── Corner fill (when both bars shown) ────────────────────────────────
+            // ── Coin (quand les 2 barres sont affichées) ──
             if (showX && showY) {
                 FRect corner = {r.x + r.w - t, r.y + r.h - t, t, t};
                 _FillRR(corner, trackCol, SDL::FCorners(0.f), 1.f);
             }
         }
+        
+        void _DrawContainer(ECS::EntityId e, const FRect &r, const Style &s,
+                            const WidgetState &st, const Widget &w) { 
+            // ── Background & border ───────────────────────────────────────────────
+            SDL::Color bgColor = st.pressed ? s.bgPressed
+                               : st.hovered ? s.bgHovered
+                               : s.bgColor;
+            _FillRR(r, bgColor, s.radius, s.opacity);
+            _StrokeRR(r, st.hovered ? s.bdHovered : s.bdColor, s.borders, s.radius, s.opacity);
+
+            // ── Inline scrollbars ─────────────────────────────────────────────────
+            _DrawInlineScrollbars(e, r, s, w);
+        }
+        
         void _DrawLabel(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
             auto *c = m_world.Get<Content>(e);
             auto *lp = m_world.Get<LayoutProps>(e);
@@ -3567,6 +3806,7 @@ namespace UI {
                                                                      : s.textColor;
             _Text(e, c->text, r.x + (lp ? lp->padding.left : 4.f), r.y + (r.h - _TH(s)) * 0.5f, tc, s.opacity, s);
         }
+
         void _DrawButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
             SDL::Color bgColor = !Has(w.behavior, BehaviorFlag::Enable) ? s.bgDisabled
                 : (st.pressed ? s.bgPressed
@@ -3583,6 +3823,7 @@ namespace UI {
                 _Text(e, c->text, r.x + (r.w - tw) * 0.5f, r.y + (r.h - th) * 0.5f, tc, s.opacity, s);
             }
         }
+
         void _DrawToggle(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) { 
             auto *t = m_world.Get<ToggleData>(e);
             auto *c = m_world.Get<Content>(e);
@@ -3602,6 +3843,7 @@ namespace UI {
                 _Text(e, c->text, tr_.x + TW + 10.f, r.y + (r.h - _TH(s)) * 0.5f, col, s.opacity, s);
             }
         }
+
         void _DrawRadio(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) { 
             auto *rd = m_world.Get<RadioData>(e);
             auto *c = m_world.Get<Content>(e);
@@ -3632,7 +3874,8 @@ namespace UI {
                                                                                 : s.textColor;
                 _Text(e, c->text, r.x + 30.f, r.y + (r.h - _TH(s)) * 0.5f, tc, s.opacity, s);
             }
-        } 
+        }
+
         void _DrawSlider(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
             auto *sd = m_world.Get<SliderData>(e);
             auto *lp = m_world.Get<LayoutProps>(e);
@@ -3664,6 +3907,7 @@ namespace UI {
                 _FillRR({mid - TR, tcy - TR, TR * 2.f, TR * 2.f}, tc, SDL::FCorners(TR), s.opacity);
             }
         }
+
         void _DrawScrollBar(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) { 
             auto *sb = m_world.Get<ScrollBarData>(e);
             if (!sb)
@@ -3682,6 +3926,7 @@ namespace UI {
                 _FillRR({tX, r.y + 1.f, tW, r.h - 2.f}, (st.hovered || sb->drag) ? s.thumb : s.fill, s.radius, s.opacity);
             }
         }
+
         void _DrawProgress(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) { 
             auto *sd = m_world.Get<SliderData>(e);
             auto *lp = m_world.Get<LayoutProps>(e);
@@ -3693,45 +3938,69 @@ namespace UI {
                 _FillRR({tx, tr_.y, tw * norm, tr_.h}, s.fill, FCorners(4.f), s.opacity);
             _StrokeRR(tr_, s.bdColor, s.borders, FCorners(4.f), s.opacity);
         }
-        void _DrawSeparator(const FRect &r, const Style &s) { _FillRect({r.x, r.y + r.h * 0.5f, r.w, 1.f}, s.separator, s.opacity); }
+        
+        void _DrawSeparator(const FRect &r, const Style &s) {
+            _FillRect({r.x, r.y + r.h * 0.5f, r.w, 1.f}, s.separator, s.opacity);
+        }
+        
         void _DrawInput(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
             auto *c = m_world.Get<Content>(e);
             auto *lp = m_world.Get<LayoutProps>(e);
             if (!c || !lp) return;
+            
             bool foc = (m_focused == e);
-            SDL::Color bgColor = !Has(w.behavior, BehaviorFlag::Enable) ? s.bgDisabled : foc ? s.bgHovered
+            bool enabled = Has(w.behavior, BehaviorFlag::Enable);
+
+            // Fond et bordures
+            SDL::Color bgColor = !enabled ? s.bgDisabled : foc ? s.bgFocused
                                                     : st.hovered ? SDL::Color{30, 32, 44, 255}
                                                                  : s.bgColor;
-            SDL::Color bdColor = !Has(w.behavior, BehaviorFlag::Enable) ? s.bdColor : foc ? s.bdFocused
+            SDL::Color bdColor = !enabled ? s.bdDisabled : foc ? s.bdFocused
                                                 : st.hovered ? s.bdHovered
                                                              : s.bdColor;
             _FillRR(r, bgColor, s.radius, s.opacity);
             _StrokeRR(r, bdColor, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
-            float tx_ = r.x + lp->padding.left, ty_ = r.y + (r.h - _TH(s)) * 0.5f;
+            
+            float tx_ = r.x + lp->padding.left;
+            float ty_ = r.y + (r.h - _TH(s)) * 0.5f;
+
+            // ── Dessin de la sélection ──
+            if (c->HasSelection() && !c->text.empty()) {
+                float selStartX = tx_ + _TW(c->text.substr(0, c->SelMin()), s);
+                float selWidth  = _TW(c->GetSelectedText(), s);
+                
+                SDL::Color hlC = c->highlightColor;
+                hlC.a = SDL::Clamp8((int)((float)hlC.a * s.opacity));
+                m_renderer.SetDrawColor(hlC);
+                m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
+                m_renderer.RenderFillRect(SDL::FRect{selStartX, ty_, selWidth, _TH(s)});
+            }
+
+            // ── Texte et Curseur ──
             bool showPH = c->text.empty() && !c->placeholder.empty() && !foc;
-            if (showPH)
+            if (showPH) {
                 _Text(e, c->placeholder, tx_, ty_, s.textPlaceholder, s.opacity, s);
-            else {
-                _Text(e, c->text, tx_, ty_, Has(w.behavior, BehaviorFlag::Enable) ? s.textColor : s.textDisabled, s.opacity, s);
+            } else {
+                _Text(e, c->text, tx_, ty_, enabled ? s.textColor : s.textDisabled, s.opacity, s);
+                
                 if (foc && c->blinkTimer < 0.5f) {
-                    // Cursor X: width of text before cursor (TTF-aware)
                     float cx_ = tx_ + _TW(c->text.substr(0, (size_t)SDL::Max(0, c->cursor)), s);
-                    _FillRect({cx_, ty_, 1.f, _TH(s)}, s.textColor, s.opacity);
+                    _FillRect({cx_, ty_, 1.5f, _TH(s)}, s.textColor, s.opacity);
                 }
             }
         }
-        // ── §8.x  TextArea ────────────────────────────────────────────────────────
 
+        // ── TextArea ────────────────────────────────────────────────────────
         void _DrawTextArea(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
             auto *ta  = m_world.Get<TextAreaData>(e);
             auto *lp  = m_world.Get<LayoutProps>(e);
             auto *cnt = m_world.Get<Content>(e);
             if (!ta || !lp) return;
 
-            const bool foc  = (m_focused == e);
+            const bool foc     = (m_focused == e);
             const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
 
-            // ── Background & border ───────────────────────────────────────────────
+            // ── 1. Fond & Bordures ────────────────────────────────────────────────
             SDL::Color bgC = !enabled ? s.bgDisabled
                            : foc      ? s.bgFocused
                            : st.hovered ? SDL::Color{30, 32, 44, 255}
@@ -3739,128 +4008,158 @@ namespace UI {
             SDL::Color bdC = !enabled ? s.bdDisabled
                            : foc      ? s.bdFocused
                            : st.hovered ? s.bdHovered : s.bdColor;
+            
             _FillRR(r, bgC, s.radius, s.opacity);
             _StrokeRR(r, bdC, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
 
-            // ── Placeholder ───────────────────────────────────────────────────────
-            if (ta->text.empty() && cnt && !cnt->placeholder.empty()) {
+            // ── 2. Calcul des zones et scrollbars ─────────────────────────────────
+            const float innerW = r.w - lp->padding.left - lp->padding.right;
+            const float innerH = r.h - lp->padding.top - lp->padding.bottom;
+            
+            bool showX = false, showY = false;
+            _ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
+            
+            // L'espace véritablement disponible pour lire le texte (sans les scrollbars)
+            const float viewW = showY ? SDL::Max(0.f, innerW - lp->sbThickness) : innerW;
+            const float viewH = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
+
+            // ── 3. Application du Clipping strict pour le texte ───────────────────
+            SDL_Rect prevClip = {};
+            bool hadClip = SDL_GetRenderClipRect(m_renderer.Get(), &prevClip);
+
+            SDL_Rect textClip = {
+                (int)(r.x + lp->padding.left),
+                (int)(r.y + lp->padding.top),
+                (int)viewW,
+                (int)viewH
+            };
+            SDL_SetRenderClipRect(m_renderer.Get(), &textClip);
+
+            // ── 4. Rendu du Placeholder (si vide) ─────────────────────────────────
+            if (ta->text.empty() && cnt && !cnt->placeholder.empty() && !foc) {
                 _Text(e, cnt->placeholder, r.x + lp->padding.left, r.y + lp->padding.top,
                       s.textPlaceholder, s.opacity, s);
-                return;
-            }
+            } 
+            else {
+                // ── 5. Préparation des coordonnées de rendu scrollées ─────────────
+                const float lineH  = _TH(s) + 2.f;
+                // On applique le décalage du scroll (X et Y) sur le point de départ
+                const float startX = r.x + lp->padding.left - lp->scrollX;
+                const float startY = r.y + lp->padding.top  - lp->scrollY;
 
-            // ── Clip to content area ──────────────────────────────────────────────
-            const float cX = r.x + lp->padding.left;
-            const float cY = r.y + lp->padding.top;
-            const float cW = SDL::Max(0.f, r.w + lp->padding.left + lp->padding.right);
-            const float cH = SDL::Max(0.f, r.h + lp->padding.top  + lp->padding.bottom);
+                // Optimisation : on ne dessine que les lignes visibles
+                int firstLine = SDL::Max(0, (int)(lp->scrollY / lineH) - 1);
+                int lastLine  = SDL::Min(ta->LineCount() - 1, (int)((lp->scrollY + viewH) / lineH) + 1);
 
-            SDL_Rect clip{(int)cX, (int)cY, (int)cW, (int)cH};
-            SDL_SetRenderClipRect(m_renderer.Get(), &clip);
+                // ── 6. Rendu des sélections ───────────────────────────────────────
+                if (ta->HasSelection()) {
+                    int selMin = ta->SelMin(), selMax = ta->SelMax();
+                    SDL::Color hlC = ta->highlightColor;
+                    hlC.a = SDL::Clamp8((int)((float)hlC.a * s.opacity));
+                    m_renderer.SetDrawColor(hlC);
+                    m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
 
-            const float lineH = _TH(s) + 2.f;
-            const float startY = cY - ta->scrollY;
+                    for (int ln = firstLine; ln <= lastLine; ++ln) {
+                        int ls = ta->LineStart(ln);
+                        int le = ta->LineEnd(ln);
+                        if (le < selMin || ls > selMax) continue;
+                        
+                        int hiStart = SDL::Max(ls, selMin);
+                        int hiEnd   = SDL::Min(le, selMax);
+                        
+                        // X calculé depuis le startX (qui inclut déjà -scrollX)
+                        float x0 = startX + _TextAreaLineX(ta, ln, hiStart - ls, s);
+                        float x1 = startX + _TextAreaLineX(ta, ln, hiEnd   - ls, s);
+                        
+                        // Extension visuelle de la sélection jusqu'en fin de ligne si la sélection continue
+                        if (hiEnd == le && selMax > le) x1 = startX + lp->contentW + 8.f; 
+                        
+                        float ly = startY + ln * lineH;
+                        m_renderer.RenderFillRect(SDL::FRect{x0, ly, SDL::Max(2.f, x1 - x0), lineH});
+                    }
+                }
 
-            // Visible line range
-            int firstLine = SDL::Max(0, (int)(ta->scrollY / lineH) - 1);
-            int lastLine  = SDL::Min(ta->LineCount() - 1, (int)((ta->scrollY + cH) / lineH) + 1);
-
-            // ── Selection rects ───────────────────────────────────────────────────
-            if (ta->HasSelection()) {
-                int selMin = ta->SelMin(), selMax = ta->SelMax();
-                SDL::Color hlC = ta->highlightColor;
-                hlC.a = (Uint8)(hlC.a * s.opacity);
-                m_renderer.SetDrawColor(hlC);
-                m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
-
+                // ── 7. Rendu du texte (avec support du Rich Text / Spans) ─────────
                 for (int ln = firstLine; ln <= lastLine; ++ln) {
                     int ls = ta->LineStart(ln);
                     int le = ta->LineEnd(ln);
-                    if (le < selMin || ls > selMax) continue;
-                    int hiStart = SDL::Max(ls, selMin);
-                    int hiEnd   = SDL::Min(le, selMax);
-                    float x0 = cX + _TALineX(ta, ln, hiStart - ls, s);
-                    float x1 = cX + _TALineX(ta, ln, hiEnd   - ls, s);
-                    if (hiEnd == le && selMax > le) x1 = cX + cW; // extend to EOL
                     float ly = startY + ln * lineH;
-                    m_renderer.RenderFillRect(SDL::FRect{x0, ly, x1 - x0, lineH});
-                }
-            }
 
-            // ── Lines of text ─────────────────────────────────────────────────────
-            for (int ln = firstLine; ln <= lastLine; ++ln) {
-                int ls = ta->LineStart(ln);
-                int le = ta->LineEnd(ln);
-                float ly = startY + ln * lineH;
-                if (ly + lineH < cY || ly > cY + cH) continue;
+                    float xOff = startX; // Le curseur de rendu horizontal pour cette ligne
+                    
+                    for (int ci = ls; ci < le; ) {
+                        int spanEnd = le;
+                        const TextSpanStyle *spanStyle = ta->SpanStyleAt(ci);
+                        
+                        int ni = ci + 1;
+                        while (ni < le && ta->SpanStyleAt(ni) == spanStyle) ++ni;
+                        spanEnd = ni;
 
-                // Draw this line run-by-run (spans).
-                float xOff = cX;
-                for (int ci = ls; ci < le; ) {
-                    // Find next span boundary.
-                    int spanEnd = le;
-                    const TextSpanStyle *spanStyle = ta->SpanStyleAt(ci);
-                    // Advance until span changes.
-                    int ni = ci + 1;
-                    while (ni < le && ta->SpanStyleAt(ni) == spanStyle) ++ni;
-                    spanEnd = ni;
-
-                    // Expand tab runs within this span.
-                    std::string run;
-                    float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+                        std::string run;
+                        float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 #if UI_HAS_TTF
-                    if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-                        if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
-                            int sw = 0, sh = 0;
-                            font.GetStringSize(" ", &sw, &sh);
-                            charW = (float)sw;
-                        }
-                    }
-#endif
-                    int visualCol = (ci > ls) ? (int)((xOff - cX) / charW) : 0; // approx
-                    for (int k = ci; k < spanEnd; ++k) {
-                        char ch = ta->text[k];
-                        if (ch == '\t') {
-                            // Flush current run, advance tab stop.
-                            if (!run.empty()) {
-                                SDL::Color tc = enabled ? s.textColor : s.textDisabled;
-                                if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
-                                _Text(e, run, xOff, ly, tc, s.opacity, s);
-                                xOff += _TW(run, s);
-                                run.clear();
+                        if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
+                            if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+                                int sw = 0, sh = 0;
+                                font.GetStringSize(" ", &sw, &sh);
+                                charW = (float)sw;
                             }
-                            int spaces = ta->tabSize - (visualCol % ta->tabSize);
-                            if (spaces == 0) spaces = ta->tabSize;
-                            xOff += spaces * charW;
-                            visualCol += spaces;
-                        } else {
-                            run += ch;
-                            ++visualCol;
                         }
+#endif
+                        int visualCol = (ci > ls) ? (int)((xOff - startX) / charW) : 0; 
+                        
+                        for (int k = ci; k < spanEnd; ++k) {
+                            char ch = ta->text[k];
+                            if (ch == '\t') {
+                                if (!run.empty()) {
+                                    SDL::Color tc = enabled ? s.textColor : s.textDisabled;
+                                    if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
+                                    _Text(e, run, xOff, ly, tc, s.opacity, s);
+                                    xOff += _TW(run, s);
+                                    run.clear();
+                                }
+                                int spaces = ta->tabSize - (visualCol % ta->tabSize);
+                                if (spaces == 0) spaces = ta->tabSize;
+                                xOff += spaces * charW;
+                                visualCol += spaces;
+                            } else {
+                                run += ch;
+                                ++visualCol;
+                            }
+                        }
+                        if (!run.empty()) {
+                            SDL::Color tc = enabled ? s.textColor : s.textDisabled;
+                            if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
+                            _Text(e, run, xOff, ly, tc, s.opacity, s);
+                            xOff += _TW(run, s);
+                        }
+                        ci = spanEnd;
                     }
-                    if (!run.empty()) {
-                        SDL::Color tc = enabled ? s.textColor : s.textDisabled;
-                        if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
-                        _Text(e, run, xOff, ly, tc, s.opacity, s);
-                        xOff += _TW(run, s);
-                    }
-                    ci = spanEnd;
                 }
-            }
 
-            // ── Cursor ────────────────────────────────────────────────────────────
-            if (foc && ta->blinkTimer < 0.5f) {
-                int curLine = ta->LineOf(ta->cursorPos);
-                int curCol  = ta->ColOf(ta->cursorPos);
-                float cx_   = cX + _TALineX(ta, curLine, curCol, s);
-                float cy_   = startY + curLine * lineH;
-                _FillRect({cx_, cy_, 1.5f, lineH}, s.textColor, s.opacity);
-            }
+                // ── 8. Rendu du Curseur clignotant ────────────────────────────────
+                if (foc && ta->blinkTimer < 0.5f) {
+                    int curLine = ta->LineOf(ta->cursorPos);
+                    int curCol  = ta->ColOf(ta->cursorPos);
+                    
+                    float cx_ = startX + _TextAreaLineX(ta, curLine, curCol, s);
+                    float cy_ = startY + curLine * lineH;
+                    
+                    _FillRect({cx_, cy_, 1.5f, lineH}, s.textColor, s.opacity);
+                }
+            } // Fin du bloc (Texte non-vide)
 
-            // ── Restore clip ──────────────────────────────────────────────────────
-            SDL_SetRenderClipRect(m_renderer.Get(), nullptr);
+            // ── 9. Restauration du Clip parent ────────────────────────────────────
+            if (hadClip && prevClip.w > 0)
+                SDL_SetRenderClipRect(m_renderer.Get(), &prevClip);
+            else
+                SDL_SetRenderClipRect(m_renderer.Get(), nullptr);
+
+            // ── 10. Rendu des Scrollbars unifiées ─────────────────────────────────
+            // Dessinées en dernier, PARDESSUS le texte, hors du clip restrictif.
+            _DrawInlineScrollbars(e, r, s, w);
         }
-        
+
         void _DrawKnob(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
             auto *kd = m_world.Get<KnobData>(e);
             if (!kd) return;
@@ -3924,6 +4223,7 @@ namespace UI {
             
             _FillRR({lx - 4.f, ly - 4.f, 8.f, 8.f}, fillC, SDL::FCorners(4.f), s.opacity);
         }
+
         void _DrawImage(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) { 
             auto *d = m_world.Get<ImageData>(e);
             if (!d || d->key.empty()) {
@@ -3973,6 +4273,7 @@ namespace UI {
             m_renderer.RenderTexture(texture, std::nullopt, dst);
             texture.SetAlphaMod(255);
         }
+        
         void _DrawCanvas(ECS::EntityId e, const FRect &r) { 
             auto *cd = m_world.Get<CanvasData>(e);
             if (!cd || !cd->renderCb) return;
@@ -3993,14 +4294,12 @@ namespace UI {
             SDL_SetRenderViewport(m_renderer.Get(), nullptr);
         }
 
-        // ── §8.12b  ListBox draw ──────────────────────────────────────────────
-
+        // ── ListBox draw ──────────────────────────────────────────────       
         void _DrawListBox(ECS::EntityId e, const FRect &r, const Style &s,
-                          const WidgetState &st) {
+                          const WidgetState &st, const Widget &w) {
             auto *lb  = m_world.Get<ListBoxData>(e);
             auto *lp  = m_world.Get<LayoutProps>(e);
-            auto *css = m_world.Get<ContainerScrollState>(e);
-            if (!lb || !lp || !css) return;
+            if (!lb || !lp) return;
 
             // Background + focused/hovered border
             SDL::Color bg = st.focused ? s.bgFocused
@@ -4011,34 +4310,31 @@ namespace UI {
                       s.borders, s.radius, s.opacity);
 
             const float ih     = lb->itemHeight;
-            const float total  = (float)lb->items.size() * ih;
+            const float innerW = r.w - lp->padding.left - lp->padding.right;
             const float innerH = r.h - lp->padding.top - lp->padding.bottom;
-            const float t      = lp->sbThickness;
             const float iy     = r.y + lp->padding.top;
             const float charH  = _TH(s);
 
-            // Expose total content height so the shared drag infrastructure can
-            // compute thumb ratios correctly (used by _UpdateContainerScrollDrags).
-            lp->contentH = total;
-
-            // Decide whether the vertical scrollbar is needed.
-            const bool  showY  = total > innerH + 0.5f;
-            const float viewH  = innerH;
-            const float itemW  = r.w - s.borders.left - s.borders.right
-                                      - (showY ? t : 0.f);
+            bool showX = false, showY = false;
+            _ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
+            
+            const float viewH  = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
+            const float t      = lp->sbThickness;
+            const float itemW  = r.w - s.borders.left - s.borders.right - (showY ? t : 0.f);
             const float px     = r.x + lp->padding.left;
 
-            // Clamp scroll position.
-            lp->scrollY = SDL::Clamp(lp->scrollY, 0.f, SDL::Max(0.f, total - viewH));
+            // SAUVEGARDE DU CLIP (Pour ne pas clipper la scrollbar qui arrive ensuite)
+            SDL_Rect prevClip = {};
+            bool hadClip = SDL_GetRenderClipRect(m_renderer.Get(), &prevClip);
 
-            // Content clip — exclude the scrollbar column.
-            SDL::Rect clip = {
+            // Content clip — exclut l'espace de la scrollbar.
+            SDL_Rect clip = {
                 (int)r.x + 1,
                 (int)iy,
                 (int)(r.w - 2.f - (showY ? t : 0.f)),
                 (int)viewH
             };
-            m_renderer.SetClipRect(clip);
+            SDL_SetRenderClipRect(m_renderer.Get(), &clip);
 
             int firstIdx = SDL::Max(0, (int)(lp->scrollY / ih));
             int lastIdx  = SDL::Min((int)lb->items.size(),
@@ -4069,34 +4365,17 @@ namespace UI {
                       tc, s.opacity, s);
             }
 
-            // ── Vertical scrollbar (ContainerScrollState-based) ───────────────────
-            // thumbY is updated every frame so _TryBeginContainerScrollDrag can
-            // hit-test it and the shared drag handler can move lp->scrollY.
-            css->thumbY = {};
-            if (showY) {
-                FRect barY = {r.x + r.w - t, iy, t, viewH};
+            // RESTAURATION DU CLIP PARENT
+            if (hadClip && prevClip.w > 0)
+                SDL_SetRenderClipRect(m_renderer.Get(), &prevClip);
+            else
+                SDL_SetRenderClipRect(m_renderer.Get(), nullptr);
 
-                SDL::Color trackCol = s.track;
-                trackCol.a = SDL::Clamp8((int)(trackCol.a * s.opacity * 0.85f));
-                _FillRR(barY, trackCol, SDL::FCorners(t * 0.5f), 1.f);
-
-                float ratio  = SDL::Clamp(viewH / total, 0.05f, 1.f);
-                float maxOff = total - viewH;
-                float offN   = (maxOff > 0.f) ? lp->scrollY / maxOff : 0.f;
-                float tH     = SDL::Max(t * 2.f, barY.h * ratio);
-                float tY     = barY.y + (barY.h - tH) * offN;
-
-                bool thumbHov = css->dragY || _Contains({barY.x, tY, t, tH}, m_mousePos);
-                SDL::Color thumbCol = thumbHov ? s.thumb : s.fill;
-                thumbCol.a = SDL::Clamp8((int)(thumbCol.a * s.opacity));
-
-                css->thumbY = {barY.x + 1.f, tY, t - 2.f, tH};
-                _FillRR(css->thumbY, thumbCol, SDL::FCorners((t - 2.f) * 0.5f), 1.f);
-            }
+            // Dessin des scrollbars (désormais pardessus et hors du clip des items)
+            _DrawInlineScrollbars(e, r, s, w);
         }
 
-        // ── §8.12c  Graph draw ────────────────────────────────────────────────
-
+        // ── Graph draw ────────────────────────────────────────────────
         void _DrawGraph(ECS::EntityId e, const FRect &r, const Style &s,
                         const WidgetState &st) { 
             auto *gd = m_world.Get<GraphData>(e);
@@ -4269,8 +4548,7 @@ namespace UI {
             }
         }
 
-        // ── §8.12d  ListBox keyboard handler ──────────────────────────────────
-
+        // ── ListBox keyboard handler ──────────────────────────────────
         void _HandleKeyDownListBox(SDL::Keycode k) {
             auto *lb  = m_world.Get<ListBoxData>(m_focused); 
             auto *cb  = m_world.Get<Callbacks>(m_focused);
@@ -4314,64 +4592,10 @@ namespace UI {
             if (lb->selectedIndex != prev && cb && cb->onChange)
                 cb->onChange((float)lb->selectedIndex);
         }
-
-        // ── §8.13  9-slice tileset draw ───────────────────────────────────────
-
-        /**
-         * Draw a 9-slice widget using a tileset texture.
-         *
-         * The nine tiles are indexed relative to `ts.firstTileIdx`:
-         *   0=TL, 1=TC, 2=TR, 3=ML, 4=MC, 5=MR, 6=BL, 7=BC, 8=BR
-         *
-         * @param r   Screen rect of the widget.
-         * @param ts  Tileset style configuration.
-         * @param tex Resolved tileset texture.
-         */
-        void _Draw9Slice(const FRect& r, const TilesetStyle& ts, TextureRef tex) { 
-            if (!tex) return;
-
-            const float bw  = SDL::Min(ts.BorderW(), r.w * 0.5f);
-            const float bh  = SDL::Min(ts.BorderH(), r.h * 0.5f);
-            const float cx  = r.x + bw;
-            const float cy  = r.y + bh;
-            const float cw  = r.w - 2.f * bw;
-            const float ch  = r.h - 2.f * bh;
-
-            tex.SetAlphaMod(SDL::Clamp8(static_cast<int>(255 * ts.opacity)));
-
-            auto draw = [&](int rel, FRect dst) {
-                FRect src = ts.TileRect(rel);
-                m_renderer.RenderTexture(tex, src, dst);
-            };
-
-            // Corners (always drawn)
-            draw(0, {r.x,            r.y,            bw, bh});
-            draw(2, {r.x + r.w - bw, r.y,            bw, bh});
-            draw(6, {r.x,            r.y + r.h - bh, bw, bh});
-            draw(8, {r.x + r.w - bw, r.y + r.h - bh, bw, bh});
-
-            // Top / bottom edges
-            if (cw > 0.f) {
-                draw(1, {cx, r.y,            cw, bh});
-                draw(7, {cx, r.y + r.h - bh, cw, bh});
-            }
-
-            // Left / right edges
-            if (ch > 0.f) {
-                draw(3, {r.x,            cy, bw, ch});
-                draw(5, {r.x + r.w - bw, cy, bw, ch});
-            }
-
-            // Center fill
-            if (cw > 0.f && ch > 0.f)
-                draw(4, {cx, cy, cw, ch});
-
-            tex.SetAlphaMod(255);
-        }
     };
 
     // =============================================================================
-    // §9  Builder
+    // Builder
     // =============================================================================
 
     struct Builder {
@@ -4858,7 +5082,7 @@ namespace UI {
     };
 
     // =============================================================================
-    // §10  System builder factory implementations
+    // System builder factory implementations
     // =============================================================================
 
     inline Builder System::Container(const std::string &n) { return {*this, MakeContainer(n)}; }
@@ -4912,7 +5136,7 @@ namespace UI {
     }
 
     // =============================================================================
-    // §11  Theme implementations
+    // Theme implementations
     // =============================================================================
 
     inline void Theme::ApplyDark(System &) { accentColor = {70, 130, 210, 255}; }
