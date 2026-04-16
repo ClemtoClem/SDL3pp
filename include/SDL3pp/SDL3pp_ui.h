@@ -22,6 +22,7 @@
  * | `RadioData`      | group name + checked (RadioButton)                       |
  * | `KnobData`       | normalised val [0,1] + drag                              |
  * | `ImageData`      | texture path + ImageFit                                  |
+ * | `IconData`       | icon key, padding, per-state opacity + tint (Button)     |
  * | `CanvasData`     | custom render callback                                   |
  * | `WidgetState`    | hover/press/focus                                        |
  * | `Callbacks`      | onClick, onChange, onScroll, onToggle, onTextChange, …   |
@@ -641,6 +642,24 @@ namespace UI {
     struct ImageData {
         std::string key;
         ImageFit fit = ImageFit::Contain;
+    };
+
+    /// @brief Icon properties for a Button (or any widget rendered by _DrawButton).
+    /// When a text label is also present the icon is drawn to its left;
+    /// when no text is set the icon is centred inside the widget.
+    struct IconData {
+        std::string key;               ///< Resource-pool key of the texture (empty = no icon).
+        float       pad = 4.f;         ///< Inset from widget edges (px).
+
+        float opacityNormal   = 1.f;   ///< Icon alpha when idle.
+        float opacityHovered  = 1.f;   ///< Icon alpha when hovered.
+        float opacityPressed  = 0.85f; ///< Icon alpha when pressed.
+        float opacityDisabled = 0.35f; ///< Icon alpha when disabled.
+
+        SDL::Color tintNormal   = {255, 255, 255, 255}; ///< Color-mod when idle.
+        SDL::Color tintHovered  = {255, 255, 255, 255}; ///< Color-mod when hovered.
+        SDL::Color tintPressed  = {220, 220, 220, 255}; ///< Color-mod when pressed.
+        SDL::Color tintDisabled = {180, 180, 180, 255}; ///< Color-mod when disabled.
     };
 
     struct CanvasData {
@@ -1535,6 +1554,12 @@ namespace UI {
                 d->key = key;
                 d->fit = f;
             }
+        }
+
+        /// Return a reference to the IconData component, creating it if absent.
+        IconData &GetOrAddIconData(ECS::EntityId e) {
+            if (auto *ic = m_world.Get<IconData>(e)) return *ic;
+            return m_world.Add<IconData>(e);
         }
 
         // ── TextArea accessors ────────────────────────────────────────────────────────
@@ -3914,20 +3939,60 @@ namespace UI {
             _Text(e, c->text, r.x + (lp ? lp->padding.left : 4.f), r.y + (r.h - _TH(s)) * 0.5f, tc, s.opacity, s);
         }
 
-        void _DrawButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
-            SDL::Color bgColor = !Has(w.behavior, BehaviorFlag::Enable) ? s.bgDisabled
+        void _DrawButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+            const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
+            SDL::Color bgColor = !enabled ? s.bgDisabled
                 : (st.pressed ? s.bgPressed
                     : (st.hovered ? s.bgHovered : s.bgColor));
             SDL::Color bdColor = (m_focused == e) ? s.bdFocused
                 : (st.hovered ? s.bdHovered : s.bdColor);
-            SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabled
+            SDL::Color tc = !enabled ? s.textDisabled
                 : (st.hovered ? s.textHovered : s.textColor);
             _FillRR(r, bgColor, s.radius, s.opacity);
             _StrokeRR(r, bdColor, s.borders, s.radius, s.opacity);
-            auto *c = m_world.Get<Content>(e);
+
+            auto *c  = m_world.Get<Content>(e);
+            auto *ic = m_world.Get<IconData>(e);
+
+            // ── Icon ─────────────────────────────────────────────────────────
+            float textX = 0.f;  // set when icon is drawn and text follows it
+            if (ic && !ic->key.empty()) {
+                auto tex = _EnsureTexture(ic->key);
+                if (tex) {
+                    float sz    = SDL::Min(r.w, r.h) - ic->pad * 2.f;
+                    float textW = (c && !c->text.empty()) ? _TW(c->text, s) : 0.f;
+                    float iconX;
+                    if (textW > 0.f) {
+                        constexpr float kGap = 4.f;
+                        iconX = r.x + (r.w - (sz + kGap + textW)) * 0.5f;
+                        textX = iconX + sz + kGap;
+                    } else {
+                        iconX = r.x + (r.w - sz) * 0.5f;
+                    }
+                    float iconY = r.y + (r.h - sz) * 0.5f;
+
+                    float opacity = (!enabled ? ic->opacityDisabled
+                        : st.pressed ? ic->opacityPressed
+                        : st.hovered ? ic->opacityHovered
+                        : ic->opacityNormal) * s.opacity;
+                    const SDL::Color &tint = !enabled ? ic->tintDisabled
+                        : st.pressed ? ic->tintPressed
+                        : st.hovered ? ic->tintHovered
+                        : ic->tintNormal;
+
+                    tex.SetAlphaMod(SDL::Clamp8((int)(opacity * 255.f)));
+                    tex.SetColorMod(tint.r, tint.g, tint.b);
+                    m_renderer.RenderTexture(tex, std::nullopt, FRect{iconX, iconY, sz, sz});
+                    tex.SetAlphaMod(255);
+                    tex.SetColorMod(255, 255, 255);
+                }
+            }
+
+            // ── Text ─────────────────────────────────────────────────────────
             if (c && !c->text.empty()) {
                 float tw = _TW(c->text, s), th = _TH(s);
-                _Text(e, c->text, r.x + (r.w - tw) * 0.5f, r.y + (r.h - th) * 0.5f, tc, s.opacity, s);
+                float tx_ = (textX > 0.f) ? textX : r.x + (r.w - tw) * 0.5f;
+                _Text(e, c->text, tx_, r.y + (r.h - th) * 0.5f, tc, s.opacity, s);
             }
         }
 
@@ -4806,6 +4871,41 @@ namespace UI {
 
         Builder &ImageKey(const std::string &key, ImageFit f = ImageFit::Contain) {
             sys.SetImageKey(id, key, f);
+            return *this;
+        }
+
+        /// Attach an icon texture to a Button (or any widget rendered by _DrawButton).
+        /// The icon is drawn to the left of any text label, or centred when no text is set.
+        /// @param key  Resource-pool key of the texture.
+        /// @param pad  Inset from widget edges in pixels (default 4).
+        Builder &Icon(const std::string &key, float pad = 4.f) {
+            auto &ic = sys.GetOrAddIconData(id);
+            ic.key = key;
+            ic.pad = pad;
+            return *this;
+        }
+
+        /// Set the icon opacity for each interactive state (values in [0, 1]).
+        Builder &IconOpacity(float normal, float hovered = 1.f,
+                             float pressed = 0.85f, float disabled = 0.35f) {
+            auto &ic = sys.GetOrAddIconData(id);
+            ic.opacityNormal   = normal;
+            ic.opacityHovered  = hovered;
+            ic.opacityPressed  = pressed;
+            ic.opacityDisabled = disabled;
+            return *this;
+        }
+
+        /// Set the icon color modulation (tint) for each interactive state.
+        Builder &IconTint(SDL::Color normal,
+                          SDL::Color hovered  = {255, 255, 255, 255},
+                          SDL::Color pressed  = {220, 220, 220, 255},
+                          SDL::Color disabled = {180, 180, 180, 255}) {
+            auto &ic = sys.GetOrAddIconData(id);
+            ic.tintNormal   = normal;
+            ic.tintHovered  = hovered;
+            ic.tintPressed  = pressed;
+            ic.tintDisabled = disabled;
             return *this;
         }
 

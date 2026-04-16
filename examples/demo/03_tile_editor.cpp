@@ -20,11 +20,15 @@
 #include <SDL3pp/SDL3pp_dataScripts.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <queue>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <variant>
 #include <vector>
 
 #define TILE_EDITOR_VERSION "1.0.0"
@@ -98,84 +102,161 @@ namespace pal {
 using TileID = uint16_t;
 static constexpr TileID EMPTY_TILE = 0;
 
-struct TilesetDef {
-    std::string key;
-    std::string name    = "Tileset";
-    std::string path;
-    int  tileW    = 16,   tileH   = 16;
-    int  spacing  = 0,    margin  = 0;
-    int  columns  = 8,    rows    = 8;
-    int  tileCount= 64;
-    int  imageW   = 0,    imageH  = 0;
-    bool smart    = false;     ///< Auto-tile: pick variant based on neighbours
-    TileID firstGid = 1;       ///< Global tile ID of the first tile
+// ── Custom properties ─────────────────────────────────────────────────────────
+// Supported value types: int, float, bool, std::string
+using PropertyValue = std::variant<int, float, bool, std::string>;
+using PropertyMap   = std::unordered_map<std::string, PropertyValue>;
+
+// ── Chunk-based infinite tile storage ─────────────────────────────────────────
+static constexpr int CHUNK_SIZE = 16; ///< Tiles per chunk edge (power of two).
+
+struct ChunkPos {
+    int x = 0, y = 0;
+    bool operator==(const ChunkPos& o) const noexcept { return x == o.x && y == o.y; }
+};
+struct ChunkHasher {
+    std::size_t operator()(const ChunkPos& p) const noexcept {
+        // Combine two 32-bit ints into one 64-bit hash (good for negative coords too)
+        return std::hash<long long>()((long long)(unsigned)p.x | ((long long)(unsigned)p.y << 32));
+    }
+};
+struct Chunk {
+    std::array<TileID, CHUNK_SIZE * CHUNK_SIZE> tiles;
+    bool dirty = true;
+    Chunk() { tiles.fill(EMPTY_TILE); }
+};
+using ChunkMap = std::unordered_map<ChunkPos, Chunk, ChunkHasher>;
+
+// Floor-division that handles negative numerators correctly (unlike C++ truncation)
+static constexpr int FloorDiv(int a, int b) noexcept {
+    return a / b - (a % b != 0 && (a ^ b) < 0);
+}
+
+// ── Tile metadata (per local-ID inside a TilesetDef) ─────────────────────────
+
+struct AnimFrame {
+    int localId     = 0;   ///< Local tile index within the tileset.
+    int durationMs  = 100; ///< Frame duration in milliseconds.
 };
 
+/// Per-tile metadata stored in TilesetDef::tileData[localId].
+struct TileMetadata {
+    std::vector<AnimFrame> anim;      ///< Non-empty → tile is animated.
+    uint32_t    wangId     = 0;       ///< Wang-tile edge/corner bitmask (for autotile).
+    PropertyMap properties;           ///< Custom key→value properties.
+};
+
+// ── Enums ────────────────────────────────────────────────────────────────────
 enum class LayerType  { Tile, Object };
 enum class ObjectType { Rect, Ellipse, Point, Polygon, Tile };
 enum class MapOrient  { Orthogonal, Isometric, Hexagonal };
 
+// ── Tileset ───────────────────────────────────────────────────────────────────
+struct TilesetDef {
+    std::string key;
+    std::string name     = "Tileset";
+    std::string path;
+    int  tileW    = 16,  tileH    = 16;
+    int  spacing  = 0,   margin   = 0;
+    int  columns  = 8,   rows     = 8;
+    int  tileCount= 64;
+    int  imageW   = 0,   imageH   = 0;
+    bool smart    = false;           ///< Simple 4-bit neighbour autotile.
+    TileID firstGid = 1;             ///< Global tile ID of the first tile.
+
+    /// Per-tile metadata (animations, Wang ID, properties).
+    std::unordered_map<int, TileMetadata> tileData;
+
+    const TileMetadata* MetaFor(int localId) const {
+        auto it = tileData.find(localId);
+        return (it != tileData.end()) ? &it->second : nullptr;
+    }
+};
+
+// ── Object ────────────────────────────────────────────────────────────────────
 struct ObjectDef {
-    int        id       = 0;
-    ObjectType type     = ObjectType::Rect;
+    int         id       = 0;
+    ObjectType  type     = ObjectType::Rect;
     std::string name;
     float x = 0, y = 0, w = 32, h = 32;
     float rotation = 0.f;
     TileID tileId  = 0;
     std::vector<SDL::FPoint> points;
     bool selected  = false;
+    PropertyMap properties; ///< Custom key→value properties.
 };
 
+// ── Map layer ─────────────────────────────────────────────────────────────────
 struct MapLayer {
-    std::string          name    = "Layer";
-    LayerType            type    = LayerType::Tile;
-    bool                 visible = true;
-    bool                 locked  = false;
-    float                opacity = 1.0f;
-    std::vector<TileID>  tiles;            ///< row-major, size = mapW * mapH
+    std::string  name    = "Layer";
+    LayerType    type    = LayerType::Tile;
+    bool         visible = true;
+    bool         locked  = false;
+    float        opacity = 1.0f;
+    ChunkMap     chunks;              ///< Sparse chunk storage (infinite map).
     std::vector<ObjectDef> objects;
+    PropertyMap  properties;          ///< Custom key→value properties.
 };
 
+// ── TileMap ───────────────────────────────────────────────────────────────────
 struct TileMap {
     std::string name     = "Untitled";
     std::string filePath;
-    int  width  = 20,  height = 15;
-    int  tileW  = 32,  tileH  = 32;
+    int  tileW   = 32,  tileH   = 32;
+    bool infinite = false;            ///< When false, tiles are bounded by width/height.
+    int  width   = 20,  height  = 15; ///< Used only when !infinite.
     MapOrient orientation = MapOrient::Orthogonal;
     std::vector<TilesetDef> tilesets;
     std::vector<MapLayer>   layers;
     int  activeLayer = 0;
     bool dirty       = false;
+    PropertyMap properties;
 
     void Init(int w = 20, int h = 15, int tw = 32, int th = 32) {
         width = w; height = h; tileW = tw; tileH = th;
+        infinite = false;
         name = "Untitled"; filePath = "";
-        tilesets.clear(); layers.clear();
-        MapLayer l; l.name = "Layer 1";
-        l.tiles.assign(w * h, EMPTY_TILE);
-        layers.push_back(std::move(l));
+        tilesets.clear(); layers.clear(); properties.clear();
+        layers.push_back(MapLayer{.name = "Layer 1"});
         activeLayer = 0; dirty = false;
     }
 
-    TileID GetTile(int layer, int x, int y) const {
-        if (layer < 0 || layer >= (int)layers.size()) return EMPTY_TILE;
-        if (x < 0 || y < 0 || x >= width || y >= height) return EMPTY_TILE;
-        const auto& l = layers[layer];
-        if (l.type != LayerType::Tile || l.tiles.empty()) return EMPTY_TILE;
-        return l.tiles[y * width + x];
+    // ── Chunk helpers ─────────────────────────────────────────────────────────
+
+    static ChunkPos TileToChunk(int tx, int ty) noexcept {
+        return {FloorDiv(tx, CHUNK_SIZE), FloorDiv(ty, CHUNK_SIZE)};
+    }
+    static int TileLocalIdx(int tx, int ty) noexcept {
+        int lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+        int ly = ((ty % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+        return ly * CHUNK_SIZE + lx;
     }
 
-    bool SetTile(int layer, int x, int y, TileID id) {
+    // ── Tile access ───────────────────────────────────────────────────────────
+
+    TileID GetTile(int layer, int tx, int ty) const {
+        if (layer < 0 || layer >= (int)layers.size()) return EMPTY_TILE;
+        if (!infinite && (tx < 0 || ty < 0 || tx >= width || ty >= height)) return EMPTY_TILE;
+        const auto& l = layers[layer];
+        if (l.type != LayerType::Tile) return EMPTY_TILE;
+        auto it = l.chunks.find(TileToChunk(tx, ty));
+        if (it == l.chunks.end()) return EMPTY_TILE;
+        return it->second.tiles[TileLocalIdx(tx, ty)];
+    }
+
+    bool SetTile(int layer, int tx, int ty, TileID id) {
         if (layer < 0 || layer >= (int)layers.size()) return false;
-        if (x < 0 || y < 0 || x >= width || y >= height) return false;
+        if (!infinite && (tx < 0 || ty < 0 || tx >= width || ty >= height)) return false;
         auto& l = layers[layer];
         if (l.type != LayerType::Tile || l.locked) return false;
-        if ((int)l.tiles.size() != width * height)
-            l.tiles.assign(width * height, EMPTY_TILE);
-        l.tiles[y * width + x] = id;
+        auto& chunk = l.chunks[TileToChunk(tx, ty)]; // creates on demand
+        chunk.tiles[TileLocalIdx(tx, ty)] = id;
+        chunk.dirty = true;
         dirty = true;
         return true;
     }
+
+    // ── Tileset helpers ───────────────────────────────────────────────────────
 
     const TilesetDef* FindTileset(TileID tid) const {
         if (tid == EMPTY_TILE) return nullptr;
@@ -197,7 +278,9 @@ struct TileMap {
         };
     }
 
-    // Bit mask of 4-way neighbours that have the same tile ID (N=1 E=2 S=4 W=8)
+    // ── Auto-tile ─────────────────────────────────────────────────────────────
+
+    /// Bit mask of 4-way neighbours with the same tile ID: N=1 E=2 S=4 W=8.
     uint8_t NeighbourMask(int layer, int x, int y) const {
         TileID t = GetTile(layer, x, y);
         uint8_t m = 0;
@@ -206,6 +289,34 @@ struct TileMap {
         if (GetTile(layer, x,   y+1) == t) m |= 4;
         if (GetTile(layer, x-1, y  ) == t) m |= 8;
         return m;
+    }
+
+    // ── Map extent (for bounded maps / UI display) ────────────────────────────
+
+    /// Bounding box of all occupied tile positions across all tile layers,
+    /// returned as {minX, minY, maxX+1, maxY+1} in tile coordinates.
+    /// Returns {0,0,width,height} for bounded maps.
+    struct TileBounds { int x0=0,y0=0,x1=0,y1=0; bool empty=true; };
+    TileBounds OccupiedBounds() const {
+        if (!infinite) return {0, 0, width, height, false};
+        TileBounds b;
+        for (const auto& layer : layers) {
+            if (layer.type != LayerType::Tile) continue;
+            for (const auto& [cp, chunk] : layer.chunks) {
+                for (int ly = 0; ly < CHUNK_SIZE; ++ly)
+                for (int lx = 0; lx < CHUNK_SIZE; ++lx) {
+                    if (chunk.tiles[ly * CHUNK_SIZE + lx] == EMPTY_TILE) continue;
+                    int tx = cp.x * CHUNK_SIZE + lx;
+                    int ty = cp.y * CHUNK_SIZE + ly;
+                    if (b.empty) { b.x0=tx; b.y0=ty; b.x1=tx+1; b.y1=ty+1; b.empty=false; }
+                    else {
+                        b.x0 = SDL::Min(b.x0, tx);  b.y0 = SDL::Min(b.y0, ty);
+                        b.x1 = SDL::Max(b.x1, tx+1); b.y1 = SDL::Max(b.y1, ty+1);
+                    }
+                }
+            }
+        }
+        return b;
     }
 };
 
@@ -295,26 +406,79 @@ struct EditorState {
 // XML Save / Load (SDL3pp DataScripts)
 // =============================================================================
 
+// ── Save helpers ──────────────────────────────────────────────────────────────
+
+/// Serialise a PropertyMap to a <properties> ObjectDataNode (TMX-style).
+static std::shared_ptr<SDL::ObjectDataNode> SaveProperties(const PropertyMap& props) {
+    if (props.empty()) return nullptr;
+    auto pn = SDL::ObjectDataNode::Make();
+    for (const auto& [k, v] : props) {
+        auto en = SDL::ObjectDataNode::Make();
+        auto ea = SDL::ObjectDataNode::Make();
+        ea->set("name", SDL::StringDataNode::Make(k));
+        std::visit([&](auto&& val) {
+            using T = std::decay_t<decltype(val)>;
+            if constexpr (std::is_same_v<T, int>) {
+                ea->set("type",  SDL::StringDataNode::Make("int"));
+                ea->set("value", SDL::S32DataNode::Make(val));
+            } else if constexpr (std::is_same_v<T, float>) {
+                ea->set("type",  SDL::StringDataNode::Make("float"));
+                ea->set("value", SDL::F32DataNode::Make(val));
+            } else if constexpr (std::is_same_v<T, bool>) {
+                ea->set("type",  SDL::StringDataNode::Make("bool"));
+                ea->set("value", SDL::BoolDataNode::Make(val));
+            } else {
+                ea->set("type",  SDL::StringDataNode::Make("string"));
+                ea->set("value", SDL::StringDataNode::Make(val));
+            }
+        }, v);
+        en->set("@attributes", ea);
+        pn->set("property", en);
+    }
+    return pn;
+}
+
+/// Encode a flat tile array (row-major, bounded) as CSV.
+static std::string TilesToCsv(const ChunkMap& chunks, int x0, int y0, int w, int h) {
+    std::string csv;
+    csv.reserve(w * h * 3);
+    for (int ty = y0; ty < y0 + h; ++ty) {
+        for (int tx = x0; tx < x0 + w; ++tx) {
+            if (tx != x0 || ty != y0) csv += ',';
+            auto it = chunks.find(TileMap::TileToChunk(tx, ty));
+            TileID id = (it != chunks.end())
+                ? it->second.tiles[TileMap::TileLocalIdx(tx, ty)]
+                : EMPTY_TILE;
+            csv += std::to_string((int)id);
+        }
+    }
+    return csv;
+}
+
 static void SaveMap(const TileMap& map, const std::string& path) {
     auto doc   = std::make_shared<SDL::XMLDataDocument>();
     auto root  = SDL::ObjectDataNode::Make();
     auto mNode = SDL::ObjectDataNode::Make();
 
-    // <map attributes>
+    // <map @attributes>
     {
         auto a = SDL::ObjectDataNode::Make();
-        a->set("version",     SDL::StringDataNode::Make("1.0"));
+        a->set("version",     SDL::StringDataNode::Make("1.10"));
+        a->set("tiledversion",SDL::StringDataNode::Make("1.10.0"));
         a->set("name",        SDL::StringDataNode::Make(map.name));
         a->set("width",       SDL::S32DataNode::Make(map.width));
         a->set("height",      SDL::S32DataNode::Make(map.height));
         a->set("tilewidth",   SDL::S32DataNode::Make(map.tileW));
         a->set("tileheight",  SDL::S32DataNode::Make(map.tileH));
+        a->set("infinite",    SDL::BoolDataNode::Make(map.infinite));
         const char* ori = "orthogonal";
         if (map.orientation == MapOrient::Isometric) ori = "isometric";
         if (map.orientation == MapOrient::Hexagonal) ori = "hexagonal";
         a->set("orientation", SDL::StringDataNode::Make(ori));
         mNode->set("@attributes", a);
     }
+    if (auto pn = SaveProperties(map.properties))
+        mNode->set("properties", pn);
 
     // <tileset> entries
     for (const auto& ts : map.tilesets) {
@@ -331,7 +495,31 @@ static void SaveMap(const TileMap& map, const std::string& path) {
         a->set("tilecount",  SDL::S32DataNode::Make(ts.tileCount));
         a->set("smart",      SDL::BoolDataNode::Make(ts.smart));
         tn->set("@attributes", a);
-        mNode->set("tileset", tn);   // merges to array for multiple tilesets
+        // Per-tile metadata: <tile id="…"> <animation> / <properties>
+        for (const auto& [lid, meta] : ts.tileData) {
+            auto tileNode = SDL::ObjectDataNode::Make();
+            auto ta = SDL::ObjectDataNode::Make();
+            ta->set("id", SDL::S32DataNode::Make(lid));
+            tileNode->set("@attributes", ta);
+            if (!meta.anim.empty()) {
+                auto animNode = SDL::ObjectDataNode::Make();
+                for (const auto& fr : meta.anim) {
+                    auto fn = SDL::ObjectDataNode::Make();
+                    auto fa = SDL::ObjectDataNode::Make();
+                    fa->set("tileid",   SDL::S32DataNode::Make(fr.localId));
+                    fa->set("duration", SDL::S32DataNode::Make(fr.durationMs));
+                    fn->set("@attributes", fa);
+                    animNode->set("frame", fn);
+                }
+                tileNode->set("animation", animNode);
+            }
+            if (!meta.properties.empty())
+                tileNode->set("properties", SaveProperties(meta.properties));
+            if (meta.wangId)
+                tileNode->set("wangid", SDL::S32DataNode::Make((int)meta.wangId));
+            tn->set("tile", tileNode);
+        }
+        mNode->set("tileset", tn);
     }
 
     // <layer> / <objectgroup> entries
@@ -343,16 +531,36 @@ static void SaveMap(const TileMap& map, const std::string& path) {
         a->set("locked",  SDL::BoolDataNode::Make(layer.locked));
         a->set("opacity", SDL::F32DataNode::Make(layer.opacity));
         ln->set("@attributes", a);
+        if (auto pn = SaveProperties(layer.properties))
+            ln->set("properties", pn);
 
         if (layer.type == LayerType::Tile) {
-            // Encode tiles as comma-separated values
-            std::string csv;
-            csv.reserve(layer.tiles.size() * 3);
-            for (size_t i = 0; i < layer.tiles.size(); ++i) {
-                if (i) csv += ',';
-                csv += std::to_string((int)layer.tiles[i]);
+            if (map.infinite) {
+                // TMX infinite format: one <chunk> per occupied chunk
+                auto chunksNode = SDL::ObjectDataNode::Make();
+                for (const auto& [cp, chunk] : layer.chunks) {
+                    // Skip fully-empty chunks
+                    bool hasData = false;
+                    for (auto t : chunk.tiles) if (t != EMPTY_TILE) { hasData = true; break; }
+                    if (!hasData) continue;
+                    auto cn = SDL::ObjectDataNode::Make();
+                    auto ca = SDL::ObjectDataNode::Make();
+                    int wx = cp.x * CHUNK_SIZE, wy = cp.y * CHUNK_SIZE;
+                    ca->set("x",      SDL::S32DataNode::Make(wx));
+                    ca->set("y",      SDL::S32DataNode::Make(wy));
+                    ca->set("width",  SDL::S32DataNode::Make(CHUNK_SIZE));
+                    ca->set("height", SDL::S32DataNode::Make(CHUNK_SIZE));
+                    std::string csv = TilesToCsv(layer.chunks, wx, wy, CHUNK_SIZE, CHUNK_SIZE);
+                    ca->set("data", SDL::StringDataNode::Make(csv));
+                    cn->set("@attributes", ca);
+                    chunksNode->set("chunk", cn);
+                }
+                ln->set("chunks", chunksNode);
+            } else {
+                // Bounded format: flat CSV (TMX compatible)
+                ln->set("data", SDL::StringDataNode::Make(
+                    TilesToCsv(layer.chunks, 0, 0, map.width, map.height)));
             }
-            ln->set("data", SDL::StringDataNode::Make(csv));
             mNode->set("layer", ln);
         } else {
             for (const auto& obj : layer.objects) {
@@ -374,6 +582,8 @@ static void SaveMap(const TileMap& map, const std::string& path) {
                 if (obj.type == ObjectType::Tile)
                     oa->set("tileid", SDL::S32DataNode::Make((int)obj.tileId));
                 on->set("@attributes", oa);
+                if (auto pn = SaveProperties(obj.properties))
+                    on->set("properties", pn);
                 ln->set("object", on);
             }
             mNode->set("objectgroup", ln);
@@ -438,6 +648,35 @@ static void XmlEach(const SDL::ObjectDataNode& parent, const char* key,
     }
 }
 
+// Parse a <properties> element back into a PropertyMap.
+static PropertyMap LoadProperties(const SDL::ObjectDataNode& parent) {
+    PropertyMap props;
+    auto propsNd = parent.get("properties");
+    if (!propsNd) return props;
+    auto propsObj = std::dynamic_pointer_cast<SDL::ObjectDataNode>(propsNd);
+    if (!propsObj) return props;
+    XmlEach(*propsObj, "property", [&](const SDL::ObjectDataNode& en) {
+        auto ea = std::dynamic_pointer_cast<SDL::ObjectDataNode>(en.get("@attributes"));
+        if (!ea) return;
+        std::string pname = XmlStr(*ea, "name");
+        std::string ptype = XmlStr(*ea, "type", "string");
+        if (pname.empty()) return;
+        if (ptype == "int")
+            props[pname] = XmlInt(*ea, "value");
+        else if (ptype == "float")
+            props[pname] = XmlFloat(*ea, "value");
+        else if (ptype == "bool") {
+            auto vnd = ea->get("value");
+            if (auto b = std::dynamic_pointer_cast<SDL::BoolDataNode>(vnd))
+                props[pname] = b->getValue();
+            else
+                props[pname] = XmlStr(*ea, "value") == "true";
+        } else
+            props[pname] = XmlStr(*ea, "value");
+    });
+    return props;
+}
+
 static bool LoadMap(TileMap& map, const std::string& path) {
     auto doc = std::make_shared<SDL::XMLDataDocument>();
     try {
@@ -460,38 +699,69 @@ static bool LoadMap(TileMap& map, const std::string& path) {
 
     auto ma = std::dynamic_pointer_cast<SDL::ObjectDataNode>(mn->get("@attributes"));
     if (ma) {
-        map.name   = XmlStr(*ma, "name",        "Untitled");
-        map.width  = XmlInt(*ma, "width",        20);
-        map.height = XmlInt(*ma, "height",       15);
-        map.tileW  = XmlInt(*ma, "tilewidth",    32);
-        map.tileH  = XmlInt(*ma, "tileheight",   32);
-        auto ori   = XmlStr(*ma, "orientation",  "orthogonal");
-        if      (ori == "isometric")  map.orientation = MapOrient::Isometric;
-        else if (ori == "hexagonal")  map.orientation = MapOrient::Hexagonal;
-        else                          map.orientation = MapOrient::Orthogonal;
+        map.name     = XmlStr(*ma, "name",        "Untitled");
+        map.width    = XmlInt(*ma, "width",         20);
+        map.height   = XmlInt(*ma, "height",        15);
+        map.tileW    = XmlInt(*ma, "tilewidth",     32);
+        map.tileH    = XmlInt(*ma, "tileheight",    32);
+        map.infinite = XmlBool(*ma, "infinite",    false);
+        auto ori     = XmlStr(*ma, "orientation",  "orthogonal");
+        if      (ori == "isometric") map.orientation = MapOrient::Isometric;
+        else if (ori == "hexagonal") map.orientation = MapOrient::Hexagonal;
+        else                         map.orientation = MapOrient::Orthogonal;
     }
-    map.filePath = path;
+    map.filePath   = path;
+    map.properties = LoadProperties(*mn);
     map.tilesets.clear();
     map.layers.clear();
 
+    // ── Tilesets ──────────────────────────────────────────────────────────────
     XmlEach(*mn, "tileset", [&](const SDL::ObjectDataNode& tn) {
         auto ta = std::dynamic_pointer_cast<SDL::ObjectDataNode>(tn.get("@attributes"));
         if (!ta) return;
         TilesetDef ts;
-        ts.name      = XmlStr(*ta, "name", "Tileset");
+        ts.name      = XmlStr(*ta, "name",       "Tileset");
         ts.path      = XmlStr(*ta, "source");
-        ts.firstGid  = (TileID)XmlInt(*ta, "firstgid",  1);
-        ts.tileW     = XmlInt(*ta, "tilewidth",  16);
-        ts.tileH     = XmlInt(*ta, "tileheight", 16);
-        ts.spacing   = XmlInt(*ta, "spacing",     0);
-        ts.margin    = XmlInt(*ta, "margin",      0);
-        ts.columns   = XmlInt(*ta, "columns",     8);
-        ts.tileCount = XmlInt(*ta, "tilecount",  64);
+        ts.firstGid  = (TileID)XmlInt(*ta, "firstgid",   1);
+        ts.tileW     = XmlInt(*ta, "tilewidth",   16);
+        ts.tileH     = XmlInt(*ta, "tileheight",  16);
+        ts.spacing   = XmlInt(*ta, "spacing",      0);
+        ts.margin    = XmlInt(*ta, "margin",       0);
+        ts.columns   = XmlInt(*ta, "columns",      8);
+        ts.tileCount = XmlInt(*ta, "tilecount",   64);
         ts.smart     = XmlBool(*ta, "smart");
-        ts.key = "tileset_" + std::to_string(map.tilesets.size());
+        ts.key       = "tileset_" + std::to_string(map.tilesets.size());
+        // Per-tile metadata
+        XmlEach(tn, "tile", [&](const SDL::ObjectDataNode& tileNd) {
+            auto tileA = std::dynamic_pointer_cast<SDL::ObjectDataNode>(tileNd.get("@attributes"));
+            if (!tileA) return;
+            int lid = XmlInt(*tileA, "id", -1);
+            if (lid < 0) return;
+            TileMetadata& meta = ts.tileData[lid];
+            // <animation>
+            auto animNd = tileNd.get("animation");
+            if (animNd) {
+                auto animObj = std::dynamic_pointer_cast<SDL::ObjectDataNode>(animNd);
+                if (animObj) {
+                    XmlEach(*animObj, "frame", [&](const SDL::ObjectDataNode& fn) {
+                        auto fa = std::dynamic_pointer_cast<SDL::ObjectDataNode>(fn.get("@attributes"));
+                        if (!fa) return;
+                        meta.anim.push_back({XmlInt(*fa, "tileid", 0), XmlInt(*fa, "duration", 100)});
+                    });
+                }
+            }
+            // wangid
+            auto wangNd = tileNd.get("wangid");
+            if (wangNd) {
+                if (auto wi = std::dynamic_pointer_cast<SDL::S32DataNode>(wangNd))
+                    meta.wangId = (uint32_t)wi->getValue();
+            }
+            meta.properties = LoadProperties(tileNd);
+        });
         map.tilesets.push_back(std::move(ts));
     });
 
+    // ── Tile layers ───────────────────────────────────────────────────────────
     XmlEach(*mn, "layer", [&](const SDL::ObjectDataNode& ln) {
         auto la = std::dynamic_pointer_cast<SDL::ObjectDataNode>(ln.get("@attributes"));
         MapLayer layer; layer.type = LayerType::Tile;
@@ -501,21 +771,61 @@ static bool LoadMap(TileMap& map, const std::string& path) {
             layer.locked  = XmlBool(*la, "locked",  false);
             layer.opacity = XmlFloat(*la, "opacity", 1.f);
         }
-        layer.tiles.assign(map.width * map.height, EMPTY_TILE);
-        auto dn = ln.get("data");
-        if (dn) {
-            std::string csv;
-            if (auto s = std::dynamic_pointer_cast<SDL::StringDataNode>(dn))
-                csv = s->getValue();
-            std::istringstream ss(csv);
-            std::string tok;
-            int i = 0;
-            while (std::getline(ss, tok, ',') && i < (int)layer.tiles.size())
-                try { layer.tiles[i++] = (TileID)std::stoi(tok); } catch (...) { ++i; }
-        }
+        layer.properties = LoadProperties(ln);
         map.layers.push_back(std::move(layer));
+        int layerIdx = (int)map.layers.size() - 1;
+
+        if (map.infinite) {
+            // Chunked format: <chunks><chunk x y width height data="csv"/>
+            auto chunksNd = ln.get("chunks");
+            if (chunksNd) {
+                auto chunksObj = std::dynamic_pointer_cast<SDL::ObjectDataNode>(chunksNd);
+                if (chunksObj) {
+                    XmlEach(*chunksObj, "chunk", [&](const SDL::ObjectDataNode& cn) {
+                        auto ca = std::dynamic_pointer_cast<SDL::ObjectDataNode>(cn.get("@attributes"));
+                        if (!ca) return;
+                        int cx = XmlInt(*ca, "x",      0);
+                        int cy = XmlInt(*ca, "y",      0);
+                        int cw = XmlInt(*ca, "width",  CHUNK_SIZE);
+                        int ch = XmlInt(*ca, "height", CHUNK_SIZE);
+                        std::string csv = XmlStr(*ca, "data");
+                        std::istringstream ss(csv);
+                        std::string tok;
+                        for (int ty = cy; ty < cy + ch; ++ty) {
+                            for (int tx = cx; tx < cx + cw; ++tx) {
+                                TileID id = EMPTY_TILE;
+                                if (std::getline(ss, tok, ','))
+                                    try { id = (TileID)std::stoi(tok); } catch (...) {}
+                                if (id != EMPTY_TILE)
+                                    map.SetTile(layerIdx, tx, ty, id);
+                            }
+                        }
+                    });
+                }
+            }
+        } else {
+            // Bounded format: flat CSV in <data>
+            auto dn = ln.get("data");
+            if (dn) {
+                std::string csv;
+                if (auto s = std::dynamic_pointer_cast<SDL::StringDataNode>(dn))
+                    csv = s->getValue();
+                std::istringstream ss(csv);
+                std::string tok;
+                for (int ty = 0; ty < map.height; ++ty) {
+                    for (int tx = 0; tx < map.width; ++tx) {
+                        TileID id = EMPTY_TILE;
+                        if (std::getline(ss, tok, ','))
+                            try { id = (TileID)std::stoi(tok); } catch (...) {}
+                        if (id != EMPTY_TILE)
+                            map.SetTile(layerIdx, tx, ty, id);
+                    }
+                }
+            }
+        }
     });
 
+    // ── Object layers ──────────────────────────────────────────────────────────
     XmlEach(*mn, "objectgroup", [&](const SDL::ObjectDataNode& ln) {
         auto la = std::dynamic_pointer_cast<SDL::ObjectDataNode>(ln.get("@attributes"));
         MapLayer layer; layer.type = LayerType::Object;
@@ -525,6 +835,7 @@ static bool LoadMap(TileMap& map, const std::string& path) {
             layer.locked  = XmlBool(*la, "locked",  false);
             layer.opacity = XmlFloat(*la, "opacity", 1.f);
         }
+        layer.properties = LoadProperties(ln);
         XmlEach(ln, "object", [&](const SDL::ObjectDataNode& on) {
             auto oa = std::dynamic_pointer_cast<SDL::ObjectDataNode>(on.get("@attributes"));
             if (!oa) return;
@@ -544,6 +855,7 @@ static bool LoadMap(TileMap& map, const std::string& path) {
                 obj.type   = ObjectType::Tile;
                 obj.tileId = (TileID)XmlInt(*oa, "tileid", 0);
             }
+            obj.properties = LoadProperties(on);
             layer.objects.push_back(std::move(obj));
         });
         map.layers.push_back(std::move(layer));
@@ -551,7 +863,6 @@ static bool LoadMap(TileMap& map, const std::string& path) {
 
     if (map.layers.empty()) {
         MapLayer l; l.name = "Layer 1";
-        l.tiles.assign(map.width * map.height, EMPTY_TILE);
         map.layers.push_back(std::move(l));
     }
     map.activeLayer = 0;
@@ -567,26 +878,30 @@ static Command FloodFill(TileMap& map, int layer, int startX, int startY,
                          TileID newId, int maxTiles = 50000) {
     Command cmd;
     if (layer < 0 || layer >= (int)map.layers.size()) return cmd;
-    auto& l = map.layers[layer];
+    const auto& l = map.layers[layer];
     if (l.type != LayerType::Tile || l.locked) return cmd;
-    if ((int)l.tiles.size() != map.width * map.height)
-        l.tiles.assign(map.width * map.height, EMPTY_TILE);
+    if (!map.infinite && (startX < 0 || startY < 0 ||
+        startX >= map.width || startY >= map.height)) return cmd;
 
     TileID target = map.GetTile(layer, startX, startY);
     if (target == newId) return cmd;
 
-    std::vector<bool> visited(map.width * map.height, false);
+    // Encode (x,y) as a 64-bit key: upper 32 bits = y, lower 32 = x
+    auto key = [](int x, int y) -> uint64_t {
+        return (uint64_t)(uint32_t)x | ((uint64_t)(uint32_t)y << 32);
+    };
+
+    std::unordered_set<uint64_t> visited;
     std::queue<std::pair<int,int>> q;
     q.push({startX, startY});
 
     while (!q.empty() && (int)cmd.changes.size() < maxTiles) {
         auto [x, y] = q.front(); q.pop();
-        if (x < 0 || y < 0 || x >= map.width || y >= map.height) continue;
-        int idx = y * map.width + x;
-        if (visited[idx] || l.tiles[idx] != target) continue;
-        visited[idx] = true;
+        if (!map.infinite && (x < 0 || y < 0 || x >= map.width || y >= map.height)) continue;
+        if (!visited.insert(key(x, y)).second) continue;
+        if (map.GetTile(layer, x, y) != target) continue;
         cmd.changes.push_back({layer, x, y, target, newId});
-        l.tiles[idx] = newId;
+        map.SetTile(layer, x, y, newId);
         q.push({x+1,y}); q.push({x-1,y});
         q.push({x,y+1}); q.push({x,y-1});
     }
@@ -601,6 +916,7 @@ static Command FloodFill(TileMap& map, int layer, int startX, int startY,
 struct Main {
     static constexpr SDL::Point kWinSz  = {1400, 820};
     static constexpr int kMaxLayers = 32;
+    static constexpr int kToolCount = 5;
     static constexpr int kLeftW     = 172;
     static constexpr int kRightW    = 212;
 
@@ -637,7 +953,8 @@ struct Main {
     SDL::ECS::EntityId eTilesetName    = SDL::ECS::NullEntity;
     SDL::ECS::EntityId eTileInfo       = SDL::ECS::NullEntity;
     SDL::ECS::EntityId eLayerContent   = SDL::ECS::NullEntity;
-
+    SDL::ECS::EntityId toolBtns[kToolCount] = {};
+    SDL::ECS::EntityId eGridBtn        = SDL::ECS::NullEntity;
 
     struct LayerSlot {
         SDL::ECS::EntityId row     = SDL::ECS::NullEntity;
@@ -657,7 +974,7 @@ struct Main {
             else if (arg == "--info")    prio = SDL::LOG_PRIORITY_INFO;
         }
         SDL::SetLogPriorities(prio);
-        SDL::SetAppMetadata("SDL3pp Tile Editor", "1.0", "com.example.tile_editor");
+        SDL::SetAppMetadata("SDL3pp Tile Editor", TILE_EDITOR_VERSION, "com.example.tile_editor");
         SDL::Init(SDL::INIT_VIDEO);
         SDL::TTF::Init();
         SDL::MIX::Init();
@@ -703,7 +1020,7 @@ struct Main {
                 if (key == SDL::KEYCODE_F) _SetTool(ToolType::Fill);
                 if (key == SDL::KEYCODE_E) _SetTool(ToolType::Erase);
                 if (key == SDL::KEYCODE_S) _SetTool(ToolType::Select);
-                if (key == SDL::KEYCODE_G) state.showGrid = !state.showGrid;
+                if (key == SDL::KEYCODE_G) { state.showGrid = !state.showGrid; _RefreshGridBtn(); }
                 if (key == SDL::KEYCODE_EQUALS || key == SDL::KEYCODE_KP_PLUS)
                     _ZoomAt(1.25f, {kWinSz.x / 2.f, kWinSz.y / 2.f});
                 if (key == SDL::KEYCODE_MINUS || key == SDL::KEYCODE_KP_MINUS)
@@ -843,95 +1160,25 @@ struct Main {
                 s.radius  = SDL::FCorners(0.f);
             });
 
-        // ── Shared icon-button state ──────────────────────────────────────
-        struct BS { bool hov = false; bool press = false; };
+        // Applies the flat/ghost style shared by all icon buttons in the toolbar
+        auto flat = [](SDL::UI::Builder& b) -> SDL::UI::Builder& {
+            return b.BgColor({0,0,0,0})
+                    .BgHover({42,54,78,220})
+                    .BgPress(pal::ACCENT)
+                    .WithStyle([](auto& s){
+                        s.borders = SDL::FBox(0.f);
+                        s.radius  = SDL::FCorners(4.f);
+                    });
+        };
 
-        // Generic click icon button
+        // Generic flat icon button
         auto mkBtn = [&](const char* id, const char* key, const char* tip,
                          std::function<void()> cb) -> SDL::ECS::EntityId {
-            auto bs = std::make_shared<BS>();
-            return ui.CanvasWidget(id,
-                [bs](SDL::Event& ev){
-                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN
-                        && ev.button.button == SDL::BUTTON_LEFT) bs->press = true;
-                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_UP)   bs->press = false;
-                }, nullptr,
-                [this, bs, key](SDL::RendererRef r, SDL::FRect rect){
-                    SDL::Color bg = bs->press ? pal::ACCENT
-                                  : bs->hov   ? SDL::Color{42,54,78,220}
-                                  :             SDL::Color{0,0,0,0};
-                    if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
-                    _DrawIconCentered(r, rect, key, bs->hov || bs->press, 5.f);
-                }
-            ).W(32).H(32).Padding(0.f)
-             .OnHoverEnter([bs]{ bs->hov   = true;  })
-             .OnHoverLeave([bs]{ bs->hov   = false; bs->press = false; })
-             .Tooltip(tip, 0.6f)
-             .OnClick(std::move(cb)).Id();
-        };
-
-        // Tool icon button (active when current tool matches)
-        auto mkTool = [&](const char* id, const char* key, const char* tip,
-                          ToolType t) -> SDL::ECS::EntityId {
-            auto bs = std::make_shared<BS>();
-            return ui.CanvasWidget(id,
-                [bs](SDL::Event& ev){
-                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN
-                        && ev.button.button == SDL::BUTTON_LEFT) bs->press = true;
-                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_UP)   bs->press = false;
-                }, nullptr,
-                [this, bs, key, t](SDL::RendererRef r, SDL::FRect rect){
-                    bool act = (state.tool == t);
-                    SDL::Color bg = (act || bs->press) ? pal::ACCENT
-                                  : bs->hov            ? SDL::Color{42,54,78,220}
-                                  :                      SDL::Color{0,0,0,0};
-                    if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
-                    if (act){
-                        r.SetDrawColor({pal::ACCENT.r, pal::ACCENT.g, pal::ACCENT.b, 140});
-                        r.RenderRect(rect);
-                    }
-                    _DrawIconCentered(r, rect, key, true, 5.f);
-                }
-            ).W(32).H(32).Padding(0.f)
-             .OnHoverEnter([bs]{ bs->hov   = true;  })
-             .OnHoverLeave([bs]{ bs->hov   = false; bs->press = false; })
-             .Tooltip(tip, 0.6f)
-             .OnClick([this, t]{ _SetTool(t); }).Id();
-        };
-
-        // Toggle icon button (shows active state for a bool)
-        auto mkToggle = [&](const char* id, const char* key, const char* tip,
-                            std::function<bool()> isOn,
-                            std::function<void()> cb) -> SDL::ECS::EntityId {
-            auto bs = std::make_shared<BS>();
-            return ui.CanvasWidget(id,
-                [bs](SDL::Event& ev){
-                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN
-                        && ev.button.button == SDL::BUTTON_LEFT) bs->press = true;
-                    if (ev.type == SDL::EVENT_MOUSE_BUTTON_UP)   bs->press = false;
-                }, nullptr,
-                [this, bs, key, isOn](SDL::RendererRef r, SDL::FRect rect){
-                    bool on = isOn();
-                    SDL::Color bg = bs->press ? pal::ACCENT
-                                  : on        ? SDL::Color{26,58,38,220}
-                                  : bs->hov   ? SDL::Color{42,54,78,220}
-                                  :             SDL::Color{0,0,0,0};
-                    if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
-                    if (auto h = pool_ui.Get<SDL::Texture>(key)){
-                        float p = 5.f, sz = SDL::Min(rect.w, rect.h) - p * 2.f;
-                        SDL::TextureRef tex{*h};
-                        if (on) tex.SetColorMod(pal::GREEN.r, pal::GREEN.g, pal::GREEN.b);
-                        r.RenderTexture(tex, {},
-                            SDL::FRect{rect.x+(rect.w-sz)*.5f,
-                                       rect.y+(rect.h-sz)*.5f, sz, sz});
-                        if (on) tex.SetColorMod(255, 255, 255);
-                    }
-                }
-            ).W(32).H(32).Padding(0.f)
-             .OnHoverEnter([bs]{ bs->hov   = true;  })
-             .OnHoverLeave([bs]{ bs->hov   = false; bs->press = false; })
-             .Tooltip(tip, 0.6f)
-             .OnClick(std::move(cb)).Id();
+            auto b = ui.Button(id).W(32).H(32).Padding(0.f)
+                .Icon(key, 5.f).IconOpacity(0.65f, 1.f, 0.9f)
+                .ClickSoundKey(res_key::CLICK)
+                .Tooltip(tip, 0.6f).OnClick(std::move(cb));
+            return flat(b).Id();
         };
 
         // Thin vertical divider
@@ -944,33 +1191,56 @@ struct Main {
                 });
         };
 
+        // Tool buttons — built ahead so we can pass entity IDs to bar.Children()
+        static constexpr struct { ToolType type; const char* icon; const char* tip; }
+        kTools[kToolCount] = {
+            {ToolType::Pencil, icon_key::PENCIL, "Pencil (P)"},
+            {ToolType::Brush,  icon_key::BRUSH,  "Brush  (B)"},
+            {ToolType::Fill,   icon_key::FILL,   "Fill   (F)"},
+            {ToolType::Erase,  icon_key::ERASE,  "Erase  (E)"},
+            {ToolType::Select, icon_key::SELECT,  "Select (S)"},
+        };
+        for (int i = 0; i < kToolCount; ++i) {
+            ToolType t = kTools[i].type;
+            auto b = ui.Button(std::format("btn_tool{}", i)).W(32).H(32).Padding(0.f)
+                .Icon(kTools[i].icon, 5.f).IconOpacity(1.f)
+                .Tooltip(kTools[i].tip, 0.6f)
+                .ClickSoundKey(res_key::CLICK)
+                .OnClick([this, t]{ _SetTool(t); });
+            toolBtns[i] = flat(b).Id();
+        }
+
+        // Grid toggle button — tint is updated by _RefreshGridBtn()
+        {
+            auto b = ui.Button("btn_grid").W(32).H(32).Padding(0.f)
+                .Icon(icon_key::GRID, 5.f).IconOpacity(1.f)
+                .Tooltip("Grid (G)", 0.6f)
+                .ClickSoundKey(res_key::CLICK)
+                .OnClick([this]{ state.showGrid = !state.showGrid; _RefreshGridBtn(); });
+            eGridBtn = flat(b).Id();
+        }
+
         bar.Children(
             // File ops
-            mkBtn("btn_new",      icon_key::NEW,       "New Map  (Ctrl+N)",       [this]{ _NewMap();    }),
-            mkBtn("btn_open",     icon_key::OPEN,      "Open Map (Ctrl+O)",       [this]{ _OpenMap();   }),
-            mkBtn("btn_save",     icon_key::SAVE,      "Save     (Ctrl+S)",       [this]{ _SaveMap();   }),
-            mkBtn("btn_save_as",  icon_key::SAVE_AS,   "Save As  (Ctrl+Shift+S)", [this]{ _SaveMapAs(); }),
+            mkBtn("btn_new",     icon_key::NEW,     "New Map  (Ctrl+N)",       [this]{ _NewMap();    }),
+            mkBtn("btn_open",    icon_key::OPEN,    "Open Map (Ctrl+O)",       [this]{ _OpenMap();   }),
+            mkBtn("btn_save",    icon_key::SAVE,    "Save     (Ctrl+S)",       [this]{ _SaveMap();   }),
+            mkBtn("btn_save_as", icon_key::SAVE_AS, "Save As  (Ctrl+Shift+S)", [this]{ _SaveMapAs(); }),
             mkSep("sep1"),
             // Layer / tileset ops
-            mkBtn("btn_import",   icon_key::IMPORT,    "Import Tileset",          [this]{ _ImportTileset();  }),
-            mkBtn("btn_add_lyr",  icon_key::LAYER_ADD, "Add Tile Layer",          [this]{ _AddTileLayer();   }),
-            mkBtn("btn_add_obj",  icon_key::STAMP,     "Add Object Layer",        [this]{ _AddObjectLayer(); }),
+            mkBtn("btn_import",  icon_key::IMPORT,    "Import Tileset",    [this]{ _ImportTileset();  }),
+            mkBtn("btn_add_lyr", icon_key::LAYER_ADD, "Add Tile Layer",    [this]{ _AddTileLayer();   }),
+            mkBtn("btn_add_obj", icon_key::STAMP,     "Add Object Layer",  [this]{ _AddObjectLayer(); }),
             mkSep("sep2"),
             // Tools
-            mkTool("btn_pencil",  icon_key::PENCIL,    "Pencil (P)",              ToolType::Pencil),
-            mkTool("btn_brush",   icon_key::BRUSH,     "Brush  (B)",              ToolType::Brush),
-            mkTool("btn_fill",    icon_key::FILL,      "Fill   (F)",              ToolType::Fill),
-            mkTool("btn_erase",   icon_key::ERASE,     "Erase  (E)",              ToolType::Erase),
-            mkTool("btn_select",  icon_key::SELECT,    "Select (S)",              ToolType::Select),
+            toolBtns[0], toolBtns[1], toolBtns[2], toolBtns[3], toolBtns[4],
             mkSep("sep3"),
             // Undo / Redo
-            mkBtn("btn_undo",     icon_key::UNDO,      "Undo (Ctrl+Z)",           [this]{ _Undo(); }),
-            mkBtn("btn_redo",     icon_key::REDO,      "Redo (Ctrl+Y)",           [this]{ _Redo(); }),
+            mkBtn("btn_undo",    icon_key::UNDO, "Undo (Ctrl+Z)", [this]{ _Undo(); }),
+            mkBtn("btn_redo",    icon_key::REDO, "Redo (Ctrl+Y)", [this]{ _Redo(); }),
             mkSep("sep4"),
-            // View toggles
-            mkToggle("btn_grid",     icon_key::GRID,     "Grid (G)",
-                     [this]{ return state.showGrid; },
-                     [this]{ state.showGrid = !state.showGrid; }),
+            // View
+            eGridBtn,
             mkBtn("btn_zoom_in",  icon_key::ZOOM_IN,  "Zoom In  (+)",
                   [this]{ _ZoomAt(1.25f, {kWinSz.x / 2.f, kWinSz.y / 2.f}); }),
             mkBtn("btn_zoom_out", icon_key::ZOOM_OUT, "Zoom Out (-)",
@@ -985,6 +1255,10 @@ struct Main {
             }));
         bar.Child(ui.Label("lbl_app_title", "Tile Editor " TILE_EDITOR_VERSION)
             .TextColor(pal::ACCENT));
+
+        // Apply initial active states
+        _SetTool(state.tool);
+        _RefreshGridBtn();
 
         return bar;
     }
@@ -1054,64 +1328,32 @@ struct Main {
                 .Visible(false);
             slot.row = row;
 
-            // Visibility icon button
-            {
-                struct BS { bool hov = false; };
-                auto bs = std::make_shared<BS>();
-                slot.btnVis = ui.CanvasWidget(std::format("ls_vis{}", i),
-                    nullptr, nullptr,
-                    [this, bs, i](SDL::RendererRef r, SDL::FRect rect){
-                        bool vis = (i < (int)map.layers.size()) && map.layers[i].visible;
-                        SDL::Color bg = bs->hov ? SDL::Color{42,54,78,180}
-                                      :           SDL::Color{0,0,0,0};
-                        if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
-                        if (auto h = pool_ui.Get<SDL::Texture>(icon_key::VISIBILITY)){
-                            float p = 3.f, sz = SDL::Min(rect.w, rect.h) - p * 2.f;
-                            SDL::TextureRef tex{*h};
-                            if (!vis){ tex.SetAlphaModFloat(0.3f); }
-                            else     { tex.SetColorMod(pal::GREEN.r, pal::GREEN.g, pal::GREEN.b); }
-                            r.RenderTexture(tex, {}, SDL::FRect{rect.x+(rect.w-sz)*.5f, rect.y+(rect.h-sz)*.5f, sz, sz});
-                            tex.SetAlphaModFloat(1.f); tex.SetColorMod(255,255,255);
-                        }
-                    }
-                ).W(20).H(20).Padding(0.f)
-                 .OnHoverEnter([bs]{ bs->hov = true;  })
-                 .OnHoverLeave([bs]{ bs->hov = false; })
-                 .OnClick([this, i]{ _ToggleLayerVisible(i); })
-                 .Id();
-            }
+            // Visibility icon button — tint/opacity updated by _UpdateLayerSlots()
+            slot.btnVis = ui.Button(std::format("ls_vis{}", i))
+                .W(20).H(20).Padding(0.f)
+                .Icon(icon_key::VISIBILITY, 3.f)
+                .ClickSoundKey(res_key::CLICK)
+                .Tooltip("Toggle Layer Visibility", 0.6f)
+                .BgColor({0,0,0,0}).BgHover({42,54,78,180}).BgPress({42,54,78,220})
+                .WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
+                .OnClick([this, i]{ _ToggleLayerVisible(i); })
+                .Id();
 
             slot.lblName = ui.Label(std::format("ls_name{}", i), "Layer")
                 .Grow(1).TextColor(pal::WHITE)
                 .PaddingH(4).PaddingV(0)
                 .OnClick([this, i]{ _SelectLayer(i); });
 
-            // Lock icon button
-            {
-                struct BS { bool hov = false; };
-                auto bs = std::make_shared<BS>();
-                slot.btnLock = ui.CanvasWidget(std::format("ls_lock{}", i),
-                    nullptr, nullptr,
-                    [this, bs, i](SDL::RendererRef r, SDL::FRect rect){
-                        bool lk = (i < (int)map.layers.size()) && map.layers[i].locked;
-                        SDL::Color bg = lk     ? SDL::Color{70,40,10,200}
-                                      : bs->hov ? SDL::Color{42,54,78,180}
-                                      :           SDL::Color{0,0,0,0};
-                        if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
-                        if (auto h = pool_ui.Get<SDL::Texture>(icon_key::LOCK)){
-                            float p = 3.f, sz = SDL::Min(rect.w, rect.h) - p * 2.f;
-                            SDL::TextureRef tex{*h};
-                            if (lk) tex.SetColorMod(pal::ORANGE.r, pal::ORANGE.g, pal::ORANGE.b);
-                            r.RenderTexture(tex, {}, SDL::FRect{rect.x+(rect.w-sz)*.5f, rect.y+(rect.h-sz)*.5f, sz, sz});
-                            if (lk) tex.SetColorMod(255, 255, 255);
-                        }
-                    }
-                ).W(20).H(20).Padding(0.f)
-                 .OnHoverEnter([bs]{ bs->hov = true;  })
-                 .OnHoverLeave([bs]{ bs->hov = false; })
-                 .OnClick([this, i]{ _ToggleLayerLock(i); })
-                 .Id();
-            }
+            // Lock icon button — tint/bg updated by _UpdateLayerSlots()
+            slot.btnLock = ui.Button(std::format("ls_lock{}", i))
+                .W(20).H(20).Padding(0.f)
+                .Icon(icon_key::LOCK, 3.f)
+                .BgColor({0,0,0,0}).BgHover({42,54,78,180}).BgPress({42,54,78,220})
+                .ClickSoundKey(res_key::CLICK)
+                .Tooltip("Lock Layer", 0.6f)
+                .WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
+                .OnClick([this, i]{ _ToggleLayerLock(i); })
+                .Id();
 
             row.Children(slot.btnVis, slot.lblName, slot.btnLock);
             ui.AppendChild(eLayerContent, slot.row);
@@ -1119,29 +1361,17 @@ struct Main {
         sv.Child(eLayerContent);
         panel.Child(sv);
 
-        // Layer operation buttons (move up / move down / delete)
+        // Layer operation buttons (move up / move down / add / delete)
         auto mkLayerOpBtn = [&](const char* id, const char* key, const char* tip,
                                 SDL::Color tint, std::function<void()> cb) -> SDL::ECS::EntityId {
-            struct BS { bool hov = false; };
-            auto bs = std::make_shared<BS>();
-            return ui.CanvasWidget(id, nullptr, nullptr,
-                [this, bs, key, tint](SDL::RendererRef r, SDL::FRect rect){
-                    SDL::Color bg = bs->hov ? SDL::Color{42,54,78,200}
-                                  :           SDL::Color{0,0,0,0};
-                    if (bg.a > 0){ r.SetDrawColor(bg); r.RenderFillRect(rect); }
-                    if (auto h = pool_ui.Get<SDL::Texture>(key)){
-                        float p = 4.f, sz = SDL::Min(rect.w, rect.h) - p * 2.f;
-                        SDL::TextureRef tex{*h};
-                        if (bs->hov){ tex.SetColorMod(tint.r, tint.g, tint.b); }
-                        r.RenderTexture(tex, {}, SDL::FRect{rect.x+(rect.w-sz)*.5f, rect.y+(rect.h-sz)*.5f, sz, sz});
-                        if (bs->hov){ tex.SetColorMod(255,255,255); }
-                    }
-                }
-            ).W(30).H(24).Padding(0.f)
-             .OnHoverEnter([bs]{ bs->hov = true;  })
-             .OnHoverLeave([bs]{ bs->hov = false; })
-             .Tooltip(tip, 0.6f)
-             .OnClick(std::move(cb)).Id();
+            return ui.Button(id).W(30).H(24).Padding(0.f)
+                .Icon(key, 4.f)
+                .IconTint({255,255,255,255}, tint, tint)
+                .BgColor({0,0,0,0}).BgHover({42,54,78,200}).BgPress(pal::ACCENT)
+                .ClickSoundKey(res_key::CLICK)
+                .WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
+                .Tooltip(tip, 0.6f)
+                .OnClick(std::move(cb)).Id();
         };
 
         panel.Child(
@@ -1204,27 +1434,33 @@ struct Main {
         // Tileset navigation (prev / next when multiple tilesets)
         panel.Child(
             ui.Row("ts_nav", 4.f, 4.f)
-                .W(SDL::UI::Value::Pw(100.f)).H(26.f)
+                .W(SDL::UI::Value::Pw(100.f)).H(30.f)
                 .WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
                 .Children(
-                    ui.Button("btn_ts_prev", "").W(26).H(22)
+                    ui.Button("btn_ts_prev").W(26).H(26)
                         .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-                        .ImageKey(icon_key::LEFT)
+                        .Icon(icon_key::LEFT, 5.f)
+                        .ClickSoundKey(res_key::CLICK)
+                        .Tooltip("Previous Tileset", 0.6f)
                         .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
                         .OnClick([this]{
                             if (state.activeTileset > 0) --state.activeTileset;
                         }),
-                    ui.Button("btn_ts_next", "").W(26).H(22)
+                    ui.Button("btn_ts_next").W(26).H(26)
                         .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-                        .ImageKey(icon_key::RIGHT)
+                        .Icon(icon_key::RIGHT, 5.f)
+                        .ClickSoundKey(res_key::CLICK)
+                        .Tooltip("Next Tileset", 0.6f)
                         .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
                         .OnClick([this]{
                             if (state.activeTileset < (int)map.tilesets.size()-1)
                                 ++state.activeTileset;
                         }),
-                    ui.Button("btn_ts_smart", "Smart").Grow(1).H(22)
+                    ui.Button("btn_ts_smart", "Smart").Grow(1).H(26)
                         .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
                         .FontKey(res_key::FONT).FontSize(11)
+                        .ClickSoundKey(res_key::CLICK)
+                        .Tooltip("Toggle Smart Tileset", 0.6f)
                         .WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
                         .OnClick([this]{
                             if (state.activeTileset < (int)map.tilesets.size())
@@ -1239,6 +1475,7 @@ struct Main {
             .W(SDL::UI::Value::Pw(100.f)).H(26)
             .Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
             .WithStyle([](auto& s){ s.radius=SDL::FCorners(0.f); })
+            .FontKey(res_key::FONT).FontSize(11)
             .ClickSoundKey(res_key::CLICK)
             .OnClick([this]{ _ImportTileset(); }));
 
@@ -1276,23 +1513,6 @@ struct Main {
         eStatusLabel = ui.Label("lbl_status", "Ready").TextColor(pal::GREY);
         bar.Child(eStatusLabel);
         return bar;
-    }
-
-    // =========================================================================
-    // Icon drawing helper
-    // =========================================================================
-
-    void _DrawIconCentered(SDL::RendererRef r, SDL::FRect rect,
-                           const char* key, bool bright, float pad = 4.f) {
-        auto h = pool_ui.Get<SDL::Texture>(key);
-        if (!h) return;
-        float sz = SDL::Min(rect.w, rect.h) - pad * 2.f;
-        SDL::TextureRef tex{*h};
-        if (!bright) tex.SetAlphaModFloat(0.65f);
-        r.RenderTexture(tex, {},
-            SDL::FRect{rect.x + (rect.w - sz) * .5f,
-                       rect.y + (rect.h - sz) * .5f, sz, sz});
-        if (!bright) tex.SetAlphaModFloat(1.f);
     }
 
     // =========================================================================
@@ -1337,8 +1557,8 @@ struct Main {
             r.RenderFillRect(SDL::FRect{ox + col * tw, oy + row * th, tw, th});
         }
 
-        // Map boundary
-        {
+        // Map boundary (bounded maps only)
+        if (!map.infinite) {
             auto tl = WorldToScreen(0.f, 0.f);
             auto br = WorldToScreen(float(map.width  * map.tileW),
                                     float(map.height * map.tileH));
@@ -1352,10 +1572,18 @@ struct Main {
             if (!layer.visible) continue;
 
             if (layer.type == LayerType::Tile) {
-                for (int ty = 0; ty < map.height; ++ty)
-                for (int tx = 0; tx < map.width;  ++tx) {
-                    TileID tid = layer.tiles.empty()
-                                 ? EMPTY_TILE : layer.tiles[ty * map.width + tx];
+                // Only iterate the visible tile range (works for both bounded and infinite)
+                int vx0 = (int)std::floor(state.viewX / map.tileW) - 1;
+                int vy0 = (int)std::floor(state.viewY / map.tileH) - 1;
+                int vx1 = (int)std::ceil((state.viewX + rect.w / state.zoom) / map.tileW) + 1;
+                int vy1 = (int)std::ceil((state.viewY + rect.h / state.zoom) / map.tileH) + 1;
+                if (!map.infinite) {
+                    vx0 = SDL::Max(vx0, 0); vy0 = SDL::Max(vy0, 0);
+                    vx1 = SDL::Min(vx1, map.width); vy1 = SDL::Min(vy1, map.height);
+                }
+                for (int ty = vy0; ty < vy1; ++ty)
+                for (int tx = vx0; tx < vx1; ++tx) {
+                    TileID tid = map.GetTile(li, tx, ty);
                     if (tid == EMPTY_TILE) continue;
                     const TilesetDef* ts = map.FindTileset(tid);
                     if (!ts || ts->key.empty()) continue;
@@ -1366,9 +1594,6 @@ struct Main {
                     auto p   = WorldToScreen(float(tx * map.tileW),
                                              float(ty * map.tileH));
                     SDL::FRect dst{p.x, p.y, tw, th};
-                    // Frustum cull
-                    if (dst.x + dst.w < rect.x || dst.x > rect.x + rect.w) continue;
-                    if (dst.y + dst.h < rect.y || dst.y > rect.y + rect.h) continue;
 
                     SDL::TextureRef tex{*texH};
                     if (layer.opacity < 1.f) tex.SetAlphaModFloat(layer.opacity);
@@ -1437,13 +1662,13 @@ struct Main {
                 for (int dy = -half; dy <= half; ++dy)
                 for (int dx = -half; dx <= half; ++dx) {
                     int bx = ctx + dx, by = cty + dy;
-                    if (bx < 0 || by < 0 || bx >= map.width || by >= map.height) continue;
+                    if (!map.infinite && (bx < 0 || by < 0 || bx >= map.width || by >= map.height)) continue;
                     auto bp = WorldToScreen(float(bx*map.tileW), float(by*map.tileH));
                     r.SetDrawColor({100, 180, 255, 55});
                     r.RenderFillRect(SDL::FRect{bp.x, bp.y, tw, th});
                 }
             }
-            if (ctx >= 0 && cty >= 0 && ctx < map.width && cty < map.height) {
+            if (map.infinite || (ctx >= 0 && cty >= 0 && ctx < map.width && cty < map.height)) {
                 auto cp = WorldToScreen(float(ctx*map.tileW), float(cty*map.tileH));
                 r.SetDrawColor({255, 255, 100, 75});
                 r.RenderFillRect(SDL::FRect{cp.x, cp.y, tw, th});
@@ -1464,10 +1689,10 @@ struct Main {
         // Object drag preview
         if (state.objDrag) {
             SDL::GetMouseState(mx, my);
-            float ox2 = std::min(state.objStart.x, mx);
-            float oy2 = std::min(state.objStart.y, my);
-            float ow  = std::abs(mx - state.objStart.x);
-            float oh  = std::abs(my - state.objStart.y);
+            float ox2 = SDL::Min(state.objStart.x, mx);
+            float oy2 = SDL::Min(state.objStart.y, my);
+            float ow  = SDL::Abs(mx - state.objStart.x);
+            float oh  = SDL::Abs(my - state.objStart.y);
             r.SetDrawColor(pal::OBJ_SEL);
             r.RenderRect(SDL::FRect{ox2, oy2, ow, oh});
         }
@@ -1539,8 +1764,10 @@ struct Main {
             float py = imgY + state.selTileY * (th + spV);
             float sw = float(state.selTileW) * (tw + spH) - spH;
             float sh = float(state.selTileH) * (th + spV) - spV;
-            r.SetDrawColor({255, 200, 50, 55}); r.RenderFillRect(SDL::FRect{px, py, sw, sh});
-            r.SetDrawColor(pal::SELECTED);       r.RenderRect(SDL::FRect{px, py, sw, sh});
+            r.SetDrawColor({255, 200, 50, 55});
+            r.RenderFillRect(SDL::FRect{px, py, sw, sh});
+            r.SetDrawColor(pal::SELECTED);
+            r.RenderRect(SDL::FRect{px, py, sw, sh});
         }
 
         // Clamp scroll
@@ -1646,10 +1873,10 @@ struct Main {
                 state.selDrag      = true;
                 state.selDragStart = {float(tx), float(ty)};
             }
-            int x0 = int(std::min(float(tx), state.selDragStart.x));
-            int y0 = int(std::min(float(ty), state.selDragStart.y));
-            int x1 = int(std::max(float(tx), state.selDragStart.x));
-            int y1 = int(std::max(float(ty), state.selDragStart.y));
+            int x0 = int(SDL::Min(float(tx), state.selDragStart.x));
+            int y0 = int(SDL::Min(float(ty), state.selDragStart.y));
+            int x1 = int(SDL::Max(float(tx), state.selDragStart.x));
+            int y1 = int(SDL::Max(float(ty), state.selDragStart.y));
             state.hasMapSel = true;
             state.selX = x0; state.selY = y0;
             state.selW = x1 - x0 + 1; state.selH = y1 - y0 + 1;
@@ -1677,7 +1904,7 @@ struct Main {
     }
 
     void _PaintTile(int tx, int ty, TileID id) {
-        if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) return;
+        if (!map.infinite && (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height)) return;
         if (map.activeLayer < 0 || map.activeLayer >= (int)map.layers.size()) return;
         if (state.lastTile.x == tx && state.lastTile.y == ty) return;
         state.lastTile = {float(tx), float(ty)};
@@ -1700,7 +1927,7 @@ struct Main {
         for (int dy = -1; dy <= 1; ++dy)
         for (int dx = -1; dx <= 1; ++dx) {
             int x = cx + dx, y = cy + dy;
-            if (x < 0 || y < 0 || x >= map.width || y >= map.height) continue;
+            if (!map.infinite && (x < 0 || y < 0 || x >= map.width || y >= map.height)) continue;
             TileID t = map.GetTile(layer, x, y);
             if (t == EMPTY_TILE) continue;
             const TilesetDef* ts = map.FindTileset(t);
@@ -1730,11 +1957,11 @@ struct Main {
         if (map.activeLayer < 0 || map.activeLayer >= (int)map.layers.size()) return;
         auto& layer = map.layers[map.activeLayer];
         if (layer.type != LayerType::Object || layer.locked) return;
-        float dx = std::abs(ex - state.objStart.x);
-        float dy = std::abs(ey - state.objStart.y);
+        float dx = SDL::Abs(ex - state.objStart.x);
+        float dy = SDL::Abs(ey - state.objStart.y);
         if (dx < 2.f && dy < 2.f) return;
-        auto [wx, wy] = ScreenToWorld(std::min(state.objStart.x, ex),
-                                      std::min(state.objStart.y, ey));
+        auto [wx, wy] = ScreenToWorld(SDL::Min(state.objStart.x, ex),
+                                      SDL::Min(state.objStart.y, ey));
         ObjectDef obj;
         obj.id   = state.nextObjId++;
         obj.name = std::format("Object{}", obj.id);
@@ -1791,9 +2018,9 @@ struct Main {
             int x0, y0, x1, y1;
             screenToCell(state.tsDragStart.x, state.tsDragStart.y, x0, y0);
             screenToCell(ev.motion.x,         ev.motion.y,         x1, y1);
-            state.selTileX = std::min(x0, x1); state.selTileY = std::min(y0, y1);
-            state.selTileW = std::abs(x1 - x0) + 1;
-            state.selTileH = std::abs(y1 - y0) + 1;
+            state.selTileX = SDL::Min(x0, x1); state.selTileY = SDL::Min(y0, y1);
+            state.selTileW = SDL::Abs(x1 - x0) + 1;
+            state.selTileH = SDL::Abs(y1 - y0) + 1;
         }
 
         int gid = (int)ts.firstGid + state.selTileY * ts.columns + state.selTileX;
@@ -1833,7 +2060,6 @@ struct Main {
     void _AddTileLayer() {
         if ((int)map.layers.size() >= kMaxLayers) return;
         MapLayer l; l.name = std::format("Layer {}", map.layers.size() + 1);
-        l.tiles.assign(map.width * map.height, EMPTY_TILE);
         map.layers.push_back(std::move(l));
         map.activeLayer = (int)map.layers.size() - 1;
     }
@@ -1872,8 +2098,18 @@ struct Main {
                 (i == map.activeLayer)
                 ? SDL::Color{32, 48, 76, 255}
                 : SDL::Color{0, 0, 0, 0};
-            ui.GetStyle(slot.btnVis).bgColor  = layer.visible ? pal::GREEN  : pal::NEUTRAL;
-            ui.GetStyle(slot.btnLock).bgColor = layer.locked  ? pal::ORANGE : pal::NEUTRAL;
+            // Visibility button: green tint + full opacity when visible, dimmed when hidden
+            auto& icVis = ui.GetOrAddIconData(slot.btnVis);
+            icVis.tintNormal  = layer.visible ? pal::GREEN  : SDL::Color{255,255,255,255};
+            icVis.tintHovered = icVis.tintNormal;
+            icVis.opacityNormal  = layer.visible ? 1.f : 0.3f;
+            icVis.opacityHovered = 0.9f;
+            // Lock button: orange tint + dark bg when locked
+            auto& icLock = ui.GetOrAddIconData(slot.btnLock);
+            icLock.tintNormal  = layer.locked ? pal::ORANGE : SDL::Color{255,255,255,255};
+            icLock.tintHovered = icLock.tintNormal;
+            ui.GetStyle(slot.btnLock).bgColor =
+                layer.locked ? SDL::Color{70,40,10,200} : SDL::Color{0,0,0,0};
         }
     }
 
@@ -1883,8 +2119,38 @@ struct Main {
 
     void _SetTool(ToolType t) {
         state.tool = t;
-        // Tool button visuals update automatically via render callbacks
-        // (each tool button's canvas render checks state.tool directly)
+        static constexpr ToolType kTypes[kToolCount] = {
+            ToolType::Pencil, ToolType::Brush, ToolType::Fill,
+            ToolType::Erase,  ToolType::Select
+        };
+        for (int i = 0; i < kToolCount; ++i) {
+            if (toolBtns[i] == SDL::ECS::NullEntity) continue;
+            bool active = (kTypes[i] == t);
+            auto& s = ui.GetStyle(toolBtns[i]);
+            if (active) {
+                s.bgColor   = pal::ACCENT;
+                s.bgHovered = pal::ACCENT;
+                s.bgPressed = SDL::Color(pal::ACCENT).Darken(20);
+                s.borders   = SDL::FBox(1.f);
+                s.bdColor   = {pal::ACCENT.r, pal::ACCENT.g, pal::ACCENT.b, 140};
+            } else {
+                s.bgColor   = {0, 0, 0, 0};
+                s.bgHovered = {42, 54, 78, 220};
+                s.bgPressed = SDL::Color(pal::ACCENT).Darken(20);
+                s.borders   = SDL::FBox(0.f);
+                s.bdColor   = pal::BORDER;
+            }
+        }
+    }
+
+    void _RefreshGridBtn() {
+        if (eGridBtn == SDL::ECS::NullEntity) return;
+        auto& ic = ui.GetOrAddIconData(eGridBtn);
+        SDL::Color tint = state.showGrid ? pal::GREEN : SDL::Color{255,255,255,255};
+        ic.tintNormal  = tint;
+        ic.tintHovered = tint;
+        auto& s = ui.GetStyle(eGridBtn);
+        s.bgColor = state.showGrid ? SDL::Color{26,58,38,220} : SDL::Color{0,0,0,0};
     }
 
     // =========================================================================
@@ -2016,10 +2282,21 @@ struct Main {
             {"Pencil","Brush","Fill","Erase","Select"};
 
         std::string tilePos = (tx >= 0) ? std::format("[{},{}]", tx, ty) : "---";
+
+        std::string mapSize;
+        if (map.infinite) {
+            int chunkCount = 0;
+            for (const auto& l : map.layers)
+                if (l.type == LayerType::Tile) chunkCount += (int)l.chunks.size();
+            mapSize = std::format("inf ({} chunks)", chunkCount);
+        } else {
+            mapSize = std::format("{}x{}", map.width, map.height);
+        }
+
         std::string s = std::format(
-            "{} | Map {}x{} ({}x{}px) | Layer {}/{} | Zoom {:.0f}% | {}{}",
+            "{} | Map {} ({}x{}px) | Layer {}/{} | Zoom {:.0f}% | {}{}",
             kToolNames[(int)state.tool],
-            map.width, map.height, map.tileW, map.tileH,
+            mapSize, map.tileW, map.tileH,
             map.activeLayer + 1, (int)map.layers.size(),
             state.zoom * 100.f,
             tilePos,

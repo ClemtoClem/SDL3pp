@@ -70,7 +70,13 @@ ICONS = [
     "icon_file_ini", "icon_file_image", "icon_file_png", "icon_file_jpg", 
     "icon_file_svg", "icon_file_video", "icon_file_mp3", "icon_file_wav", 
     "icon_file_midi", "icon_file_mp4", "icon_file_mkv", "icon_file_archive", 
-    "icon_file_pdf", "icon_file_text", "icon_file_bin"
+    "icon_file_pdf", "icon_file_text", "icon_file_bin",
+
+    # LECTEUR MULTIMEDIA
+    "icon_play", "icon_pause", "icon_stop", 
+    "icon_next", "icon_prev", "icon_fast_forward", "icon_rewind",
+    "icon_volume_up", "icon_volume_down", "icon_volume_mute",
+    "icon_shuffle", "icon_repeat", "icon_fullscreen", "icon_minimize",
 ]
 
 def draw_shape(draw, shape_type, coords, width=LINE_WIDTH, fill=COLOR_FILL, outline=COLOR_OUTLINE):
@@ -333,7 +339,7 @@ def generate_icon(icon_name):
     # ==========================================
     # GESTION DYNAMIQUE DES FICHIERS AVEC TEXTE
     # ==========================================
-    if icon_name == "icon_folder":
+    elif icon_name == "icon_folder":
         # Dossier standard
         draw_shape(draw, "polygon", [(4, 8), (12, 8), (16, 12), (28, 12), (28, 26), (4, 26)])
         draw_shape(draw, "line", [(4, 14), (28, 14)])
@@ -370,6 +376,62 @@ def generate_icon(icon_name):
         except AttributeError:
             # Fallback si ancienne version de PIL sans anchor="mm"
             draw.text((8, 15), text_to_draw[:3], fill=(255, 255, 255, 255), font=FONT, spacing=1)
+
+    # ==========================================
+    # LECTEUR MULTIMÉDIA (AUDIO/VIDÉO)
+    # ==========================================
+    elif icon_name == "icon_play":
+        draw_shape(draw, "polygon", [(10, 6), (10, 26), (26, 16)])
+    elif icon_name == "icon_pause":
+        draw_shape(draw, "rectangle", [(8, 8), (14, 24)])
+        draw_shape(draw, "rectangle", [(18, 8), (24, 24)])
+    elif icon_name == "icon_stop":
+        draw_shape(draw, "rectangle", [(8, 8), (24, 24)])
+    elif icon_name == "icon_next":
+        draw_shape(draw, "polygon", [(8, 8), (8, 24), (20, 16)])
+        draw_shape(draw, "rectangle", [(20, 8), (24, 24)])
+    elif icon_name == "icon_prev":
+        draw_shape(draw, "polygon", [(24, 8), (24, 24), (12, 16)])
+        draw_shape(draw, "rectangle", [(8, 8), (12, 24)])
+    elif icon_name == "icon_fast_forward":
+        draw_shape(draw, "polygon", [(4, 10), (4, 22), (16, 16)])
+        draw_shape(draw, "polygon", [(16, 10), (16, 22), (28, 16)])
+    elif icon_name == "icon_rewind":
+        draw_shape(draw, "polygon", [(28, 10), (28, 22), (16, 16)])
+        draw_shape(draw, "polygon", [(16, 10), (16, 22), (4, 16)])
+    elif icon_name == "icon_volume_down":
+        draw_shape(draw, "polygon", [(6, 14), (12, 14), (16, 8), (16, 24), (12, 18), (6, 18)])
+        draw.arc([(12, 10), (20, 22)], 315, 45, fill=COLOR_OUTLINE, width=LINE_WIDTH) # 1 onde
+    elif icon_name == "icon_volume_up":
+        draw_shape(draw, "polygon", [(6, 14), (12, 14), (16, 8), (16, 24), (12, 18), (6, 18)])
+        draw.arc([(12, 10), (20, 22)], 315, 45, fill=COLOR_OUTLINE, width=LINE_WIDTH) # Onde 1
+        draw.arc([(8, 6), (24, 26)], 315, 45, fill=COLOR_OUTLINE, width=LINE_WIDTH)   # Onde 2
+    elif icon_name == "icon_volume_mute":
+        draw_shape(draw, "polygon", [(4, 14), (10, 14), (14, 8), (14, 24), (10, 18), (4, 18)])
+        draw_shape(draw, "lines", [(18, 12), (26, 20)]) # Croix X
+        draw_shape(draw, "lines", [(18, 20), (26, 12)])
+    elif icon_name == "icon_shuffle":
+        # Flèches croisées
+        draw_shape(draw, "lines", [(4, 22), (10, 22), (22, 10), (28, 10)])
+        draw_shape(draw, "lines", [(4, 10), (10, 10), (22, 22), (28, 22)])
+        draw_shape(draw, "polygon", [(24, 6), (28, 10), (24, 14)])   # Pointe haut
+        draw_shape(draw, "polygon", [(24, 18), (28, 22), (24, 26)])  # Pointe bas
+    elif icon_name == "icon_repeat":
+        # Flèches en cercle
+        draw.arc([(6, 6), (26, 26)], 45, 315, fill=COLOR_OUTLINE, width=LINE_WIDTH)
+        draw_shape(draw, "polygon", [(22, 10), (26, 2), (30, 10)]) # Pointe de flèche
+    elif icon_name == "icon_fullscreen":
+        # Coins externes
+        draw_shape(draw, "lines", [(6, 12), (6, 6), (12, 6)])
+        draw_shape(draw, "lines", [(20, 6), (26, 6), (26, 12)])
+        draw_shape(draw, "lines", [(6, 20), (6, 26), (12, 26)])
+        draw_shape(draw, "lines", [(26, 20), (26, 26), (20, 26)])
+    elif icon_name == "icon_minimize":
+        # Coins internes
+        draw_shape(draw, "lines", [(6, 12), (12, 12), (12, 6)])
+        draw_shape(draw, "lines", [(26, 12), (20, 12), (20, 6)])
+        draw_shape(draw, "lines", [(6, 20), (12, 20), (12, 26)])
+        draw_shape(draw, "lines", [(26, 20), (20, 20), (20, 26)])
 
     # Sauvegarde de l'image
     os.makedirs(PATH, exist_ok=True)
