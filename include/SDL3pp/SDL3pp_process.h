@@ -82,11 +82,11 @@ struct ProcessRef;
 using ProcessIO = SDL_ProcessIO;
 
 constexpr ProcessIO PROCESS_STDIO_INHERITED =
-  SDL_PROCESS_STDIO_INHERITED; ///< The I/O stream is inherited from the
-                               ///< application.
+	SDL_PROCESS_STDIO_INHERITED; ///< The I/O stream is inherited from the
+															 ///< application.
 
 constexpr ProcessIO PROCESS_STDIO_NULL =
-  SDL_PROCESS_STDIO_NULL; ///< The I/O stream is ignored.
+	SDL_PROCESS_STDIO_NULL; ///< The I/O stream is ignored.
 
 /**
  * The I/O stream is connected to a new IOStream that the application can read
@@ -107,384 +107,384 @@ constexpr ProcessIO PROCESS_STDIO_REDIRECT = SDL_PROCESS_STDIO_REDIRECT;
  * @cat resource
  */
 class Process {
-  ProcessRaw m_resource = nullptr;
+	ProcessRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr Process(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr Process(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw Process.
-   *
-   * @param resource a ProcessRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Process(ProcessRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Process.
+	 *
+	 * @param resource a ProcessRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Process(ProcessRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Process(const Process& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Process(const Process& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Process(Process&& other) noexcept
-    : Process(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Process(Process&& other) noexcept
+		: Process(other.Release()) {
+	}
 
-  constexpr Process(const ProcessRef& other) = delete;
+	constexpr Process(const ProcessRef& other) = delete;
 
-  constexpr Process(ProcessRef&& other) = delete;
+	constexpr Process(ProcessRef&& other) = delete;
 
-  /**
-   * Create a new process.
-   *
-   * The path to the executable is supplied in args[0]. args[1..N] are
-   * additional arguments passed on the command line of the new process, and the
-   * argument list should be terminated with a nullptr, e.g.:
-   *
-   * ```c
-   * const char *args[] = { "myprogram", "argument", nullptr };
-   * ```
-   *
-   * Setting pipe_stdio to true is equivalent to setting
-   * `prop::process.CREATE_STDIN_NUMBER` and
-   * `prop::process.CREATE_STDOUT_NUMBER` to `PROCESS_STDIO_APP`, and will allow
-   * the use of Process.Read() or Process.GetInput() and Process.GetOutput().
-   *
-   * See CreateProcessWithProperties() for more details.
-   *
-   * @param args the path and arguments for the new process.
-   * @param pipe_stdio true to create pipes to the process's standard input and
-   *                   from the process's standard output, false for the process
-   *                   to have no input and inherit the application's standard
-   *                   output.
-   * @post the newly created and running process, or nullptr if the process
-   *       couldn't be created.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcessWithProperties
-   * @sa Process.GetProperties
-   * @sa Process.Read
-   * @sa Process.GetInput
-   * @sa Process.GetOutput
-   * @sa Process.Kill
-   * @sa Process.Wait
-   * @sa Process.Destroy
-   */
-  Process(const char* const* args, bool pipe_stdio);
+	/**
+	 * Create a new process.
+	 *
+	 * The path to the executable is supplied in args[0]. args[1..N] are
+	 * additional arguments passed on the command line of the new process, and the
+	 * argument list should be terminated with a nullptr, e.g.:
+	 *
+	 * ```c
+	 * const char *args[] = { "myprogram", "argument", nullptr };
+	 * ```
+	 *
+	 * Setting pipe_stdio to true is equivalent to setting
+	 * `prop::process.CREATE_STDIN_NUMBER` and
+	 * `prop::process.CREATE_STDOUT_NUMBER` to `PROCESS_STDIO_APP`, and will allow
+	 * the use of Process.Read() or Process.GetInput() and Process.GetOutput().
+	 *
+	 * See CreateProcessWithProperties() for more details.
+	 *
+	 * @param args the path and arguments for the new process.
+	 * @param pipe_stdio true to create pipes to the process's standard input and
+	 *                   from the process's standard output, false for the process
+	 *                   to have no input and inherit the application's standard
+	 *                   output.
+	 * @post the newly created and running process, or nullptr if the process
+	 *       couldn't be created.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcessWithProperties
+	 * @sa Process.GetProperties
+	 * @sa Process.Read
+	 * @sa Process.GetInput
+	 * @sa Process.GetOutput
+	 * @sa Process.Kill
+	 * @sa Process.Wait
+	 * @sa Process.Destroy
+	 */
+	Process(const char* const* args, bool pipe_stdio);
 
-  /**
-   * Create a new process with the specified properties.
-   *
-   * These are the supported properties:
-   *
-   * - `prop::process.CREATE_ARGS_POINTER`: an array of strings containing the
-   *   program to run, any arguments, and a nullptr pointer, e.g. const char
-   *   *args[] = { "myprogram", "argument", nullptr }. This is a required
-   *   property.
-   * - `prop::process.CREATE_ENVIRONMENT_POINTER`: an Environment pointer. If
-   *   this property is set, it will be the entire environment for the process,
-   *   otherwise the current environment is used.
-   * - `prop::process.CREATE_WORKING_DIRECTORY_STRING`: a UTF-8 encoded string
-   *   representing the working directory for the process, defaults to the
-   *   current working directory.
-   * - `prop::process.CREATE_STDIN_NUMBER`: an ProcessIO value describing where
-   *   standard input for the process comes from, defaults to
-   *   `SDL_PROCESS_STDIO_nullptr`.
-   * - `prop::process.CREATE_STDIN_POINTER`: an IOStream pointer used for
-   *   standard input when `prop::process.CREATE_STDIN_NUMBER` is set to
-   *   `PROCESS_STDIO_REDIRECT`.
-   * - `prop::process.CREATE_STDOUT_NUMBER`: an ProcessIO value describing where
-   *   standard output for the process goes to, defaults to
-   *   `PROCESS_STDIO_INHERITED`.
-   * - `prop::process.CREATE_STDOUT_POINTER`: an IOStream pointer used for
-   *   standard output when `prop::process.CREATE_STDOUT_NUMBER` is set to
-   *   `PROCESS_STDIO_REDIRECT`.
-   * - `prop::process.CREATE_STDERR_NUMBER`: an ProcessIO value describing where
-   *   standard error for the process goes to, defaults to
-   *   `PROCESS_STDIO_INHERITED`.
-   * - `prop::process.CREATE_STDERR_POINTER`: an IOStream pointer used for
-   *   standard error when `prop::process.CREATE_STDERR_NUMBER` is set to
-   *   `PROCESS_STDIO_REDIRECT`.
-   * - `prop::process.CREATE_STDERR_TO_STDOUT_BOOLEAN`: true if the error output
-   *   of the process should be redirected into the standard output of the
-   *   process. This property has no effect if
-   *   `prop::process.CREATE_STDERR_NUMBER` is set.
-   * - `prop::process.CREATE_BACKGROUND_BOOLEAN`: true if the process should run
-   *   in the background. In this case the default input and output is
-   *   `SDL_PROCESS_STDIO_nullptr` and the exitcode of the process is not
-   *   available, and will always be 0.
-   * - `prop::process.CREATE_CMDLINE_STRING`: a string containing the program to
-   *   run and any parameters. This string is passed directly to `CreateProcess`
-   *   on Windows, and does nothing on other platforms. This property is only
-   *   important if you want to start programs that does non-standard
-   *   command-line processing, and in most cases using
-   *   `prop::process.CREATE_ARGS_POINTER` is sufficient.
-   *
-   * On POSIX platforms, wait() and waitpid(-1, ...) should not be called, and
-   * SIGCHLD should not be ignored or handled because those would prevent SDL
-   * from properly tracking the lifetime of the underlying process. You should
-   * use Process.Wait() instead.
-   *
-   * @param props the properties to use.
-   * @post the newly created and running process, or nullptr if the process
-   *       couldn't be created.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcess
-   * @sa Process.GetProperties
-   * @sa Process.Read
-   * @sa Process.GetInput
-   * @sa Process.GetOutput
-   * @sa Process.Kill
-   * @sa Process.Wait
-   * @sa Process.Destroy
-   */
-  Process(PropertiesRef props);
+	/**
+	 * Create a new process with the specified properties.
+	 *
+	 * These are the supported properties:
+	 *
+	 * - `prop::process.CREATE_ARGS_POINTER`: an array of strings containing the
+	 *   program to run, any arguments, and a nullptr pointer, e.g. const char
+	 *   *args[] = { "myprogram", "argument", nullptr }. This is a required
+	 *   property.
+	 * - `prop::process.CREATE_ENVIRONMENT_POINTER`: an Environment pointer. If
+	 *   this property is set, it will be the entire environment for the process,
+	 *   otherwise the current environment is used.
+	 * - `prop::process.CREATE_WORKING_DIRECTORY_STRING`: a UTF-8 encoded string
+	 *   representing the working directory for the process, defaults to the
+	 *   current working directory.
+	 * - `prop::process.CREATE_STDIN_NUMBER`: an ProcessIO value describing where
+	 *   standard input for the process comes from, defaults to
+	 *   `SDL_PROCESS_STDIO_nullptr`.
+	 * - `prop::process.CREATE_STDIN_POINTER`: an IOStream pointer used for
+	 *   standard input when `prop::process.CREATE_STDIN_NUMBER` is set to
+	 *   `PROCESS_STDIO_REDIRECT`.
+	 * - `prop::process.CREATE_STDOUT_NUMBER`: an ProcessIO value describing where
+	 *   standard output for the process goes to, defaults to
+	 *   `PROCESS_STDIO_INHERITED`.
+	 * - `prop::process.CREATE_STDOUT_POINTER`: an IOStream pointer used for
+	 *   standard output when `prop::process.CREATE_STDOUT_NUMBER` is set to
+	 *   `PROCESS_STDIO_REDIRECT`.
+	 * - `prop::process.CREATE_STDERR_NUMBER`: an ProcessIO value describing where
+	 *   standard error for the process goes to, defaults to
+	 *   `PROCESS_STDIO_INHERITED`.
+	 * - `prop::process.CREATE_STDERR_POINTER`: an IOStream pointer used for
+	 *   standard error when `prop::process.CREATE_STDERR_NUMBER` is set to
+	 *   `PROCESS_STDIO_REDIRECT`.
+	 * - `prop::process.CREATE_STDERR_TO_STDOUT_BOOLEAN`: true if the error output
+	 *   of the process should be redirected into the standard output of the
+	 *   process. This property has no effect if
+	 *   `prop::process.CREATE_STDERR_NUMBER` is set.
+	 * - `prop::process.CREATE_BACKGROUND_BOOLEAN`: true if the process should run
+	 *   in the background. In this case the default input and output is
+	 *   `SDL_PROCESS_STDIO_nullptr` and the exitcode of the process is not
+	 *   available, and will always be 0.
+	 * - `prop::process.CREATE_CMDLINE_STRING`: a string containing the program to
+	 *   run and any parameters. This string is passed directly to `CreateProcess`
+	 *   on Windows, and does nothing on other platforms. This property is only
+	 *   important if you want to start programs that does non-standard
+	 *   command-line processing, and in most cases using
+	 *   `prop::process.CREATE_ARGS_POINTER` is sufficient.
+	 *
+	 * On POSIX platforms, wait() and waitpid(-1, ...) should not be called, and
+	 * SIGCHLD should not be ignored or handled because those would prevent SDL
+	 * from properly tracking the lifetime of the underlying process. You should
+	 * use Process.Wait() instead.
+	 *
+	 * @param props the properties to use.
+	 * @post the newly created and running process, or nullptr if the process
+	 *       couldn't be created.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcess
+	 * @sa Process.GetProperties
+	 * @sa Process.Read
+	 * @sa Process.GetInput
+	 * @sa Process.GetOutput
+	 * @sa Process.Kill
+	 * @sa Process.Wait
+	 * @sa Process.Destroy
+	 */
+	Process(PropertiesRef props);
 
-  /// Destructor
-  ~Process() { SDL_DestroyProcess(m_resource); }
+	/// Destructor
+	~Process() { SDL_DestroyProcess(m_resource); }
 
-  /// Assignment operator.
-  constexpr Process& operator=(Process&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Process& operator=(Process&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Process& operator=(const Process& other) = delete;
+	/// Assignment operator.
+	Process& operator=(const Process& other) = delete;
 
-  /// Retrieves underlying ProcessRaw.
-  constexpr ProcessRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying ProcessRaw.
+	constexpr ProcessRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying ProcessRaw and clear this.
-  constexpr ProcessRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying ProcessRaw and clear this.
+	constexpr ProcessRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Process& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Process& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Destroy a previously created process object.
-   *
-   * Note that this does not stop the process, just destroys the SDL object used
-   * to track it. If you want to stop the process you should use Process.Kill().
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcess
-   * @sa CreateProcessWithProperties
-   * @sa Process.Kill
-   */
-  void Destroy();
+	/**
+	 * Destroy a previously created process object.
+	 *
+	 * Note that this does not stop the process, just destroys the SDL object used
+	 * to track it. If you want to stop the process you should use Process.Kill().
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcess
+	 * @sa CreateProcessWithProperties
+	 * @sa Process.Kill
+	 */
+	void Destroy();
 
-  /**
-   * Get the properties associated with a process.
-   *
-   * The following read-only properties are provided by SDL:
-   *
-   * - `prop::process.PID_NUMBER`: the process ID of the process.
-   * - `prop::process.STDIN_POINTER`: an IOStream that can be used to write
-   *   input to the process, if it was created with
-   *   `prop::process.CREATE_STDIN_NUMBER` set to `PROCESS_STDIO_APP`.
-   * - `prop::process.STDOUT_POINTER`: a non-blocking IOStream that can be used
-   *   to read output from the process, if it was created with
-   *   `prop::process.CREATE_STDOUT_NUMBER` set to `PROCESS_STDIO_APP`.
-   * - `prop::process.STDERR_POINTER`: a non-blocking IOStream that can be used
-   *   to read error output from the process, if it was created with
-   *   `prop::process.CREATE_STDERR_NUMBER` set to `PROCESS_STDIO_APP`.
-   * - `prop::process.BACKGROUND_BOOLEAN`: true if the process is running in the
-   *   background.
-   *
-   * @returns a valid property ID on success.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcess
-   * @sa CreateProcessWithProperties
-   */
-  PropertiesRef GetProperties() const;
+	/**
+	 * Get the properties associated with a process.
+	 *
+	 * The following read-only properties are provided by SDL:
+	 *
+	 * - `prop::process.PID_NUMBER`: the process ID of the process.
+	 * - `prop::process.STDIN_POINTER`: an IOStream that can be used to write
+	 *   input to the process, if it was created with
+	 *   `prop::process.CREATE_STDIN_NUMBER` set to `PROCESS_STDIO_APP`.
+	 * - `prop::process.STDOUT_POINTER`: a non-blocking IOStream that can be used
+	 *   to read output from the process, if it was created with
+	 *   `prop::process.CREATE_STDOUT_NUMBER` set to `PROCESS_STDIO_APP`.
+	 * - `prop::process.STDERR_POINTER`: a non-blocking IOStream that can be used
+	 *   to read error output from the process, if it was created with
+	 *   `prop::process.CREATE_STDERR_NUMBER` set to `PROCESS_STDIO_APP`.
+	 * - `prop::process.BACKGROUND_BOOLEAN`: true if the process is running in the
+	 *   background.
+	 *
+	 * @returns a valid property ID on success.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcess
+	 * @sa CreateProcessWithProperties
+	 */
+	PropertiesRef GetProperties() const;
 
-  /**
-   * Read all the output from a process.
-   *
-   * If a process was created with I/O enabled, you can use this function to
-   * read the output. This function blocks until the process is complete,
-   * capturing all output, and providing the process exit code.
-   *
-   * The data is allocated with a Zero byte at the end (null terminated) for
-   * convenience. This extra byte is not included in the value reported via
-   * `datasize`.
-   *
-   * The data should be freed with Free().
-   *
-   * @param exitcode a pointer filled in with the process exit code if the
-   *                 process has exited, may be nullptr.
-   * @returns the data or nullptr on failure; call GetError() for more
-   *          information.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcess
-   * @sa CreateProcessWithProperties
-   * @sa Process.Destroy
-   */
-  StringResult Read(int* exitcode = nullptr);
+	/**
+	 * Read all the output from a process.
+	 *
+	 * If a process was created with I/O enabled, you can use this function to
+	 * read the output. This function blocks until the process is complete,
+	 * capturing all output, and providing the process exit code.
+	 *
+	 * The data is allocated with a Zero byte at the end (null terminated) for
+	 * convenience. This extra byte is not included in the value reported via
+	 * `datasize`.
+	 *
+	 * The data should be freed with Free().
+	 *
+	 * @param exitcode a pointer filled in with the process exit code if the
+	 *                 process has exited, may be nullptr.
+	 * @returns the data or nullptr on failure; call GetError() for more
+	 *          information.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcess
+	 * @sa CreateProcessWithProperties
+	 * @sa Process.Destroy
+	 */
+	StringResult Read(int* exitcode = nullptr);
 
-  /**
-   * Read all the output from a process.
-   *
-   * If a process was created with I/O enabled, you can use this function to
-   * read the output. This function blocks until the process is complete,
-   * capturing all output, and providing the process exit code.
-   *
-   * The data is allocated with a Zero byte at the end (null terminated) for
-   * convenience. This extra byte is not included in the value reported via
-   * `datasize`.
-   *
-   * The data should be freed with Free().
-   *
-   * @param exitcode a pointer filled in with the process exit code if the
-   *                 process has exited, may be nullptr.
-   * @returns the data or nullptr on failure; call GetError() for more
-   *          information.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa ProcessRef.Create
-   */
-  template<class T>
-  OwnArray<T> ReadAs(int* exitcode = nullptr) {
-    StringResult data = Read(exitcode);
-    if (data.empty()) return {};
-    size_t sz = data.size() / sizeof(T);
-    return OwnArray{static_cast<T*>(data.Release()), sz};
-  }
+	/**
+	 * Read all the output from a process.
+	 *
+	 * If a process was created with I/O enabled, you can use this function to
+	 * read the output. This function blocks until the process is complete,
+	 * capturing all output, and providing the process exit code.
+	 *
+	 * The data is allocated with a Zero byte at the end (null terminated) for
+	 * convenience. This extra byte is not included in the value reported via
+	 * `datasize`.
+	 *
+	 * The data should be freed with Free().
+	 *
+	 * @param exitcode a pointer filled in with the process exit code if the
+	 *                 process has exited, may be nullptr.
+	 * @returns the data or nullptr on failure; call GetError() for more
+	 *          information.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa ProcessRef.Create
+	 */
+	template<class T>
+	OwnArray<T> ReadAs(int* exitcode = nullptr) {
+		StringResult data = Read(exitcode);
+		if (data.empty()) return {};
+		size_t sz = data.size() / sizeof(T);
+		return OwnArray{static_cast<T*>(data.Release()), sz};
+	}
 
-  /**
-   * Get the IOStream associated with process standard input.
-   *
-   * The process must have been created with CreateProcess() and pipe_stdio set
-   * to true, or with CreateProcessWithProperties() and
-   * `prop::process.CREATE_STDIN_NUMBER` set to `PROCESS_STDIO_APP`.
-   *
-   * Writing to this stream can return less data than expected if the process
-   * hasn't read its input. It may be blocked waiting for its output to be read,
-   * if so you may need to call Process.GetOutput() and read the output in
-   * parallel with writing input.
-   *
-   * @returns the input stream or nullptr on failure; call GetError() for more
-   *          information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcess
-   * @sa CreateProcessWithProperties
-   * @sa Process.GetOutput
-   */
-  IOStreamRef GetInput();
+	/**
+	 * Get the IOStream associated with process standard input.
+	 *
+	 * The process must have been created with CreateProcess() and pipe_stdio set
+	 * to true, or with CreateProcessWithProperties() and
+	 * `prop::process.CREATE_STDIN_NUMBER` set to `PROCESS_STDIO_APP`.
+	 *
+	 * Writing to this stream can return less data than expected if the process
+	 * hasn't read its input. It may be blocked waiting for its output to be read,
+	 * if so you may need to call Process.GetOutput() and read the output in
+	 * parallel with writing input.
+	 *
+	 * @returns the input stream or nullptr on failure; call GetError() for more
+	 *          information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcess
+	 * @sa CreateProcessWithProperties
+	 * @sa Process.GetOutput
+	 */
+	IOStreamRef GetInput();
 
-  /**
-   * Get the IOStream associated with process standard output.
-   *
-   * The process must have been created with CreateProcess() and pipe_stdio set
-   * to true, or with CreateProcessWithProperties() and
-   * `prop::process.CREATE_STDOUT_NUMBER` set to `PROCESS_STDIO_APP`.
-   *
-   * Reading from this stream can return 0 with IOStream.GetStatus() returning
-   * IO_STATUS_NOT_READY if no output is available yet.
-   *
-   * @returns the output stream or nullptr on failure; call GetError() for more
-   *          information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcess
-   * @sa CreateProcessWithProperties
-   * @sa Process.GetInput
-   */
-  IOStreamRef GetOutput();
+	/**
+	 * Get the IOStream associated with process standard output.
+	 *
+	 * The process must have been created with CreateProcess() and pipe_stdio set
+	 * to true, or with CreateProcessWithProperties() and
+	 * `prop::process.CREATE_STDOUT_NUMBER` set to `PROCESS_STDIO_APP`.
+	 *
+	 * Reading from this stream can return 0 with IOStream.GetStatus() returning
+	 * IO_STATUS_NOT_READY if no output is available yet.
+	 *
+	 * @returns the output stream or nullptr on failure; call GetError() for more
+	 *          information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcess
+	 * @sa CreateProcessWithProperties
+	 * @sa Process.GetInput
+	 */
+	IOStreamRef GetOutput();
 
-  /**
-   * Stop a process.
-   *
-   * @param force true to terminate the process immediately, false to try to
-   *              stop the process gracefully. In general you should try to stop
-   *              the process gracefully first as terminating a process may
-   *              leave it with half-written data or in some other unstable
-   *              state.
-   * @throws Error on failure.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcess
-   * @sa CreateProcessWithProperties
-   * @sa Process.Wait
-   * @sa Process.Destroy
-   */
-  void Kill(bool force);
+	/**
+	 * Stop a process.
+	 *
+	 * @param force true to terminate the process immediately, false to try to
+	 *              stop the process gracefully. In general you should try to stop
+	 *              the process gracefully first as terminating a process may
+	 *              leave it with half-written data or in some other unstable
+	 *              state.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcess
+	 * @sa CreateProcessWithProperties
+	 * @sa Process.Wait
+	 * @sa Process.Destroy
+	 */
+	void Kill(bool force);
 
-  /**
-   * Wait for a process to finish.
-   *
-   * This can be called multiple times to Get the status of a process.
-   *
-   * The exit code will be the exit code of the process if it terminates
-   * normally, a negative signal if it terminated due to a signal, or -255
-   * otherwise. It will not be changed if the process is still running.
-   *
-   * If you create a process with standard output piped to the application
-   * (`pipe_stdio` being true) then you should read all of the process output
-   * before calling Process.Wait(). If you don't do this the process might be
-   * blocked indefinitely waiting for output to be read and Process.Wait() will
-   * never return true;
-   *
-   * @param block If true, block until the process finishes; otherwise, report
-   *              on the process' status.
-   * @param exitcode a pointer filled in with the process exit code if the
-   *                 process has exited, may be nullptr.
-   * @returns true if the process exited, false otherwise.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateProcess
-   * @sa CreateProcessWithProperties
-   * @sa Process.Kill
-   * @sa Process.Destroy
-   */
-  bool Wait(bool block, int* exitcode);
+	/**
+	 * Wait for a process to finish.
+	 *
+	 * This can be called multiple times to Get the status of a process.
+	 *
+	 * The exit code will be the exit code of the process if it terminates
+	 * normally, a negative signal if it terminated due to a signal, or -255
+	 * otherwise. It will not be changed if the process is still running.
+	 *
+	 * If you create a process with standard output piped to the application
+	 * (`pipe_stdio` being true) then you should read all of the process output
+	 * before calling Process.Wait(). If you don't do this the process might be
+	 * blocked indefinitely waiting for output to be read and Process.Wait() will
+	 * never return true;
+	 *
+	 * @param block If true, block until the process finishes; otherwise, report
+	 *              on the process' status.
+	 * @param exitcode a pointer filled in with the process exit code if the
+	 *                 process has exited, may be nullptr.
+	 * @returns true if the process exited, false otherwise.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateProcess
+	 * @sa CreateProcessWithProperties
+	 * @sa Process.Kill
+	 * @sa Process.Destroy
+	 */
+	bool Wait(bool block, int* exitcode);
 };
 
 /**
@@ -493,63 +493,63 @@ public:
  * This does not take ownership!
  */
 struct ProcessRef : Process {
-  using Process::Process;
+	using Process::Process;
 
-  /**
-   * Constructs from raw Process.
-   *
-   * @param resource a ProcessRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr ProcessRef(ProcessRaw resource) noexcept
-    : Process(resource) {
-  }
+	/**
+	 * Constructs from raw Process.
+	 *
+	 * @param resource a ProcessRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr ProcessRef(ProcessRaw resource) noexcept
+		: Process(resource) {
+	}
 
-  /**
-   * Constructs from Process.
-   *
-   * @param resource a Process.
-   *
-   * This does not takes ownership!
-   */
-  constexpr ProcessRef(const Process& resource) noexcept
-    : Process(resource.Get()) {
-  }
+	/**
+	 * Constructs from Process.
+	 *
+	 * @param resource a Process.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr ProcessRef(const Process& resource) noexcept
+		: Process(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Process.
-   *
-   * @param resource a Process.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr ProcessRef(Process&& resource) noexcept
-    : Process(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Process.
+	 *
+	 * @param resource a Process.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr ProcessRef(Process&& resource) noexcept
+		: Process(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr ProcessRef(const ProcessRef& other) noexcept
-    : Process(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr ProcessRef(const ProcessRef& other) noexcept
+		: Process(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr ProcessRef(ProcessRef&& other) noexcept
-    : Process(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr ProcessRef(ProcessRef&& other) noexcept
+		: Process(other.Get()) {
+	}
 
-  /// Destructor
-  ~ProcessRef() { Release(); }
+	/// Destructor
+	~ProcessRef() { Release(); }
 
-  /// Assignment operator.
-  ProcessRef& operator=(const ProcessRef& other) noexcept {
-    Release();
-    Process::operator=(Process(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	ProcessRef& operator=(const ProcessRef& other) noexcept {
+		Release();
+		Process::operator=(Process(other.Get()));
+		return *this;
+	}
 
-  /// Converts to ProcessRaw
-  constexpr operator ProcessRaw() const noexcept { return Get(); }
+	/// Converts to ProcessRaw
+	constexpr operator ProcessRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -592,15 +592,15 @@ struct ProcessRef : Process {
  * @sa Process.Destroy
  */
 inline Process CreateProcess(const char* const* args, bool pipe_stdio) {
-  return Process(args, pipe_stdio);
+	return Process(args, pipe_stdio);
 }
 
 inline Process::Process(const char* const* args, bool pipe_stdio)
-  : m_resource(SDL_CreateProcess(args, pipe_stdio)) {
+	: m_resource(SDL_CreateProcess(args, pipe_stdio)) {
 }
 
 inline Process::Process(PropertiesRef props)
-  : m_resource(SDL_CreateProcessWithProperties(props)) {
+	: m_resource(SDL_CreateProcessWithProperties(props)) {
 }
 
 /**
@@ -674,7 +674,7 @@ inline Process::Process(PropertiesRef props)
  * @sa Process.Destroy
  */
 inline Process CreateProcessWithProperties(PropertiesRef props) {
-  return Process(props);
+	return Process(props);
 }
 
 namespace prop::process {
@@ -682,12 +682,12 @@ namespace prop::process {
 constexpr auto CREATE_ARGS_POINTER = SDL_PROP_PROCESS_CREATE_ARGS_POINTER;
 
 constexpr auto CREATE_ENVIRONMENT_POINTER =
-  SDL_PROP_PROCESS_CREATE_ENVIRONMENT_POINTER;
+	SDL_PROP_PROCESS_CREATE_ENVIRONMENT_POINTER;
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
 constexpr auto CREATE_WORKING_DIRECTORY_STRING =
-  SDL_PROP_PROCESS_CREATE_WORKING_DIRECTORY_STRING;
+	SDL_PROP_PROCESS_CREATE_WORKING_DIRECTORY_STRING;
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -704,10 +704,10 @@ constexpr auto CREATE_STDERR_NUMBER = SDL_PROP_PROCESS_CREATE_STDERR_NUMBER;
 constexpr auto CREATE_STDERR_POINTER = SDL_PROP_PROCESS_CREATE_STDERR_POINTER;
 
 constexpr auto CREATE_STDERR_TO_STDOUT_BOOLEAN =
-  SDL_PROP_PROCESS_CREATE_STDERR_TO_STDOUT_BOOLEAN;
+	SDL_PROP_PROCESS_CREATE_STDERR_TO_STDOUT_BOOLEAN;
 
 constexpr auto CREATE_BACKGROUND_BOOLEAN =
-  SDL_PROP_PROCESS_CREATE_BACKGROUND_BOOLEAN;
+	SDL_PROP_PROCESS_CREATE_BACKGROUND_BOOLEAN;
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -757,11 +757,11 @@ constexpr auto BACKGROUND_BOOLEAN = SDL_PROP_PROCESS_BACKGROUND_BOOLEAN;
  * @sa CreateProcessWithProperties
  */
 inline PropertiesRef GetProcessProperties(ProcessRef process) {
-  return {CheckError(SDL_GetProcessProperties(process))};
+	return {CheckError(SDL_GetProcessProperties(process))};
 }
 
 inline PropertiesRef Process::GetProperties() const {
-  return SDL::GetProcessProperties(m_resource);
+	return SDL::GetProcessProperties(m_resource);
 }
 
 /**
@@ -792,13 +792,13 @@ inline PropertiesRef Process::GetProperties() const {
  * @sa Process.Destroy
  */
 inline StringResult ReadProcess(ProcessRef process, int* exitcode = nullptr) {
-  size_t size = 0;
-  auto data = static_cast<char*>(SDL_ReadProcess(process, &size, exitcode));
-  return StringResult(CheckError(data), size);
+	size_t size = 0;
+	auto data = static_cast<char*>(SDL_ReadProcess(process, &size, exitcode));
+	return StringResult(CheckError(data), size);
 }
 
 inline StringResult Process::Read(int* exitcode) {
-  return SDL::ReadProcess(m_resource, exitcode);
+	return SDL::ReadProcess(m_resource, exitcode);
 }
 
 /**
@@ -826,11 +826,11 @@ inline StringResult Process::Read(int* exitcode) {
  * @sa Process.GetOutput
  */
 inline IOStreamRef GetProcessInput(ProcessRef process) {
-  return {SDL_GetProcessInput(process)};
+	return {SDL_GetProcessInput(process)};
 }
 
 inline IOStreamRef Process::GetInput() {
-  return SDL::GetProcessInput(m_resource);
+	return SDL::GetProcessInput(m_resource);
 }
 
 /**
@@ -856,11 +856,11 @@ inline IOStreamRef Process::GetInput() {
  * @sa Process.GetInput
  */
 inline IOStreamRef GetProcessOutput(ProcessRef process) {
-  return {SDL_GetProcessOutput(process)};
+	return {SDL_GetProcessOutput(process)};
 }
 
 inline IOStreamRef Process::GetOutput() {
-  return SDL::GetProcessOutput(m_resource);
+	return SDL::GetProcessOutput(m_resource);
 }
 
 /**
@@ -883,7 +883,7 @@ inline IOStreamRef Process::GetOutput() {
  * @sa Process.Destroy
  */
 inline void KillProcess(ProcessRef process, bool force) {
-  CheckError(SDL_KillProcess(process, force));
+	CheckError(SDL_KillProcess(process, force));
 }
 
 inline void Process::Kill(bool force) { SDL::KillProcess(m_resource, force); }
@@ -920,11 +920,11 @@ inline void Process::Kill(bool force) { SDL::KillProcess(m_resource, force); }
  * @sa Process.Destroy
  */
 inline bool WaitProcess(ProcessRef process, bool block, int* exitcode) {
-  return SDL_WaitProcess(process, block, exitcode);
+	return SDL_WaitProcess(process, block, exitcode);
 }
 
 inline bool Process::Wait(bool block, int* exitcode) {
-  return SDL::WaitProcess(m_resource, block, exitcode);
+	return SDL::WaitProcess(m_resource, block, exitcode);
 }
 
 /**

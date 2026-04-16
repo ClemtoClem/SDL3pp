@@ -86,7 +86,7 @@ SDL_FORCE_INLINE void CompilerBarrier() { SDL_CompilerBarrier(); }
  * @sa MemoryBarrierRelease
  */
 inline void MemoryBarrierReleaseFunction() {
-  SDL_MemoryBarrierReleaseFunction();
+	SDL_MemoryBarrierReleaseFunction();
 }
 
 /**
@@ -108,7 +108,7 @@ inline void MemoryBarrierReleaseFunction() {
  * @sa MemoryBarrierAcquire
  */
 inline void MemoryBarrierAcquireFunction() {
-  SDL_MemoryBarrierAcquireFunction();
+	SDL_MemoryBarrierAcquireFunction();
 }
 
 /**
@@ -213,125 +213,125 @@ SDL_FORCE_INLINE void CPUPauseInstruction() { SDL_CPUPauseInstruction(); }
  * @sa AtomicInt.Add
  */
 struct AtomicInt : AtomicIntRaw {
-  /**
-   * Wraps AtomicInt.
-   *
-   * @param value the value for value.
-   */
-  constexpr AtomicInt(int value)
-    : AtomicIntRaw(value) {
-  }
+	/**
+	 * Wraps AtomicInt.
+	 *
+	 * @param value the value for value.
+	 */
+	constexpr AtomicInt(int value)
+		: AtomicIntRaw(value) {
+	}
 
-  AtomicInt(const AtomicInt& value) = delete;
+	AtomicInt(const AtomicInt& value) = delete;
 
-  AtomicInt& operator=(const AtomicInt& value) = delete;
+	AtomicInt& operator=(const AtomicInt& value) = delete;
 
-  /**
-   * Set an atomic variable to a new value if it is currently an old value.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @param oldval the old value.
-   * @param newval the new value.
-   * @returns true if the atomic variable was set, false otherwise.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicInt.Get
-   * @sa AtomicInt.Set
-   */
-  bool CompareAndSwap(int oldval, int newval);
+	/**
+	 * Set an atomic variable to a new value if it is currently an old value.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @param oldval the old value.
+	 * @param newval the new value.
+	 * @returns true if the atomic variable was set, false otherwise.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicInt.Get
+	 * @sa AtomicInt.Set
+	 */
+	bool CompareAndSwap(int oldval, int newval);
 
-  /**
-   * Set an atomic variable to a value.
-   *
-   * This function also acts as a full memory barrier.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @param v the desired value.
-   * @returns the previous value of the atomic variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicInt.Get
-   */
-  int Set(int v);
+	/**
+	 * Set an atomic variable to a value.
+	 *
+	 * This function also acts as a full memory barrier.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @param v the desired value.
+	 * @returns the previous value of the atomic variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicInt.Get
+	 */
+	int Set(int v);
 
-  /**
-   * Get the value of an atomic variable.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @returns the current value of an atomic variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicInt.Set
-   */
-  int Get();
+	/**
+	 * Get the value of an atomic variable.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @returns the current value of an atomic variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicInt.Set
+	 */
+	int Get();
 
-  /**
-   * Add to an atomic variable.
-   *
-   * This function also acts as a full memory barrier.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @param v the desired value to add.
-   * @returns the previous value of the atomic variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicInt.AtomicDecRef
-   * @sa AtomicInt.AtomicIncRef
-   */
-  int Add(int v);
+	/**
+	 * Add to an atomic variable.
+	 *
+	 * This function also acts as a full memory barrier.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @param v the desired value to add.
+	 * @returns the previous value of the atomic variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicInt.AtomicDecRef
+	 * @sa AtomicInt.AtomicIncRef
+	 */
+	int Add(int v);
 
-  /**
-   * Increment an atomic variable used as a reference count.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @returns the previous value of the atomic variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicInt.AtomicDecRef
-   */
-  bool AtomicIncRef();
+	/**
+	 * Increment an atomic variable used as a reference count.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @returns the previous value of the atomic variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicInt.AtomicDecRef
+	 */
+	bool AtomicIncRef();
 
-  /**
-   * Decrement an atomic variable used as a reference count.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @returns true if the variable reached Zero after decrementing, false
-   *          otherwise.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicInt.AtomicIncRef
-   */
-  bool AtomicDecRef();
+	/**
+	 * Decrement an atomic variable used as a reference count.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @returns true if the variable reached Zero after decrementing, false
+	 *          otherwise.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicInt.AtomicIncRef
+	 */
+	bool AtomicDecRef();
 };
 
 /**
@@ -353,11 +353,11 @@ struct AtomicInt : AtomicIntRaw {
  * @sa AtomicInt.Set
  */
 inline bool CompareAndSwapAtomicInt(AtomicIntRaw* a, int oldval, int newval) {
-  return SDL_CompareAndSwapAtomicInt(a, oldval, newval);
+	return SDL_CompareAndSwapAtomicInt(a, oldval, newval);
 }
 
 inline bool AtomicInt::CompareAndSwap(int oldval, int newval) {
-  return SDL::CompareAndSwapAtomicInt(this, oldval, newval);
+	return SDL::CompareAndSwapAtomicInt(this, oldval, newval);
 }
 
 /**
@@ -379,7 +379,7 @@ inline bool AtomicInt::CompareAndSwap(int oldval, int newval) {
  * @sa AtomicInt.Get
  */
 inline int SetAtomicInt(AtomicIntRaw* a, int v) {
-  return SDL_SetAtomicInt(a, v);
+	return SDL_SetAtomicInt(a, v);
 }
 
 inline int AtomicInt::Set(int v) { return SDL::SetAtomicInt(this, v); }
@@ -423,7 +423,7 @@ inline int AtomicInt::Get() { return SDL::GetAtomicInt(this); }
  * @sa AtomicInt.AtomicIncRef
  */
 inline int AddAtomicInt(AtomicIntRaw* a, int v) {
-  return SDL_AddAtomicInt(a, v);
+	return SDL_AddAtomicInt(a, v);
 }
 
 inline int AtomicInt::Add(int v) { return SDL::AddAtomicInt(this, v); }
@@ -492,91 +492,91 @@ inline bool AtomicInt::AtomicDecRef() { return SDL::AtomicDecRef(this); }
  * @sa AtomicU32.Set
  */
 struct AtomicU32 : AtomicU32Raw {
-  /**
-   * Wraps value.
-   *
-   * @param value the value to be wrapped
-   */
-  constexpr AtomicU32(Uint32 value)
-    : AtomicU32Raw(value) {
-  }
+	/**
+	 * Wraps value.
+	 *
+	 * @param value the value to be wrapped
+	 */
+	constexpr AtomicU32(Uint32 value)
+		: AtomicU32Raw(value) {
+	}
 
-  AtomicU32(const AtomicU32& value) = delete;
+	AtomicU32(const AtomicU32& value) = delete;
 
-  AtomicU32& operator=(const AtomicU32& value) = delete;
+	AtomicU32& operator=(const AtomicU32& value) = delete;
 
-  /**
-   * Set an atomic variable to a new value if it is currently an old value.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @param oldval the old value.
-   * @param newval the new value.
-   * @returns true if the atomic variable was set, false otherwise.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicU32.Get
-   * @sa AtomicU32.Set
-   */
-  bool CompareAndSwap(Uint32 oldval, Uint32 newval);
+	/**
+	 * Set an atomic variable to a new value if it is currently an old value.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @param oldval the old value.
+	 * @param newval the new value.
+	 * @returns true if the atomic variable was set, false otherwise.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicU32.Get
+	 * @sa AtomicU32.Set
+	 */
+	bool CompareAndSwap(Uint32 oldval, Uint32 newval);
 
-  /**
-   * Set an atomic variable to a value.
-   *
-   * This function also acts as a full memory barrier.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @param v the desired value.
-   * @returns the previous value of the atomic variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicU32.Get
-   */
-  Uint32 Set(Uint32 v);
+	/**
+	 * Set an atomic variable to a value.
+	 *
+	 * This function also acts as a full memory barrier.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @param v the desired value.
+	 * @returns the previous value of the atomic variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicU32.Get
+	 */
+	Uint32 Set(Uint32 v);
 
-  /**
-   * Get the value of an atomic variable.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @returns the current value of an atomic variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicU32.Set
-   */
-  Uint32 Get();
+	/**
+	 * Get the value of an atomic variable.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @returns the current value of an atomic variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicU32.Set
+	 */
+	Uint32 Get();
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
-  /**
-   * Add to an atomic variable.
-   *
-   * This function also acts as a full memory barrier.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @param v the desired value to add or subtract.
-   * @returns the previous value of the atomic variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.4.0.
-   */
-  Uint32 Add(int v);
+	/**
+	 * Add to an atomic variable.
+	 *
+	 * This function also acts as a full memory barrier.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @param v the desired value to add or subtract.
+	 * @returns the previous value of the atomic variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.4.0.
+	 */
+	Uint32 Add(int v);
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 };
@@ -584,72 +584,72 @@ struct AtomicU32 : AtomicU32Raw {
 /// A type representing an atomic of an arbitrary pointer.
 template<class T>
 class AtomicPointer {
-  T* m_value;
+	T* m_value;
 
 public:
-  /// Construcst from T
-  constexpr AtomicPointer(T* value)
-    : m_value(value) {
-  }
+	/// Construcst from T
+	constexpr AtomicPointer(T* value)
+		: m_value(value) {
+	}
 
-  AtomicPointer(const AtomicPointer& value) = delete;
+	AtomicPointer(const AtomicPointer& value) = delete;
 
-  AtomicPointer& operator=(const AtomicPointer& value) = delete;
+	AtomicPointer& operator=(const AtomicPointer& value) = delete;
 
-  /**
-   * Set a pointer to a new value if it is currently an old value.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @param oldval the old pointer value.
-   * @param newval the new pointer value.
-   * @returns true if the pointer was set, false otherwise.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicInt.CompareAndSwap
-   * @sa AtomicPointer.Get
-   * @sa AtomicPointer.Set
-   */
-  bool CompareAndSwap(T* oldval, T* newval);
+	/**
+	 * Set a pointer to a new value if it is currently an old value.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @param oldval the old pointer value.
+	 * @param newval the new pointer value.
+	 * @returns true if the pointer was set, false otherwise.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicInt.CompareAndSwap
+	 * @sa AtomicPointer.Get
+	 * @sa AtomicPointer.Set
+	 */
+	bool CompareAndSwap(T* oldval, T* newval);
 
-  /**
-   * Set a pointer to a value atomically.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @param v the desired pointer value.
-   * @returns the previous value of the pointer.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicPointer.CompareAndSwap
-   * @sa AtomicPointer.Get
-   */
-  T* Set(T* v);
+	/**
+	 * Set a pointer to a value atomically.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @param v the desired pointer value.
+	 * @returns the previous value of the pointer.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicPointer.CompareAndSwap
+	 * @sa AtomicPointer.Get
+	 */
+	T* Set(T* v);
 
-  /**
-   * Get the value of a pointer atomically.
-   *
-   * ***Note: If you don't know what this function is for, you shouldn't use
-   * it!***
-   *
-   * @returns the current value of a pointer.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa AtomicPointer.CompareAndSwap
-   * @sa AtomicPointer.Set
-   */
-  T* Get();
+	/**
+	 * Get the value of a pointer atomically.
+	 *
+	 * ***Note: If you don't know what this function is for, you shouldn't use
+	 * it!***
+	 *
+	 * @returns the current value of a pointer.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa AtomicPointer.CompareAndSwap
+	 * @sa AtomicPointer.Set
+	 */
+	T* Get();
 };
 
 /**
@@ -671,13 +671,13 @@ public:
  * @sa AtomicU32.Set
  */
 inline bool CompareAndSwapAtomicU32(AtomicU32Raw* a,
-                                    Uint32 oldval,
-                                    Uint32 newval) {
-  return SDL_CompareAndSwapAtomicU32(a, oldval, newval);
+																		Uint32 oldval,
+																		Uint32 newval) {
+	return SDL_CompareAndSwapAtomicU32(a, oldval, newval);
 }
 
 inline bool AtomicU32::CompareAndSwap(Uint32 oldval, Uint32 newval) {
-  return SDL::CompareAndSwapAtomicU32(this, oldval, newval);
+	return SDL::CompareAndSwapAtomicU32(this, oldval, newval);
 }
 
 /**
@@ -699,7 +699,7 @@ inline bool AtomicU32::CompareAndSwap(Uint32 oldval, Uint32 newval) {
  * @sa AtomicU32.Get
  */
 inline Uint32 SetAtomicU32(AtomicU32Raw* a, Uint32 v) {
-  return SDL_SetAtomicU32(a, v);
+	return SDL_SetAtomicU32(a, v);
 }
 
 inline Uint32 AtomicU32::Set(Uint32 v) { return SDL::SetAtomicU32(this, v); }
@@ -742,7 +742,7 @@ inline Uint32 AtomicU32::Get() { return SDL::GetAtomicU32(this); }
  * @since This function is available since SDL 3.4.0.
  */
 inline Uint32 AddAtomicU32(AtomicU32Raw* a, int v) {
-  return SDL_AddAtomicU32(a, v);
+	return SDL_AddAtomicU32(a, v);
 }
 
 inline Uint32 AtomicU32::Add(int v) { return SDL::AddAtomicU32(this, v); }
@@ -751,17 +751,17 @@ inline Uint32 AtomicU32::Add(int v) { return SDL::AddAtomicU32(this, v); }
 
 template<class T>
 inline bool AtomicPointer<T>::CompareAndSwap(T* oldval, T* newval) {
-  return SDL_CompareAndSwapAtomicPointer(&m_value, oldval, newval);
+	return SDL_CompareAndSwapAtomicPointer(&m_value, oldval, newval);
 }
 
 template<class T>
 inline T* AtomicPointer<T>::Set(T* v) {
-  return SDL_SetAtomicPointer(&m_value, v);
+	return SDL_SetAtomicPointer(&m_value, v);
 }
 
 template<class T>
 inline T* AtomicPointer<T>::Get() {
-  return SDL_GetAtomicPointer(&m_value);
+	return SDL_GetAtomicPointer(&m_value);
 }
 
 /// @}

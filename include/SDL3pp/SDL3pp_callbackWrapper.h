@@ -31,64 +31,64 @@ struct CallbackWrapper;
  */
 template<class Result, class... Args>
 struct CallbackWrapper<std::function<Result(Args...)>> {
-  /// The wrapped std::function type
-  using ValueType = std::function<Result(Args...)>;
+	/// The wrapped std::function type
+	using ValueType = std::function<Result(Args...)>;
 
-  /// Return unwrapped value of handle.
-  static const ValueType& Unwrap(void* handle) {
-    return *static_cast<ValueType*>(handle);
-  }
+	/// Return unwrapped value of handle.
+	static const ValueType& Unwrap(void* handle) {
+		return *static_cast<ValueType*>(handle);
+	}
 
-  /// Call
-  static Result Call(void* handle, Args... args) {
-    auto& f = Unwrap(handle);
-    return f(args...);
-  }
+	/// Call
+	static Result Call(void* handle, Args... args) {
+		auto& f = Unwrap(handle);
+		return f(args...);
+	}
 
-  /// Call with suffix handle.
-  static Result CallSuffixed(Args... args, void* handle) {
-    auto& f = Unwrap(handle);
-    return f(args...);
-  }
+	/// Call with suffix handle.
+	static Result CallSuffixed(Args... args, void* handle) {
+		auto& f = Unwrap(handle);
+		return f(args...);
+	}
 
-  CallbackWrapper() = delete;
+	CallbackWrapper() = delete;
 
-  /**
-   * @brief Change the callback into a void* pointer.
-   *
-   * @param cb
-   * @return void*
-   */
-  static ValueType* Wrap(ValueType&& cb) {
-    return new ValueType(std::move(cb));
-  }
+	/**
+	 * @brief Change the callback into a void* pointer.
+	 *
+	 * @param cb
+	 * @return void*
+	 */
+	static ValueType* Wrap(ValueType&& cb) {
+		return new ValueType(std::move(cb));
+	}
 
-  /// Call once and Release.
-  static Result CallOnce(void* handle, Args... args) {
-    auto f = Release(handle);
-    return f(args...);
-  }
+	/// Call once and Release.
+	static Result CallOnce(void* handle, Args... args) {
+		auto f = Release(handle);
+		return f(args...);
+	}
 
-  /// Call once and Release with suffix handle.
-  static Result CallOnceSuffixed(Args... args, void* handle) {
-    auto f = Release(handle);
-    return f(args...);
-  }
+	/// Call once and Release with suffix handle.
+	static Result CallOnceSuffixed(Args... args, void* handle) {
+		auto f = Release(handle);
+		return f(args...);
+	}
 
-  /**
-   * @brief Transfer ownership from the function and delete handle.
-   *
-   * @param handle the handle to be released.
-   *
-   * @return the callback ready to be invoked.
-   */
-  static ValueType Release(void* handle) {
-    if (handle == nullptr) return {};
-    auto ptr = static_cast<ValueType*>(handle);
-    ValueType value{std::move(*ptr)};
-    delete ptr;
-    return value;
-  }
+	/**
+	 * @brief Transfer ownership from the function and delete handle.
+	 *
+	 * @param handle the handle to be released.
+	 *
+	 * @return the callback ready to be invoked.
+	 */
+	static ValueType Release(void* handle) {
+		if (handle == nullptr) return {};
+		auto ptr = static_cast<ValueType*>(handle);
+		ValueType value{std::move(*ptr)};
+		delete ptr;
+		return value;
+	}
 };
 
 /**
@@ -98,27 +98,27 @@ struct CallbackWrapper<std::function<Result(Args...)>> {
  */
 template<class SELF, class R, class... PARAMS>
 struct LightweightCallbackT {
-  /// The wrapper function
-  R (*wrapper)(void*, PARAMS...);
+	/// The wrapper function
+	R (*wrapper)(void*, PARAMS...);
 
-  /// The wrapped data
-  void* data;
+	/// The wrapped data
+	void* data;
 
-  /// ctor
-  template<class F>
-  LightweightCallbackT(const F& func) {
-    static_assert(sizeof(func) <= sizeof(data), "Function must fit size_t");
-    union PunAux {
-      void* ptr;
-      F func;
-    };
-    wrapper = [](void* userdata, PARAMS... params) {
-      PunAux aux{.ptr = userdata};
-      return SELF::DoCall(aux.func, params...);
-    };
-    PunAux aux{.func = func};
-    data = aux.ptr;
-  }
+	/// ctor
+	template<class F>
+	LightweightCallbackT(const F& func) {
+		static_assert(sizeof(func) <= sizeof(data), "Function must fit size_t");
+		union PunAux {
+			void* ptr;
+			F func;
+		};
+		wrapper = [](void* userdata, PARAMS... params) {
+			PunAux aux{.ptr = userdata};
+			return SELF::DoCall(aux.func, params...);
+		};
+		PunAux aux{.func = func};
+		data = aux.ptr;
+	}
 };
 
 /**
@@ -128,27 +128,27 @@ struct LightweightCallbackT {
  */
 template<class SELF, class R, class... PARAMS>
 struct LightweightTrailingCallbackT {
-  /// The wrapper function
-  R (*wrapper)(PARAMS..., void*);
+	/// The wrapper function
+	R (*wrapper)(PARAMS..., void*);
 
-  /// The wrapped data
-  void* data;
+	/// The wrapped data
+	void* data;
 
-  /// ctor
-  template<class F>
-  LightweightTrailingCallbackT(const F& func) {
-    static_assert(sizeof(func) <= sizeof(data), "Function must fit size_t");
-    union PunAux {
-      void* ptr;
-      F func;
-    };
-    wrapper = [](PARAMS... params, void* userdata) {
-      PunAux aux{.ptr = userdata};
-      return SELF::DoCall(aux.func, params...);
-    };
-    PunAux aux{.func = func};
-    data = aux.ptr;
-  }
+	/// ctor
+	template<class F>
+	LightweightTrailingCallbackT(const F& func) {
+		static_assert(sizeof(func) <= sizeof(data), "Function must fit size_t");
+		union PunAux {
+			void* ptr;
+			F func;
+		};
+		wrapper = [](PARAMS... params, void* userdata) {
+			PunAux aux{.ptr = userdata};
+			return SELF::DoCall(aux.func, params...);
+		};
+		PunAux aux{.func = func};
+		data = aux.ptr;
+	}
 };
 
 template<class F>
@@ -162,18 +162,18 @@ struct MakeFrontCallback;
  */
 template<class R, class... PARAMS>
 struct MakeFrontCallback<R(PARAMS...)>
-  : LightweightCallbackT<MakeFrontCallback<R(PARAMS...)>, R, PARAMS...> {
-  /// ctor
-  template<std::invocable<PARAMS...> F>
-  MakeFrontCallback(const F& func)
-    : LightweightCallbackT<MakeFrontCallback<R(PARAMS...)>, R, PARAMS...>(func) {
-  }
+	: LightweightCallbackT<MakeFrontCallback<R(PARAMS...)>, R, PARAMS...> {
+	/// ctor
+	template<std::invocable<PARAMS...> F>
+	MakeFrontCallback(const F& func)
+		: LightweightCallbackT<MakeFrontCallback<R(PARAMS...)>, R, PARAMS...>(func) {
+	}
 
-  /// @private
-  template<std::invocable<PARAMS...> F>
-  static R DoCall(F& func, PARAMS... params) {
-    return func(params...);
-  }
+	/// @private
+	template<std::invocable<PARAMS...> F>
+	static R DoCall(F& func, PARAMS... params) {
+		return func(params...);
+	}
 };
 
 template<class F>
@@ -187,22 +187,22 @@ struct MakeTrailingCallback;
  */
 template<class R, class... PARAMS>
 struct MakeTrailingCallback<R(PARAMS...)>
-  : LightweightTrailingCallbackT<MakeTrailingCallback<R(PARAMS...)>,
-                                 R,
-                                 PARAMS...> {
-  /// ctor
-  template<std::invocable<PARAMS...> F>
-  MakeTrailingCallback(const F& func)
-    : LightweightTrailingCallbackT<MakeTrailingCallback<R(PARAMS...)>,
-                                   R,
-                                   PARAMS...>(func) {
-  }
+	: LightweightTrailingCallbackT<MakeTrailingCallback<R(PARAMS...)>,
+																 R,
+																 PARAMS...> {
+	/// ctor
+	template<std::invocable<PARAMS...> F>
+	MakeTrailingCallback(const F& func)
+		: LightweightTrailingCallbackT<MakeTrailingCallback<R(PARAMS...)>,
+																	 R,
+																	 PARAMS...>(func) {
+	}
 
-  /// @private
-  template<std::invocable<PARAMS...> F>
-  static R DoCall(const F& func, PARAMS... params) {
-    return func(params...);
-  }
+	/// @private
+	template<std::invocable<PARAMS...> F>
+	static R DoCall(const F& func, PARAMS... params) {
+		return func(params...);
+	}
 };
 
 /// @}

@@ -78,7 +78,7 @@ namespace SDL {
  * @sa Vulkan_UnloadLibrary
  */
 inline void Vulkan_LoadLibrary(StringParam path) {
-  CheckError(SDL_Vulkan_LoadLibrary(path));
+	CheckError(SDL_Vulkan_LoadLibrary(path));
 }
 
 /**
@@ -101,7 +101,7 @@ inline void Vulkan_LoadLibrary(StringParam path) {
  * @since This function is available since SDL 3.2.0.
  */
 inline FunctionPointer Vulkan_GetVkGetInstanceProcAddr() {
-  return SDL_Vulkan_GetVkGetInstanceProcAddr();
+	return SDL_Vulkan_GetVkGetInstanceProcAddr();
 }
 
 /**
@@ -146,9 +146,9 @@ inline void Vulkan_UnloadLibrary() { SDL_Vulkan_UnloadLibrary(); }
  * @sa Vulkan_CreateSurface
  */
 inline std::span<char const* const> Vulkan_GetInstanceExtensions() {
-  Uint32 count;
-  auto data = CheckError(SDL_Vulkan_GetInstanceExtensions(&count));
-  return std::span<char const* const>(data, size_t(count));
+	Uint32 count;
+	auto data = CheckError(SDL_Vulkan_GetInstanceExtensions(&count));
+	return std::span<char const* const>(data, size_t(count));
 }
 
 /**
@@ -175,10 +175,10 @@ inline std::span<char const* const> Vulkan_GetInstanceExtensions() {
  * @sa Vulkan_DestroySurface
  */
 inline void Vulkan_CreateSurface(WindowRef window,
-                                 VkInstance instance,
-                                 const struct VkAllocationCallbacks* allocator,
-                                 VkSurfaceKHR* surface) {
-  CheckError(SDL_Vulkan_CreateSurface(window, instance, allocator, surface));
+																 VkInstance instance,
+																 const struct VkAllocationCallbacks* allocator,
+																 VkSurfaceKHR* surface) {
+	CheckError(SDL_Vulkan_CreateSurface(window, instance, allocator, surface));
 }
 
 /**
@@ -205,9 +205,9 @@ inline void Vulkan_CreateSurface(WindowRef window,
  * @sa Vulkan_CreateSurface
  */
 inline void Vulkan_DestroySurface(VkInstance instance,
-                                  VkSurfaceKHR surface,
-                                  const struct VkAllocationCallbacks* allocator) {
-  SDL_Vulkan_DestroySurface(instance, surface, allocator);
+																	VkSurfaceKHR surface,
+																	const struct VkAllocationCallbacks* allocator) {
+	SDL_Vulkan_DestroySurface(instance, surface, allocator);
 }
 
 /**
@@ -227,10 +227,10 @@ inline void Vulkan_DestroySurface(VkInstance instance,
  * @sa Vulkan_GetInstanceExtensions
  */
 inline bool Vulkan_GetPresentationSupport(VkInstance instance,
-                                          VkPhysicalDevice physicalDevice,
-                                          Uint32 queueFamilyIndex) {
-  return SDL_Vulkan_GetPresentationSupport(
-    instance, physicalDevice, queueFamilyIndex);
+																					VkPhysicalDevice physicalDevice,
+																					Uint32 queueFamilyIndex) {
+	return SDL_Vulkan_GetPresentationSupport(
+		instance, physicalDevice, queueFamilyIndex);
 }
 
 /// @}

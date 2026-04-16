@@ -59,21 +59,21 @@ struct PropertiesLock;
 using PropertyType = SDL_PropertyType;
 
 constexpr PropertyType PROPERTY_TYPE_INVALID =
-  SDL_PROPERTY_TYPE_INVALID; ///< INVALID
+	SDL_PROPERTY_TYPE_INVALID; ///< INVALID
 
 constexpr PropertyType PROPERTY_TYPE_POINTER =
-  SDL_PROPERTY_TYPE_POINTER; ///< POINTER
+	SDL_PROPERTY_TYPE_POINTER; ///< POINTER
 
 constexpr PropertyType PROPERTY_TYPE_STRING =
-  SDL_PROPERTY_TYPE_STRING; ///< STRING
+	SDL_PROPERTY_TYPE_STRING; ///< STRING
 
 constexpr PropertyType PROPERTY_TYPE_NUMBER =
-  SDL_PROPERTY_TYPE_NUMBER; ///< NUMBER
+	SDL_PROPERTY_TYPE_NUMBER; ///< NUMBER
 
 constexpr PropertyType PROPERTY_TYPE_FLOAT = SDL_PROPERTY_TYPE_FLOAT; ///< FLOAT
 
 constexpr PropertyType PROPERTY_TYPE_BOOLEAN =
-  SDL_PROPERTY_TYPE_BOOLEAN; ///< BOOLEAN
+	SDL_PROPERTY_TYPE_BOOLEAN; ///< BOOLEAN
 
 /**
  * A callback used to enumerate all the properties in a group of properties.
@@ -93,8 +93,8 @@ constexpr PropertyType PROPERTY_TYPE_BOOLEAN =
  * @sa Properties.Enumerate
  */
 using EnumeratePropertiesCallback = void(SDLCALL*)(void* userdata,
-                                                   PropertiesID props,
-                                                   const char* name);
+																									 PropertiesID props,
+																									 const char* name);
 
 /**
  * A callback used to enumerate all the properties in a group of properties.
@@ -113,7 +113,7 @@ using EnumeratePropertiesCallback = void(SDLCALL*)(void* userdata,
  * @sa Properties.Enumerate
  */
 using EnumeratePropertiesCB =
-  std::function<void(PropertiesID props, const char* name)>;
+	std::function<void(PropertiesID props, const char* name)>;
 
 /**
  * A callback used to Free resources when a property is deleted.
@@ -176,500 +176,500 @@ using CleanupPropertyCB = std::function<void(void* value)>;
  * @sa Properties.Create
  */
 class Properties {
-  PropertiesID m_resource = 0;
+	PropertiesID m_resource = 0;
 
 public:
-  /// Default ctor
-  constexpr Properties(std::nullptr_t = nullptr) noexcept
-    : m_resource(0) {
-  }
+	/// Default ctor
+	constexpr Properties(std::nullptr_t = nullptr) noexcept
+		: m_resource(0) {
+	}
 
-  /**
-   * Constructs from raw Properties.
-   *
-   * @param resource a PropertiesID to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Properties(PropertiesID resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Properties.
+	 *
+	 * @param resource a PropertiesID to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Properties(PropertiesID resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Properties(const Properties& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Properties(const Properties& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Properties(Properties&& other) noexcept
-    : Properties(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Properties(Properties&& other) noexcept
+		: Properties(other.Release()) {
+	}
 
-  constexpr Properties(const PropertiesRef& other) = delete;
+	constexpr Properties(const PropertiesRef& other) = delete;
 
-  constexpr Properties(PropertiesRef&& other) = delete;
+	constexpr Properties(PropertiesRef&& other) = delete;
 
-  /**
-   * Create a group of properties.
-   *
-   * All properties are automatically destroyed when Quit() is called.
-   *
-   * @returns an ID for a new group of properties on success.
-   *
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.Destroy
-   */
-  static Properties Create();
+	/**
+	 * Create a group of properties.
+	 *
+	 * All properties are automatically destroyed when Quit() is called.
+	 *
+	 * @returns an ID for a new group of properties on success.
+	 *
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.Destroy
+	 */
+	static Properties Create();
 
-  /// Destructor
-  ~Properties() { SDL_DestroyProperties(m_resource); }
+	/// Destructor
+	~Properties() { SDL_DestroyProperties(m_resource); }
 
-  /// Assignment operator.
-  constexpr Properties& operator=(Properties&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Properties& operator=(Properties&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Properties& operator=(const Properties& other) = delete;
+	/// Assignment operator.
+	Properties& operator=(const Properties& other) = delete;
 
-  /// Retrieves underlying PropertiesID.
-  constexpr PropertiesID Get() const noexcept { return m_resource; }
+	/// Retrieves underlying PropertiesID.
+	constexpr PropertiesID Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying PropertiesID and clear this.
-  constexpr PropertiesID Release() noexcept {
-    auto r = m_resource;
-    m_resource = 0;
-    return r;
-  }
+	/// Retrieves underlying PropertiesID and clear this.
+	constexpr PropertiesID Release() noexcept {
+		auto r = m_resource;
+		m_resource = 0;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Properties& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Properties& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Destroy a group of properties.
-   *
-   * All properties are deleted and their cleanup functions will be called, if
-   * any.
-   *
-   * @threadsafety This function should not be called while these properties are
-   *               locked or other threads might be setting or getting values
-   *               from these properties.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.Create
-   */
-  void Destroy();
+	/**
+	 * Destroy a group of properties.
+	 *
+	 * All properties are deleted and their cleanup functions will be called, if
+	 * any.
+	 *
+	 * @threadsafety This function should not be called while these properties are
+	 *               locked or other threads might be setting or getting values
+	 *               from these properties.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.Create
+	 */
+	void Destroy();
 
-  /**
-   * Copy a group of properties.
-   *
-   * Copy all the properties from one group of properties to another, with the
-   * exception of properties requiring cleanup (set using
-   * Properties.SetPointerPropertyWithCleanup()), which will not be copied. Any
-   * property that already exists on `dst` will be overwritten.
-   *
-   * @param dst the destination properties.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread. This
-   *               function acquires simultaneous mutex locks on both the source
-   *               and destination property sets.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void Copy(PropertiesRef dst);
+	/**
+	 * Copy a group of properties.
+	 *
+	 * Copy all the properties from one group of properties to another, with the
+	 * exception of properties requiring cleanup (set using
+	 * Properties.SetPointerPropertyWithCleanup()), which will not be copied. Any
+	 * property that already exists on `dst` will be overwritten.
+	 *
+	 * @param dst the destination properties.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread. This
+	 *               function acquires simultaneous mutex locks on both the source
+	 *               and destination property sets.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void Copy(PropertiesRef dst);
 
-  /**
-   * Lock a group of properties.
-   *
-   * Obtain a multi-threaded lock for these properties. Other threads will wait
-   * while trying to lock these properties until they are unlocked. Properties
-   * must be unlocked before they are destroyed.
-   *
-   * The lock is automatically taken when setting individual properties, this
-   * function is only needed when you want to set several properties atomically
-   * or want to guarantee that properties being queried aren't freed in another
-   * thread.
-   *
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.Unlock
-   */
-  PropertiesLock Lock();
+	/**
+	 * Lock a group of properties.
+	 *
+	 * Obtain a multi-threaded lock for these properties. Other threads will wait
+	 * while trying to lock these properties until they are unlocked. Properties
+	 * must be unlocked before they are destroyed.
+	 *
+	 * The lock is automatically taken when setting individual properties, this
+	 * function is only needed when you want to set several properties atomically
+	 * or want to guarantee that properties being queried aren't freed in another
+	 * thread.
+	 *
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.Unlock
+	 */
+	PropertiesLock Lock();
 
-  /**
-   * Unlock a group of properties.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.Lock
-   */
-  void Unlock(PropertiesLock&& lock);
+	/**
+	 * Unlock a group of properties.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.Lock
+	 */
+	void Unlock(PropertiesLock&& lock);
 
-  /**
-   * Set a pointer property in a group of properties with a cleanup function
-   * that is called when the property is deleted.
-   *
-   * The cleanup function is also called if setting the property fails for any
-   * reason.
-   *
-   * For simply setting basic data types, like numbers, bools, or strings, use
-   * Properties.SetNumberProperty, Properties.SetBooleanProperty, or
-   * Properties.SetStringProperty instead, as those functions will handle
-   * cleanup on your behalf. This function is only for more complex, custom
-   * data.
-   *
-   * @param name the name of the property to modify.
-   * @param value the new value of the property, or nullptr to delete the
-   *              property.
-   * @param cleanup the function to call when this property is deleted, or
-   *                nullptr if no cleanup is necessary.
-   * @param userdata a pointer that is passed to the cleanup function.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetPointerProperty
-   * @sa Properties.SetPointerProperty
-   * @sa CleanupPropertyCallback
-   */
-  void SetPointerPropertyWithCleanup(StringParam name,
-                                     void* value,
-                                     CleanupPropertyCallback cleanup,
-                                     void* userdata);
+	/**
+	 * Set a pointer property in a group of properties with a cleanup function
+	 * that is called when the property is deleted.
+	 *
+	 * The cleanup function is also called if setting the property fails for any
+	 * reason.
+	 *
+	 * For simply setting basic data types, like numbers, bools, or strings, use
+	 * Properties.SetNumberProperty, Properties.SetBooleanProperty, or
+	 * Properties.SetStringProperty instead, as those functions will handle
+	 * cleanup on your behalf. This function is only for more complex, custom
+	 * data.
+	 *
+	 * @param name the name of the property to modify.
+	 * @param value the new value of the property, or nullptr to delete the
+	 *              property.
+	 * @param cleanup the function to call when this property is deleted, or
+	 *                nullptr if no cleanup is necessary.
+	 * @param userdata a pointer that is passed to the cleanup function.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetPointerProperty
+	 * @sa Properties.SetPointerProperty
+	 * @sa CleanupPropertyCallback
+	 */
+	void SetPointerPropertyWithCleanup(StringParam name,
+																		 void* value,
+																		 CleanupPropertyCallback cleanup,
+																		 void* userdata);
 
-  /**
-   * Set a pointer property in a group of properties with a cleanup function
-   * that is called when the property is deleted.
-   *
-   * The cleanup function is also called if setting the property fails for any
-   * reason.
-   *
-   * For simply setting basic data types, like numbers, bools, or strings, use
-   * Properties.SetNumberProperty, Properties.SetBooleanProperty, or
-   * Properties.SetStringProperty instead, as those functions will handle
-   * cleanup on your behalf. This function is only for more complex, custom
-   * data.
-   *
-   * @param name the name of the property to modify.
-   * @param value the new value of the property, or nullptr to delete the
-   *              property.
-   * @param cleanup the function to call when this property is deleted, or
-   *                nullptr if no cleanup is necessary.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetPointerProperty
-   * @sa Properties.SetPointerProperty
-   * @sa CleanupPropertyCallback
-   */
-  void SetPointerPropertyWithCleanup(StringParam name,
-                                     void* value,
-                                     CleanupPropertyCB cleanup);
+	/**
+	 * Set a pointer property in a group of properties with a cleanup function
+	 * that is called when the property is deleted.
+	 *
+	 * The cleanup function is also called if setting the property fails for any
+	 * reason.
+	 *
+	 * For simply setting basic data types, like numbers, bools, or strings, use
+	 * Properties.SetNumberProperty, Properties.SetBooleanProperty, or
+	 * Properties.SetStringProperty instead, as those functions will handle
+	 * cleanup on your behalf. This function is only for more complex, custom
+	 * data.
+	 *
+	 * @param name the name of the property to modify.
+	 * @param value the new value of the property, or nullptr to delete the
+	 *              property.
+	 * @param cleanup the function to call when this property is deleted, or
+	 *                nullptr if no cleanup is necessary.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetPointerProperty
+	 * @sa Properties.SetPointerProperty
+	 * @sa CleanupPropertyCallback
+	 */
+	void SetPointerPropertyWithCleanup(StringParam name,
+																		 void* value,
+																		 CleanupPropertyCB cleanup);
 
-  /**
-   * Set a pointer property in a group of properties.
-   *
-   * @param name the name of the property to modify.
-   * @param value the new value of the property, or nullptr to delete the
-   *              property.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetPointerProperty
-   * @sa Properties.HasProperty
-   * @sa Properties.SetBooleanProperty
-   * @sa Properties.SetFloatProperty
-   * @sa Properties.SetNumberProperty
-   * @sa Properties.SetPointerPropertyWithCleanup
-   * @sa Properties.SetStringProperty
-   */
-  void SetPointerProperty(StringParam name, void* value);
+	/**
+	 * Set a pointer property in a group of properties.
+	 *
+	 * @param name the name of the property to modify.
+	 * @param value the new value of the property, or nullptr to delete the
+	 *              property.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetPointerProperty
+	 * @sa Properties.HasProperty
+	 * @sa Properties.SetBooleanProperty
+	 * @sa Properties.SetFloatProperty
+	 * @sa Properties.SetNumberProperty
+	 * @sa Properties.SetPointerPropertyWithCleanup
+	 * @sa Properties.SetStringProperty
+	 */
+	void SetPointerProperty(StringParam name, void* value);
 
-  /**
-   * Set a string property in a group of properties.
-   *
-   * This function makes a copy of the string; the caller does not have to
-   * preserve the data after this call completes.
-   *
-   * @param name the name of the property to modify.
-   * @param value the new value of the property, or nullptr to delete the
-   *              property.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetStringProperty
-   */
-  void SetStringProperty(StringParam name, StringParam value);
+	/**
+	 * Set a string property in a group of properties.
+	 *
+	 * This function makes a copy of the string; the caller does not have to
+	 * preserve the data after this call completes.
+	 *
+	 * @param name the name of the property to modify.
+	 * @param value the new value of the property, or nullptr to delete the
+	 *              property.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetStringProperty
+	 */
+	void SetStringProperty(StringParam name, StringParam value);
 
-  /**
-   * Set an integer property in a group of properties.
-   *
-   * @param name the name of the property to modify.
-   * @param value the new value of the property.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetNumberProperty
-   */
-  void SetNumberProperty(StringParam name, Sint64 value);
+	/**
+	 * Set an integer property in a group of properties.
+	 *
+	 * @param name the name of the property to modify.
+	 * @param value the new value of the property.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetNumberProperty
+	 */
+	void SetNumberProperty(StringParam name, Sint64 value);
 
-  /**
-   * Set a floating point property in a group of properties.
-   *
-   * @param name the name of the property to modify.
-   * @param value the new value of the property.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetFloatProperty
-   */
-  void SetFloatProperty(StringParam name, float value);
+	/**
+	 * Set a floating point property in a group of properties.
+	 *
+	 * @param name the name of the property to modify.
+	 * @param value the new value of the property.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetFloatProperty
+	 */
+	void SetFloatProperty(StringParam name, float value);
 
-  /**
-   * Set a boolean property in a group of properties.
-   *
-   * @param name the name of the property to modify.
-   * @param value the new value of the property.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetBooleanProperty
-   */
-  void SetBooleanProperty(StringParam name, bool value);
+	/**
+	 * Set a boolean property in a group of properties.
+	 *
+	 * @param name the name of the property to modify.
+	 * @param value the new value of the property.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetBooleanProperty
+	 */
+	void SetBooleanProperty(StringParam name, bool value);
 
-  /**
-   * Return whether a property exists in a group of properties.
-   *
-   * @param name the name of the property to query.
-   * @returns true if the property exists, or false if it doesn't.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetPropertyType
-   */
-  bool HasProperty(StringParam name);
+	/**
+	 * Return whether a property exists in a group of properties.
+	 *
+	 * @param name the name of the property to query.
+	 * @returns true if the property exists, or false if it doesn't.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetPropertyType
+	 */
+	bool HasProperty(StringParam name);
 
-  /**
-   * Get the type of a property in a group of properties.
-   *
-   * @param name the name of the property to query.
-   * @returns the type of the property, or PROPERTY_TYPE_INVALID if it is not
-   *          set.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.HasProperty
-   */
-  PropertyType GetPropertyType(StringParam name);
+	/**
+	 * Get the type of a property in a group of properties.
+	 *
+	 * @param name the name of the property to query.
+	 * @returns the type of the property, or PROPERTY_TYPE_INVALID if it is not
+	 *          set.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.HasProperty
+	 */
+	PropertyType GetPropertyType(StringParam name);
 
-  /**
-   * Get a pointer property from a group of properties.
-   *
-   * By convention, the names of properties that SDL exposes on objects will
-   * start with "SDL.", and properties that SDL uses internally will start with
-   * "SDL.internal.". These should be considered read-only and should not be
-   * modified by applications.
-   *
-   * @param name the name of the property to query.
-   * @param default_value the default value of the property.
-   * @returns the value of the property, or `default_value` if it is not set or
-   *          not a pointer property.
-   *
-   * @threadsafety It is safe to call this function from any thread, although
-   *               the data returned is not protected and could potentially be
-   *               freed if you call Properties.SetPointerProperty() or
-   *               Properties.ClearProperty() on these properties from another
-   *               thread. If you need to avoid this, use Properties.Lock() and
-   *               Properties.Unlock().
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetBooleanProperty
-   * @sa Properties.GetFloatProperty
-   * @sa Properties.GetNumberProperty
-   * @sa Properties.GetPropertyType
-   * @sa Properties.GetStringProperty
-   * @sa Properties.HasProperty
-   * @sa Properties.SetPointerProperty
-   */
-  void* GetPointerProperty(StringParam name, void* default_value);
+	/**
+	 * Get a pointer property from a group of properties.
+	 *
+	 * By convention, the names of properties that SDL exposes on objects will
+	 * start with "SDL.", and properties that SDL uses internally will start with
+	 * "SDL.internal.". These should be considered read-only and should not be
+	 * modified by applications.
+	 *
+	 * @param name the name of the property to query.
+	 * @param default_value the default value of the property.
+	 * @returns the value of the property, or `default_value` if it is not set or
+	 *          not a pointer property.
+	 *
+	 * @threadsafety It is safe to call this function from any thread, although
+	 *               the data returned is not protected and could potentially be
+	 *               freed if you call Properties.SetPointerProperty() or
+	 *               Properties.ClearProperty() on these properties from another
+	 *               thread. If you need to avoid this, use Properties.Lock() and
+	 *               Properties.Unlock().
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetBooleanProperty
+	 * @sa Properties.GetFloatProperty
+	 * @sa Properties.GetNumberProperty
+	 * @sa Properties.GetPropertyType
+	 * @sa Properties.GetStringProperty
+	 * @sa Properties.HasProperty
+	 * @sa Properties.SetPointerProperty
+	 */
+	void* GetPointerProperty(StringParam name, void* default_value);
 
-  /**
-   * Get a string property from a group of properties.
-   *
-   * @param name the name of the property to query.
-   * @param default_value the default value of the property.
-   * @returns the value of the property, or `default_value` if it is not set or
-   *          not a string property.
-   *
-   * @threadsafety It is safe to call this function from any thread, although
-   *               the data returned is not protected and could potentially be
-   *               freed if you call Properties.SetStringProperty() or
-   *               Properties.ClearProperty() on these properties from another
-   *               thread. If you need to avoid this, use Properties.Lock() and
-   *               Properties.Unlock().
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetPropertyType
-   * @sa Properties.HasProperty
-   * @sa Properties.SetStringProperty
-   */
-  const char* GetStringProperty(StringParam name, StringParam default_value);
+	/**
+	 * Get a string property from a group of properties.
+	 *
+	 * @param name the name of the property to query.
+	 * @param default_value the default value of the property.
+	 * @returns the value of the property, or `default_value` if it is not set or
+	 *          not a string property.
+	 *
+	 * @threadsafety It is safe to call this function from any thread, although
+	 *               the data returned is not protected and could potentially be
+	 *               freed if you call Properties.SetStringProperty() or
+	 *               Properties.ClearProperty() on these properties from another
+	 *               thread. If you need to avoid this, use Properties.Lock() and
+	 *               Properties.Unlock().
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetPropertyType
+	 * @sa Properties.HasProperty
+	 * @sa Properties.SetStringProperty
+	 */
+	const char* GetStringProperty(StringParam name, StringParam default_value);
 
-  /**
-   * Get a number property from a group of properties.
-   *
-   * You can use Properties.GetPropertyType() to query whether the property
-   * exists and is a number property.
-   *
-   * @param name the name of the property to query.
-   * @param default_value the default value of the property.
-   * @returns the value of the property, or `default_value` if it is not set or
-   *          not a number property.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetPropertyType
-   * @sa Properties.HasProperty
-   * @sa Properties.SetNumberProperty
-   */
-  Sint64 GetNumberProperty(StringParam name, Sint64 default_value);
+	/**
+	 * Get a number property from a group of properties.
+	 *
+	 * You can use Properties.GetPropertyType() to query whether the property
+	 * exists and is a number property.
+	 *
+	 * @param name the name of the property to query.
+	 * @param default_value the default value of the property.
+	 * @returns the value of the property, or `default_value` if it is not set or
+	 *          not a number property.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetPropertyType
+	 * @sa Properties.HasProperty
+	 * @sa Properties.SetNumberProperty
+	 */
+	Sint64 GetNumberProperty(StringParam name, Sint64 default_value);
 
-  /**
-   * Get a floating point property from a group of properties.
-   *
-   * You can use Properties.GetPropertyType() to query whether the property
-   * exists and is a floating point property.
-   *
-   * @param name the name of the property to query.
-   * @param default_value the default value of the property.
-   * @returns the value of the property, or `default_value` if it is not set or
-   *          not a float property.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetPropertyType
-   * @sa Properties.HasProperty
-   * @sa Properties.SetFloatProperty
-   */
-  float GetFloatProperty(StringParam name, float default_value);
+	/**
+	 * Get a floating point property from a group of properties.
+	 *
+	 * You can use Properties.GetPropertyType() to query whether the property
+	 * exists and is a floating point property.
+	 *
+	 * @param name the name of the property to query.
+	 * @param default_value the default value of the property.
+	 * @returns the value of the property, or `default_value` if it is not set or
+	 *          not a float property.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetPropertyType
+	 * @sa Properties.HasProperty
+	 * @sa Properties.SetFloatProperty
+	 */
+	float GetFloatProperty(StringParam name, float default_value);
 
-  /**
-   * Get a boolean property from a group of properties.
-   *
-   * You can use Properties.GetPropertyType() to query whether the property
-   * exists and is a boolean property.
-   *
-   * @param name the name of the property to query.
-   * @param default_value the default value of the property.
-   * @returns the value of the property, or `default_value` if it is not set or
-   *          not a boolean property.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.GetPropertyType
-   * @sa Properties.HasProperty
-   * @sa Properties.SetBooleanProperty
-   */
-  bool GetBooleanProperty(StringParam name, bool default_value);
+	/**
+	 * Get a boolean property from a group of properties.
+	 *
+	 * You can use Properties.GetPropertyType() to query whether the property
+	 * exists and is a boolean property.
+	 *
+	 * @param name the name of the property to query.
+	 * @param default_value the default value of the property.
+	 * @returns the value of the property, or `default_value` if it is not set or
+	 *          not a boolean property.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.GetPropertyType
+	 * @sa Properties.HasProperty
+	 * @sa Properties.SetBooleanProperty
+	 */
+	bool GetBooleanProperty(StringParam name, bool default_value);
 
-  /**
-   * Clear a property from a group of properties.
-   *
-   * @param name the name of the property to clear.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void ClearProperty(StringParam name);
+	/**
+	 * Clear a property from a group of properties.
+	 *
+	 * @param name the name of the property to clear.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void ClearProperty(StringParam name);
 
-  /**
-   * Enumerate the properties contained in a group of properties.
-   *
-   * The callback function is called for each property in the group of
-   * properties. The properties are locked during enumeration.
-   *
-   * @param callback the function to call for each property.
-   * @param userdata a pointer that is passed to `callback`.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void Enumerate(EnumeratePropertiesCallback callback, void* userdata);
+	/**
+	 * Enumerate the properties contained in a group of properties.
+	 *
+	 * The callback function is called for each property in the group of
+	 * properties. The properties are locked during enumeration.
+	 *
+	 * @param callback the function to call for each property.
+	 * @param userdata a pointer that is passed to `callback`.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void Enumerate(EnumeratePropertiesCallback callback, void* userdata);
 
-  /**
-   * Enumerate the properties contained in a group of properties.
-   *
-   * The callback function is called for each property in the group of
-   * properties. The properties are locked during enumeration.
-   *
-   * @param callback the function to call for each property.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void Enumerate(EnumeratePropertiesCB callback);
+	/**
+	 * Enumerate the properties contained in a group of properties.
+	 *
+	 * The callback function is called for each property in the group of
+	 * properties. The properties are locked during enumeration.
+	 *
+	 * @param callback the function to call for each property.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void Enumerate(EnumeratePropertiesCB callback);
 
-  /**
-   * Returns the number of properties this has
-   *
-   * This uses EnumerateProperties() internally, so might not be so fast
-   *
-   * @return Uint64
-   */
-  Uint64 GetCount();
+	/**
+	 * Returns the number of properties this has
+	 *
+	 * This uses EnumerateProperties() internally, so might not be so fast
+	 *
+	 * @return Uint64
+	 */
+	Uint64 GetCount();
 };
 
 /**
@@ -678,63 +678,63 @@ public:
  * This does not take ownership!
  */
 struct PropertiesRef : Properties {
-  using Properties::Properties;
+	using Properties::Properties;
 
-  /**
-   * Constructs from raw Properties.
-   *
-   * @param resource a PropertiesID.
-   *
-   * This does not takes ownership!
-   */
-  constexpr PropertiesRef(PropertiesID resource) noexcept
-    : Properties(resource) {
-  }
+	/**
+	 * Constructs from raw Properties.
+	 *
+	 * @param resource a PropertiesID.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr PropertiesRef(PropertiesID resource) noexcept
+		: Properties(resource) {
+	}
 
-  /**
-   * Constructs from Properties.
-   *
-   * @param resource a Properties.
-   *
-   * This does not takes ownership!
-   */
-  constexpr PropertiesRef(const Properties& resource) noexcept
-    : Properties(resource.Get()) {
-  }
+	/**
+	 * Constructs from Properties.
+	 *
+	 * @param resource a Properties.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr PropertiesRef(const Properties& resource) noexcept
+		: Properties(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Properties.
-   *
-   * @param resource a Properties.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr PropertiesRef(Properties&& resource) noexcept
-    : Properties(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Properties.
+	 *
+	 * @param resource a Properties.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr PropertiesRef(Properties&& resource) noexcept
+		: Properties(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr PropertiesRef(const PropertiesRef& other) noexcept
-    : Properties(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr PropertiesRef(const PropertiesRef& other) noexcept
+		: Properties(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr PropertiesRef(PropertiesRef&& other) noexcept
-    : Properties(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr PropertiesRef(PropertiesRef&& other) noexcept
+		: Properties(other.Get()) {
+	}
 
-  /// Destructor
-  ~PropertiesRef() { Release(); }
+	/// Destructor
+	~PropertiesRef() { Release(); }
 
-  /// Assignment operator.
-  PropertiesRef& operator=(const PropertiesRef& other) noexcept {
-    Release();
-    Properties::operator=(Properties(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	PropertiesRef& operator=(const PropertiesRef& other) noexcept {
+		Release();
+		Properties::operator=(Properties(other.Get()));
+		return *this;
+	}
 
-  /// Converts to PropertiesID
-  constexpr operator PropertiesID() const noexcept { return Get(); }
+	/// Converts to PropertiesID
+	constexpr operator PropertiesID() const noexcept { return Get(); }
 };
 
 /**
@@ -760,79 +760,79 @@ struct PropertiesRef : Properties {
  * @sa Properties.Unlock
  */
 class PropertiesLock {
-  PropertiesRef m_lock;
+	PropertiesRef m_lock;
 
 public:
-  /**
-   * Lock a group of properties.
-   *
-   * Obtain a multi-threaded lock for these properties. Other threads will wait
-   * while trying to lock these properties until they are unlocked. Properties
-   * must be unlocked before they are destroyed.
-   *
-   * The lock is automatically taken when setting individual properties, this
-   * function is only needed when you want to set several properties atomically
-   * or want to guarantee that properties being queried aren't freed in another
-   * thread.
-   *
-   * @param resource the properties to lock.
-   * @post true on success or false on failure; call GetError() for more
-   *       information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.Unlock
-   */
-  PropertiesLock(PropertiesRef resource);
+	/**
+	 * Lock a group of properties.
+	 *
+	 * Obtain a multi-threaded lock for these properties. Other threads will wait
+	 * while trying to lock these properties until they are unlocked. Properties
+	 * must be unlocked before they are destroyed.
+	 *
+	 * The lock is automatically taken when setting individual properties, this
+	 * function is only needed when you want to set several properties atomically
+	 * or want to guarantee that properties being queried aren't freed in another
+	 * thread.
+	 *
+	 * @param resource the properties to lock.
+	 * @post true on success or false on failure; call GetError() for more
+	 *       information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.Unlock
+	 */
+	PropertiesLock(PropertiesRef resource);
 
-  /// Copy constructor
-  PropertiesLock(const PropertiesLock& other) = delete;
+	/// Copy constructor
+	PropertiesLock(const PropertiesLock& other) = delete;
 
-  /// Move constructor
-  PropertiesLock(PropertiesLock&& other) noexcept
-    : m_lock(std::move(other.m_lock)) {
-  }
+	/// Move constructor
+	PropertiesLock(PropertiesLock&& other) noexcept
+		: m_lock(std::move(other.m_lock)) {
+	}
 
-  /**
-   * Unlock a group of properties.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.Lock
-   */
-  ~PropertiesLock() { Reset(); }
+	/**
+	 * Unlock a group of properties.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.Lock
+	 */
+	~PropertiesLock() { Reset(); }
 
-  PropertiesLock& operator=(const PropertiesLock& other) = delete;
+	PropertiesLock& operator=(const PropertiesLock& other) = delete;
 
-  /// Assignment operator
-  PropertiesLock& operator=(PropertiesLock&& other) noexcept {
-    std::swap(m_lock, other.m_lock);
-    return *this;
-  }
+	/// Assignment operator
+	PropertiesLock& operator=(PropertiesLock&& other) noexcept {
+		std::swap(m_lock, other.m_lock);
+		return *this;
+	}
 
-  /// True if not locked.
-  constexpr operator bool() const { return bool(m_lock); }
+	/// True if not locked.
+	constexpr operator bool() const { return bool(m_lock); }
 
-  /**
-   * Unlock a group of properties.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Properties.Lock
-   */
-  void Reset();
+	/**
+	 * Unlock a group of properties.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Properties.Lock
+	 */
+	void Reset();
 
-  /// Get the reference to locked resource.
-  PropertiesRef resource() const { return m_lock; }
+	/// Get the reference to locked resource.
+	PropertiesRef resource() const { return m_lock; }
 
-  /// Releases the lock without unlocking.
-  void Release() { m_lock.Release(); }
+	/// Releases the lock without unlocking.
+	void Release() { m_lock.Release(); }
 };
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
@@ -875,7 +875,7 @@ constexpr const char* PROP_NAME_STRING = SDL_PROP_NAME_STRING;
  * @since This function is available since SDL 3.2.0.
  */
 inline PropertiesRef GetGlobalProperties() {
-  return {CheckError(SDL_GetGlobalProperties())};
+	return {CheckError(SDL_GetGlobalProperties())};
 }
 
 /**
@@ -894,7 +894,7 @@ inline PropertiesRef GetGlobalProperties() {
  * @sa Properties.Destroy
  */
 inline Properties CreateProperties() {
-  return Properties(CheckError(SDL_CreateProperties()));
+	return Properties(CheckError(SDL_CreateProperties()));
 }
 
 inline Properties Properties::Create() { return SDL::CreateProperties(); }
@@ -918,11 +918,11 @@ inline Properties Properties::Create() { return SDL::CreateProperties(); }
  * @since This function is available since SDL 3.2.0.
  */
 inline void CopyProperties(PropertiesRef src, PropertiesRef dst) {
-  CheckError(SDL_CopyProperties(src, dst));
+	CheckError(SDL_CopyProperties(src, dst));
 }
 
 inline void Properties::Copy(PropertiesRef dst) {
-  SDL::CopyProperties(m_resource, dst);
+	SDL::CopyProperties(m_resource, dst);
 }
 
 /**
@@ -947,14 +947,14 @@ inline void Properties::Copy(PropertiesRef dst) {
  * @sa Properties.Unlock
  */
 inline void LockProperties(PropertiesRef props) {
-  CheckError(SDL_LockProperties(props));
+	CheckError(SDL_LockProperties(props));
 }
 
 inline PropertiesLock Properties::Lock() { return {PropertiesRef(*this)}; }
 
 inline PropertiesLock::PropertiesLock(PropertiesRef resource)
-  : m_lock(std::move(resource)) {
-  LockProperties(m_lock);
+	: m_lock(std::move(resource)) {
+	LockProperties(m_lock);
 }
 
 /**
@@ -969,18 +969,18 @@ inline PropertiesLock::PropertiesLock(PropertiesRef resource)
  * @sa Properties.Lock
  */
 inline void UnlockProperties(PropertiesRef props) {
-  SDL_UnlockProperties(props);
+	SDL_UnlockProperties(props);
 }
 
 inline void Properties::Unlock(PropertiesLock&& lock) {
-  SDL_assert_paranoid(lock.resource() == *this);
-  std::move(lock).Reset();
+	SDL_assert_paranoid(lock.resource() == *this);
+	std::move(lock).Reset();
 }
 
 inline void PropertiesLock::Reset() {
-  if (!m_lock) return;
-  UnlockProperties(m_lock);
-  m_lock = {};
+	if (!m_lock) return;
+	UnlockProperties(m_lock);
+	m_lock = {};
 }
 
 /**
@@ -1013,12 +1013,12 @@ inline void PropertiesLock::Reset() {
  * @sa CleanupPropertyCallback
  */
 inline void SetPointerPropertyWithCleanup(PropertiesRef props,
-                                          StringParam name,
-                                          void* value,
-                                          CleanupPropertyCallback cleanup,
-                                          void* userdata) {
-  CheckError(
-    SDL_SetPointerPropertyWithCleanup(props, name, value, cleanup, userdata));
+																					StringParam name,
+																					void* value,
+																					CleanupPropertyCallback cleanup,
+																					void* userdata) {
+	CheckError(
+		SDL_SetPointerPropertyWithCleanup(props, name, value, cleanup, userdata));
 }
 
 /**
@@ -1050,31 +1050,31 @@ inline void SetPointerPropertyWithCleanup(PropertiesRef props,
  * @sa CleanupPropertyCallback
  */
 inline void SetPointerPropertyWithCleanup(PropertiesRef props,
-                                          StringParam name,
-                                          void* value,
-                                          CleanupPropertyCB cleanup) {
-  using Wrapper = CallbackWrapper<CleanupPropertyCB>;
-  SDL_SetPointerPropertyWithCleanup(props,
-                                    std::move(name),
-                                    value,
-                                    &Wrapper::CallOnce,
-                                    Wrapper::Wrap(std::move(cleanup)));
+																					StringParam name,
+																					void* value,
+																					CleanupPropertyCB cleanup) {
+	using Wrapper = CallbackWrapper<CleanupPropertyCB>;
+	SDL_SetPointerPropertyWithCleanup(props,
+																		std::move(name),
+																		value,
+																		&Wrapper::CallOnce,
+																		Wrapper::Wrap(std::move(cleanup)));
 }
 
 inline void Properties::SetPointerPropertyWithCleanup(
-  StringParam name,
-  void* value,
-  CleanupPropertyCallback cleanup,
-  void* userdata) {
-  SDL::SetPointerPropertyWithCleanup(
-    m_resource, std::move(name), value, cleanup, userdata);
+	StringParam name,
+	void* value,
+	CleanupPropertyCallback cleanup,
+	void* userdata) {
+	SDL::SetPointerPropertyWithCleanup(
+		m_resource, std::move(name), value, cleanup, userdata);
 }
 
 inline void Properties::SetPointerPropertyWithCleanup(StringParam name,
-                                                      void* value,
-                                                      CleanupPropertyCB cleanup) {
-  SDL::SetPointerPropertyWithCleanup(
-    m_resource, std::move(name), value, std::move(cleanup));
+																											void* value,
+																											CleanupPropertyCB cleanup) {
+	SDL::SetPointerPropertyWithCleanup(
+		m_resource, std::move(name), value, std::move(cleanup));
 }
 
 /**
@@ -1099,13 +1099,13 @@ inline void Properties::SetPointerPropertyWithCleanup(StringParam name,
  * @sa Properties.SetStringProperty
  */
 inline void SetPointerProperty(PropertiesRef props,
-                               StringParam name,
-                               void* value) {
-  CheckError(SDL_SetPointerProperty(props, name, value));
+															 StringParam name,
+															 void* value) {
+	CheckError(SDL_SetPointerProperty(props, name, value));
 }
 
 inline void Properties::SetPointerProperty(StringParam name, void* value) {
-  SDL::SetPointerProperty(m_resource, std::move(name), value);
+	SDL::SetPointerProperty(m_resource, std::move(name), value);
 }
 
 /**
@@ -1127,13 +1127,13 @@ inline void Properties::SetPointerProperty(StringParam name, void* value) {
  * @sa Properties.GetStringProperty
  */
 inline void SetStringProperty(PropertiesRef props,
-                              StringParam name,
-                              StringParam value) {
-  CheckError(SDL_SetStringProperty(props, name, value));
+															StringParam name,
+															StringParam value) {
+	CheckError(SDL_SetStringProperty(props, name, value));
 }
 
 inline void Properties::SetStringProperty(StringParam name, StringParam value) {
-  SDL::SetStringProperty(m_resource, std::move(name), std::move(value));
+	SDL::SetStringProperty(m_resource, std::move(name), std::move(value));
 }
 
 /**
@@ -1151,13 +1151,13 @@ inline void Properties::SetStringProperty(StringParam name, StringParam value) {
  * @sa Properties.GetNumberProperty
  */
 inline void SetNumberProperty(PropertiesRef props,
-                              StringParam name,
-                              Sint64 value) {
-  CheckError(SDL_SetNumberProperty(props, name, value));
+															StringParam name,
+															Sint64 value) {
+	CheckError(SDL_SetNumberProperty(props, name, value));
 }
 
 inline void Properties::SetNumberProperty(StringParam name, Sint64 value) {
-  SDL::SetNumberProperty(m_resource, std::move(name), value);
+	SDL::SetNumberProperty(m_resource, std::move(name), value);
 }
 
 /**
@@ -1175,11 +1175,11 @@ inline void Properties::SetNumberProperty(StringParam name, Sint64 value) {
  * @sa Properties.GetFloatProperty
  */
 inline void SetFloatProperty(PropertiesRef props, StringParam name, float value) {
-  CheckError(SDL_SetFloatProperty(props, name, value));
+	CheckError(SDL_SetFloatProperty(props, name, value));
 }
 
 inline void Properties::SetFloatProperty(StringParam name, float value) {
-  SDL::SetFloatProperty(m_resource, std::move(name), value);
+	SDL::SetFloatProperty(m_resource, std::move(name), value);
 }
 
 /**
@@ -1197,13 +1197,13 @@ inline void Properties::SetFloatProperty(StringParam name, float value) {
  * @sa Properties.GetBooleanProperty
  */
 inline void SetBooleanProperty(PropertiesRef props,
-                               StringParam name,
-                               bool value) {
-  CheckError(SDL_SetBooleanProperty(props, name, value));
+															 StringParam name,
+															 bool value) {
+	CheckError(SDL_SetBooleanProperty(props, name, value));
 }
 
 inline void Properties::SetBooleanProperty(StringParam name, bool value) {
-  SDL::SetBooleanProperty(m_resource, std::move(name), value);
+	SDL::SetBooleanProperty(m_resource, std::move(name), value);
 }
 
 /**
@@ -1220,11 +1220,11 @@ inline void Properties::SetBooleanProperty(StringParam name, bool value) {
  * @sa Properties.GetPropertyType
  */
 inline bool HasProperty(PropertiesRef props, StringParam name) {
-  return SDL_HasProperty(props, name);
+	return SDL_HasProperty(props, name);
 }
 
 inline bool Properties::HasProperty(StringParam name) {
-  return SDL::HasProperty(m_resource, std::move(name));
+	return SDL::HasProperty(m_resource, std::move(name));
 }
 
 /**
@@ -1241,11 +1241,11 @@ inline bool Properties::HasProperty(StringParam name) {
  * @sa Properties.HasProperty
  */
 inline PropertyType GetPropertyType(PropertiesRef props, StringParam name) {
-  return SDL_GetPropertyType(props, name);
+	return SDL_GetPropertyType(props, name);
 }
 
 inline PropertyType Properties::GetPropertyType(StringParam name) {
-  return SDL::GetPropertyType(m_resource, std::move(name));
+	return SDL::GetPropertyType(m_resource, std::move(name));
 }
 
 /**
@@ -1280,14 +1280,14 @@ inline PropertyType Properties::GetPropertyType(StringParam name) {
  * @sa Properties.SetPointerProperty
  */
 inline void* GetPointerProperty(PropertiesRef props,
-                                StringParam name,
-                                void* default_value) {
-  return SDL_GetPointerProperty(props, name, default_value);
+																StringParam name,
+																void* default_value) {
+	return SDL_GetPointerProperty(props, name, default_value);
 }
 
 inline void* Properties::GetPointerProperty(StringParam name,
-                                            void* default_value) {
-  return SDL::GetPointerProperty(m_resource, std::move(name), default_value);
+																						void* default_value) {
+	return SDL::GetPointerProperty(m_resource, std::move(name), default_value);
 }
 
 /**
@@ -1313,15 +1313,15 @@ inline void* Properties::GetPointerProperty(StringParam name,
  * @sa Properties.SetStringProperty
  */
 inline const char* GetStringProperty(PropertiesRef props,
-                                     StringParam name,
-                                     StringParam default_value) {
-  return SDL_GetStringProperty(props, name, default_value);
+																		 StringParam name,
+																		 StringParam default_value) {
+	return SDL_GetStringProperty(props, name, default_value);
 }
 
 inline const char* Properties::GetStringProperty(StringParam name,
-                                                 StringParam default_value) {
-  return SDL::GetStringProperty(
-    m_resource, std::move(name), std::move(default_value));
+																								 StringParam default_value) {
+	return SDL::GetStringProperty(
+		m_resource, std::move(name), std::move(default_value));
 }
 
 /**
@@ -1345,14 +1345,14 @@ inline const char* Properties::GetStringProperty(StringParam name,
  * @sa Properties.SetNumberProperty
  */
 inline Sint64 GetNumberProperty(PropertiesRef props,
-                                StringParam name,
-                                Sint64 default_value) {
-  return SDL_GetNumberProperty(props, name, default_value);
+																StringParam name,
+																Sint64 default_value) {
+	return SDL_GetNumberProperty(props, name, default_value);
 }
 
 inline Sint64 Properties::GetNumberProperty(StringParam name,
-                                            Sint64 default_value) {
-  return SDL::GetNumberProperty(m_resource, std::move(name), default_value);
+																						Sint64 default_value) {
+	return SDL::GetNumberProperty(m_resource, std::move(name), default_value);
 }
 
 /**
@@ -1376,13 +1376,13 @@ inline Sint64 Properties::GetNumberProperty(StringParam name,
  * @sa Properties.SetFloatProperty
  */
 inline float GetFloatProperty(PropertiesRef props,
-                              StringParam name,
-                              float default_value) {
-  return SDL_GetFloatProperty(props, name, default_value);
+															StringParam name,
+															float default_value) {
+	return SDL_GetFloatProperty(props, name, default_value);
 }
 
 inline float Properties::GetFloatProperty(StringParam name, float default_value) {
-  return SDL::GetFloatProperty(m_resource, std::move(name), default_value);
+	return SDL::GetFloatProperty(m_resource, std::move(name), default_value);
 }
 
 /**
@@ -1406,13 +1406,13 @@ inline float Properties::GetFloatProperty(StringParam name, float default_value)
  * @sa Properties.SetBooleanProperty
  */
 inline bool GetBooleanProperty(PropertiesRef props,
-                               StringParam name,
-                               bool default_value) {
-  return SDL_GetBooleanProperty(props, name, default_value);
+															 StringParam name,
+															 bool default_value) {
+	return SDL_GetBooleanProperty(props, name, default_value);
 }
 
 inline bool Properties::GetBooleanProperty(StringParam name, bool default_value) {
-  return SDL::GetBooleanProperty(m_resource, std::move(name), default_value);
+	return SDL::GetBooleanProperty(m_resource, std::move(name), default_value);
 }
 
 /**
@@ -1427,11 +1427,11 @@ inline bool Properties::GetBooleanProperty(StringParam name, bool default_value)
  * @since This function is available since SDL 3.2.0.
  */
 inline void ClearProperty(PropertiesRef props, StringParam name) {
-  CheckError(SDL_ClearProperty(props, name));
+	CheckError(SDL_ClearProperty(props, name));
 }
 
 inline void Properties::ClearProperty(StringParam name) {
-  SDL::ClearProperty(m_resource, std::move(name));
+	SDL::ClearProperty(m_resource, std::move(name));
 }
 
 /**
@@ -1450,9 +1450,9 @@ inline void Properties::ClearProperty(StringParam name) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void EnumerateProperties(PropertiesRef props,
-                                EnumeratePropertiesCallback callback,
-                                void* userdata) {
-  CheckError(SDL_EnumerateProperties(props, callback, userdata));
+																EnumeratePropertiesCallback callback,
+																void* userdata) {
+	CheckError(SDL_EnumerateProperties(props, callback, userdata));
 }
 
 /**
@@ -1470,23 +1470,23 @@ inline void EnumerateProperties(PropertiesRef props,
  * @since This function is available since SDL 3.2.0.
  */
 inline void EnumerateProperties(PropertiesRef props,
-                                EnumeratePropertiesCB callback) {
-  return EnumerateProperties(
-    props,
-    [](void* userdata, PropertiesID props, const char* name) {
-      auto& f = *static_cast<const EnumeratePropertiesCB*>(userdata);
-      f(props, name);
-    },
-    &callback);
+																EnumeratePropertiesCB callback) {
+	return EnumerateProperties(
+		props,
+		[](void* userdata, PropertiesID props, const char* name) {
+			auto& f = *static_cast<const EnumeratePropertiesCB*>(userdata);
+			f(props, name);
+		},
+		&callback);
 }
 
 inline void Properties::Enumerate(EnumeratePropertiesCallback callback,
-                                  void* userdata) {
-  SDL::EnumerateProperties(m_resource, callback, userdata);
+																	void* userdata) {
+	SDL::EnumerateProperties(m_resource, callback, userdata);
 }
 
 inline void Properties::Enumerate(EnumeratePropertiesCB callback) {
-  SDL::EnumerateProperties(m_resource, std::move(callback));
+	SDL::EnumerateProperties(m_resource, std::move(callback));
 }
 
 /**
@@ -1498,13 +1498,13 @@ inline void Properties::Enumerate(EnumeratePropertiesCB callback) {
  * @return Uint64
  */
 inline Uint64 CountProperties(PropertiesRef props) {
-  Uint64 count = 0;
-  EnumerateProperties(props, [&count](auto, const char*) { count++; });
-  return count;
+	Uint64 count = 0;
+	EnumerateProperties(props, [&count](auto, const char*) { count++; });
+	return count;
 }
 
 inline Uint64 Properties::GetCount() {
-  return SDL::CountProperties(m_resource);
+	return SDL::CountProperties(m_resource);
 }
 
 /**
@@ -1524,7 +1524,7 @@ inline Uint64 Properties::GetCount() {
  * @sa Properties.Create
  */
 inline void DestroyProperties(PropertiesID props) {
-  SDL_DestroyProperties(props);
+	SDL_DestroyProperties(props);
 }
 
 inline void Properties::Destroy() { DestroyProperties(Release()); }

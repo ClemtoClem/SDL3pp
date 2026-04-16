@@ -41,47 +41,47 @@ struct PathInfo;
  *
  */
 struct Path : StringResult {
-  /// Use parent ctors
-  using StringResult::StringResult;
+	/// Use parent ctors
+	using StringResult::StringResult;
 
-  /// Append
-  Path& operator+=(std::string_view other) {
-    StringResult::operator+=(other);
-    return *this;
-  }
+	/// Append
+	Path& operator+=(std::string_view other) {
+		StringResult::operator+=(other);
+		return *this;
+	}
 
-  /// Append
-  Path& operator+=(char ch) {
-    StringResult::operator+=(ch);
-    return *this;
-  }
+	/// Append
+	Path& operator+=(char ch) {
+		StringResult::operator+=(ch);
+		return *this;
+	}
 
-  /// Append
-  friend Path operator+(const Path& path, std::string_view other) {
-    Path result(path);
-    result += other;
-    return result;
-  }
+	/// Append
+	friend Path operator+(const Path& path, std::string_view other) {
+		Path result(path);
+		result += other;
+		return result;
+	}
 
-  /// Append
-  friend Path operator+(const Path& path, char ch) {
-    Path result(path);
-    result += ch;
-    return result;
-  }
+	/// Append
+	friend Path operator+(const Path& path, char ch) {
+		Path result(path);
+		result += ch;
+		return result;
+	}
 
-  /// Append path component.
-  Path& operator/=(std::string_view other) {
-    if (!empty() && back() != '/' && back() != '\\') this->operator+=('/');
-    return this->operator+=(other);
-  }
+	/// Append path component.
+	Path& operator/=(std::string_view other) {
+		if (!empty() && back() != '/' && back() != '\\') this->operator+=('/');
+		return this->operator+=(other);
+	}
 
-  /// Append path component.
-  friend Path operator/(const Path& path, std::string_view other) {
-    Path result(path);
-    result /= other;
-    return result;
-  }
+	/// Append path component.
+	friend Path operator/(const Path& path, std::string_view other) {
+		Path result(path);
+		result /= other;
+		return result;
+	}
 };
 
 /**
@@ -190,7 +190,7 @@ inline const char* GetBasePath() { return SDL_GetBasePath(); }
  * @sa GetBasePath
  */
 inline Path GetPrefPath(StringParam org, StringParam app) {
-  return Path{SDL_GetPrefPath(org, app)};
+	return Path{SDL_GetPrefPath(org, app)};
 }
 
 /**
@@ -259,10 +259,10 @@ constexpr Folder FOLDER_PICTURES = SDL_FOLDER_PICTURES;
 constexpr Folder FOLDER_PUBLICSHARE = SDL_FOLDER_PUBLICSHARE;
 
 constexpr Folder FOLDER_SAVEDGAMES =
-  SDL_FOLDER_SAVEDGAMES; ///< Save files for games.
+	SDL_FOLDER_SAVEDGAMES; ///< Save files for games.
 
 constexpr Folder FOLDER_SCREENSHOTS =
-  SDL_FOLDER_SCREENSHOTS; ///< Application screenshots.
+	SDL_FOLDER_SCREENSHOTS; ///< Application screenshots.
 
 /**
  * Template files to be used when the user requests the desktop environment to
@@ -304,7 +304,7 @@ constexpr Folder FOLDER_COUNT = SDL_FOLDER_COUNT;
  * @since This function is available since SDL 3.2.0.
  */
 inline const char* GetUserFolder(Folder folder) {
-  return SDL_GetUserFolder(folder);
+	return SDL_GetUserFolder(folder);
 }
 
 /**
@@ -340,32 +340,32 @@ constexpr PathType PATHTYPE_OTHER = SDL_PATHTYPE_OTHER;
  * @sa Storage.GetPathInfo
  */
 struct PathInfo : PathInfoRaw {
-  /**
-   * Wraps PathInfo.
-   *
-   * @param pathInfo the value to be wrapped
-   */
-  constexpr PathInfo(const PathInfoRaw& pathInfo = {}) noexcept
-    : PathInfoRaw(pathInfo) {
-  }
+	/**
+	 * Wraps PathInfo.
+	 *
+	 * @param pathInfo the value to be wrapped
+	 */
+	constexpr PathInfo(const PathInfoRaw& pathInfo = {}) noexcept
+		: PathInfoRaw(pathInfo) {
+	}
 
-  /**
-   * Compare with nullptr.
-   *
-   * @returns True if invalid state, false otherwise.
-   */
-  constexpr bool operator==(std::nullptr_t) const noexcept {
-    return !bool(*this);
-  }
+	/**
+	 * Compare with nullptr.
+	 *
+	 * @returns True if invalid state, false otherwise.
+	 */
+	constexpr bool operator==(std::nullptr_t) const noexcept {
+		return !bool(*this);
+	}
 
-  /**
-   * Check if valid.
-   *
-   * @returns True if valid state, false otherwise.
-   */
-  constexpr explicit operator bool() const noexcept {
-    return type != PATHTYPE_NONE;
-  }
+	/**
+	 * Check if valid.
+	 *
+	 * @returns True if valid state, false otherwise.
+	 */
+	constexpr explicit operator bool() const noexcept {
+		return type != PATHTYPE_NONE;
+	}
 };
 
 /**
@@ -379,7 +379,7 @@ struct PathInfo : PathInfoRaw {
 using GlobFlags = Uint32;
 
 constexpr GlobFlags GLOB_CASEINSENSITIVE =
-  SDL_GLOB_CASEINSENSITIVE; ///< CASEINSENSITIVE
+	SDL_GLOB_CASEINSENSITIVE; ///< CASEINSENSITIVE
 
 /**
  * Create a directory, and any missing parent directories.
@@ -397,7 +397,7 @@ constexpr GlobFlags GLOB_CASEINSENSITIVE =
  * @since This function is available since SDL 3.2.0.
  */
 inline void CreateDirectory(StringParam path) {
-  CheckError(SDL_CreateDirectory(path));
+	CheckError(SDL_CreateDirectory(path));
 }
 
 /**
@@ -410,7 +410,7 @@ inline void CreateDirectory(StringParam path) {
 using EnumerationResult = SDL_EnumerationResult;
 
 constexpr EnumerationResult ENUM_CONTINUE =
-  SDL_ENUM_CONTINUE; ///< Value that requests that enumeration continue.
+	SDL_ENUM_CONTINUE; ///< Value that requests that enumeration continue.
 
 /// Value that requests that enumeration stop, successfully.
 constexpr EnumerationResult ENUM_SUCCESS = SDL_ENUM_SUCCESS;
@@ -443,7 +443,7 @@ constexpr EnumerationResult ENUM_FAILURE = SDL_ENUM_FAILURE;
  * @sa EnumerateDirectory
  */
 using EnumerateDirectoryCallback = EnumerationResult(
-  SDLCALL*)(void* userdata, const char* dirname, const char* fname);
+	SDLCALL*)(void* userdata, const char* dirname, const char* fname);
 
 /**
  * Callback for directory enumeration.
@@ -471,7 +471,7 @@ using EnumerateDirectoryCallback = EnumerationResult(
  * @sa EnumerateDirectoryCallback
  */
 using EnumerateDirectoryCB =
-  std::function<EnumerationResult(const char* dirname, const char* fname)>;
+	std::function<EnumerationResult(const char* dirname, const char* fname)>;
 
 /**
  * Enumerate a directory through a callback function.
@@ -494,9 +494,9 @@ using EnumerateDirectoryCB =
  * @since This function is available since SDL 3.2.0.
  */
 inline void EnumerateDirectory(StringParam path,
-                               EnumerateDirectoryCallback callback,
-                               void* userdata) {
-  CheckError(SDL_EnumerateDirectory(path, callback, userdata));
+															 EnumerateDirectoryCallback callback,
+															 void* userdata) {
+	CheckError(SDL_EnumerateDirectory(path, callback, userdata));
 }
 
 /**
@@ -519,13 +519,13 @@ inline void EnumerateDirectory(StringParam path,
  * @since This function is available since SDL 3.2.0.
  */
 inline void EnumerateDirectory(StringParam path, EnumerateDirectoryCB callback) {
-  return EnumerateDirectory(
-    std::move(path),
-    [](void* userdata, const char* dirname, const char* fname) {
-      auto& cb = *static_cast<const EnumerateDirectoryCB*>(userdata);
-      return cb(dirname, fname);
-    },
-    &callback);
+	return EnumerateDirectory(
+		std::move(path),
+		[](void* userdata, const char* dirname, const char* fname) {
+			auto& cb = *static_cast<const EnumerateDirectoryCB*>(userdata);
+			return cb(dirname, fname);
+		},
+		&callback);
 }
 
 /**
@@ -539,12 +539,12 @@ inline void EnumerateDirectory(StringParam path, EnumerateDirectoryCB callback) 
  * @since This function is available since SDL 3.2.0.
  */
 inline std::vector<Path> EnumerateDirectory(StringParam path) {
-  std::vector<Path> r;
-  EnumerateDirectory(std::move(path), [&r](const char*, const char* fname) {
-    r.emplace_back(fname);
-    return ENUM_CONTINUE;
-  });
-  return r;
+	std::vector<Path> r;
+	EnumerateDirectory(std::move(path), [&r](const char*, const char* fname) {
+		r.emplace_back(fname);
+		return ENUM_CONTINUE;
+	});
+	return r;
 }
 
 /**
@@ -584,7 +584,7 @@ inline void RemovePath(StringParam path) { CheckError(SDL_RemovePath(path)); }
  * @since This function is available since SDL 3.2.0.
  */
 inline void RenamePath(StringParam oldpath, StringParam newpath) {
-  CheckError(SDL_RenamePath(oldpath, newpath));
+	CheckError(SDL_RenamePath(oldpath, newpath));
 }
 
 /**
@@ -629,7 +629,7 @@ inline void RenamePath(StringParam oldpath, StringParam newpath) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void CopyFile(StringParam oldpath, StringParam newpath) {
-  CheckError(SDL_CopyFile(oldpath, newpath));
+	CheckError(SDL_CopyFile(oldpath, newpath));
 }
 
 /**
@@ -648,9 +648,9 @@ inline void CopyFile(StringParam oldpath, StringParam newpath) {
  * @since This function is available since SDL 3.2.0.
  */
 inline PathInfo GetPathInfo(StringParam path) {
-  PathInfo info;
-  CheckError(SDL_GetPathInfo(path, &info));
-  return info;
+	PathInfo info;
+	CheckError(SDL_GetPathInfo(path, &info));
+	return info;
 }
 
 /**
@@ -682,11 +682,11 @@ inline PathInfo GetPathInfo(StringParam path) {
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<char*> GlobDirectory(StringParam path,
-                                     StringParam pattern,
-                                     GlobFlags flags = 0) {
-  int count;
-  auto data = CheckError(SDL_GlobDirectory(path, pattern, flags, &count));
-  return OwnArray<char*>{data, size_t(count)};
+																		 StringParam pattern,
+																		 GlobFlags flags = 0) {
+	int count;
+	auto data = CheckError(SDL_GlobDirectory(path, pattern, flags, &count));
+	return OwnArray<char*>{data, size_t(count)};
 }
 
 /**

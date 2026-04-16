@@ -143,7 +143,7 @@ struct IConvRef;
  */
 template<class T, std::size_t N>
 constexpr std::size_t Arraysize(const T (&array)[N]) {
-  return std::size(array);
+	return std::size(array);
 }
 
 #ifdef SDL3PP_DOC
@@ -173,7 +173,7 @@ constexpr std::size_t Arraysize(const T (&array)[N]) {
  * @since This function is available since SDL 3.2.0.
  */
 constexpr Uint32 FourCC(Uint8 a, Uint8 b, Uint8 c, Uint8 d) {
-  return SDL_FOURCC(a, b, c, d);
+	return SDL_FOURCC(a, b, c, d);
 }
 
 #ifdef SDL3PP_DOC
@@ -349,138 +349,138 @@ constexpr Nanoseconds FromNS(Sint64 duration) { return Nanoseconds{duration}; }
  * @sa MIN_SINT64
  */
 class Time {
-  Nanoseconds m_time;
+	Nanoseconds m_time;
 
 public:
-  constexpr Time() = default;
+	constexpr Time() = default;
 
-  /**
-   * Wraps Time.
-   *
-   * @param time the value to be wrapped
-   */
-  constexpr explicit Time(TimeRaw time) noexcept
-    : m_time(time) {
-  }
+	/**
+	 * Wraps Time.
+	 *
+	 * @param time the value to be wrapped
+	 */
+	constexpr explicit Time(TimeRaw time) noexcept
+		: m_time(time) {
+	}
 
-  /**
-   * Wraps Time.
-   *
-   * @param time the value to be wrapped
-   */
-  constexpr Time(std::chrono::nanoseconds time) noexcept
-    : m_time(time) {
-  }
+	/**
+	 * Wraps Time.
+	 *
+	 * @param time the value to be wrapped
+	 */
+	constexpr Time(std::chrono::nanoseconds time) noexcept
+		: m_time(time) {
+	}
 
-  /// True if not Zero
-  constexpr explicit operator bool() const {
-    return m_time != std::chrono::nanoseconds{};
-  }
+	/// True if not Zero
+	constexpr explicit operator bool() const {
+		return m_time != std::chrono::nanoseconds{};
+	}
 
-  /// Converts to nanoseconds period
-  constexpr operator std::chrono::nanoseconds() const { return m_time; }
+	/// Converts to nanoseconds period
+	constexpr operator std::chrono::nanoseconds() const { return m_time; }
 
-  /**
-   * Gets the current value of the system realtime clock in nanoseconds since
-   * Jan 1, 1970 in Universal Coordinated Time (UTC).
-   *
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  static Time Current();
+	/**
+	 * Gets the current value of the system realtime clock in nanoseconds since
+	 * Jan 1, 1970 in Universal Coordinated Time (UTC).
+	 *
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	static Time Current();
 
-  /// Create from a nanoseconds Sint64.
-  static constexpr Time FromNS(Sint64 time) {
-    return Time{std::chrono::nanoseconds{time}};
-  }
+	/// Create from a nanoseconds Sint64.
+	static constexpr Time FromNS(Sint64 time) {
+		return Time{std::chrono::nanoseconds{time}};
+	}
 
-  /// Converts to nanoseconds Sint64
-  constexpr Sint64 ToNS() const { return m_time.count(); }
+	/// Converts to nanoseconds Sint64
+	constexpr Sint64 ToNS() const { return m_time.count(); }
 
-  /**
-   * Convert seconds to nanoseconds.
-   *
-   * This only converts whole numbers, not fractional seconds.
-   *
-   * @param time the number of seconds to convert.
-   * @returns the converted Time.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  static constexpr Time FromPosix(Sint64 time);
+	/**
+	 * Convert seconds to nanoseconds.
+	 *
+	 * This only converts whole numbers, not fractional seconds.
+	 *
+	 * @param time the number of seconds to convert.
+	 * @returns the converted Time.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	static constexpr Time FromPosix(Sint64 time);
 
-  /**
-   * Convert nanoseconds to seconds.
-   *
-   * This only converts whole numbers, not fractional seconds.
-   *
-   * @returns Posix time (in seconds).
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  constexpr Sint64 ToPosix() const;
+	/**
+	 * Convert nanoseconds to seconds.
+	 *
+	 * This only converts whole numbers, not fractional seconds.
+	 *
+	 * @returns Posix time (in seconds).
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	constexpr Sint64 ToPosix() const;
 
-  /**
-   * Converts a Windows FILETIME (100-nanosecond intervals since January 1,
-   * 1601) to an SDL time.
-   *
-   * This function takes the two 32-bit values of the FILETIME structure as
-   * parameters.
-   *
-   * @param dwLowDateTime the low portion of the Windows FILETIME value.
-   * @param dwHighDateTime the high portion of the Windows FILETIME value.
-   * @returns the converted SDL time.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  static Time FromWindows(Uint32 dwLowDateTime, Uint32 dwHighDateTime);
+	/**
+	 * Converts a Windows FILETIME (100-nanosecond intervals since January 1,
+	 * 1601) to an SDL time.
+	 *
+	 * This function takes the two 32-bit values of the FILETIME structure as
+	 * parameters.
+	 *
+	 * @param dwLowDateTime the low portion of the Windows FILETIME value.
+	 * @param dwHighDateTime the high portion of the Windows FILETIME value.
+	 * @returns the converted SDL time.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	static Time FromWindows(Uint32 dwLowDateTime, Uint32 dwHighDateTime);
 
-  /**
-   * Converts an SDL time into a Windows FILETIME (100-nanosecond intervals
-   * since January 1, 1601).
-   *
-   * This function fills in the two 32-bit values of the FILETIME structure.
-   *
-   * @param dwLowDateTime a pointer filled in with the low portion of the
-   *                      Windows FILETIME value.
-   * @param dwHighDateTime a pointer filled in with the high portion of the
-   *                       Windows FILETIME value.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void ToWindows(Uint32* dwLowDateTime, Uint32* dwHighDateTime) const;
+	/**
+	 * Converts an SDL time into a Windows FILETIME (100-nanosecond intervals
+	 * since January 1, 1601).
+	 *
+	 * This function fills in the two 32-bit values of the FILETIME structure.
+	 *
+	 * @param dwLowDateTime a pointer filled in with the low portion of the
+	 *                      Windows FILETIME value.
+	 * @param dwHighDateTime a pointer filled in with the high portion of the
+	 *                       Windows FILETIME value.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void ToWindows(Uint32* dwLowDateTime, Uint32* dwHighDateTime) const;
 
-  /// Converts a time to seconds (float) since epoch.
-  constexpr float ToSeconds() const { return Seconds(m_time).count(); }
+	/// Converts a time to seconds (float) since epoch.
+	constexpr float ToSeconds() const { return Seconds(m_time).count(); }
 
-  /// Converts a time to seconds (float) since epoch.
-  static constexpr Time FromSeconds(float interval) {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
-      Seconds(interval));
-  }
+	/// Converts a time to seconds (float) since epoch.
+	static constexpr Time FromSeconds(float interval) {
+		return std::chrono::duration_cast<std::chrono::nanoseconds>(
+			Seconds(interval));
+	}
 
-  /// Increment time
-  constexpr Time& operator+=(std::chrono::nanoseconds interval) {
-    m_time += interval;
-    return *this;
-  }
+	/// Increment time
+	constexpr Time& operator+=(std::chrono::nanoseconds interval) {
+		m_time += interval;
+		return *this;
+	}
 
-  /// Decrement
-  constexpr Time& operator-=(std::chrono::nanoseconds interval) {
-    m_time -= interval;
-    return *this;
-  }
+	/// Decrement
+	constexpr Time& operator-=(std::chrono::nanoseconds interval) {
+		m_time -= interval;
+		return *this;
+	}
 };
 
 /// Max allowed time representation
@@ -551,7 +551,7 @@ concept Interface = requires(I* iface) { (iface)->version = sizeof(I); };
  */
 template<Interface I>
 constexpr void InitInterface(I* iface) {
-  SDL_INIT_INTERFACE(iface);
+	SDL_INIT_INTERFACE(iface);
 }
 
 /**
@@ -605,7 +605,7 @@ inline void* Malloc(size_t size) { return SDL_malloc(size); }
  * @sa Realloc
  */
 inline void* Calloc(size_t nmemb, size_t size) {
-  return SDL_calloc(nmemb, size);
+	return SDL_calloc(nmemb, size);
 }
 
 /**
@@ -763,11 +763,11 @@ using free_func = void(SDLCALL*)(void* mem);
  * @since This function is available since SDL 3.2.0.
  */
 inline void GetOriginalMemoryFunctions(malloc_func* malloc_func,
-                                       calloc_func* calloc_func,
-                                       realloc_func* realloc_func,
-                                       free_func* free_func) {
-  SDL_GetOriginalMemoryFunctions(
-    malloc_func, calloc_func, realloc_func, free_func);
+																			 calloc_func* calloc_func,
+																			 realloc_func* realloc_func,
+																			 free_func* free_func) {
+	SDL_GetOriginalMemoryFunctions(
+		malloc_func, calloc_func, realloc_func, free_func);
 }
 
 /**
@@ -788,10 +788,10 @@ inline void GetOriginalMemoryFunctions(malloc_func* malloc_func,
  * @sa GetOriginalMemoryFunctions
  */
 inline void GetMemoryFunctions(malloc_func* malloc_func,
-                               calloc_func* calloc_func,
-                               realloc_func* realloc_func,
-                               free_func* free_func) {
-  SDL_GetMemoryFunctions(malloc_func, calloc_func, realloc_func, free_func);
+															 calloc_func* calloc_func,
+															 realloc_func* realloc_func,
+															 free_func* free_func) {
+	SDL_GetMemoryFunctions(malloc_func, calloc_func, realloc_func, free_func);
 }
 
 /**
@@ -820,11 +820,11 @@ inline void GetMemoryFunctions(malloc_func* malloc_func,
  * @sa GetOriginalMemoryFunctions
  */
 inline void SetMemoryFunctions(malloc_func malloc_func,
-                               calloc_func calloc_func,
-                               realloc_func realloc_func,
-                               free_func free_func) {
-  CheckError(
-    SDL_SetMemoryFunctions(malloc_func, calloc_func, realloc_func, free_func));
+															 calloc_func calloc_func,
+															 realloc_func realloc_func,
+															 free_func free_func) {
+	CheckError(
+		SDL_SetMemoryFunctions(malloc_func, calloc_func, realloc_func, free_func));
 }
 
 /**
@@ -850,7 +850,7 @@ inline void SetMemoryFunctions(malloc_func malloc_func,
  * @sa AlignedFree
  */
 inline void* AlignedAlloc(size_t alignment, size_t size) {
-  return SDL_aligned_alloc(alignment, size);
+	return SDL_aligned_alloc(alignment, size);
 }
 
 /**
@@ -898,188 +898,188 @@ inline int GetNumAllocations() { return SDL_GetNumAllocations(); }
  * @sa Environment.Destroy
  */
 class Environment {
-  EnvironmentRaw m_resource = nullptr;
+	EnvironmentRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr Environment(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr Environment(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw Environment.
-   *
-   * @param resource a EnvironmentRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Environment(EnvironmentRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Environment.
+	 *
+	 * @param resource a EnvironmentRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Environment(EnvironmentRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Environment(const Environment& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Environment(const Environment& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Environment(Environment&& other) noexcept
-    : Environment(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Environment(Environment&& other) noexcept
+		: Environment(other.Release()) {
+	}
 
-  constexpr Environment(const EnvironmentRef& other) = delete;
+	constexpr Environment(const EnvironmentRef& other) = delete;
 
-  constexpr Environment(EnvironmentRef&& other) = delete;
+	constexpr Environment(EnvironmentRef&& other) = delete;
 
-  /**
-   * Create a set of environment variables
-   *
-   * @param populated true to initialize it from the C runtime environment,
-   *                  false to create an empty environment.
-   * @post a pointer to the new environment or nullptr on failure; call
-   *       GetError() for more information.
-   *
-   * @threadsafety If `populated` is false, it is safe to call this function
-   *               from any thread, otherwise it is safe if no other threads are
-   *               calling setenv() or unsetenv()
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Environment.GetVariable
-   * @sa Environment.GetVariables
-   * @sa Environment.SetVariable
-   * @sa Environment.UnsetVariable
-   * @sa Environment.Destroy
-   */
-  Environment(bool populated);
+	/**
+	 * Create a set of environment variables
+	 *
+	 * @param populated true to initialize it from the C runtime environment,
+	 *                  false to create an empty environment.
+	 * @post a pointer to the new environment or nullptr on failure; call
+	 *       GetError() for more information.
+	 *
+	 * @threadsafety If `populated` is false, it is safe to call this function
+	 *               from any thread, otherwise it is safe if no other threads are
+	 *               calling setenv() or unsetenv()
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Environment.GetVariable
+	 * @sa Environment.GetVariables
+	 * @sa Environment.SetVariable
+	 * @sa Environment.UnsetVariable
+	 * @sa Environment.Destroy
+	 */
+	Environment(bool populated);
 
-  /// Destructor
-  ~Environment() { SDL_DestroyEnvironment(m_resource); }
+	/// Destructor
+	~Environment() { SDL_DestroyEnvironment(m_resource); }
 
-  /// Assignment operator.
-  constexpr Environment& operator=(Environment&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Environment& operator=(Environment&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Environment& operator=(const Environment& other) = delete;
+	/// Assignment operator.
+	Environment& operator=(const Environment& other) = delete;
 
-  /// Retrieves underlying EnvironmentRaw.
-  constexpr EnvironmentRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying EnvironmentRaw.
+	constexpr EnvironmentRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying EnvironmentRaw and clear this.
-  constexpr EnvironmentRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying EnvironmentRaw and clear this.
+	constexpr EnvironmentRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Environment& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Environment& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Destroy a set of environment variables.
-   *
-   * @threadsafety It is safe to call this function from any thread, as long as
-   *               the environment is no longer in use.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateEnvironment
-   */
-  void Destroy();
+	/**
+	 * Destroy a set of environment variables.
+	 *
+	 * @threadsafety It is safe to call this function from any thread, as long as
+	 *               the environment is no longer in use.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateEnvironment
+	 */
+	void Destroy();
 
-  /**
-   * Get the value of a variable in the environment.
-   *
-   * @param name the name of the variable to Get.
-   * @returns a pointer to the value of the variable or nullptr if it can't be
-   *          found.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa GetEnvironment
-   * @sa CreateEnvironment
-   * @sa Environment.GetVariables
-   * @sa Environment.SetVariable
-   * @sa Environment.UnsetVariable
-   */
-  const char* GetVariable(StringParam name);
+	/**
+	 * Get the value of a variable in the environment.
+	 *
+	 * @param name the name of the variable to Get.
+	 * @returns a pointer to the value of the variable or nullptr if it can't be
+	 *          found.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa GetEnvironment
+	 * @sa CreateEnvironment
+	 * @sa Environment.GetVariables
+	 * @sa Environment.SetVariable
+	 * @sa Environment.UnsetVariable
+	 */
+	const char* GetVariable(StringParam name);
 
-  /**
-   * Get all variables in the environment.
-   *
-   * @returns a nullptr terminated array of pointers to environment variables in
-   *          the form "variable=value" on success. This is wrapped to be
-   *          auto-deleted, use FreeWrapper.Release() if you want to manage
-   *          manually.
-   * @throws Error on failure
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa GetEnvironment
-   * @sa CreateEnvironment
-   * @sa Environment.GetVariables
-   * @sa Environment.SetVariable
-   * @sa Environment.UnsetVariable
-   */
-  OwnArray<char*> GetVariables();
+	/**
+	 * Get all variables in the environment.
+	 *
+	 * @returns a nullptr terminated array of pointers to environment variables in
+	 *          the form "variable=value" on success. This is wrapped to be
+	 *          auto-deleted, use FreeWrapper.Release() if you want to manage
+	 *          manually.
+	 * @throws Error on failure
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa GetEnvironment
+	 * @sa CreateEnvironment
+	 * @sa Environment.GetVariables
+	 * @sa Environment.SetVariable
+	 * @sa Environment.UnsetVariable
+	 */
+	OwnArray<char*> GetVariables();
 
-  /**
-   * Get the Variables count.
-   *
-   * @return the number of existing environment variables
-   *
-   * This might be slow.
-   */
-  Uint64 GetVariableCount() { return GetVariables().size(); }
+	/**
+	 * Get the Variables count.
+	 *
+	 * @return the number of existing environment variables
+	 *
+	 * This might be slow.
+	 */
+	Uint64 GetVariableCount() { return GetVariables().size(); }
 
-  /**
-   * Set the value of a variable in the environment.
-   *
-   * @param name the name of the variable to set.
-   * @param value the value of the variable to set.
-   * @param overwrite true to overwrite the variable if it exists, false to
-   *                  return success without setting the variable if it already
-   *                  exists.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa GetEnvironment
-   * @sa CreateEnvironment
-   * @sa Environment.GetVariable
-   * @sa Environment.GetVariables
-   * @sa Environment.UnsetVariable
-   */
-  void SetVariable(StringParam name, StringParam value, bool overwrite);
+	/**
+	 * Set the value of a variable in the environment.
+	 *
+	 * @param name the name of the variable to set.
+	 * @param value the value of the variable to set.
+	 * @param overwrite true to overwrite the variable if it exists, false to
+	 *                  return success without setting the variable if it already
+	 *                  exists.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa GetEnvironment
+	 * @sa CreateEnvironment
+	 * @sa Environment.GetVariable
+	 * @sa Environment.GetVariables
+	 * @sa Environment.UnsetVariable
+	 */
+	void SetVariable(StringParam name, StringParam value, bool overwrite);
 
-  /**
-   * Clear a variable from the environment.
-   *
-   * @param name the name of the variable to unset.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa GetEnvironment
-   * @sa CreateEnvironment
-   * @sa Environment.GetVariable
-   * @sa Environment.GetVariables
-   * @sa Environment.SetVariable
-   * @sa Environment.UnsetVariable
-   */
-  void UnsetVariable(StringParam name);
+	/**
+	 * Clear a variable from the environment.
+	 *
+	 * @param name the name of the variable to unset.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa GetEnvironment
+	 * @sa CreateEnvironment
+	 * @sa Environment.GetVariable
+	 * @sa Environment.GetVariables
+	 * @sa Environment.SetVariable
+	 * @sa Environment.UnsetVariable
+	 */
+	void UnsetVariable(StringParam name);
 };
 
 /**
@@ -1088,63 +1088,63 @@ public:
  * This does not take ownership!
  */
 struct EnvironmentRef : Environment {
-  using Environment::Environment;
+	using Environment::Environment;
 
-  /**
-   * Constructs from raw Environment.
-   *
-   * @param resource a EnvironmentRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr EnvironmentRef(EnvironmentRaw resource) noexcept
-    : Environment(resource) {
-  }
+	/**
+	 * Constructs from raw Environment.
+	 *
+	 * @param resource a EnvironmentRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr EnvironmentRef(EnvironmentRaw resource) noexcept
+		: Environment(resource) {
+	}
 
-  /**
-   * Constructs from Environment.
-   *
-   * @param resource a Environment.
-   *
-   * This does not takes ownership!
-   */
-  constexpr EnvironmentRef(const Environment& resource) noexcept
-    : Environment(resource.Get()) {
-  }
+	/**
+	 * Constructs from Environment.
+	 *
+	 * @param resource a Environment.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr EnvironmentRef(const Environment& resource) noexcept
+		: Environment(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Environment.
-   *
-   * @param resource a Environment.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr EnvironmentRef(Environment&& resource) noexcept
-    : Environment(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Environment.
+	 *
+	 * @param resource a Environment.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr EnvironmentRef(Environment&& resource) noexcept
+		: Environment(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr EnvironmentRef(const EnvironmentRef& other) noexcept
-    : Environment(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr EnvironmentRef(const EnvironmentRef& other) noexcept
+		: Environment(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr EnvironmentRef(EnvironmentRef&& other) noexcept
-    : Environment(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr EnvironmentRef(EnvironmentRef&& other) noexcept
+		: Environment(other.Get()) {
+	}
 
-  /// Destructor
-  ~EnvironmentRef() { Release(); }
+	/// Destructor
+	~EnvironmentRef() { Release(); }
 
-  /// Assignment operator.
-  EnvironmentRef& operator=(const EnvironmentRef& other) noexcept {
-    Release();
-    Environment::operator=(Environment(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	EnvironmentRef& operator=(const EnvironmentRef& other) noexcept {
+		Release();
+		Environment::operator=(Environment(other.Get()));
+		return *this;
+	}
 
-  /// Converts to EnvironmentRaw
-  constexpr operator EnvironmentRaw() const noexcept { return Get(); }
+	/// Converts to EnvironmentRaw
+	constexpr operator EnvironmentRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -1191,11 +1191,11 @@ inline EnvironmentRaw GetEnvironment() { return SDL_GetEnvironment(); }
  * @sa Environment.Destroy
  */
 inline Environment CreateEnvironment(bool populated) {
-  return Environment(populated);
+	return Environment(populated);
 }
 
 inline Environment::Environment(bool populated)
-  : m_resource(SDL_CreateEnvironment(populated)) {
+	: m_resource(SDL_CreateEnvironment(populated)) {
 }
 
 /**
@@ -1217,11 +1217,11 @@ inline Environment::Environment(bool populated)
  * @sa Environment.UnsetVariable
  */
 inline const char* GetEnvironmentVariable(EnvironmentRef env, StringParam name) {
-  return SDL_GetEnvironmentVariable(env, name);
+	return SDL_GetEnvironmentVariable(env, name);
 }
 
 inline const char* Environment::GetVariable(StringParam name) {
-  return SDL::GetEnvironmentVariable(m_resource, std::move(name));
+	return SDL::GetEnvironmentVariable(m_resource, std::move(name));
 }
 
 /**
@@ -1244,11 +1244,11 @@ inline const char* Environment::GetVariable(StringParam name) {
  * @sa Environment.UnsetVariable
  */
 inline OwnArray<char*> GetEnvironmentVariables(EnvironmentRef env) {
-  return OwnArray<char*>{CheckError(SDL_GetEnvironmentVariables(env))};
+	return OwnArray<char*>{CheckError(SDL_GetEnvironmentVariables(env))};
 }
 
 inline OwnArray<char*> Environment::GetVariables() {
-  return SDL::GetEnvironmentVariables(m_resource);
+	return SDL::GetEnvironmentVariables(m_resource);
 }
 
 /**
@@ -1272,17 +1272,17 @@ inline OwnArray<char*> Environment::GetVariables() {
  * @sa Environment.UnsetVariable
  */
 inline void SetEnvironmentVariable(EnvironmentRef env,
-                                   StringParam name,
-                                   StringParam value,
-                                   bool overwrite) {
-  CheckError(SDL_SetEnvironmentVariable(env, name, value, overwrite));
+																	 StringParam name,
+																	 StringParam value,
+																	 bool overwrite) {
+	CheckError(SDL_SetEnvironmentVariable(env, name, value, overwrite));
 }
 
 inline void Environment::SetVariable(StringParam name,
-                                     StringParam value,
-                                     bool overwrite) {
-  SDL::SetEnvironmentVariable(
-    m_resource, std::move(name), std::move(value), overwrite);
+																		 StringParam value,
+																		 bool overwrite) {
+	SDL::SetEnvironmentVariable(
+		m_resource, std::move(name), std::move(value), overwrite);
 }
 
 /**
@@ -1304,11 +1304,11 @@ inline void Environment::SetVariable(StringParam name,
  * @sa Environment.UnsetVariable
  */
 inline void UnsetEnvironmentVariable(EnvironmentRef env, StringParam name) {
-  CheckError(SDL_UnsetEnvironmentVariable(env, name));
+	CheckError(SDL_UnsetEnvironmentVariable(env, name));
 }
 
 inline void Environment::UnsetVariable(StringParam name) {
-  SDL::UnsetEnvironmentVariable(m_resource, std::move(name));
+	SDL::UnsetEnvironmentVariable(m_resource, std::move(name));
 }
 
 /**
@@ -1324,7 +1324,7 @@ inline void Environment::UnsetVariable(StringParam name) {
  * @sa CreateEnvironment
  */
 inline void DestroyEnvironment(EnvironmentRaw env) {
-  SDL_DestroyEnvironment(env);
+	SDL_DestroyEnvironment(env);
 }
 
 inline void Environment::Destroy() { DestroyEnvironment(Release()); }
@@ -1362,7 +1362,7 @@ inline const char* getenv(StringParam name) { return SDL_getenv(name); }
  * @sa getenv
  */
 inline const char* getenv_unsafe(StringParam name) {
-  return SDL_getenv_unsafe(name);
+	return SDL_getenv_unsafe(name);
 }
 
 /**
@@ -1382,7 +1382,7 @@ inline const char* getenv_unsafe(StringParam name) {
  * @sa Environment.SetVariable
  */
 inline int SetenvUnsafe(StringParam name, StringParam value, int overwrite) {
-  return SDL_setenv_unsafe(name, value, overwrite);
+	return SDL_setenv_unsafe(name, value, overwrite);
 }
 
 /**
@@ -1399,7 +1399,7 @@ inline int SetenvUnsafe(StringParam name, StringParam value, int overwrite) {
  * @sa Environment.UnsetVariable
  */
 inline int UnsetenvUnsafe(StringParam name) {
-  return SDL_unsetenv_unsafe(name);
+	return SDL_unsetenv_unsafe(name);
 }
 
 /**
@@ -1463,10 +1463,10 @@ using CompareCallback = int(SDLCALL*)(const void* a, const void* b);
  * @sa QsortR
  */
 inline void Qsort(void* base,
-                  size_t nmemb,
-                  size_t size,
-                  CompareCallback compare) {
-  SDL_qsort(base, nmemb, size, compare);
+									size_t nmemb,
+									size_t size,
+									CompareCallback compare) {
+	SDL_qsort(base, nmemb, size, compare);
 }
 
 /**
@@ -1519,11 +1519,11 @@ inline void Qsort(void* base,
  * @sa Qsort
  */
 inline void* Bsearch(const void* key,
-                     const void* base,
-                     size_t nmemb,
-                     size_t size,
-                     CompareCallback compare) {
-  return SDL_bsearch(key, base, nmemb, size, compare);
+										 const void* base,
+										 size_t nmemb,
+										 size_t size,
+										 CompareCallback compare) {
+	return SDL_bsearch(key, base, nmemb, size, compare);
 }
 
 /**
@@ -1542,8 +1542,8 @@ inline void* Bsearch(const void* key,
  * @sa BsearchR
  */
 using CompareCallback_r = int(SDLCALL*)(void* userdata,
-                                        const void* a,
-                                        const void* b);
+																				const void* a,
+																				const void* b);
 
 /**
  * A callback used with SDL sorting and binary search functions.
@@ -1615,11 +1615,11 @@ using CompareCB = std::function<int(const void* a, const void* b)>;
  * @sa Qsort
  */
 inline void QsortR(void* base,
-                    size_t nmemb,
-                    size_t size,
-                    CompareCallback_r compare,
-                    void* userdata) {
-  SDL_qsort_r(base, nmemb, size, compare, userdata);
+										size_t nmemb,
+										size_t size,
+										CompareCallback_r compare,
+										void* userdata) {
+	SDL_qsort_r(base, nmemb, size, compare, userdata);
 }
 
 /**
@@ -1674,15 +1674,15 @@ inline void QsortR(void* base,
  * @sa Qsort
  */
 inline void QsortR(void* base, size_t nmemb, size_t size, CompareCB compare) {
-  return QsortR(
-    base,
-    nmemb,
-    size,
-    [](void* userdata, const void* a, const void* b) {
-      auto& cb = *static_cast<const CompareCB*>(userdata);
-      return cb(a, b);
-    },
-    &compare);
+	return QsortR(
+		base,
+		nmemb,
+		size,
+		[](void* userdata, const void* a, const void* b) {
+			auto& cb = *static_cast<const CompareCB*>(userdata);
+			return cb(a, b);
+		},
+		&compare);
 }
 
 /**
@@ -1743,12 +1743,12 @@ inline void QsortR(void* base, size_t nmemb, size_t size, CompareCB compare) {
  * @sa QsortR
  */
 inline void* BsearchR(const void* key,
-                       const void* base,
-                       size_t nmemb,
-                       size_t size,
-                       CompareCallback_r compare,
-                       void* userdata) {
-  return SDL_bsearch_r(key, base, nmemb, size, compare, userdata);
+											 const void* base,
+											 size_t nmemb,
+											 size_t size,
+											 CompareCallback_r compare,
+											 void* userdata) {
+	return SDL_bsearch_r(key, base, nmemb, size, compare, userdata);
 }
 
 /**
@@ -1808,20 +1808,20 @@ inline void* BsearchR(const void* key,
  * @sa QsortR
  */
 inline void* BsearchR(const void* key,
-                       const void* base,
-                       size_t nmemb,
-                       size_t size,
-                       CompareCB compare) {
-  return BsearchR(
-    key,
-    base,
-    nmemb,
-    size,
-    [](void* userdata, const void* a, const void* b) {
-      auto& cb = *static_cast<const CompareCB*>(userdata);
-      return cb(a, b);
-    },
-    &compare);
+											 const void* base,
+											 size_t nmemb,
+											 size_t size,
+											 CompareCB compare) {
+	return BsearchR(
+		key,
+		base,
+		nmemb,
+		size,
+		[](void* userdata, const void* a, const void* b) {
+			auto& cb = *static_cast<const CompareCB*>(userdata);
+			return cb(a, b);
+		},
+		&compare);
 }
 
 /**
@@ -1896,7 +1896,7 @@ inline float Abs(float x) { return SDL_fabsf(x); }
  */
 template<class T, class U>
 constexpr T Min(T x, U y) {
-  return SDL_min(x, y);
+	return SDL_min(x, y);
 }
 
 /**
@@ -1917,7 +1917,7 @@ constexpr T Min(T x, U y) {
  */
 template<class T, class U>
 constexpr T Max(T x, U y) {
-  return SDL_max(x, y);
+	return SDL_max(x, y);
 }
 
 /**
@@ -1944,12 +1944,12 @@ constexpr T Max(T x, U y) {
  */
 template<class T, class U, class V>
 constexpr T Clamp(T x, U a, V b) {
-  return SDL_clamp(x, a, b);
+	return SDL_clamp(x, a, b);
 }
 
 template<class T>
 constexpr Uint8 Clamp8(T x) {
-  return SDL_clamp(static_cast<Uint8>(x), 0, 255);
+	return SDL_clamp(static_cast<Uint8>(x), 0, 255);
 }
 
 /**
@@ -2208,7 +2208,7 @@ inline int Tolower(int x) { return SDL_tolower(x); }
  * @since This function is available since SDL 3.2.0.
  */
 inline Uint16 Crc16(Uint16 crc, const void* data, size_t len) {
-  return SDL_crc16(crc, data, len);
+	return SDL_crc16(crc, data, len);
 }
 
 /**
@@ -2231,7 +2231,7 @@ inline Uint16 Crc16(Uint16 crc, const void* data, size_t len) {
  * @since This function is available since SDL 3.2.0.
  */
 inline Uint32 Crc32(Uint32 crc, const void* data, size_t len) {
-  return SDL_crc32(crc, data, len);
+	return SDL_crc32(crc, data, len);
 }
 
 /**
@@ -2259,7 +2259,7 @@ inline Uint32 Crc32(Uint32 crc, const void* data, size_t len) {
  * @since This function is available since SDL 3.2.0.
  */
 inline Uint32 Murmur3_32(const void* data, size_t len, Uint32 seed) {
-  return SDL_murmur3_32(data, len, seed);
+	return SDL_murmur3_32(data, len, seed);
 }
 
 /**
@@ -2282,9 +2282,9 @@ inline Uint32 Murmur3_32(const void* data, size_t len, Uint32 seed) {
  */
 inline void* Memcpy(void* dst, const void* src, size_t len) {
 #ifdef SDL_SLOW_MEMCPY
-  return SDL_memcpy(dst, src, len);
+	return SDL_memcpy(dst, src, len);
 #else
-  return ::memcpy(dst, src, len);
+	return ::memcpy(dst, src, len);
 #endif // SDL_SLOW_MEMCPY
 }
 
@@ -2314,8 +2314,8 @@ inline void* Memcpy(void* dst, const void* src, size_t len) {
  */
 template<typename T, typename U>
 constexpr T* copyp(T* dst, const U* src) {
-  SDL_copyp(dst, src);
-  return dst;
+	SDL_copyp(dst, src);
+	return dst;
 }
 
 /**
@@ -2337,9 +2337,9 @@ constexpr T* copyp(T* dst, const U* src) {
  */
 inline void* Memmove(void* dst, const void* src, size_t len) {
 #ifdef SDL_SLOW_MEMMOVE
-  return SDL_memmove(dst, src, len);
+	return SDL_memmove(dst, src, len);
 #else
-  return ::memmove(dst, src, len);
+	return ::memmove(dst, src, len);
 #endif // SDL_SLOW_MEMMOVE
 }
 
@@ -2363,9 +2363,9 @@ inline void* Memmove(void* dst, const void* src, size_t len) {
  */
 inline void* Memset(void* dst, int c, size_t len) {
 #ifdef SDL_SLOW_MEMSET
-  return SDL_memset(dst, c, len);
+	return SDL_memset(dst, c, len);
 #else
-  return ::memset(dst, c, len);
+	return ::memset(dst, c, len);
 #endif // SDL_SLOW_MEMSET
 }
 
@@ -2388,7 +2388,7 @@ inline void* Memset(void* dst, int c, size_t len) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void* Memset4(void* dst, Uint32 val, size_t dwords) {
-  return SDL_memset4(dst, val, dwords);
+	return SDL_memset4(dst, val, dwords);
 }
 
 /**
@@ -2410,7 +2410,7 @@ inline void* Memset4(void* dst, Uint32 val, size_t dwords) {
  */
 template<class T>
 inline void Zero(T& x) {
-  SDL_zero(x);
+	SDL_zero(x);
 }
 
 /**
@@ -2432,7 +2432,7 @@ inline void Zero(T& x) {
  */
 template<class T>
 inline void Zerop(T* x) {
-  SDL_zerop(x);
+	SDL_zerop(x);
 }
 
 /**
@@ -2454,7 +2454,7 @@ inline void Zerop(T* x) {
  */
 template<class T, std::size_t N>
 inline void Zeroa(T (&x)[N]) {
-  SDL_zeroa(x);
+	SDL_zeroa(x);
 }
 
 /**
@@ -2472,7 +2472,7 @@ inline void Zeroa(T (&x)[N]) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Memcmp(const void* s1, const void* s2, size_t len) {
-  return SDL_memcmp(s1, s2, len);
+	return SDL_memcmp(s1, s2, len);
 }
 
 /**
@@ -2530,7 +2530,7 @@ inline size_t Wcslen(const wchar_t* wstr) { return SDL_wcslen(wstr); }
  * @sa Utf8Strnlen
  */
 inline size_t Wcsnlen(const wchar_t* wstr, size_t maxlen) {
-  return SDL_wcsnlen(wstr, maxlen);
+	return SDL_wcsnlen(wstr, maxlen);
 }
 
 /**
@@ -2559,7 +2559,7 @@ inline size_t Wcsnlen(const wchar_t* wstr, size_t maxlen) {
  * @sa Wcslcat
  */
 inline size_t Wcslcpy(wchar_t* dst, const wchar_t* src, size_t maxlen) {
-  return SDL_wcslcpy(dst, src, maxlen);
+	return SDL_wcslcpy(dst, src, maxlen);
 }
 
 /**
@@ -2589,7 +2589,7 @@ inline size_t Wcslcpy(wchar_t* dst, const wchar_t* src, size_t maxlen) {
  * @sa Wcslcpy
  */
 inline size_t Wcslcat(wchar_t* dst, const wchar_t* src, size_t maxlen) {
-  return SDL_wcslcat(dst, src, maxlen);
+	return SDL_wcslcat(dst, src, maxlen);
 }
 
 /**
@@ -2629,7 +2629,7 @@ inline wchar_t* Wcsdup(const wchar_t* wstr) { return SDL_wcsdup(wstr); }
  * @since This function is available since SDL 3.2.0.
  */
 inline wchar_t* Wcsstr(const wchar_t* haystack, const wchar_t* needle) {
-  return SDL_wcsstr(haystack, needle);
+	return SDL_wcsstr(haystack, needle);
 }
 
 /**
@@ -2654,9 +2654,9 @@ inline wchar_t* Wcsstr(const wchar_t* haystack, const wchar_t* needle) {
  * @since This function is available since SDL 3.2.0.
  */
 inline wchar_t* Wcsnstr(const wchar_t* haystack,
-                        const wchar_t* needle,
-                        size_t maxlen) {
-  return SDL_wcsnstr(haystack, needle, maxlen);
+												const wchar_t* needle,
+												size_t maxlen) {
+	return SDL_wcsnstr(haystack, needle, maxlen);
 }
 
 /**
@@ -2676,7 +2676,7 @@ inline wchar_t* Wcsnstr(const wchar_t* haystack,
  * @since This function is available since SDL 3.2.0.
  */
 inline int Wcscmp(const wchar_t* str1, const wchar_t* str2) {
-  return SDL_wcscmp(str1, str2);
+	return SDL_wcscmp(str1, str2);
 }
 
 /**
@@ -2707,7 +2707,7 @@ inline int Wcscmp(const wchar_t* str1, const wchar_t* str2) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Wcsncmp(const wchar_t* str1, const wchar_t* str2, size_t maxlen) {
-  return SDL_wcsncmp(str1, str2, maxlen);
+	return SDL_wcsncmp(str1, str2, maxlen);
 }
 
 /**
@@ -2738,7 +2738,7 @@ inline int Wcsncmp(const wchar_t* str1, const wchar_t* str2, size_t maxlen) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Wcscasecmp(const wchar_t* str1, const wchar_t* str2) {
-  return SDL_wcscasecmp(str1, str2);
+	return SDL_wcscasecmp(str1, str2);
 }
 
 /**
@@ -2781,7 +2781,7 @@ inline int Wcscasecmp(const wchar_t* str1, const wchar_t* str2) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Wcsncasecmp(const wchar_t* str1, const wchar_t* str2, size_t maxlen) {
-  return SDL_wcsncasecmp(str1, str2, maxlen);
+	return SDL_wcsncasecmp(str1, str2, maxlen);
 }
 
 /**
@@ -2809,7 +2809,7 @@ inline int Wcsncasecmp(const wchar_t* str1, const wchar_t* str2, size_t maxlen) 
  * @sa Strtol
  */
 inline long Wcstol(const wchar_t* str, wchar_t** endp, int base) {
-  return SDL_wcstol(str, endp, base);
+	return SDL_wcstol(str, endp, base);
 }
 
 /**
@@ -2854,7 +2854,7 @@ inline size_t Strlen(StringParam str) { return SDL_strlen(str); }
  * @sa Utf8Strnlen
  */
 inline size_t strnlen(StringParam str, size_t maxlen) {
-  return SDL_strnlen(str, maxlen);
+	return SDL_strnlen(str, maxlen);
 }
 
 /**
@@ -2883,7 +2883,7 @@ inline size_t strnlen(StringParam str, size_t maxlen) {
  * @sa Utf8Strlcpy
  */
 inline size_t Strlcpy(char* dst, StringParam src, size_t maxlen) {
-  return SDL_strlcpy(dst, src, maxlen);
+	return SDL_strlcpy(dst, src, maxlen);
 }
 
 /**
@@ -2913,7 +2913,7 @@ inline size_t Strlcpy(char* dst, StringParam src, size_t maxlen) {
  * @sa Strlcpy
  */
 inline size_t Utf8Strlcpy(char* dst, StringParam src, size_t dst_bytes) {
-  return SDL_utf8strlcpy(dst, src, dst_bytes);
+	return SDL_utf8strlcpy(dst, src, dst_bytes);
 }
 
 /**
@@ -2943,7 +2943,7 @@ inline size_t Utf8Strlcpy(char* dst, StringParam src, size_t dst_bytes) {
  * @sa Strlcpy
  */
 inline size_t Strlcat(char* dst, StringParam src, size_t maxlen) {
-  return SDL_strlcat(dst, src, maxlen);
+	return SDL_strlcat(dst, src, maxlen);
 }
 
 /**
@@ -2988,7 +2988,7 @@ inline char* Strdup(StringParam str) { return SDL_strdup(str); }
  * @since This function is available since SDL 3.2.0.
  */
 inline char* Strndup(StringParam str, size_t maxlen) {
-  return SDL_strndup(str, maxlen);
+	return SDL_strndup(str, maxlen);
 }
 
 /**
@@ -3112,7 +3112,7 @@ inline char* Strrchr(StringParam str, int c) { return SDL_strrchr(str, c); }
  * @since This function is available since SDL 3.2.0.
  */
 inline char* Strstr(StringParam haystack, StringParam needle) {
-  return SDL_strstr(haystack, needle);
+	return SDL_strstr(haystack, needle);
 }
 
 /**
@@ -3137,7 +3137,7 @@ inline char* Strstr(StringParam haystack, StringParam needle) {
  * @since This function is available since SDL 3.2.0.
  */
 inline char* Strnstr(StringParam haystack, StringParam needle, size_t maxlen) {
-  return SDL_strnstr(haystack, needle, maxlen);
+	return SDL_strnstr(haystack, needle, maxlen);
 }
 
 /**
@@ -3167,7 +3167,7 @@ inline char* Strnstr(StringParam haystack, StringParam needle, size_t maxlen) {
  * @since This function is available since SDL 3.2.0.
  */
 inline char* Strcasestr(StringParam haystack, StringParam needle) {
-  return SDL_strcasestr(haystack, needle);
+	return SDL_strcasestr(haystack, needle);
 }
 
 /**
@@ -3197,7 +3197,7 @@ inline char* Strcasestr(StringParam haystack, StringParam needle) {
  * @since This function is available since SDL 3.2.0.
  */
 inline char* StrtokR(char* str, StringParam delim, char** saveptr) {
-  return SDL_strtok_r(str, delim, saveptr);
+	return SDL_strtok_r(str, delim, saveptr);
 }
 
 /**
@@ -3257,7 +3257,7 @@ inline size_t Utf8Strlen(StringParam str) { return SDL_utf8strlen(str); }
  * @sa strnlen
  */
 inline size_t Utf8Strnlen(StringParam str, size_t bytes) {
-  return SDL_utf8strnlen(str, bytes);
+	return SDL_utf8strnlen(str, bytes);
 }
 
 /**
@@ -3286,7 +3286,7 @@ inline size_t Utf8Strnlen(StringParam str, size_t bytes) {
  * @sa Lltoa
  */
 inline char* Itoa(int value, char* str, int radix) {
-  return SDL_itoa(value, str, radix);
+	return SDL_itoa(value, str, radix);
 }
 
 /**
@@ -3315,7 +3315,7 @@ inline char* Itoa(int value, char* str, int radix) {
  * @sa Ulltoa
  */
 inline char* Uitoa(unsigned int value, char* str, int radix) {
-  return SDL_uitoa(value, str, radix);
+	return SDL_uitoa(value, str, radix);
 }
 
 /**
@@ -3344,7 +3344,7 @@ inline char* Uitoa(unsigned int value, char* str, int radix) {
  * @sa Lltoa
  */
 inline char* Ltoa(long value, char* str, int radix) {
-  return SDL_ltoa(value, str, radix);
+	return SDL_ltoa(value, str, radix);
 }
 
 /**
@@ -3373,7 +3373,7 @@ inline char* Ltoa(long value, char* str, int radix) {
  * @sa Ulltoa
  */
 inline char* Ultoa(unsigned long value, char* str, int radix) {
-  return SDL_ultoa(value, str, radix);
+	return SDL_ultoa(value, str, radix);
 }
 
 #ifndef SDL_NOLONGLONG
@@ -3404,7 +3404,7 @@ inline char* Ultoa(unsigned long value, char* str, int radix) {
  * @sa Ltoa
  */
 inline char* Lltoa(long long value, char* str, int radix) {
-  return SDL_lltoa(value, str, radix);
+	return SDL_lltoa(value, str, radix);
 }
 
 /**
@@ -3433,7 +3433,7 @@ inline char* Lltoa(long long value, char* str, int radix) {
  * @sa Ultoa
  */
 inline char* Ulltoa(unsigned long long value, char* str, int radix) {
-  return SDL_ulltoa(value, str, radix);
+	return SDL_ulltoa(value, str, radix);
 }
 
 #endif // SDL_NOLONGLONG
@@ -3514,7 +3514,7 @@ inline double Atof(StringParam str) { return SDL_atof(str); }
  * @sa Wcstol
  */
 inline long Strtol(StringParam str, char** endp, int base) {
-  return SDL_strtol(str, endp, base);
+	return SDL_strtol(str, endp, base);
 }
 
 /**
@@ -3548,7 +3548,7 @@ inline long Strtol(StringParam str, char** endp, int base) {
  * @sa Ultoa
  */
 inline unsigned long Strtoul(StringParam str, char** endp, int base) {
-  return SDL_strtoul(str, endp, base);
+	return SDL_strtoul(str, endp, base);
 }
 
 #ifndef SDL_NOLONGLONG
@@ -3584,7 +3584,7 @@ inline unsigned long Strtoul(StringParam str, char** endp, int base) {
  * @sa Lltoa
  */
 inline long long Strtoll(StringParam str, char** endp, int base) {
-  return SDL_strtoll(str, endp, base);
+	return SDL_strtoll(str, endp, base);
 }
 
 /**
@@ -3618,7 +3618,7 @@ inline long long Strtoll(StringParam str, char** endp, int base) {
  * @sa Ulltoa
  */
 inline unsigned long long Strtoull(StringParam str, char** endp, int base) {
-  return SDL_strtoull(str, endp, base);
+	return SDL_strtoull(str, endp, base);
 }
 
 #endif // SDL_NOLONGLONG
@@ -3651,7 +3651,7 @@ inline unsigned long long Strtoull(StringParam str, char** endp, int base) {
  * @sa Strtoull
  */
 inline double Strtod(StringParam str, char** endp) {
-  return SDL_strtod(str, endp);
+	return SDL_strtod(str, endp);
 }
 
 /**
@@ -3672,7 +3672,7 @@ inline double Strtod(StringParam str, char** endp) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Strcmp(StringParam str1, StringParam str2) {
-  return SDL_strcmp(str1, str2);
+	return SDL_strcmp(str1, str2);
 }
 
 /**
@@ -3703,7 +3703,7 @@ inline int Strcmp(StringParam str1, StringParam str2) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Strncmp(StringParam str1, StringParam str2, size_t maxlen) {
-  return SDL_strncmp(str1, str2, maxlen);
+	return SDL_strncmp(str1, str2, maxlen);
 }
 
 /**
@@ -3732,7 +3732,7 @@ inline int Strncmp(StringParam str1, StringParam str2, size_t maxlen) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Strcasecmp(StringParam str1, StringParam str2) {
-  return SDL_strcasecmp(str1, str2);
+	return SDL_strcasecmp(str1, str2);
 }
 
 /**
@@ -3772,7 +3772,7 @@ inline int Strcasecmp(StringParam str1, StringParam str2) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Strncasecmp(StringParam str1, StringParam str2, size_t maxlen) {
-  return SDL_strncasecmp(str1, str2, maxlen);
+	return SDL_strncasecmp(str1, str2, maxlen);
 }
 
 /**
@@ -3792,7 +3792,7 @@ inline int Strncasecmp(StringParam str1, StringParam str2, size_t maxlen) {
  * @since This function is available since SDL 3.2.0.
  */
 inline char* Strpbrk(StringParam str, StringParam breakset) {
-  return SDL_strpbrk(str, breakset);
+	return SDL_strpbrk(str, breakset);
 }
 
 /**
@@ -3852,7 +3852,7 @@ constexpr Uint32 INVALID_UNICODE_CODEPOINT = SDL_INVALID_UNICODE_CODEPOINT;
  * @since This function is available since SDL 3.2.0.
  */
 inline Uint32 StepUTF8(const char** pstr, size_t* pslen) {
-  return SDL_StepUTF8(pstr, pslen);
+	return SDL_StepUTF8(pstr, pslen);
 }
 
 /**
@@ -3883,7 +3883,7 @@ inline Uint32 StepUTF8(const char** pstr, size_t* pslen) {
  * @since This function is available since SDL 3.2.0.
  */
 inline Uint32 StepBackUTF8(StringParam start, const char** pstr) {
-  return SDL_StepBackUTF8(start, pstr);
+	return SDL_StepBackUTF8(start, pstr);
 }
 
 /**
@@ -3914,7 +3914,7 @@ inline Uint32 StepBackUTF8(StringParam start, const char** pstr) {
  * @since This function is available since SDL 3.2.0.
  */
 inline char* UCS4ToUTF8(Uint32 codepoint, char* dst) {
-  return SDL_UCS4ToUTF8(codepoint, dst);
+	return SDL_UCS4ToUTF8(codepoint, dst);
 }
 
 /**
@@ -3933,14 +3933,14 @@ inline char* UCS4ToUTF8(Uint32 codepoint, char* dst) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int Sscanf(StringParam text,
-                  SDL_SCANF_FORMAT_STRING const char* fmt,
-                  ...) {
-  int rc;
-  va_list ap;
-  va_start(ap, fmt);
-  rc = SDL_vsscanf(text, fmt, ap);
-  va_end(ap);
-  return rc;
+									SDL_SCANF_FORMAT_STRING const char* fmt,
+									...) {
+	int rc;
+	va_list ap;
+	va_start(ap, fmt);
+	rc = SDL_vsscanf(text, fmt, ap);
+	va_end(ap);
+	return rc;
 }
 
 /**
@@ -3960,9 +3960,9 @@ inline int Sscanf(StringParam text,
  * @since This function is available since SDL 3.2.0.
  */
 inline int Vsscanf(StringParam text,
-                   SDL_SCANF_FORMAT_STRING const char* fmt,
-                   va_list ap) {
-  return SDL_vsscanf(text, fmt, ap);
+									 SDL_SCANF_FORMAT_STRING const char* fmt,
+									 va_list ap) {
+	return SDL_vsscanf(text, fmt, ap);
 }
 
 /**
@@ -3996,17 +3996,17 @@ inline int Vsscanf(StringParam text,
  * @since This function is available since SDL 3.2.0.
  */
 inline int Snprintf(char* text,
-                    size_t maxlen,
-                    SDL_PRINTF_FORMAT_STRING const char* fmt,
-                    ...) {
-  va_list ap;
-  int result;
+										size_t maxlen,
+										SDL_PRINTF_FORMAT_STRING const char* fmt,
+										...) {
+	va_list ap;
+	int result;
 
-  va_start(ap, fmt);
-  result = SDL_vsnprintf(text, maxlen, fmt, ap);
-  va_end(ap);
+	va_start(ap, fmt);
+	result = SDL_vsnprintf(text, maxlen, fmt, ap);
+	va_end(ap);
 
-  return result;
+	return result;
 }
 
 /**
@@ -4041,17 +4041,17 @@ inline int Snprintf(char* text,
  * @since This function is available since SDL 3.2.0.
  */
 inline int Swprintf(wchar_t* text,
-                    size_t maxlen,
-                    SDL_PRINTF_FORMAT_STRING const wchar_t* fmt,
-                    ...) {
-  va_list ap;
-  int result;
+										size_t maxlen,
+										SDL_PRINTF_FORMAT_STRING const wchar_t* fmt,
+										...) {
+	va_list ap;
+	int result;
 
-  va_start(ap, fmt);
-  result = SDL_vswprintf(text, maxlen, fmt, ap);
-  va_end(ap);
+	va_start(ap, fmt);
+	result = SDL_vswprintf(text, maxlen, fmt, ap);
+	va_end(ap);
 
-  return result;
+	return result;
 }
 
 /**
@@ -4073,10 +4073,10 @@ inline int Swprintf(wchar_t* text,
  * @since This function is available since SDL 3.2.0.
  */
 inline int Vsnprintf(char* text,
-                     size_t maxlen,
-                     SDL_PRINTF_FORMAT_STRING const char* fmt,
-                     va_list ap) {
-  return SDL_vsnprintf(text, maxlen, fmt, ap);
+										 size_t maxlen,
+										 SDL_PRINTF_FORMAT_STRING const char* fmt,
+										 va_list ap) {
+	return SDL_vsnprintf(text, maxlen, fmt, ap);
 }
 
 /**
@@ -4099,10 +4099,10 @@ inline int Vsnprintf(char* text,
  * @since This function is available since SDL 3.2.0.
  */
 inline int Vswprintf(wchar_t* text,
-                     size_t maxlen,
-                     SDL_PRINTF_FORMAT_STRING const wchar_t* fmt,
-                     va_list ap) {
-  return SDL_vswprintf(text, maxlen, fmt, ap);
+										 size_t maxlen,
+										 SDL_PRINTF_FORMAT_STRING const wchar_t* fmt,
+										 va_list ap) {
+	return SDL_vswprintf(text, maxlen, fmt, ap);
 }
 
 /**
@@ -4132,14 +4132,14 @@ inline int Vswprintf(wchar_t* text,
  * @since This function is available since SDL 3.2.0.
  */
 inline int Asprintf(char** strp, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
-  va_list ap;
-  int result;
+	va_list ap;
+	int result;
 
-  va_start(ap, fmt);
-  result = SDL_vasprintf(strp, fmt, ap);
-  va_end(ap);
+	va_start(ap, fmt);
+	result = SDL_vasprintf(strp, fmt, ap);
+	va_end(ap);
 
-  return result;
+	return result;
 }
 
 /**
@@ -4160,9 +4160,9 @@ inline int Asprintf(char** strp, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) 
  * @since This function is available since SDL 3.2.0.
  */
 inline int Vasprintf(char** strp,
-                     SDL_PRINTF_FORMAT_STRING const char* fmt,
-                     va_list ap) {
-  return SDL_vasprintf(strp, fmt, ap);
+										 SDL_PRINTF_FORMAT_STRING const char* fmt,
+										 va_list ap) {
+	return SDL_vasprintf(strp, fmt, ap);
 }
 
 /**
@@ -4195,101 +4195,101 @@ inline void Srand(Uint64 seed) { SDL_srand(seed); }
  * @sa wrap-state
  */
 class Random {
-  Uint64 m_state;
+	Uint64 m_state;
 
 public:
-  /// Default constructor initializes state to Zero
-  constexpr Random()
-    : m_state(0) {
-  }
+	/// Default constructor initializes state to Zero
+	constexpr Random()
+		: m_state(0) {
+	}
 
-  /// Init state with the given value
-  constexpr explicit Random(Uint64 state)
-    : m_state(state) {
-  }
+	/// Init state with the given value
+	constexpr explicit Random(Uint64 state)
+		: m_state(state) {
+	}
 
-  /// Convert to the underlying type
-  constexpr operator Uint64() const { return m_state; }
+	/// Convert to the underlying type
+	constexpr operator Uint64() const { return m_state; }
 
-  /**
-   * Generate a pseudo-random number less than n for positive n
-   *
-   * The method used is faster and of better quality than `Rand() % n`. Odds are
-   * roughly 99.9% even for n = 1 million. Evenness is better for smaller n, and
-   * much worse as n gets bigger.
-   *
-   * Example: to simulate a d6 use `Rand(state, 6) + 1` The +1 converts 0..5 to
-   * 1..6
-   *
-   * If you want to generate a pseudo-random number in the full range of Sint32,
-   * you should use: (Sint32)RandBits(state)
-   *
-   * There are no guarantees as to the quality of the random sequence produced,
-   * and this should not be used for security (cryptography, passwords) or where
-   * money is on the line (loot-boxes, casinos). There are many random number
-   * libraries available with different characteristics and you should pick one
-   * of those to meet any serious needs.
-   *
-   * @param n the number of possible outcomes. n must be positive.
-   * @returns a random value in the range of [0 .. n-1].
-   *
-   * @threadsafety This function is thread-safe, as long as the state pointer
-   *               isn't shared between threads.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Rand
-   * @sa RandBits
-   * @sa Randf
-   */
-  Sint32 Rand(Sint32 n) { return SDL_rand_r(&m_state, n); }
+	/**
+	 * Generate a pseudo-random number less than n for positive n
+	 *
+	 * The method used is faster and of better quality than `Rand() % n`. Odds are
+	 * roughly 99.9% even for n = 1 million. Evenness is better for smaller n, and
+	 * much worse as n gets bigger.
+	 *
+	 * Example: to simulate a d6 use `Rand(state, 6) + 1` The +1 converts 0..5 to
+	 * 1..6
+	 *
+	 * If you want to generate a pseudo-random number in the full range of Sint32,
+	 * you should use: (Sint32)RandBits(state)
+	 *
+	 * There are no guarantees as to the quality of the random sequence produced,
+	 * and this should not be used for security (cryptography, passwords) or where
+	 * money is on the line (loot-boxes, casinos). There are many random number
+	 * libraries available with different characteristics and you should pick one
+	 * of those to meet any serious needs.
+	 *
+	 * @param n the number of possible outcomes. n must be positive.
+	 * @returns a random value in the range of [0 .. n-1].
+	 *
+	 * @threadsafety This function is thread-safe, as long as the state pointer
+	 *               isn't shared between threads.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Rand
+	 * @sa RandBits
+	 * @sa Randf
+	 */
+	Sint32 Rand(Sint32 n) { return SDL_rand_r(&m_state, n); }
 
-  /**
-   * Generate a uniform pseudo-random floating point number less than 1.0
-   *
-   * If you want reproducible output, be sure to initialize with Srand() first.
-   *
-   * There are no guarantees as to the quality of the random sequence produced,
-   * and this should not be used for security (cryptography, passwords) or where
-   * money is on the line (loot-boxes, casinos). There are many random number
-   * libraries available with different characteristics and you should pick one
-   * of those to meet any serious needs.
-   *
-   * @returns a random value in the range of [0.0, 1.0).
-   *
-   * @threadsafety This function is thread-safe, as long as the state pointer
-   *               isn't shared between threads.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa RandBits
-   * @sa Rand
-   * @sa Randf
-   */
-  float Randf() { return SDL_randf_r(&m_state); }
+	/**
+	 * Generate a uniform pseudo-random floating point number less than 1.0
+	 *
+	 * If you want reproducible output, be sure to initialize with Srand() first.
+	 *
+	 * There are no guarantees as to the quality of the random sequence produced,
+	 * and this should not be used for security (cryptography, passwords) or where
+	 * money is on the line (loot-boxes, casinos). There are many random number
+	 * libraries available with different characteristics and you should pick one
+	 * of those to meet any serious needs.
+	 *
+	 * @returns a random value in the range of [0.0, 1.0).
+	 *
+	 * @threadsafety This function is thread-safe, as long as the state pointer
+	 *               isn't shared between threads.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa RandBits
+	 * @sa Rand
+	 * @sa Randf
+	 */
+	float Randf() { return SDL_randf_r(&m_state); }
 
-  /**
-   * Generate 32 pseudo-random bits.
-   *
-   * You likely want to use Rand() to Get a pseudo-random number instead.
-   *
-   * There are no guarantees as to the quality of the random sequence produced,
-   * and this should not be used for security (cryptography, passwords) or where
-   * money is on the line (loot-boxes, casinos). There are many random number
-   * libraries available with different characteristics and you should pick one
-   * of those to meet any serious needs.
-   *
-   * @returns a random value in the range of [0-MAX_UINT32].
-   *
-   * @threadsafety This function is thread-safe, as long as the state pointer
-   *               isn't shared between threads.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Rand
-   * @sa Randf
-   */
-  Uint32 RandBits() { return SDL_rand_bits_r(&m_state); }
+	/**
+	 * Generate 32 pseudo-random bits.
+	 *
+	 * You likely want to use Rand() to Get a pseudo-random number instead.
+	 *
+	 * There are no guarantees as to the quality of the random sequence produced,
+	 * and this should not be used for security (cryptography, passwords) or where
+	 * money is on the line (loot-boxes, casinos). There are many random number
+	 * libraries available with different characteristics and you should pick one
+	 * of those to meet any serious needs.
+	 *
+	 * @returns a random value in the range of [0-MAX_UINT32].
+	 *
+	 * @threadsafety This function is thread-safe, as long as the state pointer
+	 *               isn't shared between threads.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Rand
+	 * @sa Randf
+	 */
+	Uint32 RandBits() { return SDL_rand_bits_r(&m_state); }
 };
 
 /**
@@ -5830,7 +5830,7 @@ inline float Tan(float x) { return SDL_tanf(x); }
  * @return the interpolated value between `x` and `y`.
  */
 inline float Lerp(float x, float y, float a) {
-  return x + a * (y - x);
+	return x + a * (y - x);
 }
 
 
@@ -5846,140 +5846,140 @@ inline float Lerp(float x, float y, float a) {
  * @sa IconvOpen
  */
 class IConv {
-  IConvRaw m_resource = nullptr;
+	IConvRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  IConv(std::nullptr_t = nullptr) noexcept
-    : m_resource(IConvRaw(SDL_ICONV_ERROR)) {
-  }
+	/// Default ctor
+	IConv(std::nullptr_t = nullptr) noexcept
+		: m_resource(IConvRaw(SDL_ICONV_ERROR)) {
+	}
 
-  /**
-   * Constructs from raw IConv.
-   *
-   * @param resource a IConvRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit IConv(IConvRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw IConv.
+	 *
+	 * @param resource a IConvRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit IConv(IConvRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr IConv(const IConv& other) noexcept = delete;
+	/// Copy constructor
+	constexpr IConv(const IConv& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr IConv(IConv&& other) noexcept
-    : IConv(other.Release()) {
-  }
+	/// Move constructor
+	constexpr IConv(IConv&& other) noexcept
+		: IConv(other.Release()) {
+	}
 
-  constexpr IConv(const IConvRef& other) = delete;
+	constexpr IConv(const IConvRef& other) = delete;
 
-  constexpr IConv(IConvRef&& other) = delete;
+	constexpr IConv(IConvRef&& other) = delete;
 
-  /**
-   * This function allocates a context for the specified character set
-   * conversion.
-   *
-   * @param tocode The target character encoding, must not be nullptr.
-   * @param fromcode The source character encoding, must not be nullptr.
-   * @post a valid handle or falsy on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa IConv.Iconv
-   * @sa IConv.close
-   * @sa IconvString
-   */
-  IConv(StringParam tocode, StringParam fromcode);
+	/**
+	 * This function allocates a context for the specified character set
+	 * conversion.
+	 *
+	 * @param tocode The target character encoding, must not be nullptr.
+	 * @param fromcode The source character encoding, must not be nullptr.
+	 * @post a valid handle or falsy on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa IConv.Iconv
+	 * @sa IConv.close
+	 * @sa IconvString
+	 */
+	IConv(StringParam tocode, StringParam fromcode);
 
-  /// Destructor
-  ~IConv() { SDL_iconv_close(m_resource); }
+	/// Destructor
+	~IConv() { SDL_iconv_close(m_resource); }
 
-  /// Assignment operator.
-  constexpr IConv& operator=(IConv&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr IConv& operator=(IConv&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  IConv& operator=(const IConv& other) = delete;
+	/// Assignment operator.
+	IConv& operator=(const IConv& other) = delete;
 
-  /// Retrieves underlying IConvRaw.
-  constexpr IConvRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying IConvRaw.
+	constexpr IConvRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying IConvRaw and clear this.
-  constexpr IConvRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying IConvRaw and clear this.
+	constexpr IConvRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const IConv& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const IConv& other) const noexcept = default;
 
-  /// Converts to bool
-  explicit operator bool() const noexcept {
-    return reinterpret_cast<size_t>(m_resource) != SDL_ICONV_ERROR;
-  }
+	/// Converts to bool
+	explicit operator bool() const noexcept {
+		return reinterpret_cast<size_t>(m_resource) != SDL_ICONV_ERROR;
+	}
 
-  /**
-   * This function frees a context used for character set conversion.
-   *
-   * @returns 0 on success, or -1 on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa IConv.Iconv
-   * @sa IconvOpen
-   * @sa IconvString
-   */
-  int close();
+	/**
+	 * This function frees a context used for character set conversion.
+	 *
+	 * @returns 0 on success, or -1 on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa IConv.Iconv
+	 * @sa IconvOpen
+	 * @sa IconvString
+	 */
+	int close();
 
-  /**
-   * This function converts text between encodings, reading from and writing to
-   * a buffer.
-   *
-   * It returns the number of successful conversions on success. On error,
-   * ICONV_E2BIG is returned when the output buffer is too small, or
-   * ICONV_EILSEQ is returned when an invalid input sequence is encountered, or
-   * ICONV_EINVAL is returned when an incomplete input sequence is encountered.
-   *
-   * On exit:
-   *
-   * - inbuf will point to the beginning of the next multibyte sequence. On
-   *   error, this is the location of the problematic input sequence. On
-   *   success, this is the end of the input sequence.
-   * - inbytesleft will be set to the number of bytes left to convert, which
-   *   will be 0 on success.
-   * - outbuf will point to the location where to store the next output byte.
-   * - outbytesleft will be set to the number of bytes left in the output
-   *   buffer.
-   *
-   * @param inbuf Address of variable that points to the first character of the
-   *              input sequence.
-   * @param inbytesleft The number of bytes in the input buffer.
-   * @param outbuf Address of variable that points to the output buffer.
-   * @param outbytesleft The number of bytes in the output buffer.
-   * @returns the number of conversions on success.
-   * @throws Error on failure.
-   *
-   * @threadsafety Do not use the same IConv from two threads at once.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa IconvOpen
-   * @sa IConv.close
-   * @sa IconvString
-   */
-  size_t Iconv(const char** inbuf,
-               size_t* inbytesleft,
-               char** outbuf,
-               size_t* outbytesleft) const;
+	/**
+	 * This function converts text between encodings, reading from and writing to
+	 * a buffer.
+	 *
+	 * It returns the number of successful conversions on success. On error,
+	 * ICONV_E2BIG is returned when the output buffer is too small, or
+	 * ICONV_EILSEQ is returned when an invalid input sequence is encountered, or
+	 * ICONV_EINVAL is returned when an incomplete input sequence is encountered.
+	 *
+	 * On exit:
+	 *
+	 * - inbuf will point to the beginning of the next multibyte sequence. On
+	 *   error, this is the location of the problematic input sequence. On
+	 *   success, this is the end of the input sequence.
+	 * - inbytesleft will be set to the number of bytes left to convert, which
+	 *   will be 0 on success.
+	 * - outbuf will point to the location where to store the next output byte.
+	 * - outbytesleft will be set to the number of bytes left in the output
+	 *   buffer.
+	 *
+	 * @param inbuf Address of variable that points to the first character of the
+	 *              input sequence.
+	 * @param inbytesleft The number of bytes in the input buffer.
+	 * @param outbuf Address of variable that points to the output buffer.
+	 * @param outbytesleft The number of bytes in the output buffer.
+	 * @returns the number of conversions on success.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety Do not use the same IConv from two threads at once.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa IconvOpen
+	 * @sa IConv.close
+	 * @sa IconvString
+	 */
+	size_t Iconv(const char** inbuf,
+							 size_t* inbytesleft,
+							 char** outbuf,
+							 size_t* outbytesleft) const;
 };
 
 /**
@@ -5988,63 +5988,63 @@ public:
  * This does not take ownership!
  */
 struct IConvRef : IConv {
-  using IConv::IConv;
+	using IConv::IConv;
 
-  /**
-   * Constructs from raw IConv.
-   *
-   * @param resource a IConvRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr IConvRef(IConvRaw resource) noexcept
-    : IConv(resource) {
-  }
+	/**
+	 * Constructs from raw IConv.
+	 *
+	 * @param resource a IConvRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr IConvRef(IConvRaw resource) noexcept
+		: IConv(resource) {
+	}
 
-  /**
-   * Constructs from IConv.
-   *
-   * @param resource a IConv.
-   *
-   * This does not takes ownership!
-   */
-  constexpr IConvRef(const IConv& resource) noexcept
-    : IConv(resource.Get()) {
-  }
+	/**
+	 * Constructs from IConv.
+	 *
+	 * @param resource a IConv.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr IConvRef(const IConv& resource) noexcept
+		: IConv(resource.Get()) {
+	}
 
-  /**
-   * Constructs from IConv.
-   *
-   * @param resource a IConv.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr IConvRef(IConv&& resource) noexcept
-    : IConv(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from IConv.
+	 *
+	 * @param resource a IConv.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr IConvRef(IConv&& resource) noexcept
+		: IConv(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr IConvRef(const IConvRef& other) noexcept
-    : IConv(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr IConvRef(const IConvRef& other) noexcept
+		: IConv(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr IConvRef(IConvRef&& other) noexcept
-    : IConv(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr IConvRef(IConvRef&& other) noexcept
+		: IConv(other.Get()) {
+	}
 
-  /// Destructor
-  ~IConvRef() { Release(); }
+	/// Destructor
+	~IConvRef() { Release(); }
 
-  /// Assignment operator.
-  IConvRef& operator=(const IConvRef& other) noexcept {
-    Release();
-    IConv::operator=(IConv(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	IConvRef& operator=(const IConvRef& other) noexcept {
+		Release();
+		IConv::operator=(IConv(other.Get()));
+		return *this;
+	}
 
-  /// Converts to IConvRaw
-  constexpr operator IConvRaw() const noexcept { return Get(); }
+	/// Converts to IConvRaw
+	constexpr operator IConvRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -6064,11 +6064,11 @@ struct IConvRef : IConv {
  * @sa IconvString
  */
 inline IConv IconvOpen(StringParam tocode, StringParam fromcode) {
-  return IConv(std::move(tocode), std::move(fromcode));
+	return IConv(std::move(tocode), std::move(fromcode));
 }
 
 inline IConv::IConv(StringParam tocode, StringParam fromcode)
-  : m_resource(SDL_iconv_open(tocode, fromcode)) {
+	: m_resource(SDL_iconv_open(tocode, fromcode)) {
 }
 
 /**
@@ -6127,31 +6127,31 @@ inline int IConv::close() { return IconvClose(Release()); }
  * @sa IconvString
  */
 inline size_t Iconv(IConvRaw cd,
-                    const char** inbuf,
-                    size_t* inbytesleft,
-                    char** outbuf,
-                    size_t* outbytesleft) {
-  return CheckError(SDL_iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft));
+										const char** inbuf,
+										size_t* inbytesleft,
+										char** outbuf,
+										size_t* outbytesleft) {
+	return CheckError(SDL_iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft));
 }
 
 inline size_t IConv::Iconv(const char** inbuf,
-                           size_t* inbytesleft,
-                           char** outbuf,
-                           size_t* outbytesleft) const {
-  return SDL::Iconv(m_resource, inbuf, inbytesleft, outbuf, outbytesleft);
+													 size_t* inbytesleft,
+													 char** outbuf,
+													 size_t* outbytesleft) const {
+	return SDL::Iconv(m_resource, inbuf, inbytesleft, outbuf, outbytesleft);
 }
 
 constexpr size_t ICONV_ERROR =
-  SDL_ICONV_ERROR; ///< Generic error. Check GetError()?
+	SDL_ICONV_ERROR; ///< Generic error. Check GetError()?
 
 constexpr size_t ICONV_E2BIG =
-  SDL_ICONV_E2BIG; ///< Output buffer was too small.
+	SDL_ICONV_E2BIG; ///< Output buffer was too small.
 
 constexpr size_t ICONV_EILSEQ =
-  SDL_ICONV_EILSEQ; ///< Invalid input sequence was encountered.
+	SDL_ICONV_EILSEQ; ///< Invalid input sequence was encountered.
 
 constexpr size_t ICONV_EINVAL =
-  SDL_ICONV_EINVAL; ///< Incomplete input sequence was encountered.
+	SDL_ICONV_EINVAL; ///< Incomplete input sequence was encountered.
 
 /**
  * Helper function to convert a string's encoding in one call.
@@ -6177,10 +6177,10 @@ constexpr size_t ICONV_EINVAL =
  * @sa IConv.Iconv
  */
 inline OwnArray<char> IconvString(StringParam tocode,
-                                   StringParam fromcode,
-                                   SourceBytes inbuf) {
-  return OwnArray<char>{
-    SDL_iconv_string(tocode, fromcode, inbuf.data(), inbuf.size_bytes())};
+																	 StringParam fromcode,
+																	 SourceBytes inbuf) {
+	return OwnArray<char>{
+		SDL_iconv_string(tocode, fromcode, inbuf.data(), inbuf.size_bytes())};
 }
 
 /**
@@ -6198,7 +6198,7 @@ inline OwnArray<char> IconvString(StringParam tocode,
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<char> IconvUtf8Locale(std::string_view S) {
-  return IconvString("", "UTF-8", S);
+	return IconvString("", "UTF-8", S);
 }
 
 /**
@@ -6216,8 +6216,8 @@ inline OwnArray<char> IconvUtf8Locale(std::string_view S) {
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<Uint16> IconvUtf8Ucs2(std::string_view S) {
-  auto data = SDL_iconv_string("UCS-2", "UTF-8", S.data(), S.size());
-  return OwnArray<Uint16>(reinterpret_cast<Uint16*>(data));
+	auto data = SDL_iconv_string("UCS-2", "UTF-8", S.data(), S.size());
+	return OwnArray<Uint16>(reinterpret_cast<Uint16*>(data));
 }
 
 /**
@@ -6235,8 +6235,8 @@ inline OwnArray<Uint16> IconvUtf8Ucs2(std::string_view S) {
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<Uint32> IconvUtf8Ucs4(std::string_view S) {
-  auto data = SDL_iconv_string("UCS-4", "UTF-8", S.data(), S.size());
-  return OwnArray<Uint32>(reinterpret_cast<Uint32*>(data));
+	auto data = SDL_iconv_string("UCS-4", "UTF-8", S.data(), S.size());
+	return OwnArray<Uint32>(reinterpret_cast<Uint32*>(data));
 }
 
 /**
@@ -6254,7 +6254,7 @@ inline OwnArray<Uint32> IconvUtf8Ucs4(std::string_view S) {
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<char> IconvWcharUtf8(std::wstring_view S) {
-  return IconvString("UTF-8", "WCHAR_T", S);
+	return IconvString("UTF-8", "WCHAR_T", S);
 }
 
 /**
@@ -6275,7 +6275,7 @@ inline OwnArray<char> IconvWcharUtf8(std::wstring_view S) {
  * @since This function is available since SDL 3.2.0.
  */
 inline bool SizeMulCheckOverflow(size_t a, size_t b, size_t* ret) {
-  return SDL_size_mul_check_overflow(a, b, ret);
+	return SDL_size_mul_check_overflow(a, b, ret);
 }
 
 /**
@@ -6296,7 +6296,7 @@ inline bool SizeMulCheckOverflow(size_t a, size_t b, size_t* ret) {
  * @since This function is available since SDL 3.2.0.
  */
 inline bool SizeAddCheckOverflow(size_t a, size_t b, size_t* ret) {
-  return SDL_size_add_check_overflow(a, b, ret);
+	return SDL_size_add_check_overflow(a, b, ret);
 }
 
 /**
@@ -6323,20 +6323,20 @@ inline void PtrDeleter::operator()(void* ptr) const { SDL_free(ptr); }
 /// Narrows to Sint32.
 template<std::integral T>
 Sint32 NarrowS32(T value) {
-  if constexpr (std::is_signed_v<T>) {
-    SDL_assert_paranoid(value >= std::numeric_limits<Sint32>::min() &&
-                        value <= std::numeric_limits<Sint32>::max());
-  } else {
-    SDL_assert_paranoid(value <= std::numeric_limits<Sint32>::max());
-  }
-  return static_cast<Sint32>(value);
+	if constexpr (std::is_signed_v<T>) {
+		SDL_assert_paranoid(value >= std::numeric_limits<Sint32>::min() &&
+												value <= std::numeric_limits<Sint32>::max());
+	} else {
+		SDL_assert_paranoid(value <= std::numeric_limits<Sint32>::max());
+	}
+	return static_cast<Sint32>(value);
 }
 
 /// Narrows to Uint32.
 template<std::integral T>
 Uint32 NarrowU32(T value) {
-  SDL_assert_paranoid(value <= std::numeric_limits<Uint32>::max());
-  return static_cast<Uint32>(value);
+	SDL_assert_paranoid(value <= std::numeric_limits<Uint32>::max());
+	return static_cast<Uint32>(value);
 }
 
 } // namespace SDL

@@ -38,22 +38,22 @@ namespace SDL {
 using PowerState = SDL_PowerState;
 
 constexpr PowerState POWERSTATE_ERROR =
-  SDL_POWERSTATE_ERROR; ///< error determining power status
+	SDL_POWERSTATE_ERROR; ///< error determining power status
 
 constexpr PowerState POWERSTATE_UNKNOWN =
-  SDL_POWERSTATE_UNKNOWN; ///< cannot determine power status
+	SDL_POWERSTATE_UNKNOWN; ///< cannot determine power status
 
 constexpr PowerState POWERSTATE_ON_BATTERY =
-  SDL_POWERSTATE_ON_BATTERY; ///< Not plugged in, running on the battery
+	SDL_POWERSTATE_ON_BATTERY; ///< Not plugged in, running on the battery
 
 constexpr PowerState POWERSTATE_NO_BATTERY =
-  SDL_POWERSTATE_NO_BATTERY; ///< Plugged in, no battery available
+	SDL_POWERSTATE_NO_BATTERY; ///< Plugged in, no battery available
 
 constexpr PowerState POWERSTATE_CHARGING =
-  SDL_POWERSTATE_CHARGING; ///< Plugged in, charging battery
+	SDL_POWERSTATE_CHARGING; ///< Plugged in, charging battery
 
 constexpr PowerState POWERSTATE_CHARGED =
-  SDL_POWERSTATE_CHARGED; ///< Plugged in, battery charged
+	SDL_POWERSTATE_CHARGED; ///< Plugged in, battery charged
 
 /// @}
 
@@ -92,7 +92,7 @@ constexpr PowerState POWERSTATE_CHARGED =
  * @since This function is available since SDL 3.2.0.
  */
 inline PowerState GetPowerInfo(int* seconds, int* percent) {
-  return SDL_GetPowerInfo(seconds, percent);
+	return SDL_GetPowerInfo(seconds, percent);
 }
 
 /// @}

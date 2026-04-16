@@ -41,45 +41,45 @@ struct GUID;
  * @since This struct is available since SDL 3.2.0.
  */
 struct GUID : GUIDRaw {
-  /**
-   * Wraps GUID.
-   *
-   * @param gUID the value to be wrapped
-   */
-  constexpr GUID(const GUIDRaw& gUID = {}) noexcept
-    : GUIDRaw(gUID) {
-  }
+	/**
+	 * Wraps GUID.
+	 *
+	 * @param gUID the value to be wrapped
+	 */
+	constexpr GUID(const GUIDRaw& gUID = {}) noexcept
+		: GUIDRaw(gUID) {
+	}
 
-  /**
-   * Convert a GUID string into a GUID structure.
-   *
-   * Performs no error checking. If this function is given a string containing
-   * an invalid GUID, the function will silently succeed, but the GUID generated
-   * will not be useful.
-   *
-   * @param pchGUID string containing an ASCII representation of a GUID.
-   * @post a GUID structure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa GUID.ToString
-   */
-  GUID(StringParam pchGUID);
+	/**
+	 * Convert a GUID string into a GUID structure.
+	 *
+	 * Performs no error checking. If this function is given a string containing
+	 * an invalid GUID, the function will silently succeed, but the GUID generated
+	 * will not be useful.
+	 *
+	 * @param pchGUID string containing an ASCII representation of a GUID.
+	 * @post a GUID structure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa GUID.ToString
+	 */
+	GUID(StringParam pchGUID);
 
-  /**
-   * Get an ASCII string representation for a given GUID.
-   *
-   * @return ASCII string.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa StringToGUID
-   */
-  std::string ToString() const;
+	/**
+	 * Get an ASCII string representation for a given GUID.
+	 *
+	 * @return ASCII string.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa StringToGUID
+	 */
+	std::string ToString() const;
 };
 
 /**
@@ -95,9 +95,9 @@ struct GUID : GUIDRaw {
  * @sa StringToGUID
  */
 inline std::string GUIDToString(const GUIDRaw& guid) {
-  std::string result(32, ' ');
-  SDL_GUIDToString(guid, result.data(), 33);
-  return result;
+	std::string result(32, ' ');
+	SDL_GUIDToString(guid, result.data(), 33);
+	return result;
 }
 
 inline std::string GUID::ToString() const { return SDL::GUIDToString(*this); }
@@ -119,11 +119,11 @@ inline std::string GUID::ToString() const { return SDL::GUIDToString(*this); }
  * @sa GUID.ToString
  */
 inline GUID StringToGUID(StringParam pchGUID) {
-  return GUID(std::move(pchGUID));
+	return GUID(std::move(pchGUID));
 }
 
 inline GUID::GUID(StringParam pchGUID)
-  : GUIDRaw(SDL_StringToGUID(pchGUID)) {
+	: GUIDRaw(SDL_StringToGUID(pchGUID)) {
 }
 
 /// @}

@@ -66,18 +66,18 @@ using FingerID = SDL_FingerID;
 using TouchDeviceType = SDL_TouchDeviceType;
 
 constexpr TouchDeviceType TOUCH_DEVICE_INVALID =
-  SDL_TOUCH_DEVICE_INVALID; ///< TOUCH_DEVICE_INVALID
+	SDL_TOUCH_DEVICE_INVALID; ///< TOUCH_DEVICE_INVALID
 
 constexpr TouchDeviceType TOUCH_DEVICE_DIRECT =
-  SDL_TOUCH_DEVICE_DIRECT; ///< touch screen with window-relative coordinates
+	SDL_TOUCH_DEVICE_DIRECT; ///< touch screen with window-relative coordinates
 
 constexpr TouchDeviceType TOUCH_DEVICE_INDIRECT_ABSOLUTE =
-  SDL_TOUCH_DEVICE_INDIRECT_ABSOLUTE; ///< trackpad with absolute device
-                                      ///< coordinates
+	SDL_TOUCH_DEVICE_INDIRECT_ABSOLUTE; ///< trackpad with absolute device
+																			///< coordinates
 
 constexpr TouchDeviceType TOUCH_DEVICE_INDIRECT_RELATIVE =
-  SDL_TOUCH_DEVICE_INDIRECT_RELATIVE; ///< trackpad with screen cursor-relative
-                                      ///< coordinates
+	SDL_TOUCH_DEVICE_INDIRECT_RELATIVE; ///< trackpad with screen cursor-relative
+																			///< coordinates
 
 /**
  * data about a single finger in a multitouch event.
@@ -91,105 +91,105 @@ constexpr TouchDeviceType TOUCH_DEVICE_INDIRECT_RELATIVE =
  * @sa GetTouchFingers
  */
 struct Finger : FingerRaw {
-  /**
-   * Wraps Finger.
-   *
-   * @param finger the value to be wrapped
-   */
-  constexpr Finger(const FingerRaw& finger = {}) noexcept
-    : FingerRaw(finger) {
-  }
+	/**
+	 * Wraps Finger.
+	 *
+	 * @param finger the value to be wrapped
+	 */
+	constexpr Finger(const FingerRaw& finger = {}) noexcept
+		: FingerRaw(finger) {
+	}
 
-  /**
-   * Constructs from its fields.
-   *
-   * @param id the value for id.
-   * @param x the value for x.
-   * @param y the value for y.
-   * @param pressure the value for pressure.
-   */
-  constexpr Finger(FingerID id, float x, float y, float pressure) noexcept
-    : FingerRaw{id, x, y, pressure} {
-  }
+	/**
+	 * Constructs from its fields.
+	 *
+	 * @param id the value for id.
+	 * @param x the value for x.
+	 * @param y the value for y.
+	 * @param pressure the value for pressure.
+	 */
+	constexpr Finger(FingerID id, float x, float y, float pressure) noexcept
+		: FingerRaw{id, x, y, pressure} {
+	}
 
-  /**
-   * Check if valid.
-   *
-   * @returns True if valid state, false otherwise.
-   */
-  constexpr explicit operator bool() const noexcept { return id != 0; }
+	/**
+	 * Check if valid.
+	 *
+	 * @returns True if valid state, false otherwise.
+	 */
+	constexpr explicit operator bool() const noexcept { return id != 0; }
 
-  /**
-   * Get the id.
-   *
-   * @returns current id value.
-   */
-  constexpr FingerID GetId() const noexcept { return id; }
+	/**
+	 * Get the id.
+	 *
+	 * @returns current id value.
+	 */
+	constexpr FingerID GetId() const noexcept { return id; }
 
-  /**
-   * Set the id.
-   *
-   * @param newId the new id value.
-   * @returns Reference to self.
-   */
-  constexpr Finger& SetId(FingerID newId) noexcept {
-    id = newId;
-    return *this;
-  }
+	/**
+	 * Set the id.
+	 *
+	 * @param newId the new id value.
+	 * @returns Reference to self.
+	 */
+	constexpr Finger& SetId(FingerID newId) noexcept {
+		id = newId;
+		return *this;
+	}
 
-  /**
-   * Get the x.
-   *
-   * @returns current x value.
-   */
-  constexpr float GetX() const noexcept { return x; }
+	/**
+	 * Get the x.
+	 *
+	 * @returns current x value.
+	 */
+	constexpr float GetX() const noexcept { return x; }
 
-  /**
-   * Set the x.
-   *
-   * @param newX the new x value.
-   * @returns Reference to self.
-   */
-  constexpr Finger& SetX(float newX) noexcept {
-    x = newX;
-    return *this;
-  }
+	/**
+	 * Set the x.
+	 *
+	 * @param newX the new x value.
+	 * @returns Reference to self.
+	 */
+	constexpr Finger& SetX(float newX) noexcept {
+		x = newX;
+		return *this;
+	}
 
-  /**
-   * Get the y.
-   *
-   * @returns current y value.
-   */
-  constexpr float GetY() const noexcept { return y; }
+	/**
+	 * Get the y.
+	 *
+	 * @returns current y value.
+	 */
+	constexpr float GetY() const noexcept { return y; }
 
-  /**
-   * Set the y.
-   *
-   * @param newY the new y value.
-   * @returns Reference to self.
-   */
-  constexpr Finger& SetY(float newY) noexcept {
-    y = newY;
-    return *this;
-  }
+	/**
+	 * Set the y.
+	 *
+	 * @param newY the new y value.
+	 * @returns Reference to self.
+	 */
+	constexpr Finger& SetY(float newY) noexcept {
+		y = newY;
+		return *this;
+	}
 
-  /**
-   * Get the pressure.
-   *
-   * @returns current pressure value.
-   */
-  constexpr float GetPressure() const noexcept { return pressure; }
+	/**
+	 * Get the pressure.
+	 *
+	 * @returns current pressure value.
+	 */
+	constexpr float GetPressure() const noexcept { return pressure; }
 
-  /**
-   * Set the pressure.
-   *
-   * @param newPressure the new pressure value.
-   * @returns Reference to self.
-   */
-  constexpr Finger& SetPressure(float newPressure) noexcept {
-    pressure = newPressure;
-    return *this;
-  }
+	/**
+	 * Set the pressure.
+	 *
+	 * @param newPressure the new pressure value.
+	 * @returns Reference to self.
+	 */
+	constexpr Finger& SetPressure(float newPressure) noexcept {
+		pressure = newPressure;
+		return *this;
+	}
 };
 
 /**
@@ -219,9 +219,9 @@ constexpr TouchID MOUSE_TOUCHID = SDL_MOUSE_TOUCHID;
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<TouchID> GetTouchDevices() {
-  int count = 0;
-  auto data = SDL_GetTouchDevices(&count);
-  return OwnArray<TouchID>(data, size_t(count));
+	int count = 0;
+	auto data = SDL_GetTouchDevices(&count);
+	return OwnArray<TouchID>(data, size_t(count));
 }
 
 /**
@@ -234,7 +234,7 @@ inline OwnArray<TouchID> GetTouchDevices() {
  * @since This function is available since SDL 3.2.0.
  */
 inline const char* GetTouchDeviceName(TouchID touchID) {
-  return CheckError(SDL_GetTouchDeviceName(touchID));
+	return CheckError(SDL_GetTouchDeviceName(touchID));
 }
 
 /**
@@ -246,7 +246,7 @@ inline const char* GetTouchDeviceName(TouchID touchID) {
  * @since This function is available since SDL 3.2.0.
  */
 inline TouchDeviceType GetTouchDeviceType(TouchID touchID) {
-  return SDL_GetTouchDeviceType(touchID);
+	return SDL_GetTouchDeviceType(touchID);
 }
 
 /**
@@ -259,9 +259,9 @@ inline TouchDeviceType GetTouchDeviceType(TouchID touchID) {
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<Finger*> GetTouchFingers(TouchID touchID) {
-  int count = 0;
-  auto data = reinterpret_cast<Finger**>(SDL_GetTouchFingers(touchID, &count));
-  return OwnArray<Finger*>(data, size_t(count));
+	int count = 0;
+	auto data = reinterpret_cast<Finger**>(SDL_GetTouchFingers(touchID, &count));
+	return OwnArray<Finger*>(data, size_t(count));
 }
 
 /// @}

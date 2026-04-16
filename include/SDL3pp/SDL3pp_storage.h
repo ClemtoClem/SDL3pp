@@ -262,479 +262,479 @@ using StorageInterface = SDL_StorageInterface;
  * @cat resource
  */
 class Storage {
-  StorageRaw m_resource = nullptr;
+	StorageRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr Storage(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr Storage(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw Storage.
-   *
-   * @param resource a StorageRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Storage(StorageRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Storage.
+	 *
+	 * @param resource a StorageRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Storage(StorageRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Storage(const Storage& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Storage(const Storage& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Storage(Storage&& other) noexcept
-    : Storage(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Storage(Storage&& other) noexcept
+		: Storage(other.Release()) {
+	}
 
-  constexpr Storage(const StorageRef& other) = delete;
+	constexpr Storage(const StorageRef& other) = delete;
 
-  constexpr Storage(StorageRef&& other) = delete;
+	constexpr Storage(StorageRef&& other) = delete;
 
-  /**
-   * Opens up a read-only container for the application's filesystem.
-   *
-   * By default, OpenTitleStorage uses the generic storage implementation. When
-   * the path override is not provided, the generic implementation will use the
-   * output of GetBasePath as the base path.
-   *
-   * @param override a path to override the backend's default title root.
-   * @param props a property list that may contain backend-specific information.
-   * @post a title storage container on success.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Close
-   * @sa Storage.GetFileSize
-   * @sa OpenUserStorage
-   * @sa Storage.ReadFile
-   */
-  Storage(StringParam override, PropertiesRef props);
+	/**
+	 * Opens up a read-only container for the application's filesystem.
+	 *
+	 * By default, OpenTitleStorage uses the generic storage implementation. When
+	 * the path override is not provided, the generic implementation will use the
+	 * output of GetBasePath as the base path.
+	 *
+	 * @param override a path to override the backend's default title root.
+	 * @param props a property list that may contain backend-specific information.
+	 * @post a title storage container on success.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Close
+	 * @sa Storage.GetFileSize
+	 * @sa OpenUserStorage
+	 * @sa Storage.ReadFile
+	 */
+	Storage(StringParam override, PropertiesRef props);
 
-  /**
-   * Opens up a container for a user's unique read/write filesystem.
-   *
-   * While title storage can generally be kept open throughout runtime, user
-   * storage should only be opened when the client is ready to read/write files.
-   * This allows the backend to properly batch file operations and flush them
-   * when the container has been closed; ensuring safe and optimal save I/O.
-   *
-   * @param org the name of your organization.
-   * @param app the name of your application.
-   * @param props a property list that may contain backend-specific information.
-   * @post a user storage container on success.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Close
-   * @sa Storage.GetFileSize
-   * @sa Storage.GetSpaceRemaining
-   * @sa OpenTitleStorage
-   * @sa Storage.ReadFile
-   * @sa Storage.Ready
-   * @sa Storage.WriteFile
-   */
-  Storage(StringParam org, StringParam app, PropertiesRef props);
+	/**
+	 * Opens up a container for a user's unique read/write filesystem.
+	 *
+	 * While title storage can generally be kept open throughout runtime, user
+	 * storage should only be opened when the client is ready to read/write files.
+	 * This allows the backend to properly batch file operations and flush them
+	 * when the container has been closed; ensuring safe and optimal save I/O.
+	 *
+	 * @param org the name of your organization.
+	 * @param app the name of your application.
+	 * @param props a property list that may contain backend-specific information.
+	 * @post a user storage container on success.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Close
+	 * @sa Storage.GetFileSize
+	 * @sa Storage.GetSpaceRemaining
+	 * @sa OpenTitleStorage
+	 * @sa Storage.ReadFile
+	 * @sa Storage.Ready
+	 * @sa Storage.WriteFile
+	 */
+	Storage(StringParam org, StringParam app, PropertiesRef props);
 
-  /**
-   * Opens up a container for local filesystem storage.
-   *
-   * This is provided for development and tools. Portable applications should
-   * use OpenTitleStorage() for access to game data and OpenUserStorage() for
-   * access to user data.
-   *
-   * @param path the base path prepended to all storage paths, or nullptr for no
-   *             base path.
-   * @post a filesystem storage container on success.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Close
-   * @sa Storage.GetFileSize
-   * @sa Storage.GetSpaceRemaining
-   * @sa OpenTitleStorage
-   * @sa OpenUserStorage
-   * @sa Storage.ReadFile
-   * @sa Storage.WriteFile
-   */
-  Storage(StringParam path);
+	/**
+	 * Opens up a container for local filesystem storage.
+	 *
+	 * This is provided for development and tools. Portable applications should
+	 * use OpenTitleStorage() for access to game data and OpenUserStorage() for
+	 * access to user data.
+	 *
+	 * @param path the base path prepended to all storage paths, or nullptr for no
+	 *             base path.
+	 * @post a filesystem storage container on success.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Close
+	 * @sa Storage.GetFileSize
+	 * @sa Storage.GetSpaceRemaining
+	 * @sa OpenTitleStorage
+	 * @sa OpenUserStorage
+	 * @sa Storage.ReadFile
+	 * @sa Storage.WriteFile
+	 */
+	Storage(StringParam path);
 
-  /**
-   * Opens up a container using a client-provided storage interface.
-   *
-   * Applications do not need to use this function unless they are providing
-   * their own Storage implementation. If you just need an Storage, you should
-   * use the built-in implementations in SDL, like OpenTitleStorage() or
-   * OpenUserStorage().
-   *
-   * This function makes a copy of `iface` and the caller does not need to keep
-   * it around after this call.
-   *
-   * @param iface the interface that implements this storage, initialized using
-   *              InitInterface().
-   * @param userdata the pointer that will be passed to the interface functions.
-   * @post a storage container on success.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Close
-   * @sa Storage.GetFileSize
-   * @sa Storage.GetSpaceRemaining
-   * @sa InitInterface
-   * @sa Storage.ReadFile
-   * @sa Storage.Ready
-   * @sa Storage.WriteFile
-   */
-  Storage(const StorageInterface& iface, void* userdata);
+	/**
+	 * Opens up a container using a client-provided storage interface.
+	 *
+	 * Applications do not need to use this function unless they are providing
+	 * their own Storage implementation. If you just need an Storage, you should
+	 * use the built-in implementations in SDL, like OpenTitleStorage() or
+	 * OpenUserStorage().
+	 *
+	 * This function makes a copy of `iface` and the caller does not need to keep
+	 * it around after this call.
+	 *
+	 * @param iface the interface that implements this storage, initialized using
+	 *              InitInterface().
+	 * @param userdata the pointer that will be passed to the interface functions.
+	 * @post a storage container on success.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Close
+	 * @sa Storage.GetFileSize
+	 * @sa Storage.GetSpaceRemaining
+	 * @sa InitInterface
+	 * @sa Storage.ReadFile
+	 * @sa Storage.Ready
+	 * @sa Storage.WriteFile
+	 */
+	Storage(const StorageInterface& iface, void* userdata);
 
-  /// Destructor
-  ~Storage() { CheckError(SDL_CloseStorage(m_resource)); }
+	/// Destructor
+	~Storage() { CheckError(SDL_CloseStorage(m_resource)); }
 
-  /// Assignment operator.
-  constexpr Storage& operator=(Storage&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Storage& operator=(Storage&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Storage& operator=(const Storage& other) = delete;
+	/// Assignment operator.
+	Storage& operator=(const Storage& other) = delete;
 
-  /// Retrieves underlying StorageRaw.
-  constexpr StorageRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying StorageRaw.
+	constexpr StorageRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying StorageRaw and clear this.
-  constexpr StorageRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying StorageRaw and clear this.
+	constexpr StorageRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Storage& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Storage& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Closes and frees a storage container.
-   *
-   * @returns true if the container was freed with no errors, false otherwise;
-   *          call GetError() for more information. Even if the function returns
-   *          an error, the container data will be freed; the error is only for
-   *          informational purposes.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa OpenFileStorage
-   * @sa OpenStorage
-   * @sa OpenTitleStorage
-   * @sa OpenUserStorage
-   */
-  bool Close();
+	/**
+	 * Closes and frees a storage container.
+	 *
+	 * @returns true if the container was freed with no errors, false otherwise;
+	 *          call GetError() for more information. Even if the function returns
+	 *          an error, the container data will be freed; the error is only for
+	 *          informational purposes.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa OpenFileStorage
+	 * @sa OpenStorage
+	 * @sa OpenTitleStorage
+	 * @sa OpenUserStorage
+	 */
+	bool Close();
 
-  /**
-   * Checks if the storage container is ready to use.
-   *
-   * This function should be called in regular intervals until it returns true -
-   * however, it is not recommended to spinwait on this call, as the backend may
-   * depend on a synchronous message loop. You might instead poll this in your
-   * game's main loop while processing events and drawing a loading screen.
-   *
-   * @returns true if the container is ready, false otherwise.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  bool Ready();
+	/**
+	 * Checks if the storage container is ready to use.
+	 *
+	 * This function should be called in regular intervals until it returns true -
+	 * however, it is not recommended to spinwait on this call, as the backend may
+	 * depend on a synchronous message loop. You might instead poll this in your
+	 * game's main loop while processing events and drawing a loading screen.
+	 *
+	 * @returns true if the container is ready, false otherwise.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	bool Ready();
 
-  /**
-   * Query the size of a file within a storage container.
-   *
-   * @param path the relative path of the file to query.
-   * @returns the file's length on success or 0 on failure; call
-   *          GetError() for more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.ReadFile
-   * @sa Storage.Ready
-   */
-  std::optional<Uint64> GetFileSize(StringParam path);
+	/**
+	 * Query the size of a file within a storage container.
+	 *
+	 * @param path the relative path of the file to query.
+	 * @returns the file's length on success or 0 on failure; call
+	 *          GetError() for more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.ReadFile
+	 * @sa Storage.Ready
+	 */
+	std::optional<Uint64> GetFileSize(StringParam path);
 
-  /**
-   * Synchronously read a file from a storage container into a client-provided
-   * buffer.
-   *
-   * The value of `length` must match the length of the file exactly; call
-   * Storage.GetFileSize() to Get this value. This behavior may be relaxed in a
-   * future Release.
-   *
-   * @param path the relative path of the file to read.
-   * @param destination a client-provided buffer to read the file into.
-   * @returns true if the file was read or false on failure; call GetError() for
-   *          more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.GetFileSize
-   * @sa Storage.Ready
-   * @sa Storage.WriteFile
-   */
-  bool ReadFile(StringParam path, TargetBytes destination);
+	/**
+	 * Synchronously read a file from a storage container into a client-provided
+	 * buffer.
+	 *
+	 * The value of `length` must match the length of the file exactly; call
+	 * Storage.GetFileSize() to Get this value. This behavior may be relaxed in a
+	 * future Release.
+	 *
+	 * @param path the relative path of the file to read.
+	 * @param destination a client-provided buffer to read the file into.
+	 * @returns true if the file was read or false on failure; call GetError() for
+	 *          more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.GetFileSize
+	 * @sa Storage.Ready
+	 * @sa Storage.WriteFile
+	 */
+	bool ReadFile(StringParam path, TargetBytes destination);
 
-  /**
-   * Synchronously read a file from a storage container into a client-provided
-   * buffer.
-   *
-   * The value of `length` must match the length of the file exactly; call
-   * Storage.GetFileSize() to Get this value. This behavior may be relaxed in a
-   * future Release.
-   *
-   * @param path the relative path of the file to read.
-   * @returns true if the file was read or false on failure; call GetError() for
-   *          more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.GetFileSize
-   * @sa Storage.Ready
-   * @sa Storage.WriteFile
-   */
-  std::string ReadFile(StringParam path);
+	/**
+	 * Synchronously read a file from a storage container into a client-provided
+	 * buffer.
+	 *
+	 * The value of `length` must match the length of the file exactly; call
+	 * Storage.GetFileSize() to Get this value. This behavior may be relaxed in a
+	 * future Release.
+	 *
+	 * @param path the relative path of the file to read.
+	 * @returns true if the file was read or false on failure; call GetError() for
+	 *          more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.GetFileSize
+	 * @sa Storage.Ready
+	 * @sa Storage.WriteFile
+	 */
+	std::string ReadFile(StringParam path);
 
-  /**
-   * Synchronously read a file from a storage container into a client-provided
-   * buffer.
-   *
-   * The value of `length` must match the length of the file exactly; call
-   * Storage.GetFileSize() to Get this value. This behavior may be relaxed
-   * in a future Release.
-   *
-   * @param path the relative path of the file to read.
-   * @returns the content if the file was read or empty string on failure; call
-   *          GetError() for more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.GetFileSize
-   * @sa Storage.Ready
-   * @sa Storage.WriteFile
-   */
-  template<class T>
-  std::vector<T> ReadFileAs(StringParam path);
+	/**
+	 * Synchronously read a file from a storage container into a client-provided
+	 * buffer.
+	 *
+	 * The value of `length` must match the length of the file exactly; call
+	 * Storage.GetFileSize() to Get this value. This behavior may be relaxed
+	 * in a future Release.
+	 *
+	 * @param path the relative path of the file to read.
+	 * @returns the content if the file was read or empty string on failure; call
+	 *          GetError() for more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.GetFileSize
+	 * @sa Storage.Ready
+	 * @sa Storage.WriteFile
+	 */
+	template<class T>
+	std::vector<T> ReadFileAs(StringParam path);
 
-  /**
-   * Synchronously write a file from client memory into a storage container.
-   *
-   * @param path the relative path of the file to write.
-   * @param source a client-provided buffer to write from.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.GetSpaceRemaining
-   * @sa Storage.ReadFile
-   * @sa Storage.Ready
-   */
-  void WriteFile(StringParam path, SourceBytes source);
+	/**
+	 * Synchronously write a file from client memory into a storage container.
+	 *
+	 * @param path the relative path of the file to write.
+	 * @param source a client-provided buffer to write from.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.GetSpaceRemaining
+	 * @sa Storage.ReadFile
+	 * @sa Storage.Ready
+	 */
+	void WriteFile(StringParam path, SourceBytes source);
 
-  /**
-   * Create a directory in a writable storage container.
-   *
-   * @param path the path of the directory to create.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   */
-  void CreateDirectory(StringParam path);
+	/**
+	 * Create a directory in a writable storage container.
+	 *
+	 * @param path the path of the directory to create.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 */
+	void CreateDirectory(StringParam path);
 
-  /**
-   * Enumerate a directory in a storage container through a callback function.
-   *
-   * This function provides every directory entry through an app-provided
-   * callback, called once for each directory entry, until all results have been
-   * provided or the callback returns either ENUM_SUCCESS or ENUM_FAILURE.
-   *
-   * This will return false if there was a system problem in general, or if a
-   * callback returns ENUM_FAILURE. A successful return means a callback
-   * returned ENUM_SUCCESS to halt enumeration, or all directory entries were
-   * enumerated.
-   *
-   * If `path` is nullptr, this is treated as a request to enumerate the root of
-   * the storage container's tree. An empty string also works for this.
-   *
-   * @param path the path of the directory to enumerate, or nullptr for the
-   *             root.
-   * @param callback a function that is called for each entry in the directory.
-   * @param userdata a pointer that is passed to `callback`.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   */
-  void EnumerateDirectory(StringParam path,
-                          EnumerateDirectoryCallback callback,
-                          void* userdata);
+	/**
+	 * Enumerate a directory in a storage container through a callback function.
+	 *
+	 * This function provides every directory entry through an app-provided
+	 * callback, called once for each directory entry, until all results have been
+	 * provided or the callback returns either ENUM_SUCCESS or ENUM_FAILURE.
+	 *
+	 * This will return false if there was a system problem in general, or if a
+	 * callback returns ENUM_FAILURE. A successful return means a callback
+	 * returned ENUM_SUCCESS to halt enumeration, or all directory entries were
+	 * enumerated.
+	 *
+	 * If `path` is nullptr, this is treated as a request to enumerate the root of
+	 * the storage container's tree. An empty string also works for this.
+	 *
+	 * @param path the path of the directory to enumerate, or nullptr for the
+	 *             root.
+	 * @param callback a function that is called for each entry in the directory.
+	 * @param userdata a pointer that is passed to `callback`.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 */
+	void EnumerateDirectory(StringParam path,
+													EnumerateDirectoryCallback callback,
+													void* userdata);
 
-  /**
-   * Enumerate a directory in a storage container through a callback function.
-   *
-   * This function provides every directory entry through an app-provided
-   * callback, called once for each directory entry, until all results have been
-   * provided or the callback returns either ENUM_SUCCESS or ENUM_FAILURE.
-   *
-   * This will return false if there was a system problem in general, or if a
-   * callback returns ENUM_FAILURE. A successful return means a callback
-   * returned ENUM_SUCCESS to halt enumeration, or all directory entries were
-   * enumerated.
-   *
-   * If `path` is nullptr, this is treated as a request to enumerate the root of
-   * the storage container's tree. An empty string also works for this.
-   *
-   * @param path the path of the directory to enumerate, or nullptr for the
-   *             root.
-   * @returns all the directory contents.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   */
-  std::vector<Path> EnumerateDirectory(StringParam path);
+	/**
+	 * Enumerate a directory in a storage container through a callback function.
+	 *
+	 * This function provides every directory entry through an app-provided
+	 * callback, called once for each directory entry, until all results have been
+	 * provided or the callback returns either ENUM_SUCCESS or ENUM_FAILURE.
+	 *
+	 * This will return false if there was a system problem in general, or if a
+	 * callback returns ENUM_FAILURE. A successful return means a callback
+	 * returned ENUM_SUCCESS to halt enumeration, or all directory entries were
+	 * enumerated.
+	 *
+	 * If `path` is nullptr, this is treated as a request to enumerate the root of
+	 * the storage container's tree. An empty string also works for this.
+	 *
+	 * @param path the path of the directory to enumerate, or nullptr for the
+	 *             root.
+	 * @returns all the directory contents.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 */
+	std::vector<Path> EnumerateDirectory(StringParam path);
 
-  /**
-   * Enumerate a directory in a storage container through a callback function.
-   *
-   * This function provides every directory entry through an app-provided
-   * callback, called once for each directory entry, until all results have been
-   * provided or the callback returns either ENUM_SUCCESS or ENUM_FAILURE.
-   *
-   * This will return false if there was a system problem in general, or if a
-   * callback returns ENUM_FAILURE. A successful return means a callback
-   * returned ENUM_SUCCESS to halt enumeration, or all directory entries were
-   * enumerated.
-   *
-   * If `path` is nullptr, this is treated as a request to enumerate the root of
-   * the storage container's tree. An empty string also works for this.
-   *
-   * @param path the path of the directory to enumerate, or nullptr for the
-   *             root.
-   * @param callback a function that is called for each entry in the directory.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   */
-  void EnumerateDirectory(StringParam path, EnumerateDirectoryCB callback);
+	/**
+	 * Enumerate a directory in a storage container through a callback function.
+	 *
+	 * This function provides every directory entry through an app-provided
+	 * callback, called once for each directory entry, until all results have been
+	 * provided or the callback returns either ENUM_SUCCESS or ENUM_FAILURE.
+	 *
+	 * This will return false if there was a system problem in general, or if a
+	 * callback returns ENUM_FAILURE. A successful return means a callback
+	 * returned ENUM_SUCCESS to halt enumeration, or all directory entries were
+	 * enumerated.
+	 *
+	 * If `path` is nullptr, this is treated as a request to enumerate the root of
+	 * the storage container's tree. An empty string also works for this.
+	 *
+	 * @param path the path of the directory to enumerate, or nullptr for the
+	 *             root.
+	 * @param callback a function that is called for each entry in the directory.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 */
+	void EnumerateDirectory(StringParam path, EnumerateDirectoryCB callback);
 
-  /**
-   * Remove a file or an empty directory in a writable storage container.
-   *
-   * @param path the path of the directory to enumerate.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   */
-  void RemovePath(StringParam path);
+	/**
+	 * Remove a file or an empty directory in a writable storage container.
+	 *
+	 * @param path the path of the directory to enumerate.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 */
+	void RemovePath(StringParam path);
 
-  /**
-   * Rename a file or directory in a writable storage container.
-   *
-   * @param oldpath the old path.
-   * @param newpath the new path.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   */
-  void RenamePath(StringParam oldpath, StringParam newpath);
+	/**
+	 * Rename a file or directory in a writable storage container.
+	 *
+	 * @param oldpath the old path.
+	 * @param newpath the new path.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 */
+	void RenamePath(StringParam oldpath, StringParam newpath);
 
-  /**
-   * Copy a file in a writable storage container.
-   *
-   * @param oldpath the old path.
-   * @param newpath the new path.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   */
-  void CopyFile(StringParam oldpath, StringParam newpath);
+	/**
+	 * Copy a file in a writable storage container.
+	 *
+	 * @param oldpath the old path.
+	 * @param newpath the new path.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 */
+	void CopyFile(StringParam oldpath, StringParam newpath);
 
-  /**
-   * Get information about a filesystem path in a storage container.
-   *
-   * @param path the path to query.
-   * @returns the info on success or false if the file doesn't exist, or another
-   *          failure; call GetError() for more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   */
-  PathInfo GetPathInfo(StringParam path);
+	/**
+	 * Get information about a filesystem path in a storage container.
+	 *
+	 * @param path the path to query.
+	 * @returns the info on success or false if the file doesn't exist, or another
+	 *          failure; call GetError() for more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 */
+	PathInfo GetPathInfo(StringParam path);
 
-  /**
-   * Queries the remaining space in a storage container.
-   *
-   * @returns the amount of remaining space, in bytes.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Storage.Ready
-   * @sa Storage.WriteFile
-   */
-  Uint64 GetSpaceRemaining();
+	/**
+	 * Queries the remaining space in a storage container.
+	 *
+	 * @returns the amount of remaining space, in bytes.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Storage.Ready
+	 * @sa Storage.WriteFile
+	 */
+	Uint64 GetSpaceRemaining();
 
-  /**
-   * Enumerate a directory tree, filtered by pattern, and return a list.
-   *
-   * Files are filtered out if they don't match the string in `pattern`, which
-   * may contain wildcard characters `*` (match everything) and `?` (match one
-   * character). If pattern is nullptr, no filtering is done and all results are
-   * returned. Subdirectories are permitted, and are specified with a path
-   * separator of '/'. Wildcard characters `*` and `?` never match a path
-   * separator.
-   *
-   * `flags` may be set to GLOB_CASEINSENSITIVE to make the pattern matching
-   * case-insensitive.
-   *
-   * The returned array is always nullptr-terminated, for your iterating
-   * convenience, but if `count` is non-nullptr, on return it will contain the
-   * number of items in the array, not counting the nullptr terminator.
-   *
-   * If `path` is nullptr, this is treated as a request to enumerate the root of
-   * the storage container's tree. An empty string also works for this.
-   *
-   * @param path the path of the directory to enumerate, or nullptr for the
-   *             root.
-   * @param pattern the pattern that files in the directory must match. Can be
-   *                nullptr.
-   * @param flags `SDL_GLOB_*` bitflags that affect this search.
-   * @returns an array of strings on success.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread, assuming
-   *               the `storage` object is thread-safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  OwnArray<char*> GlobDirectory(StringParam path,
-                                StringParam pattern,
-                                GlobFlags flags);
+	/**
+	 * Enumerate a directory tree, filtered by pattern, and return a list.
+	 *
+	 * Files are filtered out if they don't match the string in `pattern`, which
+	 * may contain wildcard characters `*` (match everything) and `?` (match one
+	 * character). If pattern is nullptr, no filtering is done and all results are
+	 * returned. Subdirectories are permitted, and are specified with a path
+	 * separator of '/'. Wildcard characters `*` and `?` never match a path
+	 * separator.
+	 *
+	 * `flags` may be set to GLOB_CASEINSENSITIVE to make the pattern matching
+	 * case-insensitive.
+	 *
+	 * The returned array is always nullptr-terminated, for your iterating
+	 * convenience, but if `count` is non-nullptr, on return it will contain the
+	 * number of items in the array, not counting the nullptr terminator.
+	 *
+	 * If `path` is nullptr, this is treated as a request to enumerate the root of
+	 * the storage container's tree. An empty string also works for this.
+	 *
+	 * @param path the path of the directory to enumerate, or nullptr for the
+	 *             root.
+	 * @param pattern the pattern that files in the directory must match. Can be
+	 *                nullptr.
+	 * @param flags `SDL_GLOB_*` bitflags that affect this search.
+	 * @returns an array of strings on success.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread, assuming
+	 *               the `storage` object is thread-safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	OwnArray<char*> GlobDirectory(StringParam path,
+																StringParam pattern,
+																GlobFlags flags);
 };
 
 /**
@@ -743,63 +743,63 @@ public:
  * This does not take ownership!
  */
 struct StorageRef : Storage {
-  using Storage::Storage;
+	using Storage::Storage;
 
-  /**
-   * Constructs from raw Storage.
-   *
-   * @param resource a StorageRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr StorageRef(StorageRaw resource) noexcept
-    : Storage(resource) {
-  }
+	/**
+	 * Constructs from raw Storage.
+	 *
+	 * @param resource a StorageRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr StorageRef(StorageRaw resource) noexcept
+		: Storage(resource) {
+	}
 
-  /**
-   * Constructs from Storage.
-   *
-   * @param resource a Storage.
-   *
-   * This does not takes ownership!
-   */
-  constexpr StorageRef(const Storage& resource) noexcept
-    : Storage(resource.Get()) {
-  }
+	/**
+	 * Constructs from Storage.
+	 *
+	 * @param resource a Storage.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr StorageRef(const Storage& resource) noexcept
+		: Storage(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Storage.
-   *
-   * @param resource a Storage.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr StorageRef(Storage&& resource) noexcept
-    : Storage(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Storage.
+	 *
+	 * @param resource a Storage.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr StorageRef(Storage&& resource) noexcept
+		: Storage(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr StorageRef(const StorageRef& other) noexcept
-    : Storage(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr StorageRef(const StorageRef& other) noexcept
+		: Storage(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr StorageRef(StorageRef&& other) noexcept
-    : Storage(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr StorageRef(StorageRef&& other) noexcept
+		: Storage(other.Get()) {
+	}
 
-  /// Destructor
-  ~StorageRef() { Release(); }
+	/// Destructor
+	~StorageRef() { Release(); }
 
-  /// Assignment operator.
-  StorageRef& operator=(const StorageRef& other) noexcept {
-    Release();
-    Storage::operator=(Storage(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	StorageRef& operator=(const StorageRef& other) noexcept {
+		Release();
+		Storage::operator=(Storage(other.Get()));
+		return *this;
+	}
 
-  /// Converts to StorageRaw
-  constexpr operator StorageRaw() const noexcept { return Get(); }
+	/// Converts to StorageRaw
+	constexpr operator StorageRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -822,23 +822,23 @@ struct StorageRef : Storage {
  * @sa Storage.ReadFile
  */
 inline Storage OpenTitleStorage(StringParam override, PropertiesRef props) {
-  return Storage(std::move(override), props);
+	return Storage(std::move(override), props);
 }
 
 inline Storage::Storage(StringParam override, PropertiesRef props)
-  : m_resource(CheckError(SDL_OpenTitleStorage(override, props))) {
+	: m_resource(CheckError(SDL_OpenTitleStorage(override, props))) {
 }
 
 inline Storage::Storage(StringParam org, StringParam app, PropertiesRef props)
-  : m_resource(CheckError(SDL_OpenUserStorage(org, app, props))) {
+	: m_resource(CheckError(SDL_OpenUserStorage(org, app, props))) {
 }
 
 inline Storage::Storage(StringParam path)
-  : m_resource(CheckError(SDL_OpenFileStorage(path))) {
+	: m_resource(CheckError(SDL_OpenFileStorage(path))) {
 }
 
 inline Storage::Storage(const StorageInterface& iface, void* userdata)
-  : m_resource(CheckError(SDL_OpenStorage(&iface, userdata))) {
+	: m_resource(CheckError(SDL_OpenStorage(&iface, userdata))) {
 }
 
 /**
@@ -866,9 +866,9 @@ inline Storage::Storage(const StorageInterface& iface, void* userdata)
  * @sa Storage.WriteFile
  */
 inline Storage OpenUserStorage(StringParam org,
-                               StringParam app,
-                               PropertiesRef props) {
-  return Storage(std::move(org), std::move(app), props);
+															 StringParam app,
+															 PropertiesRef props) {
+	return Storage(std::move(org), std::move(app), props);
 }
 
 /**
@@ -894,7 +894,7 @@ inline Storage OpenUserStorage(StringParam org,
  * @sa Storage.WriteFile
  */
 inline Storage OpenFileStorage(StringParam path) {
-  return Storage(std::move(path));
+	return Storage(std::move(path));
 }
 
 /**
@@ -925,7 +925,7 @@ inline Storage OpenFileStorage(StringParam path) {
  * @sa Storage.WriteFile
  */
 inline Storage OpenStorage(const StorageInterface& iface, void* userdata) {
-  return Storage(iface, userdata);
+	return Storage(iface, userdata);
 }
 
 /**
@@ -945,7 +945,7 @@ inline Storage OpenStorage(const StorageInterface& iface, void* userdata) {
  * @sa OpenUserStorage
  */
 inline bool CloseStorage(StorageRaw storage) {
-  return SDL_CloseStorage(storage);
+	return SDL_CloseStorage(storage);
 }
 
 inline bool Storage::Close() { return CloseStorage(Release()); }
@@ -964,7 +964,7 @@ inline bool Storage::Close() { return CloseStorage(Release()); }
  * @since This function is available since SDL 3.2.0.
  */
 inline bool StorageReady(StorageRef storage) {
-  return SDL_StorageReady(storage);
+	return SDL_StorageReady(storage);
 }
 
 inline bool Storage::Ready() { return SDL::StorageReady(m_resource); }
@@ -983,15 +983,15 @@ inline bool Storage::Ready() { return SDL::StorageReady(m_resource); }
  * @sa Storage.Ready
  */
 inline std::optional<Uint64> GetStorageFileSize(StorageRef storage,
-                                                StringParam path) {
-  if (Uint64 length; SDL_GetStorageFileSize(storage, path, &length)) {
-    return length;
-  }
-  return {};
+																								StringParam path) {
+	if (Uint64 length; SDL_GetStorageFileSize(storage, path, &length)) {
+		return length;
+	}
+	return {};
 }
 
 inline std::optional<Uint64> Storage::GetFileSize(StringParam path) {
-  return SDL::GetStorageFileSize(m_resource, std::move(path));
+	return SDL::GetStorageFileSize(m_resource, std::move(path));
 }
 
 /**
@@ -1015,10 +1015,10 @@ inline std::optional<Uint64> Storage::GetFileSize(StringParam path) {
  * @sa Storage.WriteFile
  */
 inline bool ReadStorageFile(StorageRef storage,
-                            StringParam path,
-                            TargetBytes destination) {
-  return SDL_ReadStorageFile(
-    storage, path, destination.data(), destination.size_bytes());
+														StringParam path,
+														TargetBytes destination) {
+	return SDL_ReadStorageFile(
+		storage, path, destination.data(), destination.size_bytes());
 }
 
 /**
@@ -1037,20 +1037,20 @@ inline bool ReadStorageFile(StorageRef storage,
  * @sa Storage.WriteFile
  */
 inline std::string ReadStorageFile(StorageRef storage, StringParam path) {
-  auto sz = GetStorageFileSize(storage, path.c_str());
-  if (!sz || *sz == 0) return {};
-  std::string buffer(*sz, 0);
-  CheckError(ReadStorageFile(storage, std::move(path), buffer));
-  return buffer;
+	auto sz = GetStorageFileSize(storage, path.c_str());
+	if (!sz || *sz == 0) return {};
+	std::string buffer(*sz, 0);
+	CheckError(ReadStorageFile(storage, std::move(path), buffer));
+	return buffer;
 }
 
 inline bool Storage::ReadFile(StringParam path, TargetBytes destination) {
-  return SDL::ReadStorageFile(
-    m_resource, std::move(path), std::move(destination));
+	return SDL::ReadStorageFile(
+		m_resource, std::move(path), std::move(destination));
 }
 
 inline std::string Storage::ReadFile(StringParam path) {
-  return SDL::ReadStorageFile(m_resource, std::move(path));
+	return SDL::ReadStorageFile(m_resource, std::move(path));
 }
 
 /**
@@ -1070,16 +1070,16 @@ inline std::string Storage::ReadFile(StringParam path) {
  */
 template<class T>
 inline std::vector<T> ReadStorageFileAs(StorageRef storage, StringParam path) {
-  auto sz = GetStorageFileSize(storage, path.c_str());
-  if (!sz || *sz == 0) return {};
-  std::vector<T> buffer(*sz / sizeof(T) + (*sz % sizeof(T) ? 1 : 0), 0);
-  CheckError(ReadFile(std::move(path), {buffer.data(), *sz}));
-  return buffer;
+	auto sz = GetStorageFileSize(storage, path.c_str());
+	if (!sz || *sz == 0) return {};
+	std::vector<T> buffer(*sz / sizeof(T) + (*sz % sizeof(T) ? 1 : 0), 0);
+	CheckError(ReadFile(std::move(path), {buffer.data(), *sz}));
+	return buffer;
 }
 
 template<class T>
 inline std::vector<T> Storage::ReadFileAs(StringParam path) {
-  return SDL::ReadStorageFileAs<T>(m_resource, std::move(path));
+	return SDL::ReadStorageFileAs<T>(m_resource, std::move(path));
 }
 
 /**
@@ -1097,14 +1097,14 @@ inline std::vector<T> Storage::ReadFileAs(StringParam path) {
  * @sa Storage.Ready
  */
 inline void WriteStorageFile(StorageRef storage,
-                             StringParam path,
-                             SourceBytes source) {
-  CheckError(
-    SDL_WriteStorageFile(storage, path, source.data(), source.size_bytes()));
+														 StringParam path,
+														 SourceBytes source) {
+	CheckError(
+		SDL_WriteStorageFile(storage, path, source.data(), source.size_bytes()));
 }
 
 inline void Storage::WriteFile(StringParam path, SourceBytes source) {
-  SDL::WriteStorageFile(m_resource, std::move(path), std::move(source));
+	SDL::WriteStorageFile(m_resource, std::move(path), std::move(source));
 }
 
 /**
@@ -1119,11 +1119,11 @@ inline void Storage::WriteFile(StringParam path, SourceBytes source) {
  * @sa Storage.Ready
  */
 inline void CreateStorageDirectory(StorageRef storage, StringParam path) {
-  CheckError(SDL_CreateStorageDirectory(storage, path));
+	CheckError(SDL_CreateStorageDirectory(storage, path));
 }
 
 inline void Storage::CreateDirectory(StringParam path) {
-  SDL::CreateStorageDirectory(m_resource, std::move(path));
+	SDL::CreateStorageDirectory(m_resource, std::move(path));
 }
 
 /**
@@ -1151,10 +1151,10 @@ inline void Storage::CreateDirectory(StringParam path) {
  * @sa Storage.Ready
  */
 inline void EnumerateStorageDirectory(StorageRef storage,
-                                      StringParam path,
-                                      EnumerateDirectoryCallback callback,
-                                      void* userdata) {
-  CheckError(SDL_EnumerateStorageDirectory(storage, path, callback, userdata));
+																			StringParam path,
+																			EnumerateDirectoryCallback callback,
+																			void* userdata) {
+	CheckError(SDL_EnumerateStorageDirectory(storage, path, callback, userdata));
 }
 
 /**
@@ -1181,16 +1181,16 @@ inline void EnumerateStorageDirectory(StorageRef storage,
  * @sa Storage.Ready
  */
 inline void EnumerateStorageDirectory(StorageRef storage,
-                                      StringParam path,
-                                      EnumerateDirectoryCB callback) {
-  EnumerateStorageDirectory(
-    storage,
-    std::move(path),
-    [](void* userdata, const char* dirname, const char* fname) {
-      auto& cb = *static_cast<EnumerateDirectoryCB*>(userdata);
-      return cb(dirname, fname);
-    },
-    &callback);
+																			StringParam path,
+																			EnumerateDirectoryCB callback) {
+	EnumerateStorageDirectory(
+		storage,
+		std::move(path),
+		[](void* userdata, const char* dirname, const char* fname) {
+			auto& cb = *static_cast<EnumerateDirectoryCB*>(userdata);
+			return cb(dirname, fname);
+		},
+		&callback);
 }
 
 /**
@@ -1217,30 +1217,30 @@ inline void EnumerateStorageDirectory(StorageRef storage,
  * @sa Storage.Ready
  */
 inline std::vector<Path> EnumerateStorageDirectory(StorageRef storage,
-                                                   StringParam path) {
-  std::vector<Path> r;
-  EnumerateStorageDirectory(
-    storage, std::move(path), [&](const char*, const char* fname) {
-      r.emplace_back(fname);
-      return ENUM_CONTINUE;
-    });
-  return r;
+																									 StringParam path) {
+	std::vector<Path> r;
+	EnumerateStorageDirectory(
+		storage, std::move(path), [&](const char*, const char* fname) {
+			r.emplace_back(fname);
+			return ENUM_CONTINUE;
+		});
+	return r;
 }
 
 inline void Storage::EnumerateDirectory(StringParam path,
-                                        EnumerateDirectoryCallback callback,
-                                        void* userdata) {
-  SDL::EnumerateStorageDirectory(
-    m_resource, std::move(path), callback, userdata);
+																				EnumerateDirectoryCallback callback,
+																				void* userdata) {
+	SDL::EnumerateStorageDirectory(
+		m_resource, std::move(path), callback, userdata);
 }
 
 inline std::vector<Path> Storage::EnumerateDirectory(StringParam path) {
-  return SDL::EnumerateStorageDirectory(m_resource, std::move(path));
+	return SDL::EnumerateStorageDirectory(m_resource, std::move(path));
 }
 
 inline void Storage::EnumerateDirectory(StringParam path,
-                                        EnumerateDirectoryCB callback) {
-  SDL::EnumerateStorageDirectory(m_resource, std::move(path), callback);
+																				EnumerateDirectoryCB callback) {
+	SDL::EnumerateStorageDirectory(m_resource, std::move(path), callback);
 }
 
 /**
@@ -1255,11 +1255,11 @@ inline void Storage::EnumerateDirectory(StringParam path,
  * @sa Storage.Ready
  */
 inline void RemoveStoragePath(StorageRef storage, StringParam path) {
-  CheckError(SDL_RemoveStoragePath(storage, path));
+	CheckError(SDL_RemoveStoragePath(storage, path));
 }
 
 inline void Storage::RemovePath(StringParam path) {
-  SDL::RemoveStoragePath(m_resource, std::move(path));
+	SDL::RemoveStoragePath(m_resource, std::move(path));
 }
 
 /**
@@ -1275,13 +1275,13 @@ inline void Storage::RemovePath(StringParam path) {
  * @sa Storage.Ready
  */
 inline void RenameStoragePath(StorageRef storage,
-                              StringParam oldpath,
-                              StringParam newpath) {
-  CheckError(SDL_RenameStoragePath(storage, oldpath, newpath));
+															StringParam oldpath,
+															StringParam newpath) {
+	CheckError(SDL_RenameStoragePath(storage, oldpath, newpath));
 }
 
 inline void Storage::RenamePath(StringParam oldpath, StringParam newpath) {
-  SDL::RenameStoragePath(m_resource, std::move(oldpath), std::move(newpath));
+	SDL::RenameStoragePath(m_resource, std::move(oldpath), std::move(newpath));
 }
 
 /**
@@ -1297,13 +1297,13 @@ inline void Storage::RenamePath(StringParam oldpath, StringParam newpath) {
  * @sa Storage.Ready
  */
 inline void CopyStorageFile(StorageRef storage,
-                            StringParam oldpath,
-                            StringParam newpath) {
-  CheckError(SDL_CopyStorageFile(storage, oldpath, newpath));
+														StringParam oldpath,
+														StringParam newpath) {
+	CheckError(SDL_CopyStorageFile(storage, oldpath, newpath));
 }
 
 inline void Storage::CopyFile(StringParam oldpath, StringParam newpath) {
-  SDL::CopyStorageFile(m_resource, std::move(oldpath), std::move(newpath));
+	SDL::CopyStorageFile(m_resource, std::move(oldpath), std::move(newpath));
 }
 
 /**
@@ -1319,14 +1319,14 @@ inline void Storage::CopyFile(StringParam oldpath, StringParam newpath) {
  * @sa Storage.Ready
  */
 inline PathInfo GetStoragePathInfo(StorageRef storage, StringParam path) {
-  if (PathInfo info; SDL_GetStoragePathInfo(storage, path, &info)) {
-    return info;
-  }
-  return {};
+	if (PathInfo info; SDL_GetStoragePathInfo(storage, path, &info)) {
+		return info;
+	}
+	return {};
 }
 
 inline PathInfo Storage::GetPathInfo(StringParam path) {
-  return SDL::GetStoragePathInfo(m_resource, std::move(path));
+	return SDL::GetStoragePathInfo(m_resource, std::move(path));
 }
 
 /**
@@ -1341,11 +1341,11 @@ inline PathInfo Storage::GetPathInfo(StringParam path) {
  * @sa Storage.WriteFile
  */
 inline Uint64 GetStorageSpaceRemaining(StorageRef storage) {
-  return SDL_GetStorageSpaceRemaining(storage);
+	return SDL_GetStorageSpaceRemaining(storage);
 }
 
 inline Uint64 Storage::GetSpaceRemaining() {
-  return SDL::GetStorageSpaceRemaining(m_resource);
+	return SDL::GetStorageSpaceRemaining(m_resource);
 }
 
 /**
@@ -1382,20 +1382,20 @@ inline Uint64 Storage::GetSpaceRemaining() {
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<char*> GlobStorageDirectory(StorageRef storage,
-                                            StringParam path,
-                                            StringParam pattern,
-                                            GlobFlags flags) {
-  int count;
-  auto data =
-    CheckError(SDL_GlobStorageDirectory(storage, path, pattern, flags, &count));
-  return OwnArray<char*>{data, size_t(count)};
+																						StringParam path,
+																						StringParam pattern,
+																						GlobFlags flags) {
+	int count;
+	auto data =
+		CheckError(SDL_GlobStorageDirectory(storage, path, pattern, flags, &count));
+	return OwnArray<char*>{data, size_t(count)};
 }
 
 inline OwnArray<char*> Storage::GlobDirectory(StringParam path,
-                                              StringParam pattern,
-                                              GlobFlags flags) {
-  return SDL::GlobStorageDirectory(
-    m_resource, std::move(path), std::move(pattern), flags);
+																							StringParam pattern,
+																							GlobFlags flags) {
+	return SDL::GlobStorageDirectory(
+		m_resource, std::move(path), std::move(pattern), flags);
 }
 
 /// @}

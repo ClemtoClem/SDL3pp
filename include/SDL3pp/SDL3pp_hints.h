@@ -65,7 +65,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_ANDROID_ALLOW_RECREATE_ACTIVITY                               \
-  "SDL_ANDROID_ALLOW_RECREATE_ACTIVITY"
+	"SDL_ANDROID_ALLOW_RECREATE_ACTIVITY"
 
 /**
  * A variable to control whether the event loop will block itself when the app
@@ -176,7 +176,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_APPLE_TV_CONTROLLER_UI_EVENTS                                 \
-  "SDL_APPLE_TV_CONTROLLER_UI_EVENTS"
+	"SDL_APPLE_TV_CONTROLLER_UI_EVENTS"
 
 /**
  * A variable controlling whether the Apple TV remote's joystick axes will
@@ -192,7 +192,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_APPLE_TV_REMOTE_ALLOW_ROTATION                                \
-  "SDL_APPLE_TV_REMOTE_ALLOW_ROTATION"
+	"SDL_APPLE_TV_REMOTE_ALLOW_ROTATION"
 
 /**
  * Specify the default ALSA audio device name.
@@ -231,7 +231,7 @@ namespace SDL {
  * @sa SDL_HINT_AUDIO_ALSA_DEFAULT_DEVICE
  */
 #define SDL_HINT_AUDIO_ALSA_DEFAULT_PLAYBACK_DEVICE                            \
-  "SDL_AUDIO_ALSA_DEFAULT_PLAYBACK_DEVICE"
+	"SDL_AUDIO_ALSA_DEFAULT_PLAYBACK_DEVICE"
 
 /**
  * Specify the default ALSA audio recording device name.
@@ -250,7 +250,7 @@ namespace SDL {
  * @sa SDL_HINT_AUDIO_ALSA_DEFAULT_DEVICE
  */
 #define SDL_HINT_AUDIO_ALSA_DEFAULT_RECORDING_DEVICE                           \
-  "SDL_AUDIO_ALSA_DEFAULT_RECORDING_DEVICE"
+	"SDL_AUDIO_ALSA_DEFAULT_RECORDING_DEVICE"
 
 /**
  * A variable controlling the audio category on iOS and macOS.
@@ -940,7 +940,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES                                 \
-  "SDL_GAMECONTROLLER_IGNORE_DEVICES"
+	"SDL_GAMECONTROLLER_IGNORE_DEVICES"
 
 /**
  * If set, all devices will be skipped when scanning for game controllers except
@@ -959,7 +959,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT                          \
-  "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT"
+	"SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT"
 
 /**
  * A variable that controls whether the device's built-in accelerometer and gyro
@@ -1146,7 +1146,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_HIDAPI_ENUMERATE_ONLY_CONTROLLERS                             \
-  "SDL_HIDAPI_ENUMERATE_ONLY_CONTROLLERS"
+	"SDL_HIDAPI_ENUMERATE_ONLY_CONTROLLERS"
 
 /**
  * A variable containing a list of devices to ignore in HidEnumerate().
@@ -1223,7 +1223,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS                              \
-  "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"
+	"SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"
 
 /**
  * A variable containing a list of arcade stick style controllers.
@@ -1262,7 +1262,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_ARCADESTICK_DEVICES_EXCLUDED                         \
-  "SDL_JOYSTICK_ARCADESTICK_DEVICES_EXCLUDED"
+	"SDL_JOYSTICK_ARCADESTICK_DEVICES_EXCLUDED"
 
 /**
  * A variable containing a list of devices that should not be considered
@@ -1301,7 +1301,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_BLACKLIST_DEVICES_EXCLUDED                           \
-  "SDL_JOYSTICK_BLACKLIST_DEVICES_EXCLUDED"
+	"SDL_JOYSTICK_BLACKLIST_DEVICES_EXCLUDED"
 
 /**
  * A variable containing a comma separated list of devices to open as joysticks.
@@ -1373,7 +1373,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_FLIGHTSTICK_DEVICES_EXCLUDED                         \
-  "SDL_JOYSTICK_FLIGHTSTICK_DEVICES_EXCLUDED"
+	"SDL_JOYSTICK_FLIGHTSTICK_DEVICES_EXCLUDED"
 
 /**
  * A variable controlling whether GameInput should be used for controller
@@ -1429,7 +1429,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_GAMECUBE_DEVICES_EXCLUDED                            \
-  "SDL_JOYSTICK_GAMECUBE_DEVICES_EXCLUDED"
+	"SDL_JOYSTICK_GAMECUBE_DEVICES_EXCLUDED"
 
 /**
  * A variable controlling whether the HIDAPI joystick drivers should be used.
@@ -1464,7 +1464,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_COMBINE_JOY_CONS                              \
-  "SDL_JOYSTICK_HIDAPI_COMBINE_JOY_CONS"
+	"SDL_JOYSTICK_HIDAPI_COMBINE_JOY_CONS"
 
 /**
  * A variable controlling whether the HIDAPI driver for Nintendo GameCube
@@ -1503,7 +1503,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_GAMECUBE_RUMBLE_BRAKE                         \
-  "SDL_JOYSTICK_HIDAPI_GAMECUBE_RUMBLE_BRAKE"
+	"SDL_JOYSTICK_HIDAPI_GAMECUBE_RUMBLE_BRAKE"
 
 /**
  * A variable controlling whether the HIDAPI driver for Nintendo Switch Joy-Cons
@@ -1540,7 +1540,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_JOYCON_HOME_LED                               \
-  "SDL_JOYSTICK_HIDAPI_JOYCON_HOME_LED"
+	"SDL_JOYSTICK_HIDAPI_JOYCON_HOME_LED"
 
 /**
  * A variable controlling whether the HIDAPI driver for Amazon Luna controllers
@@ -1575,7 +1575,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_NINTENDO_CLASSIC                              \
-  "SDL_JOYSTICK_HIDAPI_NINTENDO_CLASSIC"
+	"SDL_JOYSTICK_HIDAPI_NINTENDO_CLASSIC"
 
 /**
  * A variable controlling whether the HIDAPI driver for PS3 controllers should
@@ -1615,7 +1615,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_PS3_SIXAXIS_DRIVER                            \
-  "SDL_JOYSTICK_HIDAPI_PS3_SIXAXIS_DRIVER"
+	"SDL_JOYSTICK_HIDAPI_PS3_SIXAXIS_DRIVER"
 
 /**
  * A variable controlling whether the HIDAPI driver for PS4 controllers should
@@ -1648,7 +1648,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_PS4_REPORT_INTERVAL                           \
-  "SDL_JOYSTICK_HIDAPI_PS4_REPORT_INTERVAL"
+	"SDL_JOYSTICK_HIDAPI_PS4_REPORT_INTERVAL"
 
 /**
  * A variable controlling whether the HIDAPI driver for PS5 controllers should
@@ -1679,7 +1679,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_PS5_PLAYER_LED                                \
-  "SDL_JOYSTICK_HIDAPI_PS5_PLAYER_LED"
+	"SDL_JOYSTICK_HIDAPI_PS5_PLAYER_LED"
 
 /**
  * A variable controlling whether the HIDAPI driver for NVIDIA SHIELD
@@ -1747,7 +1747,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_STEAM_HOME_LED                                \
-  "SDL_JOYSTICK_HIDAPI_STEAM_HOME_LED"
+	"SDL_JOYSTICK_HIDAPI_STEAM_HOME_LED"
 
 /**
  * A variable controlling whether the HIDAPI driver for the Steam Deck builtin
@@ -1909,7 +1909,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_SWITCH_HOME_LED                               \
-  "SDL_JOYSTICK_HIDAPI_SWITCH_HOME_LED"
+	"SDL_JOYSTICK_HIDAPI_SWITCH_HOME_LED"
 
 /**
  * A variable controlling whether the player LEDs should be lit to indicate
@@ -1925,7 +1925,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_SWITCH_PLAYER_LED                             \
-  "SDL_JOYSTICK_HIDAPI_SWITCH_PLAYER_LED"
+	"SDL_JOYSTICK_HIDAPI_SWITCH_PLAYER_LED"
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -1963,7 +1963,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_VERTICAL_JOY_CONS                             \
-  "SDL_JOYSTICK_HIDAPI_VERTICAL_JOY_CONS"
+	"SDL_JOYSTICK_HIDAPI_VERTICAL_JOY_CONS"
 
 /**
  * A variable controlling whether the HIDAPI driver for Nintendo Wii and Wii U
@@ -1997,7 +1997,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_WII_PLAYER_LED                                \
-  "SDL_JOYSTICK_HIDAPI_WII_PLAYER_LED"
+	"SDL_JOYSTICK_HIDAPI_WII_PLAYER_LED"
 
 /**
  * A variable controlling whether the HIDAPI driver for XBox controllers should
@@ -2048,7 +2048,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_XBOX_360_PLAYER_LED                           \
-  "SDL_JOYSTICK_HIDAPI_XBOX_360_PLAYER_LED"
+	"SDL_JOYSTICK_HIDAPI_XBOX_360_PLAYER_LED"
 
 /**
  * A variable controlling whether the HIDAPI driver for XBox 360 wireless
@@ -2066,7 +2066,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_XBOX_360_WIRELESS                             \
-  "SDL_JOYSTICK_HIDAPI_XBOX_360_WIRELESS"
+	"SDL_JOYSTICK_HIDAPI_XBOX_360_WIRELESS"
 
 /**
  * A variable controlling whether the HIDAPI driver for XBox One controllers
@@ -2103,7 +2103,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_XBOX_ONE_HOME_LED                             \
-  "SDL_JOYSTICK_HIDAPI_XBOX_ONE_HOME_LED"
+	"SDL_JOYSTICK_HIDAPI_XBOX_ONE_HOME_LED"
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -2141,7 +2141,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.4.0.
  */
 #define SDL_HINT_JOYSTICK_HIDAPI_GIP_RESET_FOR_METADATA                        \
-  "SDL_JOYSTICK_HIDAPI_GIP_RESET_FOR_METADATA"
+	"SDL_JOYSTICK_HIDAPI_GIP_RESET_FOR_METADATA"
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -2269,7 +2269,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_RAWINPUT_CORRELATE_XINPUT                            \
-  "SDL_JOYSTICK_RAWINPUT_CORRELATE_XINPUT"
+	"SDL_JOYSTICK_RAWINPUT_CORRELATE_XINPUT"
 
 /**
  * A variable controlling whether the ROG Chakram mice should show up as
@@ -2338,7 +2338,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_THROTTLE_DEVICES_EXCLUDED                            \
-  "SDL_JOYSTICK_THROTTLE_DEVICES_EXCLUDED"
+	"SDL_JOYSTICK_THROTTLE_DEVICES_EXCLUDED"
 
 /**
  * A variable controlling whether Windows.Gaming.Input should be used for
@@ -2391,7 +2391,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_WHEEL_DEVICES_EXCLUDED                               \
-  "SDL_JOYSTICK_WHEEL_DEVICES_EXCLUDED"
+	"SDL_JOYSTICK_WHEEL_DEVICES_EXCLUDED"
 
 /**
  * A variable containing a list of devices known to have all axes centered at
@@ -2410,7 +2410,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_JOYSTICK_ZERO_CENTERED_DEVICES                                \
-  "SDL_JOYSTICK_ZERO_CENTERED_DEVICES"
+	"SDL_JOYSTICK_ZERO_CENTERED_DEVICES"
 
 #if SDL_VERSION_ATLEAST(3, 2, 5)
 
@@ -2597,7 +2597,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK                            \
-  "SDL_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK"
+	"SDL_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK"
 
 /**
  * A variable controlling whether dispatching OpenGL context updates should
@@ -2813,7 +2813,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_MOUSE_EMULATE_WARP_WITH_RELATIVE                              \
-  "SDL_MOUSE_EMULATE_WARP_WITH_RELATIVE"
+	"SDL_MOUSE_EMULATE_WARP_WITH_RELATIVE"
 
 /**
  * Allow mouse click events when clicking to focus an SDL window.
@@ -2926,7 +2926,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_MOUSE_RELATIVE_CURSOR_VISIBLE                                 \
-  "SDL_MOUSE_RELATIVE_CURSOR_VISIBLE"
+	"SDL_MOUSE_RELATIVE_CURSOR_VISIBLE"
 
 /**
  * A variable controlling whether mouse events should generate synthetic touch
@@ -3074,7 +3074,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.4.2.
  */
 #define SDL_HINT_OPENGL_FORCE_SRGB_FRAMEBUFFER                                 \
-  "SDL_OPENGL_FORCE_SRGB_FRAMEBUFFER"
+	"SDL_OPENGL_FORCE_SRGB_FRAMEBUFFER"
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 2)
 
@@ -3331,7 +3331,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_RENDER_METAL_PREFER_LOW_POWER_DEVICE                          \
-  "SDL_RENDER_METAL_PREFER_LOW_POWER_DEVICE"
+	"SDL_RENDER_METAL_PREFER_LOW_POWER_DEVICE"
 
 /**
  * A variable controlling whether updates to the SDL screen surface should be
@@ -3486,7 +3486,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_SCREENSAVER_INHIBIT_ACTIVITY_NAME                             \
-  "SDL_SCREENSAVER_INHIBIT_ACTIVITY_NAME"
+	"SDL_SCREENSAVER_INHIBIT_ACTIVITY_NAME"
 
 /**
  * A variable controlling whether SDL calls dbus_shutdown() on quit.
@@ -3561,7 +3561,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_THREAD_FORCE_REALTIME_TIME_CRITICAL                           \
-  "SDL_THREAD_FORCE_REALTIME_TIME_CRITICAL"
+	"SDL_THREAD_FORCE_REALTIME_TIME_CRITICAL"
 
 /**
  * A string specifying additional information to use with
@@ -3763,7 +3763,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_VIDEO_EGL_ALLOW_GETDISPLAY_FALLBACK                           \
-  "SDL_VIDEO_EGL_ALLOW_GETDISPLAY_FALLBACK"
+	"SDL_VIDEO_EGL_ALLOW_GETDISPLAY_FALLBACK"
 
 /**
  * A variable controlling whether the OpenGL context should be created with EGL.
@@ -3816,7 +3816,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_VIDEO_MAC_FULLSCREEN_MENU_VISIBILITY                          \
-  "SDL_VIDEO_MAC_FULLSCREEN_MENU_VISIBILITY"
+	"SDL_VIDEO_MAC_FULLSCREEN_MENU_VISIBILITY"
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -3836,7 +3836,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.4.0.
  */
 #define SDL_HINT_VIDEO_METAL_AUTO_RESIZE_DRAWABLE                              \
-  "SDL_VIDEO_METAL_AUTO_RESIZE_DRAWABLE"
+	"SDL_VIDEO_METAL_AUTO_RESIZE_DRAWABLE"
 
 /**
  * A variable controlling whether SDL will attempt to automatically set the
@@ -3857,7 +3857,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.4.0.
  */
 #define SDL_HINT_VIDEO_MATCH_EXCLUSIVE_MODE_ON_MOVE                            \
-  "SDL_VIDEO_MATCH_EXCLUSIVE_MODE_ON_MOVE"
+	"SDL_VIDEO_MATCH_EXCLUSIVE_MODE_ON_MOVE"
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -3999,7 +3999,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_VIDEO_WAYLAND_PREFER_LIBDECOR                                 \
-  "SDL_VIDEO_WAYLAND_PREFER_LIBDECOR"
+	"SDL_VIDEO_WAYLAND_PREFER_LIBDECOR"
 
 /**
  * A variable forcing non-DPI-aware Wayland windows to output at 1:1 scaling.
@@ -4039,7 +4039,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_VIDEO_WAYLAND_SCALE_TO_DISPLAY                                \
-  "SDL_VIDEO_WAYLAND_SCALE_TO_DISPLAY"
+	"SDL_VIDEO_WAYLAND_SCALE_TO_DISPLAY"
 
 /**
  * A variable specifying which shader compiler to preload when using the Chrome
@@ -4080,7 +4080,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.10.
  */
 #define SDL_HINT_VIDEO_X11_EXTERNAL_WINDOW_INPUT                               \
-  "SDL_VIDEO_X11_EXTERNAL_WINDOW_INPUT"
+	"SDL_VIDEO_X11_EXTERNAL_WINDOW_INPUT"
 
 #endif // SDL_VERSION_ATLEAST(3, 2, 10)
 
@@ -4098,7 +4098,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR                            \
-  "SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR"
+	"SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR"
 
 /**
  * A variable controlling whether the X11 _NET_WM_PING protocol should be
@@ -4452,7 +4452,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN                       \
-  "SDL_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN"
+	"SDL_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN"
 
 /**
  * A variable controlling whether SDL generates window-close events for Alt+F4
@@ -4496,7 +4496,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_WINDOWS_ENABLE_MENU_MNEMONICS                                 \
-  "SDL_WINDOWS_ENABLE_MENU_MNEMONICS"
+	"SDL_WINDOWS_ENABLE_MENU_MNEMONICS"
 
 /**
  * A variable controlling whether the windows message loop is processed by SDL.
@@ -4564,7 +4564,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.4.0.
  */
 #define SDL_HINT_WINDOWS_RAW_KEYBOARD_EXCLUDE_HOTKEYS                          \
-  "SDL_WINDOWS_RAW_KEYBOARD_EXCLUDE_HOTKEYS"
+	"SDL_WINDOWS_RAW_KEYBOARD_EXCLUDE_HOTKEYS"
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -4588,7 +4588,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_WINDOWS_FORCE_SEMAPHORE_KERNEL                                \
-  "SDL_WINDOWS_FORCE_SEMAPHORE_KERNEL"
+	"SDL_WINDOWS_FORCE_SEMAPHORE_KERNEL"
 
 /**
  * A variable to specify custom icon resource id from RC file on Windows
@@ -4609,7 +4609,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL                                \
-  "SDL_WINDOWS_INTRESOURCE_ICON_SMALL"
+	"SDL_WINDOWS_INTRESOURCE_ICON_SMALL"
 
 /**
  * A variable controlling whether SDL uses the D3D9Ex API introduced in Windows
@@ -4655,7 +4655,7 @@ namespace SDL {
  * @since This hint is available since SDL 3.2.0.
  */
 #define SDL_HINT_WINDOWS_ERASE_BACKGROUND_MODE                                 \
-  "SDL_WINDOWS_ERASE_BACKGROUND_MODE"
+	"SDL_WINDOWS_ERASE_BACKGROUND_MODE"
 
 /**
  * A variable controlling whether X11 windows are marked as override-redirect.
@@ -4808,9 +4808,9 @@ constexpr HintPriority HINT_OVERRIDE = SDL_HINT_OVERRIDE; ///< OVERRIDE
  * @sa SetHint
  */
 inline void SetHintWithPriority(StringParam name,
-                                StringParam value,
-                                HintPriority priority) {
-  CheckError(SDL_SetHintWithPriority(name, value, priority));
+																StringParam value,
+																HintPriority priority) {
+	CheckError(SDL_SetHintWithPriority(name, value, priority));
 }
 
 /**
@@ -4833,7 +4833,7 @@ inline void SetHintWithPriority(StringParam name,
  * @sa SetHintWithPriority
  */
 inline void SetHint(StringParam name, StringParam value) {
-  CheckError(SDL_SetHint(name, value));
+	CheckError(SDL_SetHint(name, value));
 }
 
 /**
@@ -4901,7 +4901,7 @@ inline const char* GetHint(StringParam name) { return SDL_GetHint(name); }
  * @sa SetHint
  */
 inline bool GetHintBoolean(StringParam name, bool default_value) {
-  return SDL_GetHintBoolean(name, default_value);
+	return SDL_GetHintBoolean(name, default_value);
 }
 
 /**
@@ -4924,9 +4924,9 @@ inline bool GetHintBoolean(StringParam name, bool default_value) {
  * @sa AddHintCallback
  */
 using HintCallback = void(SDLCALL*)(void* userdata,
-                                    const char* name,
-                                    const char* oldValue,
-                                    const char* newValue);
+																		const char* name,
+																		const char* oldValue,
+																		const char* newValue);
 
 /**
  * A callback used to send notifications of hint value changes.
@@ -4949,7 +4949,7 @@ using HintCallback = void(SDLCALL*)(void* userdata,
  * @sa HintCallback
  */
 using HintCB = MakeFrontCallback<
-  void(const char* name, const char* oldValue, const char* newValue)>;
+	void(const char* name, const char* oldValue, const char* newValue)>;
 
 /**
  * Add a function to watch a particular hint.
@@ -4970,9 +4970,9 @@ using HintCB = MakeFrontCallback<
  * @sa RemoveHintCallback
  */
 inline void AddHintCallback(StringParam name,
-                            HintCallback callback,
-                            void* userdata) {
-  CheckError(SDL_AddHintCallback(name, callback, userdata));
+														HintCallback callback,
+														void* userdata) {
+	CheckError(SDL_AddHintCallback(name, callback, userdata));
 }
 
 /**
@@ -4993,7 +4993,7 @@ inline void AddHintCallback(StringParam name,
  * @sa RemoveHintCallback
  */
 inline void AddHintCallback(StringParam name, HintCB callback) {
-  AddHintCallback(std::move(name), callback.wrapper, callback.data);
+	AddHintCallback(std::move(name), callback.wrapper, callback.data);
 }
 
 /**
@@ -5011,9 +5011,9 @@ inline void AddHintCallback(StringParam name, HintCB callback) {
  * @sa AddHintCallback
  */
 inline void RemoveHintCallback(StringParam name,
-                               HintCallback callback,
-                               void* userdata) {
-  SDL_RemoveHintCallback(name, callback, userdata);
+															 HintCallback callback,
+															 void* userdata) {
+	SDL_RemoveHintCallback(name, callback, userdata);
 }
 
 /// @}

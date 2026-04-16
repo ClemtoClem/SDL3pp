@@ -17,48 +17,48 @@ namespace SDL {
  */
 template<class T>
 class OptionalRef {
-  T* ptr;
+	T* ptr;
 
 public:
-  /// Constructor.
-  constexpr OptionalRef(std::nullopt_t = std::nullopt)
-    : ptr(nullptr) {
-  }
+	/// Constructor.
+	constexpr OptionalRef(std::nullopt_t = std::nullopt)
+		: ptr(nullptr) {
+	}
 
-  /// Constructor.
-  constexpr OptionalRef(T& value)
-    : ptr(&value) {
-  }
+	/// Constructor.
+	constexpr OptionalRef(T& value)
+		: ptr(&value) {
+	}
 
-  /// Constructor.
-  constexpr auto operator<=>(const OptionalRef&) const = default;
+	/// Constructor.
+	constexpr auto operator<=>(const OptionalRef&) const = default;
 
-  /// true if has a value.
-  constexpr bool has_value() const { return ptr != nullptr; }
+	/// true if has a value.
+	constexpr bool has_value() const { return ptr != nullptr; }
 
-  /// Returns contained value.
-  constexpr const T& value() const { return *ptr; }
+	/// Returns contained value.
+	constexpr const T& value() const { return *ptr; }
 
-  /// Returns contained value.
-  constexpr T& value() { return *ptr; }
+	/// Returns contained value.
+	constexpr T& value() { return *ptr; }
 
-  /// returns pointer if has value, nullptr otherwise.
-  constexpr operator T*() const { return ptr; }
+	/// returns pointer if has value, nullptr otherwise.
+	constexpr operator T*() const { return ptr; }
 
-  /// Comparison operator
-  constexpr bool operator==(std::nullopt_t) const { return ptr == nullptr; }
+	/// Comparison operator
+	constexpr bool operator==(std::nullopt_t) const { return ptr == nullptr; }
 
-  /// Equivalent to value()
-  constexpr T& operator*() { return *ptr; }
+	/// Equivalent to value()
+	constexpr T& operator*() { return *ptr; }
 
-  /// Equivalent to value()
-  constexpr const T& operator*() const { return *ptr; }
+	/// Equivalent to value()
+	constexpr const T& operator*() const { return *ptr; }
 
-  /// Equivalent to value()
-  constexpr T* operator->() { return ptr; }
+	/// Equivalent to value()
+	constexpr T* operator->() { return ptr; }
 
-  /// Equivalent to value()
-  constexpr const T* operator->() const { return ptr; }
+	/// Equivalent to value()
+	constexpr const T* operator->() const { return ptr; }
 };
 
 /**
@@ -66,8 +66,8 @@ public:
  */
 template<class T>
 constexpr OptionalRef<T> fromNullable(T* ptr) {
-  if (ptr) return {*ptr};
-  return std::nullopt;
+	if (ptr) return {*ptr};
+	return std::nullopt;
 }
 
 } // namespace SDL

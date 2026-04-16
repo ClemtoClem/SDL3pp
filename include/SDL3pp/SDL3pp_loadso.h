@@ -61,123 +61,123 @@ struct SharedObjectRef;
  * @cat resource
  */
 class SharedObject {
-  SharedObjectRaw m_resource = nullptr;
+	SharedObjectRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr SharedObject(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr SharedObject(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw SharedObject.
-   *
-   * @param resource a SharedObjectRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit SharedObject(SharedObjectRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw SharedObject.
+	 *
+	 * @param resource a SharedObjectRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit SharedObject(SharedObjectRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr SharedObject(const SharedObject& other) noexcept = delete;
+	/// Copy constructor
+	constexpr SharedObject(const SharedObject& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr SharedObject(SharedObject&& other) noexcept
-    : SharedObject(other.Release()) {
-  }
+	/// Move constructor
+	constexpr SharedObject(SharedObject&& other) noexcept
+		: SharedObject(other.Release()) {
+	}
 
-  constexpr SharedObject(const SharedObjectRef& other) = delete;
+	constexpr SharedObject(const SharedObjectRef& other) = delete;
 
-  constexpr SharedObject(SharedObjectRef&& other) = delete;
+	constexpr SharedObject(SharedObjectRef&& other) = delete;
 
-  /**
-   * Dynamically load a shared object.
-   *
-   * @param sofile a system-dependent name of the object file.
-   * @post an opaque pointer to the object handle or nullptr on failure; call
-   *       GetError() for more information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa SharedObject.LoadFunction
-   * @sa SharedObject.Unload
-   */
-  SharedObject(StringParam sofile);
+	/**
+	 * Dynamically load a shared object.
+	 *
+	 * @param sofile a system-dependent name of the object file.
+	 * @post an opaque pointer to the object handle or nullptr on failure; call
+	 *       GetError() for more information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa SharedObject.LoadFunction
+	 * @sa SharedObject.Unload
+	 */
+	SharedObject(StringParam sofile);
 
-  /// Destructor
-  ~SharedObject() { SDL_UnloadObject(m_resource); }
+	/// Destructor
+	~SharedObject() { SDL_UnloadObject(m_resource); }
 
-  /// Assignment operator.
-  constexpr SharedObject& operator=(SharedObject&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr SharedObject& operator=(SharedObject&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  SharedObject& operator=(const SharedObject& other) = delete;
+	/// Assignment operator.
+	SharedObject& operator=(const SharedObject& other) = delete;
 
-  /// Retrieves underlying SharedObjectRaw.
-  constexpr SharedObjectRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying SharedObjectRaw.
+	constexpr SharedObjectRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying SharedObjectRaw and clear this.
-  constexpr SharedObjectRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying SharedObjectRaw and clear this.
+	constexpr SharedObjectRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const SharedObject& other) const noexcept =
-    default;
+	/// Comparison
+	constexpr auto operator<=>(const SharedObject& other) const noexcept =
+		default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Unload a shared object from memory.
-   *
-   * Note that any pointers from this object looked up through
-   * SharedObject.LoadFunction() will no longer be valid.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa LoadObject
-   */
-  void Unload();
+	/**
+	 * Unload a shared object from memory.
+	 *
+	 * Note that any pointers from this object looked up through
+	 * SharedObject.LoadFunction() will no longer be valid.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa LoadObject
+	 */
+	void Unload();
 
-  /**
-   * Look up the address of the named function in a shared object.
-   *
-   * This function pointer is no longer valid after calling
-   * SharedObject.Unload().
-   *
-   * This function can only look up C function names. Other languages may have
-   * name mangling and intrinsic language support that varies from compiler to
-   * compiler.
-   *
-   * Make sure you declare your function pointers with the same calling
-   * convention as the actual library function. Your code will crash
-   * mysteriously if you do not do this.
-   *
-   * If the requested function doesn't exist, nullptr is returned.
-   *
-   * @param name the name of the function to look up.
-   * @returns a pointer to the function or nullptr on failure; call GetError()
-   *          for more information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa LoadObject
-   */
-  FunctionPointer LoadFunction(StringParam name);
+	/**
+	 * Look up the address of the named function in a shared object.
+	 *
+	 * This function pointer is no longer valid after calling
+	 * SharedObject.Unload().
+	 *
+	 * This function can only look up C function names. Other languages may have
+	 * name mangling and intrinsic language support that varies from compiler to
+	 * compiler.
+	 *
+	 * Make sure you declare your function pointers with the same calling
+	 * convention as the actual library function. Your code will crash
+	 * mysteriously if you do not do this.
+	 *
+	 * If the requested function doesn't exist, nullptr is returned.
+	 *
+	 * @param name the name of the function to look up.
+	 * @returns a pointer to the function or nullptr on failure; call GetError()
+	 *          for more information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa LoadObject
+	 */
+	FunctionPointer LoadFunction(StringParam name);
 };
 
 /**
@@ -186,63 +186,63 @@ public:
  * This does not take ownership!
  */
 struct SharedObjectRef : SharedObject {
-  using SharedObject::SharedObject;
+	using SharedObject::SharedObject;
 
-  /**
-   * Constructs from raw SharedObject.
-   *
-   * @param resource a SharedObjectRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr SharedObjectRef(SharedObjectRaw resource) noexcept
-    : SharedObject(resource) {
-  }
+	/**
+	 * Constructs from raw SharedObject.
+	 *
+	 * @param resource a SharedObjectRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr SharedObjectRef(SharedObjectRaw resource) noexcept
+		: SharedObject(resource) {
+	}
 
-  /**
-   * Constructs from SharedObject.
-   *
-   * @param resource a SharedObject.
-   *
-   * This does not takes ownership!
-   */
-  constexpr SharedObjectRef(const SharedObject& resource) noexcept
-    : SharedObject(resource.Get()) {
-  }
+	/**
+	 * Constructs from SharedObject.
+	 *
+	 * @param resource a SharedObject.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr SharedObjectRef(const SharedObject& resource) noexcept
+		: SharedObject(resource.Get()) {
+	}
 
-  /**
-   * Constructs from SharedObject.
-   *
-   * @param resource a SharedObject.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr SharedObjectRef(SharedObject&& resource) noexcept
-    : SharedObject(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from SharedObject.
+	 *
+	 * @param resource a SharedObject.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr SharedObjectRef(SharedObject&& resource) noexcept
+		: SharedObject(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr SharedObjectRef(const SharedObjectRef& other) noexcept
-    : SharedObject(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr SharedObjectRef(const SharedObjectRef& other) noexcept
+		: SharedObject(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr SharedObjectRef(SharedObjectRef&& other) noexcept
-    : SharedObject(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr SharedObjectRef(SharedObjectRef&& other) noexcept
+		: SharedObject(other.Get()) {
+	}
 
-  /// Destructor
-  ~SharedObjectRef() { Release(); }
+	/// Destructor
+	~SharedObjectRef() { Release(); }
 
-  /// Assignment operator.
-  SharedObjectRef& operator=(const SharedObjectRef& other) noexcept {
-    Release();
-    SharedObject::operator=(SharedObject(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	SharedObjectRef& operator=(const SharedObjectRef& other) noexcept {
+		Release();
+		SharedObject::operator=(SharedObject(other.Get()));
+		return *this;
+	}
 
-  /// Converts to SharedObjectRaw
-  constexpr operator SharedObjectRaw() const noexcept { return Get(); }
+	/// Converts to SharedObjectRaw
+	constexpr operator SharedObjectRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -260,11 +260,11 @@ struct SharedObjectRef : SharedObject {
  * @sa SharedObject.Unload
  */
 inline SharedObject LoadObject(StringParam sofile) {
-  return SharedObject(std::move(sofile));
+	return SharedObject(std::move(sofile));
 }
 
 inline SharedObject::SharedObject(StringParam sofile)
-  : m_resource(SDL_LoadObject(sofile)) {
+	: m_resource(SDL_LoadObject(sofile)) {
 }
 
 /**
@@ -294,11 +294,11 @@ inline SharedObject::SharedObject(StringParam sofile)
  * @sa LoadObject
  */
 inline FunctionPointer LoadFunction(SharedObjectRef handle, StringParam name) {
-  return SDL_LoadFunction(handle, name);
+	return SDL_LoadFunction(handle, name);
 }
 
 inline FunctionPointer SharedObject::LoadFunction(StringParam name) {
-  return SDL::LoadFunction(m_resource, std::move(name));
+	return SDL::LoadFunction(m_resource, std::move(name));
 }
 
 /**

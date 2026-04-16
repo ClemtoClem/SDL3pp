@@ -43,81 +43,81 @@ struct Keycode;
  * @since This enum is available since SDL 3.2.0.
  */
 class Scancode {
-  ScancodeRaw m_scancode;
+	ScancodeRaw m_scancode;
 
 public:
-  /**
-   * Wraps Scancode.
-   *
-   * @param scancode the value to be wrapped
-   */
-  constexpr Scancode(ScancodeRaw scancode = {}) noexcept
-    : m_scancode(scancode) {
-  }
+	/**
+	 * Wraps Scancode.
+	 *
+	 * @param scancode the value to be wrapped
+	 */
+	constexpr Scancode(ScancodeRaw scancode = {}) noexcept
+		: m_scancode(scancode) {
+	}
 
-  /**
-   * Get a scancode from a human-readable name.
-   *
-   * @param name the human-readable scancode name.
-   * @post the Scancode, or `SCANCODE_UNKNOWN` if the name wasn't recognized;
-   *       call GetError() for more information.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Keycode.Keycode
-   * @sa Keycode.GetScancode
-   * @sa Scancode.GetName
-   */
-  Scancode(StringParam name);
+	/**
+	 * Get a scancode from a human-readable name.
+	 *
+	 * @param name the human-readable scancode name.
+	 * @post the Scancode, or `SCANCODE_UNKNOWN` if the name wasn't recognized;
+	 *       call GetError() for more information.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Keycode.Keycode
+	 * @sa Keycode.GetScancode
+	 * @sa Scancode.GetName
+	 */
+	Scancode(StringParam name);
 
-  /**
-   * Unwraps to the underlying Scancode.
-   *
-   * @returns the underlying ScancodeRaw.
-   */
-  constexpr operator ScancodeRaw() const noexcept { return m_scancode; }
+	/**
+	 * Unwraps to the underlying Scancode.
+	 *
+	 * @returns the underlying ScancodeRaw.
+	 */
+	constexpr operator ScancodeRaw() const noexcept { return m_scancode; }
 
-  /**
-   * Set a human-readable name for a scancode.
-   *
-   * @param name the name to use for the scancode, encoded as UTF-8. The string
-   *             is not copied, so the pointer given to this function must stay
-   *             valid while SDL is being used.
-   * @throws Error on failure.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Scancode.GetName
-   */
-  void SetName(StringParam name);
+	/**
+	 * Set a human-readable name for a scancode.
+	 *
+	 * @param name the name to use for the scancode, encoded as UTF-8. The string
+	 *             is not copied, so the pointer given to this function must stay
+	 *             valid while SDL is being used.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Scancode.GetName
+	 */
+	void SetName(StringParam name);
 
-  /**
-   * Get a human-readable name for a scancode.
-   *
-   * **Warning**: The returned name is by design not stable across platforms,
-   * e.g. the name for `SCANCODE_LGUI` is "Left GUI" under Linux but "Left
-   * Windows" under Microsoft Windows, and some scancodes like
-   * `SCANCODE_NONUSBACKSLASH` don't have any name at all. There are even
-   * scancodes that share names, e.g. `SCANCODE_RETURN` and `SCANCODE_RETURN2`
-   * (both called "Return"). This function is therefore unsuitable for creating
-   * a stable cross-platform two-way mapping between strings and scancodes.
-   *
-   * @returns a pointer to the name for the scancode. If the scancode doesn't
-   *          have a name this function returns an empty string ("").
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Keycode.GetScancode
-   * @sa Scancode.Scancode
-   * @sa Scancode.SetName
-   */
-  const char* GetName() const;
+	/**
+	 * Get a human-readable name for a scancode.
+	 *
+	 * **Warning**: The returned name is by design not stable across platforms,
+	 * e.g. the name for `SCANCODE_LGUI` is "Left GUI" under Linux but "Left
+	 * Windows" under Microsoft Windows, and some scancodes like
+	 * `SCANCODE_NONUSBACKSLASH` don't have any name at all. There are even
+	 * scancodes that share names, e.g. `SCANCODE_RETURN` and `SCANCODE_RETURN2`
+	 * (both called "Return"). This function is therefore unsuitable for creating
+	 * a stable cross-platform two-way mapping between strings and scancodes.
+	 *
+	 * @returns a pointer to the name for the scancode. If the scancode doesn't
+	 *          have a name this function returns an empty string ("").
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Keycode.GetScancode
+	 * @sa Scancode.Scancode
+	 * @sa Scancode.SetName
+	 */
+	const char* GetName() const;
 };
 
 constexpr Scancode SCANCODE_UNKNOWN = SDL_SCANCODE_UNKNOWN; ///< UNKNOWN
@@ -209,10 +209,10 @@ constexpr Scancode SCANCODE_MINUS = SDL_SCANCODE_MINUS; ///< MINUS
 constexpr Scancode SCANCODE_EQUALS = SDL_SCANCODE_EQUALS; ///< EQUALS
 
 constexpr Scancode SCANCODE_LEFTBRACKET =
-  SDL_SCANCODE_LEFTBRACKET; ///< LEFTBRACKET
+	SDL_SCANCODE_LEFTBRACKET; ///< LEFTBRACKET
 
 constexpr Scancode SCANCODE_RIGHTBRACKET =
-  SDL_SCANCODE_RIGHTBRACKET; ///< RIGHTBRACKET
+	SDL_SCANCODE_RIGHTBRACKET; ///< RIGHTBRACKET
 
 /**
  * Located at the lower left of the return key on ISO keyboards and at the right
@@ -238,7 +238,7 @@ constexpr Scancode SCANCODE_NONUSHASH = SDL_SCANCODE_NONUSHASH;
 constexpr Scancode SCANCODE_SEMICOLON = SDL_SCANCODE_SEMICOLON; ///< SEMICOLON
 
 constexpr Scancode SCANCODE_APOSTROPHE =
-  SDL_SCANCODE_APOSTROPHE; ///< APOSTROPHE
+	SDL_SCANCODE_APOSTROPHE; ///< APOSTROPHE
 
 /**
  * Located in the top left corner (on both ANSI and ISO keyboards). Produces
@@ -287,10 +287,10 @@ constexpr Scancode SCANCODE_F11 = SDL_SCANCODE_F11; ///< F11
 constexpr Scancode SCANCODE_F12 = SDL_SCANCODE_F12; ///< F12
 
 constexpr Scancode SCANCODE_PRINTSCREEN =
-  SDL_SCANCODE_PRINTSCREEN; ///< PRINTSCREEN
+	SDL_SCANCODE_PRINTSCREEN; ///< PRINTSCREEN
 
 constexpr Scancode SCANCODE_SCROLLLOCK =
-  SDL_SCANCODE_SCROLLLOCK; ///< SCROLLLOCK
+	SDL_SCANCODE_SCROLLLOCK; ///< SCROLLLOCK
 
 constexpr Scancode SCANCODE_PAUSE = SDL_SCANCODE_PAUSE; ///< PAUSE
 
@@ -316,12 +316,12 @@ constexpr Scancode SCANCODE_DOWN = SDL_SCANCODE_DOWN; ///< DOWN
 constexpr Scancode SCANCODE_UP = SDL_SCANCODE_UP; ///< UP
 
 constexpr Scancode SCANCODE_NUMLOCKCLEAR =
-  SDL_SCANCODE_NUMLOCKCLEAR; ///< num lock on PC, clear on Mac keyboards
+	SDL_SCANCODE_NUMLOCKCLEAR; ///< num lock on PC, clear on Mac keyboards
 
 constexpr Scancode SCANCODE_KP_DIVIDE = SDL_SCANCODE_KP_DIVIDE; ///< KP_DIVIDE
 
 constexpr Scancode SCANCODE_KP_MULTIPLY =
-  SDL_SCANCODE_KP_MULTIPLY; ///< KP_MULTIPLY
+	SDL_SCANCODE_KP_MULTIPLY; ///< KP_MULTIPLY
 
 constexpr Scancode SCANCODE_KP_MINUS = SDL_SCANCODE_KP_MINUS; ///< KP_MINUS
 
@@ -361,7 +361,7 @@ constexpr Scancode SCANCODE_KP_PERIOD = SDL_SCANCODE_KP_PERIOD; ///< KP_PERIOD
 constexpr Scancode SCANCODE_NONUSBACKSLASH = SDL_SCANCODE_NONUSBACKSLASH;
 
 constexpr Scancode SCANCODE_APPLICATION =
-  SDL_SCANCODE_APPLICATION; ///< windows contextual menu, compose
+	SDL_SCANCODE_APPLICATION; ///< windows contextual menu, compose
 
 /**
  * The USB document says this is a status flag, not a physical key - but some
@@ -398,7 +398,7 @@ constexpr Scancode SCANCODE_F24 = SDL_SCANCODE_F24; ///< F24
 constexpr Scancode SCANCODE_EXECUTE = SDL_SCANCODE_EXECUTE; ///< EXECUTE
 
 constexpr Scancode SCANCODE_HELP =
-  SDL_SCANCODE_HELP; ///< AL Integrated Help Center
+	SDL_SCANCODE_HELP; ///< AL Integrated Help Center
 
 constexpr Scancode SCANCODE_MENU = SDL_SCANCODE_MENU; ///< Menu (show menu)
 
@@ -423,43 +423,43 @@ constexpr Scancode SCANCODE_MUTE = SDL_SCANCODE_MUTE; ///< MUTE
 constexpr Scancode SCANCODE_VOLUMEUP = SDL_SCANCODE_VOLUMEUP; ///< VOLUMEUP
 
 constexpr Scancode SCANCODE_VOLUMEDOWN =
-  SDL_SCANCODE_VOLUMEDOWN; ///< VOLUMEDOWN
+	SDL_SCANCODE_VOLUMEDOWN; ///< VOLUMEDOWN
 
 constexpr Scancode SCANCODE_KP_COMMA = SDL_SCANCODE_KP_COMMA; ///< KP_COMMA
 
 constexpr Scancode SCANCODE_KP_EQUALSAS400 =
-  SDL_SCANCODE_KP_EQUALSAS400; ///< KP_EQUALSAS400
+	SDL_SCANCODE_KP_EQUALSAS400; ///< KP_EQUALSAS400
 
 constexpr Scancode SCANCODE_INTERNATIONAL1 =
-  SDL_SCANCODE_INTERNATIONAL1; ///< used on Asian keyboards, see footnotes in
-                               ///< USB doc
+	SDL_SCANCODE_INTERNATIONAL1; ///< used on Asian keyboards, see footnotes in
+															 ///< USB doc
 
 constexpr Scancode SCANCODE_INTERNATIONAL2 =
-  SDL_SCANCODE_INTERNATIONAL2; ///< INTERNATIONAL2
+	SDL_SCANCODE_INTERNATIONAL2; ///< INTERNATIONAL2
 
 constexpr Scancode SCANCODE_INTERNATIONAL3 =
-  SDL_SCANCODE_INTERNATIONAL3; ///< Yen
+	SDL_SCANCODE_INTERNATIONAL3; ///< Yen
 
 constexpr Scancode SCANCODE_INTERNATIONAL4 =
-  SDL_SCANCODE_INTERNATIONAL4; ///< INTERNATIONAL4
+	SDL_SCANCODE_INTERNATIONAL4; ///< INTERNATIONAL4
 
 constexpr Scancode SCANCODE_INTERNATIONAL5 =
-  SDL_SCANCODE_INTERNATIONAL5; ///< INTERNATIONAL5
+	SDL_SCANCODE_INTERNATIONAL5; ///< INTERNATIONAL5
 
 constexpr Scancode SCANCODE_INTERNATIONAL6 =
-  SDL_SCANCODE_INTERNATIONAL6; ///< INTERNATIONAL6
+	SDL_SCANCODE_INTERNATIONAL6; ///< INTERNATIONAL6
 
 constexpr Scancode SCANCODE_INTERNATIONAL7 =
-  SDL_SCANCODE_INTERNATIONAL7; ///< INTERNATIONAL7
+	SDL_SCANCODE_INTERNATIONAL7; ///< INTERNATIONAL7
 
 constexpr Scancode SCANCODE_INTERNATIONAL8 =
-  SDL_SCANCODE_INTERNATIONAL8; ///< INTERNATIONAL8
+	SDL_SCANCODE_INTERNATIONAL8; ///< INTERNATIONAL8
 
 constexpr Scancode SCANCODE_INTERNATIONAL9 =
-  SDL_SCANCODE_INTERNATIONAL9; ///< INTERNATIONAL9
+	SDL_SCANCODE_INTERNATIONAL9; ///< INTERNATIONAL9
 
 constexpr Scancode SCANCODE_LANG1 =
-  SDL_SCANCODE_LANG1; ///< Hangul/English toggle
+	SDL_SCANCODE_LANG1; ///< Hangul/English toggle
 
 constexpr Scancode SCANCODE_LANG2 = SDL_SCANCODE_LANG2; ///< Hanja conversion
 
@@ -496,7 +496,7 @@ constexpr Scancode SCANCODE_OUT = SDL_SCANCODE_OUT; ///< OUT
 constexpr Scancode SCANCODE_OPER = SDL_SCANCODE_OPER; ///< OPER
 
 constexpr Scancode SCANCODE_CLEARAGAIN =
-  SDL_SCANCODE_CLEARAGAIN; ///< CLEARAGAIN
+	SDL_SCANCODE_CLEARAGAIN; ///< CLEARAGAIN
 
 constexpr Scancode SCANCODE_CRSEL = SDL_SCANCODE_CRSEL; ///< CRSEL
 
@@ -507,33 +507,33 @@ constexpr Scancode SCANCODE_KP_00 = SDL_SCANCODE_KP_00; ///< KP_00
 constexpr Scancode SCANCODE_KP_000 = SDL_SCANCODE_KP_000; ///< KP_000
 
 constexpr Scancode SCANCODE_THOUSANDSSEPARATOR =
-  SDL_SCANCODE_THOUSANDSSEPARATOR; ///< THOUSANDSSEPARATOR
+	SDL_SCANCODE_THOUSANDSSEPARATOR; ///< THOUSANDSSEPARATOR
 
 constexpr Scancode SCANCODE_DECIMALSEPARATOR =
-  SDL_SCANCODE_DECIMALSEPARATOR; ///< DECIMALSEPARATOR
+	SDL_SCANCODE_DECIMALSEPARATOR; ///< DECIMALSEPARATOR
 
 constexpr Scancode SCANCODE_CURRENCYUNIT =
-  SDL_SCANCODE_CURRENCYUNIT; ///< CURRENCYUNIT
+	SDL_SCANCODE_CURRENCYUNIT; ///< CURRENCYUNIT
 
 constexpr Scancode SCANCODE_CURRENCYSUBUNIT =
-  SDL_SCANCODE_CURRENCYSUBUNIT; ///< CURRENCYSUBUNIT
+	SDL_SCANCODE_CURRENCYSUBUNIT; ///< CURRENCYSUBUNIT
 
 constexpr Scancode SCANCODE_KP_LEFTPAREN =
-  SDL_SCANCODE_KP_LEFTPAREN; ///< KP_LEFTPAREN
+	SDL_SCANCODE_KP_LEFTPAREN; ///< KP_LEFTPAREN
 
 constexpr Scancode SCANCODE_KP_RIGHTPAREN =
-  SDL_SCANCODE_KP_RIGHTPAREN; ///< KP_RIGHTPAREN
+	SDL_SCANCODE_KP_RIGHTPAREN; ///< KP_RIGHTPAREN
 
 constexpr Scancode SCANCODE_KP_LEFTBRACE =
-  SDL_SCANCODE_KP_LEFTBRACE; ///< KP_LEFTBRACE
+	SDL_SCANCODE_KP_LEFTBRACE; ///< KP_LEFTBRACE
 
 constexpr Scancode SCANCODE_KP_RIGHTBRACE =
-  SDL_SCANCODE_KP_RIGHTBRACE; ///< KP_RIGHTBRACE
+	SDL_SCANCODE_KP_RIGHTBRACE; ///< KP_RIGHTBRACE
 
 constexpr Scancode SCANCODE_KP_TAB = SDL_SCANCODE_KP_TAB; ///< KP_TAB
 
 constexpr Scancode SCANCODE_KP_BACKSPACE =
-  SDL_SCANCODE_KP_BACKSPACE; ///< KP_BACKSPACE
+	SDL_SCANCODE_KP_BACKSPACE; ///< KP_BACKSPACE
 
 constexpr Scancode SCANCODE_KP_A = SDL_SCANCODE_KP_A; ///< KP_A
 
@@ -552,24 +552,24 @@ constexpr Scancode SCANCODE_KP_XOR = SDL_SCANCODE_KP_XOR; ///< KP_XOR
 constexpr Scancode SCANCODE_KP_POWER = SDL_SCANCODE_KP_POWER; ///< KP_POWER
 
 constexpr Scancode SCANCODE_KP_PERCENT =
-  SDL_SCANCODE_KP_PERCENT; ///< KP_PERCENT
+	SDL_SCANCODE_KP_PERCENT; ///< KP_PERCENT
 
 constexpr Scancode SCANCODE_KP_LESS = SDL_SCANCODE_KP_LESS; ///< KP_LESS
 
 constexpr Scancode SCANCODE_KP_GREATER =
-  SDL_SCANCODE_KP_GREATER; ///< KP_GREATER
+	SDL_SCANCODE_KP_GREATER; ///< KP_GREATER
 
 constexpr Scancode SCANCODE_KP_AMPERSAND =
-  SDL_SCANCODE_KP_AMPERSAND; ///< KP_AMPERSAND
+	SDL_SCANCODE_KP_AMPERSAND; ///< KP_AMPERSAND
 
 constexpr Scancode SCANCODE_KP_DBLAMPERSAND =
-  SDL_SCANCODE_KP_DBLAMPERSAND; ///< KP_DBLAMPERSAND
+	SDL_SCANCODE_KP_DBLAMPERSAND; ///< KP_DBLAMPERSAND
 
 constexpr Scancode SCANCODE_KP_VERTICALBAR =
-  SDL_SCANCODE_KP_VERTICALBAR; ///< KP_VERTICALBAR
+	SDL_SCANCODE_KP_VERTICALBAR; ///< KP_VERTICALBAR
 
 constexpr Scancode SCANCODE_KP_DBLVERTICALBAR =
-  SDL_SCANCODE_KP_DBLVERTICALBAR; ///< KP_DBLVERTICALBAR
+	SDL_SCANCODE_KP_DBLVERTICALBAR; ///< KP_DBLVERTICALBAR
 
 constexpr Scancode SCANCODE_KP_COLON = SDL_SCANCODE_KP_COLON; ///< KP_COLON
 
@@ -582,42 +582,42 @@ constexpr Scancode SCANCODE_KP_AT = SDL_SCANCODE_KP_AT; ///< KP_AT
 constexpr Scancode SCANCODE_KP_EXCLAM = SDL_SCANCODE_KP_EXCLAM; ///< KP_EXCLAM
 
 constexpr Scancode SCANCODE_KP_MEMSTORE =
-  SDL_SCANCODE_KP_MEMSTORE; ///< KP_MEMSTORE
+	SDL_SCANCODE_KP_MEMSTORE; ///< KP_MEMSTORE
 
 constexpr Scancode SCANCODE_KP_MEMRECALL =
-  SDL_SCANCODE_KP_MEMRECALL; ///< KP_MEMRECALL
+	SDL_SCANCODE_KP_MEMRECALL; ///< KP_MEMRECALL
 
 constexpr Scancode SCANCODE_KP_MEMCLEAR =
-  SDL_SCANCODE_KP_MEMCLEAR; ///< KP_MEMCLEAR
+	SDL_SCANCODE_KP_MEMCLEAR; ///< KP_MEMCLEAR
 
 constexpr Scancode SCANCODE_KP_MEMADD = SDL_SCANCODE_KP_MEMADD; ///< KP_MEMADD
 
 constexpr Scancode SCANCODE_KP_MEMSUBTRACT =
-  SDL_SCANCODE_KP_MEMSUBTRACT; ///< KP_MEMSUBTRACT
+	SDL_SCANCODE_KP_MEMSUBTRACT; ///< KP_MEMSUBTRACT
 
 constexpr Scancode SCANCODE_KP_MEMMULTIPLY =
-  SDL_SCANCODE_KP_MEMMULTIPLY; ///< KP_MEMMULTIPLY
+	SDL_SCANCODE_KP_MEMMULTIPLY; ///< KP_MEMMULTIPLY
 
 constexpr Scancode SCANCODE_KP_MEMDIVIDE =
-  SDL_SCANCODE_KP_MEMDIVIDE; ///< KP_MEMDIVIDE
+	SDL_SCANCODE_KP_MEMDIVIDE; ///< KP_MEMDIVIDE
 
 constexpr Scancode SCANCODE_KP_PLUSMINUS =
-  SDL_SCANCODE_KP_PLUSMINUS; ///< KP_PLUSMINUS
+	SDL_SCANCODE_KP_PLUSMINUS; ///< KP_PLUSMINUS
 
 constexpr Scancode SCANCODE_KP_CLEAR = SDL_SCANCODE_KP_CLEAR; ///< KP_CLEAR
 
 constexpr Scancode SCANCODE_KP_CLEARENTRY =
-  SDL_SCANCODE_KP_CLEARENTRY; ///< KP_CLEARENTRY
+	SDL_SCANCODE_KP_CLEARENTRY; ///< KP_CLEARENTRY
 
 constexpr Scancode SCANCODE_KP_BINARY = SDL_SCANCODE_KP_BINARY; ///< KP_BINARY
 
 constexpr Scancode SCANCODE_KP_OCTAL = SDL_SCANCODE_KP_OCTAL; ///< KP_OCTAL
 
 constexpr Scancode SCANCODE_KP_DECIMAL =
-  SDL_SCANCODE_KP_DECIMAL; ///< KP_DECIMAL
+	SDL_SCANCODE_KP_DECIMAL; ///< KP_DECIMAL
 
 constexpr Scancode SCANCODE_KP_HEXADECIMAL =
-  SDL_SCANCODE_KP_HEXADECIMAL; ///< KP_HEXADECIMAL
+	SDL_SCANCODE_KP_HEXADECIMAL; ///< KP_HEXADECIMAL
 
 constexpr Scancode SCANCODE_LCTRL = SDL_SCANCODE_LCTRL; ///< LCTRL
 
@@ -626,7 +626,7 @@ constexpr Scancode SCANCODE_LSHIFT = SDL_SCANCODE_LSHIFT; ///< LSHIFT
 constexpr Scancode SCANCODE_LALT = SDL_SCANCODE_LALT; ///< alt, option
 
 constexpr Scancode SCANCODE_LGUI =
-  SDL_SCANCODE_LGUI; ///< windows, command (apple), meta
+	SDL_SCANCODE_LGUI; ///< windows, command (apple), meta
 
 constexpr Scancode SCANCODE_RCTRL = SDL_SCANCODE_RCTRL; ///< RCTRL
 
@@ -635,7 +635,7 @@ constexpr Scancode SCANCODE_RSHIFT = SDL_SCANCODE_RSHIFT; ///< RSHIFT
 constexpr Scancode SCANCODE_RALT = SDL_SCANCODE_RALT; ///< alt gr, option
 
 constexpr Scancode SCANCODE_RGUI =
-  SDL_SCANCODE_RGUI; ///< windows, command (apple), meta
+	SDL_SCANCODE_RGUI; ///< windows, command (apple), meta
 
 /**
  * I'm not sure if this is really not covered by any of the above, but since
@@ -648,39 +648,39 @@ constexpr Scancode SCANCODE_SLEEP = SDL_SCANCODE_SLEEP; ///< Sleep
 constexpr Scancode SCANCODE_WAKE = SDL_SCANCODE_WAKE; ///< Wake
 
 constexpr Scancode SCANCODE_CHANNEL_INCREMENT =
-  SDL_SCANCODE_CHANNEL_INCREMENT; ///< Channel Increment
+	SDL_SCANCODE_CHANNEL_INCREMENT; ///< Channel Increment
 
 constexpr Scancode SCANCODE_CHANNEL_DECREMENT =
-  SDL_SCANCODE_CHANNEL_DECREMENT; ///< Channel Decrement
+	SDL_SCANCODE_CHANNEL_DECREMENT; ///< Channel Decrement
 
 constexpr Scancode SCANCODE_MEDIA_PLAY = SDL_SCANCODE_MEDIA_PLAY; ///< Play
 
 constexpr Scancode SCANCODE_MEDIA_PAUSE = SDL_SCANCODE_MEDIA_PAUSE; ///< Pause
 
 constexpr Scancode SCANCODE_MEDIA_RECORD =
-  SDL_SCANCODE_MEDIA_RECORD; ///< Record
+	SDL_SCANCODE_MEDIA_RECORD; ///< Record
 
 constexpr Scancode SCANCODE_MEDIA_FAST_FORWARD =
-  SDL_SCANCODE_MEDIA_FAST_FORWARD; ///< Fast Forward
+	SDL_SCANCODE_MEDIA_FAST_FORWARD; ///< Fast Forward
 
 constexpr Scancode SCANCODE_MEDIA_REWIND =
-  SDL_SCANCODE_MEDIA_REWIND; ///< Rewind
+	SDL_SCANCODE_MEDIA_REWIND; ///< Rewind
 
 constexpr Scancode SCANCODE_MEDIA_NEXT_TRACK =
-  SDL_SCANCODE_MEDIA_NEXT_TRACK; ///< Next Track
+	SDL_SCANCODE_MEDIA_NEXT_TRACK; ///< Next Track
 
 constexpr Scancode SCANCODE_MEDIA_PREVIOUS_TRACK =
-  SDL_SCANCODE_MEDIA_PREVIOUS_TRACK; ///< Previous Track
+	SDL_SCANCODE_MEDIA_PREVIOUS_TRACK; ///< Previous Track
 
 constexpr Scancode SCANCODE_MEDIA_STOP = SDL_SCANCODE_MEDIA_STOP; ///< Stop
 
 constexpr Scancode SCANCODE_MEDIA_EJECT = SDL_SCANCODE_MEDIA_EJECT; ///< Eject
 
 constexpr Scancode SCANCODE_MEDIA_PLAY_PAUSE =
-  SDL_SCANCODE_MEDIA_PLAY_PAUSE; ///< Play / Pause
+	SDL_SCANCODE_MEDIA_PLAY_PAUSE; ///< Play / Pause
 
 constexpr Scancode SCANCODE_MEDIA_SELECT =
-  SDL_SCANCODE_MEDIA_SELECT; ///< MEDIA_SELECT
+	SDL_SCANCODE_MEDIA_SELECT; ///< MEDIA_SELECT
 
 constexpr Scancode SCANCODE_AC_NEW = SDL_SCANCODE_AC_NEW; ///< AC New
 
@@ -695,7 +695,7 @@ constexpr Scancode SCANCODE_AC_SAVE = SDL_SCANCODE_AC_SAVE; ///< AC Save
 constexpr Scancode SCANCODE_AC_PRINT = SDL_SCANCODE_AC_PRINT; ///< AC Print
 
 constexpr Scancode SCANCODE_AC_PROPERTIES =
-  SDL_SCANCODE_AC_PROPERTIES; ///< AC Properties
+	SDL_SCANCODE_AC_PROPERTIES; ///< AC Properties
 
 constexpr Scancode SCANCODE_AC_SEARCH = SDL_SCANCODE_AC_SEARCH; ///< AC Search
 
@@ -704,15 +704,15 @@ constexpr Scancode SCANCODE_AC_HOME = SDL_SCANCODE_AC_HOME; ///< AC Home
 constexpr Scancode SCANCODE_AC_BACK = SDL_SCANCODE_AC_BACK; ///< AC back
 
 constexpr Scancode SCANCODE_AC_FORWARD =
-  SDL_SCANCODE_AC_FORWARD; ///< AC Forward
+	SDL_SCANCODE_AC_FORWARD; ///< AC Forward
 
 constexpr Scancode SCANCODE_AC_STOP = SDL_SCANCODE_AC_STOP; ///< AC Stop
 
 constexpr Scancode SCANCODE_AC_REFRESH =
-  SDL_SCANCODE_AC_REFRESH; ///< AC Refresh
+	SDL_SCANCODE_AC_REFRESH; ///< AC Refresh
 
 constexpr Scancode SCANCODE_AC_BOOKMARKS =
-  SDL_SCANCODE_AC_BOOKMARKS; ///< AC Bookmarks
+	SDL_SCANCODE_AC_BOOKMARKS; ///< AC Bookmarks
 
 /**
  * Usually situated below the display on phones and used as a multi-function
@@ -729,13 +729,13 @@ constexpr Scancode SCANCODE_SOFTLEFT = SDL_SCANCODE_SOFTLEFT;
 constexpr Scancode SCANCODE_SOFTRIGHT = SDL_SCANCODE_SOFTRIGHT;
 
 constexpr Scancode SCANCODE_CALL =
-  SDL_SCANCODE_CALL; ///< Used for accepting phone calls.
+	SDL_SCANCODE_CALL; ///< Used for accepting phone calls.
 
 constexpr Scancode SCANCODE_ENDCALL =
-  SDL_SCANCODE_ENDCALL; ///< Used for rejecting phone calls.
+	SDL_SCANCODE_ENDCALL; ///< Used for rejecting phone calls.
 
 constexpr Scancode SCANCODE_RESERVED =
-  SDL_SCANCODE_RESERVED; ///< 400-500 reserved for dynamic keycodes
+	SDL_SCANCODE_RESERVED; ///< 400-500 reserved for dynamic keycodes
 
 /// not a key, just marks the number of scancodes for array bounds
 constexpr Scancode SCANCODE_COUNT = SDL_SCANCODE_COUNT;

@@ -84,171 +84,171 @@ struct InitState;
  * @cat resource
  */
 class Mutex {
-  MutexRaw m_resource = nullptr;
+	MutexRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr Mutex(std::nullptr_t) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr Mutex(std::nullptr_t) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw Mutex.
-   *
-   * @param resource a MutexRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Mutex(MutexRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Mutex.
+	 *
+	 * @param resource a MutexRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Mutex(MutexRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Mutex(const Mutex& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Mutex(const Mutex& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Mutex(Mutex&& other) noexcept
-    : Mutex(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Mutex(Mutex&& other) noexcept
+		: Mutex(other.Release()) {
+	}
 
-  constexpr Mutex(const MutexRef& other) = delete;
+	constexpr Mutex(const MutexRef& other) = delete;
 
-  constexpr Mutex(MutexRef&& other) = delete;
+	constexpr Mutex(MutexRef&& other) = delete;
 
-  /**
-   * Create a new mutex.
-   *
-   * All newly-created mutexes begin in the _unlocked_ state.
-   *
-   * Calls to Mutex.Lock() will not return while the mutex is locked by another
-   * thread. See Mutex.TryLock() to attempt to lock without blocking.
-   *
-   * SDL mutexes are reentrant.
-   *
-   * @post the initialized and unlocked mutex or nullptr on failure; call
-   *       GetError() for more information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Mutex.Destroy
-   * @sa Mutex.Lock
-   * @sa Mutex.TryLock
-   * @sa Mutex.Unlock
-   */
-  Mutex();
+	/**
+	 * Create a new mutex.
+	 *
+	 * All newly-created mutexes begin in the _unlocked_ state.
+	 *
+	 * Calls to Mutex.Lock() will not return while the mutex is locked by another
+	 * thread. See Mutex.TryLock() to attempt to lock without blocking.
+	 *
+	 * SDL mutexes are reentrant.
+	 *
+	 * @post the initialized and unlocked mutex or nullptr on failure; call
+	 *       GetError() for more information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Mutex.Destroy
+	 * @sa Mutex.Lock
+	 * @sa Mutex.TryLock
+	 * @sa Mutex.Unlock
+	 */
+	Mutex();
 
-  /// Destructor
-  ~Mutex() { SDL_DestroyMutex(m_resource); }
+	/// Destructor
+	~Mutex() { SDL_DestroyMutex(m_resource); }
 
-  /// Assignment operator.
-  constexpr Mutex& operator=(Mutex&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Mutex& operator=(Mutex&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Mutex& operator=(const Mutex& other) = delete;
+	/// Assignment operator.
+	Mutex& operator=(const Mutex& other) = delete;
 
-  /// Retrieves underlying MutexRaw.
-  constexpr MutexRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying MutexRaw.
+	constexpr MutexRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying MutexRaw and clear this.
-  constexpr MutexRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying MutexRaw and clear this.
+	constexpr MutexRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Mutex& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Mutex& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Destroy a mutex created with CreateMutex().
-   *
-   * This function must be called on any mutex that is no longer needed. Failure
-   * to destroy a mutex will result in a system memory or resource leak. While
-   * it is safe to destroy a mutex that is _unlocked_, it is not safe to attempt
-   * to destroy a locked mutex, and may result in undefined behavior depending
-   * on the platform.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateMutex
-   */
-  void Destroy();
+	/**
+	 * Destroy a mutex created with CreateMutex().
+	 *
+	 * This function must be called on any mutex that is no longer needed. Failure
+	 * to destroy a mutex will result in a system memory or resource leak. While
+	 * it is safe to destroy a mutex that is _unlocked_, it is not safe to attempt
+	 * to destroy a locked mutex, and may result in undefined behavior depending
+	 * on the platform.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateMutex
+	 */
+	void Destroy();
 
-  /**
-   * Lock the mutex.
-   *
-   * This will block until the mutex is available, which is to say it is in the
-   * unlocked state and the OS has chosen the caller as the next thread to lock
-   * it. Of all threads waiting to lock the mutex, only one may do so at a time.
-   *
-   * It is legal for the owning thread to lock an already-locked mutex. It must
-   * unlock it the same number of times before it is actually made available for
-   * other threads in the system (this is known as a "recursive mutex").
-   *
-   * This function does not fail; if mutex is nullptr, it will return
-   * immediately having locked nothing. If the mutex is valid, this function
-   * will always block until it can lock the mutex, and return with it locked.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Mutex.TryLock
-   * @sa Mutex.Unlock
-   */
-  void Lock();
+	/**
+	 * Lock the mutex.
+	 *
+	 * This will block until the mutex is available, which is to say it is in the
+	 * unlocked state and the OS has chosen the caller as the next thread to lock
+	 * it. Of all threads waiting to lock the mutex, only one may do so at a time.
+	 *
+	 * It is legal for the owning thread to lock an already-locked mutex. It must
+	 * unlock it the same number of times before it is actually made available for
+	 * other threads in the system (this is known as a "recursive mutex").
+	 *
+	 * This function does not fail; if mutex is nullptr, it will return
+	 * immediately having locked nothing. If the mutex is valid, this function
+	 * will always block until it can lock the mutex, and return with it locked.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Mutex.TryLock
+	 * @sa Mutex.Unlock
+	 */
+	void Lock();
 
-  /**
-   * Try to lock a mutex without blocking.
-   *
-   * This works just like Mutex.Lock(), but if the mutex is not available, this
-   * function returns false immediately.
-   *
-   * This technique is useful if you need exclusive access to a resource but
-   * don't want to wait for it, and will return to it to try again later.
-   *
-   * This function returns true if passed a nullptr mutex.
-   *
-   * @returns true on success, false if the mutex would block.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Mutex.Lock
-   * @sa Mutex.Unlock
-   */
-  bool TryLock();
+	/**
+	 * Try to lock a mutex without blocking.
+	 *
+	 * This works just like Mutex.Lock(), but if the mutex is not available, this
+	 * function returns false immediately.
+	 *
+	 * This technique is useful if you need exclusive access to a resource but
+	 * don't want to wait for it, and will return to it to try again later.
+	 *
+	 * This function returns true if passed a nullptr mutex.
+	 *
+	 * @returns true on success, false if the mutex would block.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Mutex.Lock
+	 * @sa Mutex.Unlock
+	 */
+	bool TryLock();
 
-  /**
-   * Unlock the mutex.
-   *
-   * It is legal for the owning thread to lock an already-locked mutex. It must
-   * unlock it the same number of times before it is actually made available for
-   * other threads in the system (this is known as a "recursive mutex").
-   *
-   * It is illegal to unlock a mutex that has not been locked by the current
-   * thread, and doing so results in undefined behavior.
-   *
-   * @threadsafety This call must be paired with a previous locking call on the
-   *               same thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Mutex.Lock
-   * @sa Mutex.TryLock
-   */
-  void Unlock();
+	/**
+	 * Unlock the mutex.
+	 *
+	 * It is legal for the owning thread to lock an already-locked mutex. It must
+	 * unlock it the same number of times before it is actually made available for
+	 * other threads in the system (this is known as a "recursive mutex").
+	 *
+	 * It is illegal to unlock a mutex that has not been locked by the current
+	 * thread, and doing so results in undefined behavior.
+	 *
+	 * @threadsafety This call must be paired with a previous locking call on the
+	 *               same thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Mutex.Lock
+	 * @sa Mutex.TryLock
+	 */
+	void Unlock();
 };
 
 /**
@@ -257,63 +257,63 @@ public:
  * This does not take ownership!
  */
 struct MutexRef : Mutex {
-  using Mutex::Mutex;
+	using Mutex::Mutex;
 
-  /**
-   * Constructs from raw Mutex.
-   *
-   * @param resource a MutexRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr MutexRef(MutexRaw resource) noexcept
-    : Mutex(resource) {
-  }
+	/**
+	 * Constructs from raw Mutex.
+	 *
+	 * @param resource a MutexRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr MutexRef(MutexRaw resource) noexcept
+		: Mutex(resource) {
+	}
 
-  /**
-   * Constructs from Mutex.
-   *
-   * @param resource a Mutex.
-   *
-   * This does not takes ownership!
-   */
-  constexpr MutexRef(const Mutex& resource) noexcept
-    : Mutex(resource.Get()) {
-  }
+	/**
+	 * Constructs from Mutex.
+	 *
+	 * @param resource a Mutex.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr MutexRef(const Mutex& resource) noexcept
+		: Mutex(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Mutex.
-   *
-   * @param resource a Mutex.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr MutexRef(Mutex&& resource) noexcept
-    : Mutex(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Mutex.
+	 *
+	 * @param resource a Mutex.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr MutexRef(Mutex&& resource) noexcept
+		: Mutex(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr MutexRef(const MutexRef& other) noexcept
-    : Mutex(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr MutexRef(const MutexRef& other) noexcept
+		: Mutex(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr MutexRef(MutexRef&& other) noexcept
-    : Mutex(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr MutexRef(MutexRef&& other) noexcept
+		: Mutex(other.Get()) {
+	}
 
-  /// Destructor
-  ~MutexRef() { Release(); }
+	/// Destructor
+	~MutexRef() { Release(); }
 
-  /// Assignment operator.
-  MutexRef& operator=(const MutexRef& other) noexcept {
-    Release();
-    Mutex::operator=(Mutex(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	MutexRef& operator=(const MutexRef& other) noexcept {
+		Release();
+		Mutex::operator=(Mutex(other.Get()));
+		return *this;
+	}
 
-  /// Converts to MutexRaw
-  constexpr operator MutexRaw() const noexcept { return Get(); }
+	/// Converts to MutexRaw
+	constexpr operator MutexRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -341,7 +341,7 @@ struct MutexRef : Mutex {
 inline Mutex CreateMutex() { return Mutex(); }
 
 inline Mutex::Mutex()
-  : m_resource(SDL_CreateMutex()) {
+	: m_resource(SDL_CreateMutex()) {
 }
 
 /**
@@ -463,276 +463,276 @@ inline void Mutex::Destroy() { DestroyMutex(Release()); }
  * @cat resource
  */
 class RWLock {
-  RWLockRaw m_resource = nullptr;
+	RWLockRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr RWLock(std::nullptr_t) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr RWLock(std::nullptr_t) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw RWLock.
-   *
-   * @param resource a RWLockRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit RWLock(RWLockRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw RWLock.
+	 *
+	 * @param resource a RWLockRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit RWLock(RWLockRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr RWLock(const RWLock& other) noexcept = delete;
+	/// Copy constructor
+	constexpr RWLock(const RWLock& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr RWLock(RWLock&& other) noexcept
-    : RWLock(other.Release()) {
-  }
+	/// Move constructor
+	constexpr RWLock(RWLock&& other) noexcept
+		: RWLock(other.Release()) {
+	}
 
-  constexpr RWLock(const RWLockRef& other) = delete;
+	constexpr RWLock(const RWLockRef& other) = delete;
 
-  constexpr RWLock(RWLockRef&& other) = delete;
+	constexpr RWLock(RWLockRef&& other) = delete;
 
-  /**
-   * Create a new read/write lock.
-   *
-   * A read/write lock is useful for situations where you have multiple threads
-   * trying to access a resource that is rarely updated. All threads requesting
-   * a read-only lock will be allowed to run in parallel; if a thread requests a
-   * write lock, it will be provided exclusive access. This makes it safe for
-   * multiple threads to use a resource at the same time if they promise not to
-   * change it, and when it has to be changed, the rwlock will serve as a
-   * gateway to make sure those changes can be made safely.
-   *
-   * In the right situation, a rwlock can be more efficient than a mutex, which
-   * only lets a single thread proceed at a time, even if it won't be modifying
-   * the data.
-   *
-   * All newly-created read/write locks begin in the _unlocked_ state.
-   *
-   * Calls to LockRWLockForReading() and LockRWLockForWriting will not return
-   * while the rwlock is locked _for writing_ by another thread. See
-   * RWLock.TryLockForReading() and RWLock.TryLockForWriting() to attempt to
-   * lock without blocking.
-   *
-   * SDL read/write locks are only recursive for read-only locks! They are not
-   * guaranteed to be fair, or provide access in a FIFO manner! They are not
-   * guaranteed to favor writers. You may not lock a rwlock for both read-only
-   * and write access at the same time from the same thread (so you can't
-   * promote your read-only lock to a write lock without unlocking first).
-   *
-   * @post the initialized and unlocked read/write lock or nullptr on failure;
-   *       call GetError() for more information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa RWLock.Destroy
-   * @sa LockRWLockForReading
-   * @sa LockRWLockForWriting
-   * @sa RWLock.TryLockForReading
-   * @sa RWLock.TryLockForWriting
-   * @sa RWLock.Unlock
-   */
-  RWLock();
+	/**
+	 * Create a new read/write lock.
+	 *
+	 * A read/write lock is useful for situations where you have multiple threads
+	 * trying to access a resource that is rarely updated. All threads requesting
+	 * a read-only lock will be allowed to run in parallel; if a thread requests a
+	 * write lock, it will be provided exclusive access. This makes it safe for
+	 * multiple threads to use a resource at the same time if they promise not to
+	 * change it, and when it has to be changed, the rwlock will serve as a
+	 * gateway to make sure those changes can be made safely.
+	 *
+	 * In the right situation, a rwlock can be more efficient than a mutex, which
+	 * only lets a single thread proceed at a time, even if it won't be modifying
+	 * the data.
+	 *
+	 * All newly-created read/write locks begin in the _unlocked_ state.
+	 *
+	 * Calls to LockRWLockForReading() and LockRWLockForWriting will not return
+	 * while the rwlock is locked _for writing_ by another thread. See
+	 * RWLock.TryLockForReading() and RWLock.TryLockForWriting() to attempt to
+	 * lock without blocking.
+	 *
+	 * SDL read/write locks are only recursive for read-only locks! They are not
+	 * guaranteed to be fair, or provide access in a FIFO manner! They are not
+	 * guaranteed to favor writers. You may not lock a rwlock for both read-only
+	 * and write access at the same time from the same thread (so you can't
+	 * promote your read-only lock to a write lock without unlocking first).
+	 *
+	 * @post the initialized and unlocked read/write lock or nullptr on failure;
+	 *       call GetError() for more information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa RWLock.Destroy
+	 * @sa LockRWLockForReading
+	 * @sa LockRWLockForWriting
+	 * @sa RWLock.TryLockForReading
+	 * @sa RWLock.TryLockForWriting
+	 * @sa RWLock.Unlock
+	 */
+	RWLock();
 
-  /// Destructor
-  ~RWLock() { SDL_DestroyRWLock(m_resource); }
+	/// Destructor
+	~RWLock() { SDL_DestroyRWLock(m_resource); }
 
-  /// Assignment operator.
-  constexpr RWLock& operator=(RWLock&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr RWLock& operator=(RWLock&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  RWLock& operator=(const RWLock& other) = delete;
+	/// Assignment operator.
+	RWLock& operator=(const RWLock& other) = delete;
 
-  /// Retrieves underlying RWLockRaw.
-  constexpr RWLockRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying RWLockRaw.
+	constexpr RWLockRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying RWLockRaw and clear this.
-  constexpr RWLockRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying RWLockRaw and clear this.
+	constexpr RWLockRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const RWLock& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const RWLock& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Destroy a read/write lock created with CreateRWLock().
-   *
-   * This function must be called on any read/write lock that is no longer
-   * needed. Failure to destroy a rwlock will result in a system memory or
-   * resource leak. While it is safe to destroy a rwlock that is _unlocked_, it
-   * is not safe to attempt to destroy a locked rwlock, and may result in
-   * undefined behavior depending on the platform.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateRWLock
-   */
-  void Destroy();
+	/**
+	 * Destroy a read/write lock created with CreateRWLock().
+	 *
+	 * This function must be called on any read/write lock that is no longer
+	 * needed. Failure to destroy a rwlock will result in a system memory or
+	 * resource leak. While it is safe to destroy a rwlock that is _unlocked_, it
+	 * is not safe to attempt to destroy a locked rwlock, and may result in
+	 * undefined behavior depending on the platform.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateRWLock
+	 */
+	void Destroy();
 
-  /**
-   * Lock the read/write lock for _read only_ operations.
-   *
-   * This will block until the rwlock is available, which is to say it is not
-   * locked for writing by any other thread. Of all threads waiting to lock the
-   * rwlock, all may do so at the same time as long as they are requesting
-   * read-only access; if a thread wants to lock for writing, only one may do so
-   * at a time, and no other threads, read-only or not, may hold the lock at the
-   * same time.
-   *
-   * It is legal for the owning thread to lock an already-locked rwlock for
-   * reading. It must unlock it the same number of times before it is actually
-   * made available for other threads in the system (this is known as a
-   * "recursive rwlock").
-   *
-   * Note that locking for writing is not recursive (this is only available to
-   * read-only locks).
-   *
-   * It is illegal to request a read-only lock from a thread that already holds
-   * the write lock. Doing so results in undefined behavior. Unlock the write
-   * lock before requesting a read-only lock. (But, of course, if you have the
-   * write lock, you don't need further locks to read in any case.)
-   *
-   * This function does not fail; if rwlock is nullptr, it will return
-   * immediately having locked nothing. If the rwlock is valid, this function
-   * will always block until it can lock the mutex, and return with it locked.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa LockRWLockForWriting
-   * @sa RWLock.TryLockForReading
-   * @sa RWLock.Unlock
-   */
-  void LockForReading();
+	/**
+	 * Lock the read/write lock for _read only_ operations.
+	 *
+	 * This will block until the rwlock is available, which is to say it is not
+	 * locked for writing by any other thread. Of all threads waiting to lock the
+	 * rwlock, all may do so at the same time as long as they are requesting
+	 * read-only access; if a thread wants to lock for writing, only one may do so
+	 * at a time, and no other threads, read-only or not, may hold the lock at the
+	 * same time.
+	 *
+	 * It is legal for the owning thread to lock an already-locked rwlock for
+	 * reading. It must unlock it the same number of times before it is actually
+	 * made available for other threads in the system (this is known as a
+	 * "recursive rwlock").
+	 *
+	 * Note that locking for writing is not recursive (this is only available to
+	 * read-only locks).
+	 *
+	 * It is illegal to request a read-only lock from a thread that already holds
+	 * the write lock. Doing so results in undefined behavior. Unlock the write
+	 * lock before requesting a read-only lock. (But, of course, if you have the
+	 * write lock, you don't need further locks to read in any case.)
+	 *
+	 * This function does not fail; if rwlock is nullptr, it will return
+	 * immediately having locked nothing. If the rwlock is valid, this function
+	 * will always block until it can lock the mutex, and return with it locked.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa LockRWLockForWriting
+	 * @sa RWLock.TryLockForReading
+	 * @sa RWLock.Unlock
+	 */
+	void LockForReading();
 
-  /**
-   * Lock the read/write lock for _write_ operations.
-   *
-   * This will block until the rwlock is available, which is to say it is not
-   * locked for reading or writing by any other thread. Only one thread may hold
-   * the lock when it requests write access; all other threads, whether they
-   * also want to write or only want read-only access, must wait until the
-   * writer thread has released the lock.
-   *
-   * It is illegal for the owning thread to lock an already-locked rwlock for
-   * writing (read-only may be locked recursively, writing can not). Doing so
-   * results in undefined behavior.
-   *
-   * It is illegal to request a write lock from a thread that already holds a
-   * read-only lock. Doing so results in undefined behavior. Unlock the
-   * read-only lock before requesting a write lock.
-   *
-   * This function does not fail; if rwlock is nullptr, it will return
-   * immediately having locked nothing. If the rwlock is valid, this function
-   * will always block until it can lock the mutex, and return with it locked.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa LockRWLockForReading
-   * @sa RWLock.TryLockForWriting
-   * @sa RWLock.Unlock
-   */
-  void LockForWriting();
+	/**
+	 * Lock the read/write lock for _write_ operations.
+	 *
+	 * This will block until the rwlock is available, which is to say it is not
+	 * locked for reading or writing by any other thread. Only one thread may hold
+	 * the lock when it requests write access; all other threads, whether they
+	 * also want to write or only want read-only access, must wait until the
+	 * writer thread has released the lock.
+	 *
+	 * It is illegal for the owning thread to lock an already-locked rwlock for
+	 * writing (read-only may be locked recursively, writing can not). Doing so
+	 * results in undefined behavior.
+	 *
+	 * It is illegal to request a write lock from a thread that already holds a
+	 * read-only lock. Doing so results in undefined behavior. Unlock the
+	 * read-only lock before requesting a write lock.
+	 *
+	 * This function does not fail; if rwlock is nullptr, it will return
+	 * immediately having locked nothing. If the rwlock is valid, this function
+	 * will always block until it can lock the mutex, and return with it locked.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa LockRWLockForReading
+	 * @sa RWLock.TryLockForWriting
+	 * @sa RWLock.Unlock
+	 */
+	void LockForWriting();
 
-  /**
-   * Try to lock a read/write lock _for reading_ without blocking.
-   *
-   * This works just like LockRWLockForReading(), but if the rwlock is not
-   * available, then this function returns false immediately.
-   *
-   * This technique is useful if you need access to a resource but don't want to
-   * wait for it, and will return to it to try again later.
-   *
-   * Trying to lock for read-only access can succeed if other threads are
-   * holding read-only locks, as this won't prevent access.
-   *
-   * This function returns true if passed a nullptr rwlock.
-   *
-   * @returns true on success, false if the lock would block.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa LockRWLockForReading
-   * @sa RWLock.TryLockForWriting
-   * @sa RWLock.Unlock
-   */
-  bool TryLockForReading();
+	/**
+	 * Try to lock a read/write lock _for reading_ without blocking.
+	 *
+	 * This works just like LockRWLockForReading(), but if the rwlock is not
+	 * available, then this function returns false immediately.
+	 *
+	 * This technique is useful if you need access to a resource but don't want to
+	 * wait for it, and will return to it to try again later.
+	 *
+	 * Trying to lock for read-only access can succeed if other threads are
+	 * holding read-only locks, as this won't prevent access.
+	 *
+	 * This function returns true if passed a nullptr rwlock.
+	 *
+	 * @returns true on success, false if the lock would block.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa LockRWLockForReading
+	 * @sa RWLock.TryLockForWriting
+	 * @sa RWLock.Unlock
+	 */
+	bool TryLockForReading();
 
-  /**
-   * Try to lock a read/write lock _for writing_ without blocking.
-   *
-   * This works just like LockRWLockForWriting(), but if the rwlock is not
-   * available, then this function returns false immediately.
-   *
-   * This technique is useful if you need exclusive access to a resource but
-   * don't want to wait for it, and will return to it to try again later.
-   *
-   * It is illegal for the owning thread to lock an already-locked rwlock for
-   * writing (read-only may be locked recursively, writing can not). Doing so
-   * results in undefined behavior.
-   *
-   * It is illegal to request a write lock from a thread that already holds a
-   * read-only lock. Doing so results in undefined behavior. Unlock the
-   * read-only lock before requesting a write lock.
-   *
-   * This function returns true if passed a nullptr rwlock.
-   *
-   * @returns true on success, false if the lock would block.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa LockRWLockForWriting
-   * @sa RWLock.TryLockForReading
-   * @sa RWLock.Unlock
-   */
-  bool TryLockForWriting();
+	/**
+	 * Try to lock a read/write lock _for writing_ without blocking.
+	 *
+	 * This works just like LockRWLockForWriting(), but if the rwlock is not
+	 * available, then this function returns false immediately.
+	 *
+	 * This technique is useful if you need exclusive access to a resource but
+	 * don't want to wait for it, and will return to it to try again later.
+	 *
+	 * It is illegal for the owning thread to lock an already-locked rwlock for
+	 * writing (read-only may be locked recursively, writing can not). Doing so
+	 * results in undefined behavior.
+	 *
+	 * It is illegal to request a write lock from a thread that already holds a
+	 * read-only lock. Doing so results in undefined behavior. Unlock the
+	 * read-only lock before requesting a write lock.
+	 *
+	 * This function returns true if passed a nullptr rwlock.
+	 *
+	 * @returns true on success, false if the lock would block.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa LockRWLockForWriting
+	 * @sa RWLock.TryLockForReading
+	 * @sa RWLock.Unlock
+	 */
+	bool TryLockForWriting();
 
-  /**
-   * Unlock the read/write lock.
-   *
-   * Use this function to unlock the rwlock, whether it was locked for read-only
-   * or write operations.
-   *
-   * It is legal for the owning thread to lock an already-locked read-only lock.
-   * It must unlock it the same number of times before it is actually made
-   * available for other threads in the system (this is known as a "recursive
-   * rwlock").
-   *
-   * It is illegal to unlock a rwlock that has not been locked by the current
-   * thread, and doing so results in undefined behavior.
-   *
-   * @threadsafety This call must be paired with a previous locking call on the
-   *               same thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa LockRWLockForReading
-   * @sa LockRWLockForWriting
-   * @sa RWLock.TryLockForReading
-   * @sa RWLock.TryLockForWriting
-   */
-  void Unlock();
+	/**
+	 * Unlock the read/write lock.
+	 *
+	 * Use this function to unlock the rwlock, whether it was locked for read-only
+	 * or write operations.
+	 *
+	 * It is legal for the owning thread to lock an already-locked read-only lock.
+	 * It must unlock it the same number of times before it is actually made
+	 * available for other threads in the system (this is known as a "recursive
+	 * rwlock").
+	 *
+	 * It is illegal to unlock a rwlock that has not been locked by the current
+	 * thread, and doing so results in undefined behavior.
+	 *
+	 * @threadsafety This call must be paired with a previous locking call on the
+	 *               same thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa LockRWLockForReading
+	 * @sa LockRWLockForWriting
+	 * @sa RWLock.TryLockForReading
+	 * @sa RWLock.TryLockForWriting
+	 */
+	void Unlock();
 };
 
 /**
@@ -741,63 +741,63 @@ public:
  * This does not take ownership!
  */
 struct RWLockRef : RWLock {
-  using RWLock::RWLock;
+	using RWLock::RWLock;
 
-  /**
-   * Constructs from raw RWLock.
-   *
-   * @param resource a RWLockRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr RWLockRef(RWLockRaw resource) noexcept
-    : RWLock(resource) {
-  }
+	/**
+	 * Constructs from raw RWLock.
+	 *
+	 * @param resource a RWLockRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr RWLockRef(RWLockRaw resource) noexcept
+		: RWLock(resource) {
+	}
 
-  /**
-   * Constructs from RWLock.
-   *
-   * @param resource a RWLock.
-   *
-   * This does not takes ownership!
-   */
-  constexpr RWLockRef(const RWLock& resource) noexcept
-    : RWLock(resource.Get()) {
-  }
+	/**
+	 * Constructs from RWLock.
+	 *
+	 * @param resource a RWLock.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr RWLockRef(const RWLock& resource) noexcept
+		: RWLock(resource.Get()) {
+	}
 
-  /**
-   * Constructs from RWLock.
-   *
-   * @param resource a RWLock.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr RWLockRef(RWLock&& resource) noexcept
-    : RWLock(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from RWLock.
+	 *
+	 * @param resource a RWLock.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr RWLockRef(RWLock&& resource) noexcept
+		: RWLock(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr RWLockRef(const RWLockRef& other) noexcept
-    : RWLock(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr RWLockRef(const RWLockRef& other) noexcept
+		: RWLock(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr RWLockRef(RWLockRef&& other) noexcept
-    : RWLock(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr RWLockRef(RWLockRef&& other) noexcept
+		: RWLock(other.Get()) {
+	}
 
-  /// Destructor
-  ~RWLockRef() { Release(); }
+	/// Destructor
+	~RWLockRef() { Release(); }
 
-  /// Assignment operator.
-  RWLockRef& operator=(const RWLockRef& other) noexcept {
-    Release();
-    RWLock::operator=(RWLock(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	RWLockRef& operator=(const RWLockRef& other) noexcept {
+		Release();
+		RWLock::operator=(RWLock(other.Get()));
+		return *this;
+	}
 
-  /// Converts to RWLockRaw
-  constexpr operator RWLockRaw() const noexcept { return Get(); }
+	/// Converts to RWLockRaw
+	constexpr operator RWLockRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -845,7 +845,7 @@ struct RWLockRef : RWLock {
 inline RWLock CreateRWLock() { return RWLock(); }
 
 inline RWLock::RWLock()
-  : m_resource(SDL_CreateRWLock()) {
+	: m_resource(SDL_CreateRWLock()) {
 }
 
 /**
@@ -886,7 +886,7 @@ inline RWLock::RWLock()
  * @sa RWLock.Unlock
  */
 inline void LockRWLockForReading(RWLockRef rwlock) {
-  SDL_LockRWLockForReading(rwlock);
+	SDL_LockRWLockForReading(rwlock);
 }
 
 inline void RWLock::LockForReading() { SDL::LockRWLockForReading(m_resource); }
@@ -923,7 +923,7 @@ inline void RWLock::LockForReading() { SDL::LockRWLockForReading(m_resource); }
  * @sa RWLock.Unlock
  */
 inline void LockRWLockForWriting(RWLockRef rwlock) {
-  SDL_LockRWLockForWriting(rwlock);
+	SDL_LockRWLockForWriting(rwlock);
 }
 
 inline void RWLock::LockForWriting() { SDL::LockRWLockForWriting(m_resource); }
@@ -954,11 +954,11 @@ inline void RWLock::LockForWriting() { SDL::LockRWLockForWriting(m_resource); }
  * @sa RWLock.Unlock
  */
 inline bool TryLockRWLockForReading(RWLockRef rwlock) {
-  return SDL_TryLockRWLockForReading(rwlock);
+	return SDL_TryLockRWLockForReading(rwlock);
 }
 
 inline bool RWLock::TryLockForReading() {
-  return SDL::TryLockRWLockForReading(m_resource);
+	return SDL::TryLockRWLockForReading(m_resource);
 }
 
 /**
@@ -992,11 +992,11 @@ inline bool RWLock::TryLockForReading() {
  * @sa RWLock.Unlock
  */
 inline bool TryLockRWLockForWriting(RWLockRef rwlock) {
-  return SDL_TryLockRWLockForWriting(rwlock);
+	return SDL_TryLockRWLockForWriting(rwlock);
 }
 
 inline bool RWLock::TryLockForWriting() {
-  return SDL::TryLockRWLockForWriting(m_resource);
+	return SDL::TryLockRWLockForWriting(m_resource);
 }
 
 /**
@@ -1067,189 +1067,189 @@ inline void RWLock::Destroy() { DestroyRWLock(Release()); }
  * @cat resource
  */
 class Semaphore {
-  SemaphoreRaw m_resource = nullptr;
+	SemaphoreRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr Semaphore(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr Semaphore(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw Semaphore.
-   *
-   * @param resource a SemaphoreRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Semaphore(SemaphoreRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Semaphore.
+	 *
+	 * @param resource a SemaphoreRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Semaphore(SemaphoreRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Semaphore(const Semaphore& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Semaphore(const Semaphore& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Semaphore(Semaphore&& other) noexcept
-    : Semaphore(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Semaphore(Semaphore&& other) noexcept
+		: Semaphore(other.Release()) {
+	}
 
-  constexpr Semaphore(const SemaphoreRef& other) = delete;
+	constexpr Semaphore(const SemaphoreRef& other) = delete;
 
-  constexpr Semaphore(SemaphoreRef&& other) = delete;
+	constexpr Semaphore(SemaphoreRef&& other) = delete;
 
-  /**
-   * Create a semaphore.
-   *
-   * This function creates a new semaphore and initializes it with the value
-   * `initial_value`. Each wait operation on the semaphore will atomically
-   * decrement the semaphore value and potentially block if the semaphore value
-   * is 0. Each post operation will atomically increment the semaphore value and
-   * wake waiting threads and allow them to retry the wait operation.
-   *
-   * @param initial_value the starting value of the semaphore.
-   * @post a new semaphore or nullptr on failure; call GetError() for more
-   *       information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Semaphore.Destroy
-   * @sa Semaphore.Signal
-   * @sa Semaphore.TryWait
-   * @sa Semaphore.GetValue
-   * @sa Semaphore.Wait
-   * @sa Semaphore.WaitTimeout
-   */
-  Semaphore(Uint32 initial_value);
+	/**
+	 * Create a semaphore.
+	 *
+	 * This function creates a new semaphore and initializes it with the value
+	 * `initial_value`. Each wait operation on the semaphore will atomically
+	 * decrement the semaphore value and potentially block if the semaphore value
+	 * is 0. Each post operation will atomically increment the semaphore value and
+	 * wake waiting threads and allow them to retry the wait operation.
+	 *
+	 * @param initial_value the starting value of the semaphore.
+	 * @post a new semaphore or nullptr on failure; call GetError() for more
+	 *       information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Semaphore.Destroy
+	 * @sa Semaphore.Signal
+	 * @sa Semaphore.TryWait
+	 * @sa Semaphore.GetValue
+	 * @sa Semaphore.Wait
+	 * @sa Semaphore.WaitTimeout
+	 */
+	Semaphore(Uint32 initial_value);
 
-  /// Destructor
-  ~Semaphore() { SDL_DestroySemaphore(m_resource); }
+	/// Destructor
+	~Semaphore() { SDL_DestroySemaphore(m_resource); }
 
-  /// Assignment operator.
-  constexpr Semaphore& operator=(Semaphore&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Semaphore& operator=(Semaphore&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Semaphore& operator=(const Semaphore& other) = delete;
+	/// Assignment operator.
+	Semaphore& operator=(const Semaphore& other) = delete;
 
-  /// Retrieves underlying SemaphoreRaw.
-  constexpr SemaphoreRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying SemaphoreRaw.
+	constexpr SemaphoreRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying SemaphoreRaw and clear this.
-  constexpr SemaphoreRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying SemaphoreRaw and clear this.
+	constexpr SemaphoreRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Semaphore& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Semaphore& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Destroy a semaphore.
-   *
-   * It is not safe to destroy a semaphore if there are threads currently
-   * waiting on it.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateSemaphore
-   */
-  void Destroy();
+	/**
+	 * Destroy a semaphore.
+	 *
+	 * It is not safe to destroy a semaphore if there are threads currently
+	 * waiting on it.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateSemaphore
+	 */
+	void Destroy();
 
-  /**
-   * Wait until a semaphore has a positive value and then decrements it.
-   *
-   * This function suspends the calling thread until the semaphore pointed to by
-   * `sem` has a positive value, and then atomically decrement the semaphore
-   * value.
-   *
-   * This function is the equivalent of calling Semaphore.WaitTimeout() with a
-   * time length of -1.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Semaphore.Signal
-   * @sa Semaphore.TryWait
-   * @sa Semaphore.WaitTimeout
-   */
-  void Wait();
+	/**
+	 * Wait until a semaphore has a positive value and then decrements it.
+	 *
+	 * This function suspends the calling thread until the semaphore pointed to by
+	 * `sem` has a positive value, and then atomically decrement the semaphore
+	 * value.
+	 *
+	 * This function is the equivalent of calling Semaphore.WaitTimeout() with a
+	 * time length of -1.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Semaphore.Signal
+	 * @sa Semaphore.TryWait
+	 * @sa Semaphore.WaitTimeout
+	 */
+	void Wait();
 
-  /**
-   * See if a semaphore has a positive value and decrement it if it does.
-   *
-   * This function checks to see if the semaphore pointed to by `sem` has a
-   * positive value and atomically decrements the semaphore value if it does. If
-   * the semaphore doesn't have a positive value, the function immediately
-   * returns false.
-   *
-   * @returns true if the wait succeeds, false if the wait would block.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Semaphore.Signal
-   * @sa Semaphore.Wait
-   * @sa Semaphore.WaitTimeout
-   */
-  bool TryWait();
+	/**
+	 * See if a semaphore has a positive value and decrement it if it does.
+	 *
+	 * This function checks to see if the semaphore pointed to by `sem` has a
+	 * positive value and atomically decrements the semaphore value if it does. If
+	 * the semaphore doesn't have a positive value, the function immediately
+	 * returns false.
+	 *
+	 * @returns true if the wait succeeds, false if the wait would block.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Semaphore.Signal
+	 * @sa Semaphore.Wait
+	 * @sa Semaphore.WaitTimeout
+	 */
+	bool TryWait();
 
-  /**
-   * Wait until a semaphore has a positive value and then decrements it.
-   *
-   * This function suspends the calling thread until either the semaphore
-   * pointed to by `sem` has a positive value or the specified time has elapsed.
-   * If the call is successful it will atomically decrement the semaphore value.
-   *
-   * @param timeout the length of the timeout, in milliseconds, or -1 to wait
-   *                indefinitely.
-   * @returns true if the wait succeeds or false if the wait times out.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Semaphore.Signal
-   * @sa Semaphore.TryWait
-   * @sa Semaphore.Wait
-   */
-  bool WaitTimeout(std::chrono::milliseconds timeout);
+	/**
+	 * Wait until a semaphore has a positive value and then decrements it.
+	 *
+	 * This function suspends the calling thread until either the semaphore
+	 * pointed to by `sem` has a positive value or the specified time has elapsed.
+	 * If the call is successful it will atomically decrement the semaphore value.
+	 *
+	 * @param timeout the length of the timeout, in milliseconds, or -1 to wait
+	 *                indefinitely.
+	 * @returns true if the wait succeeds or false if the wait times out.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Semaphore.Signal
+	 * @sa Semaphore.TryWait
+	 * @sa Semaphore.Wait
+	 */
+	bool WaitTimeout(std::chrono::milliseconds timeout);
 
-  /**
-   * Atomically increment a semaphore's value and wake waiting threads.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Semaphore.TryWait
-   * @sa Semaphore.Wait
-   * @sa Semaphore.WaitTimeout
-   */
-  void Signal();
+	/**
+	 * Atomically increment a semaphore's value and wake waiting threads.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Semaphore.TryWait
+	 * @sa Semaphore.Wait
+	 * @sa Semaphore.WaitTimeout
+	 */
+	void Signal();
 
-  /**
-   * Get the current value of a semaphore.
-   *
-   * @returns the current value of the semaphore.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  Uint32 GetValue() const;
+	/**
+	 * Get the current value of a semaphore.
+	 *
+	 * @returns the current value of the semaphore.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	Uint32 GetValue() const;
 };
 
 /**
@@ -1258,63 +1258,63 @@ public:
  * This does not take ownership!
  */
 struct SemaphoreRef : Semaphore {
-  using Semaphore::Semaphore;
+	using Semaphore::Semaphore;
 
-  /**
-   * Constructs from raw Semaphore.
-   *
-   * @param resource a SemaphoreRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr SemaphoreRef(SemaphoreRaw resource) noexcept
-    : Semaphore(resource) {
-  }
+	/**
+	 * Constructs from raw Semaphore.
+	 *
+	 * @param resource a SemaphoreRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr SemaphoreRef(SemaphoreRaw resource) noexcept
+		: Semaphore(resource) {
+	}
 
-  /**
-   * Constructs from Semaphore.
-   *
-   * @param resource a Semaphore.
-   *
-   * This does not takes ownership!
-   */
-  constexpr SemaphoreRef(const Semaphore& resource) noexcept
-    : Semaphore(resource.Get()) {
-  }
+	/**
+	 * Constructs from Semaphore.
+	 *
+	 * @param resource a Semaphore.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr SemaphoreRef(const Semaphore& resource) noexcept
+		: Semaphore(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Semaphore.
-   *
-   * @param resource a Semaphore.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr SemaphoreRef(Semaphore&& resource) noexcept
-    : Semaphore(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Semaphore.
+	 *
+	 * @param resource a Semaphore.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr SemaphoreRef(Semaphore&& resource) noexcept
+		: Semaphore(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr SemaphoreRef(const SemaphoreRef& other) noexcept
-    : Semaphore(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr SemaphoreRef(const SemaphoreRef& other) noexcept
+		: Semaphore(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr SemaphoreRef(SemaphoreRef&& other) noexcept
-    : Semaphore(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr SemaphoreRef(SemaphoreRef&& other) noexcept
+		: Semaphore(other.Get()) {
+	}
 
-  /// Destructor
-  ~SemaphoreRef() { Release(); }
+	/// Destructor
+	~SemaphoreRef() { Release(); }
 
-  /// Assignment operator.
-  SemaphoreRef& operator=(const SemaphoreRef& other) noexcept {
-    Release();
-    Semaphore::operator=(Semaphore(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	SemaphoreRef& operator=(const SemaphoreRef& other) noexcept {
+		Release();
+		Semaphore::operator=(Semaphore(other.Get()));
+		return *this;
+	}
 
-  /// Converts to SemaphoreRaw
-  constexpr operator SemaphoreRaw() const noexcept { return Get(); }
+	/// Converts to SemaphoreRaw
+	constexpr operator SemaphoreRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -1342,11 +1342,11 @@ struct SemaphoreRef : Semaphore {
  * @sa Semaphore.WaitTimeout
  */
 inline Semaphore CreateSemaphore(Uint32 initial_value) {
-  return Semaphore(initial_value);
+	return Semaphore(initial_value);
 }
 
 inline Semaphore::Semaphore(Uint32 initial_value)
-  : m_resource(SDL_CreateSemaphore(initial_value)) {
+	: m_resource(SDL_CreateSemaphore(initial_value)) {
 }
 
 /**
@@ -1411,7 +1411,7 @@ inline void Semaphore::Wait() { SDL::WaitSemaphore(m_resource); }
  * @sa Semaphore.WaitTimeout
  */
 inline bool TryWaitSemaphore(SemaphoreRef sem) {
-  return SDL_TryWaitSemaphore(sem);
+	return SDL_TryWaitSemaphore(sem);
 }
 
 inline bool Semaphore::TryWait() { return SDL::TryWaitSemaphore(m_resource); }
@@ -1437,12 +1437,12 @@ inline bool Semaphore::TryWait() { return SDL::TryWaitSemaphore(m_resource); }
  * @sa Semaphore.Wait
  */
 inline bool WaitSemaphoreTimeout(SemaphoreRef sem,
-                                 std::chrono::milliseconds timeout) {
-  return SDL_WaitSemaphoreTimeout(sem, NarrowS32(timeout.count()));
+																 std::chrono::milliseconds timeout) {
+	return SDL_WaitSemaphoreTimeout(sem, NarrowS32(timeout.count()));
 }
 
 inline bool Semaphore::WaitTimeout(std::chrono::milliseconds timeout) {
-  return SDL::WaitSemaphoreTimeout(m_resource, timeout);
+	return SDL::WaitSemaphoreTimeout(m_resource, timeout);
 }
 
 /**
@@ -1473,11 +1473,11 @@ inline void Semaphore::Signal() { SDL::SignalSemaphore(m_resource); }
  * @since This function is available since SDL 3.2.0.
  */
 inline Uint32 GetSemaphoreValue(SemaphoreRef sem) {
-  return SDL_GetSemaphoreValue(sem);
+	return SDL_GetSemaphoreValue(sem);
 }
 
 inline Uint32 Semaphore::GetValue() const {
-  return SDL::GetSemaphoreValue(m_resource);
+	return SDL::GetSemaphoreValue(m_resource);
 }
 
 /**
@@ -1496,175 +1496,175 @@ inline Uint32 Semaphore::GetValue() const {
  * @cat resource
  */
 class Condition {
-  ConditionRaw m_resource = nullptr;
+	ConditionRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr Condition(std::nullptr_t) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr Condition(std::nullptr_t) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw Condition.
-   *
-   * @param resource a ConditionRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Condition(ConditionRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Condition.
+	 *
+	 * @param resource a ConditionRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Condition(ConditionRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Condition(const Condition& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Condition(const Condition& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Condition(Condition&& other) noexcept
-    : Condition(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Condition(Condition&& other) noexcept
+		: Condition(other.Release()) {
+	}
 
-  constexpr Condition(const ConditionRef& other) = delete;
+	constexpr Condition(const ConditionRef& other) = delete;
 
-  constexpr Condition(ConditionRef&& other) = delete;
+	constexpr Condition(ConditionRef&& other) = delete;
 
-  /**
-   * Create a condition variable.
-   *
-   * @post a new condition variable or nullptr on failure; call GetError() for
-   *       more information.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Condition.Broadcast
-   * @sa Condition.Signal
-   * @sa Condition.Wait
-   * @sa Condition.WaitTimeout
-   * @sa Condition.Destroy
-   */
-  Condition();
+	/**
+	 * Create a condition variable.
+	 *
+	 * @post a new condition variable or nullptr on failure; call GetError() for
+	 *       more information.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Condition.Broadcast
+	 * @sa Condition.Signal
+	 * @sa Condition.Wait
+	 * @sa Condition.WaitTimeout
+	 * @sa Condition.Destroy
+	 */
+	Condition();
 
-  /// Destructor
-  ~Condition() { SDL_DestroyCondition(m_resource); }
+	/// Destructor
+	~Condition() { SDL_DestroyCondition(m_resource); }
 
-  /// Assignment operator.
-  constexpr Condition& operator=(Condition&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Condition& operator=(Condition&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Condition& operator=(const Condition& other) = delete;
+	/// Assignment operator.
+	Condition& operator=(const Condition& other) = delete;
 
-  /// Retrieves underlying ConditionRaw.
-  constexpr ConditionRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying ConditionRaw.
+	constexpr ConditionRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying ConditionRaw and clear this.
-  constexpr ConditionRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying ConditionRaw and clear this.
+	constexpr ConditionRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Condition& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Condition& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Destroy a condition variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateCondition
-   */
-  void Destroy();
+	/**
+	 * Destroy a condition variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateCondition
+	 */
+	void Destroy();
 
-  /**
-   * Restart one of the threads that are waiting on the condition variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Condition.Broadcast
-   * @sa Condition.Wait
-   * @sa Condition.WaitTimeout
-   */
-  void Signal();
+	/**
+	 * Restart one of the threads that are waiting on the condition variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Condition.Broadcast
+	 * @sa Condition.Wait
+	 * @sa Condition.WaitTimeout
+	 */
+	void Signal();
 
-  /**
-   * Restart all threads that are waiting on the condition variable.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Condition.Signal
-   * @sa Condition.Wait
-   * @sa Condition.WaitTimeout
-   */
-  void Broadcast();
+	/**
+	 * Restart all threads that are waiting on the condition variable.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Condition.Signal
+	 * @sa Condition.Wait
+	 * @sa Condition.WaitTimeout
+	 */
+	void Broadcast();
 
-  /**
-   * Wait until a condition variable is signaled.
-   *
-   * This function unlocks the specified `mutex` and waits for another thread to
-   * call Condition.Signal() or Condition.Broadcast() on the condition variable
-   * `cond`. Once the condition variable is signaled, the mutex is re-locked and
-   * the function returns.
-   *
-   * The mutex must be locked before calling this function. Locking the mutex
-   * recursively (more than once) is not supported and leads to undefined
-   * behavior.
-   *
-   * This function is the equivalent of calling Condition.WaitTimeout() with a
-   * time length of -1.
-   *
-   * @param mutex the mutex used to coordinate thread access.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Condition.Broadcast
-   * @sa Condition.Signal
-   * @sa Condition.WaitTimeout
-   */
-  void Wait(MutexRef mutex);
+	/**
+	 * Wait until a condition variable is signaled.
+	 *
+	 * This function unlocks the specified `mutex` and waits for another thread to
+	 * call Condition.Signal() or Condition.Broadcast() on the condition variable
+	 * `cond`. Once the condition variable is signaled, the mutex is re-locked and
+	 * the function returns.
+	 *
+	 * The mutex must be locked before calling this function. Locking the mutex
+	 * recursively (more than once) is not supported and leads to undefined
+	 * behavior.
+	 *
+	 * This function is the equivalent of calling Condition.WaitTimeout() with a
+	 * time length of -1.
+	 *
+	 * @param mutex the mutex used to coordinate thread access.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Condition.Broadcast
+	 * @sa Condition.Signal
+	 * @sa Condition.WaitTimeout
+	 */
+	void Wait(MutexRef mutex);
 
-  /**
-   * Wait until a condition variable is signaled or a certain time has passed.
-   *
-   * This function unlocks the specified `mutex` and waits for another thread to
-   * call Condition.Signal() or Condition.Broadcast() on the condition variable
-   * `cond`, or for the specified time to elapse. Once the condition variable is
-   * signaled or the time elapsed, the mutex is re-locked and the function
-   * returns.
-   *
-   * The mutex must be locked before calling this function. Locking the mutex
-   * recursively (more than once) is not supported and leads to undefined
-   * behavior.
-   *
-   * @param mutex the mutex used to coordinate thread access.
-   * @param timeout the maximum time to wait, in milliseconds, or -1 to wait
-   *                indefinitely.
-   * @returns true if the condition variable is signaled, false if the condition
-   *          is not signaled in the allotted time.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Condition.Broadcast
-   * @sa Condition.Signal
-   * @sa Condition.Wait
-   */
-  bool WaitTimeout(MutexRef mutex, std::chrono::milliseconds timeout);
+	/**
+	 * Wait until a condition variable is signaled or a certain time has passed.
+	 *
+	 * This function unlocks the specified `mutex` and waits for another thread to
+	 * call Condition.Signal() or Condition.Broadcast() on the condition variable
+	 * `cond`, or for the specified time to elapse. Once the condition variable is
+	 * signaled or the time elapsed, the mutex is re-locked and the function
+	 * returns.
+	 *
+	 * The mutex must be locked before calling this function. Locking the mutex
+	 * recursively (more than once) is not supported and leads to undefined
+	 * behavior.
+	 *
+	 * @param mutex the mutex used to coordinate thread access.
+	 * @param timeout the maximum time to wait, in milliseconds, or -1 to wait
+	 *                indefinitely.
+	 * @returns true if the condition variable is signaled, false if the condition
+	 *          is not signaled in the allotted time.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Condition.Broadcast
+	 * @sa Condition.Signal
+	 * @sa Condition.Wait
+	 */
+	bool WaitTimeout(MutexRef mutex, std::chrono::milliseconds timeout);
 };
 
 /**
@@ -1673,63 +1673,63 @@ public:
  * This does not take ownership!
  */
 struct ConditionRef : Condition {
-  using Condition::Condition;
+	using Condition::Condition;
 
-  /**
-   * Constructs from raw Condition.
-   *
-   * @param resource a ConditionRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr ConditionRef(ConditionRaw resource) noexcept
-    : Condition(resource) {
-  }
+	/**
+	 * Constructs from raw Condition.
+	 *
+	 * @param resource a ConditionRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr ConditionRef(ConditionRaw resource) noexcept
+		: Condition(resource) {
+	}
 
-  /**
-   * Constructs from Condition.
-   *
-   * @param resource a Condition.
-   *
-   * This does not takes ownership!
-   */
-  constexpr ConditionRef(const Condition& resource) noexcept
-    : Condition(resource.Get()) {
-  }
+	/**
+	 * Constructs from Condition.
+	 *
+	 * @param resource a Condition.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr ConditionRef(const Condition& resource) noexcept
+		: Condition(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Condition.
-   *
-   * @param resource a Condition.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr ConditionRef(Condition&& resource) noexcept
-    : Condition(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Condition.
+	 *
+	 * @param resource a Condition.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr ConditionRef(Condition&& resource) noexcept
+		: Condition(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr ConditionRef(const ConditionRef& other) noexcept
-    : Condition(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr ConditionRef(const ConditionRef& other) noexcept
+		: Condition(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr ConditionRef(ConditionRef&& other) noexcept
-    : Condition(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr ConditionRef(ConditionRef&& other) noexcept
+		: Condition(other.Get()) {
+	}
 
-  /// Destructor
-  ~ConditionRef() { Release(); }
+	/// Destructor
+	~ConditionRef() { Release(); }
 
-  /// Assignment operator.
-  ConditionRef& operator=(const ConditionRef& other) noexcept {
-    Release();
-    Condition::operator=(Condition(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	ConditionRef& operator=(const ConditionRef& other) noexcept {
+		Release();
+		Condition::operator=(Condition(other.Get()));
+		return *this;
+	}
 
-  /// Converts to ConditionRaw
-  constexpr operator ConditionRaw() const noexcept { return Get(); }
+	/// Converts to ConditionRaw
+	constexpr operator ConditionRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -1751,7 +1751,7 @@ struct ConditionRef : Condition {
 inline Condition CreateCondition() { return Condition(); }
 
 inline Condition::Condition()
-  : m_resource(SDL_CreateCondition()) {
+	: m_resource(SDL_CreateCondition()) {
 }
 
 /**
@@ -1800,7 +1800,7 @@ inline void Condition::Signal() { SDL::SignalCondition(m_resource); }
  * @sa Condition.WaitTimeout
  */
 inline void BroadcastCondition(ConditionRef cond) {
-  SDL_BroadcastCondition(cond);
+	SDL_BroadcastCondition(cond);
 }
 
 inline void Condition::Broadcast() { SDL::BroadcastCondition(m_resource); }
@@ -1832,11 +1832,11 @@ inline void Condition::Broadcast() { SDL::BroadcastCondition(m_resource); }
  * @sa Condition.WaitTimeout
  */
 inline void WaitCondition(ConditionRef cond, MutexRef mutex) {
-  SDL_WaitCondition(cond, mutex);
+	SDL_WaitCondition(cond, mutex);
 }
 
 inline void Condition::Wait(MutexRef mutex) {
-  SDL::WaitCondition(m_resource, mutex);
+	SDL::WaitCondition(m_resource, mutex);
 }
 
 /**
@@ -1868,14 +1868,14 @@ inline void Condition::Wait(MutexRef mutex) {
  * @sa Condition.Wait
  */
 inline bool WaitConditionTimeout(ConditionRef cond,
-                                 MutexRef mutex,
-                                 std::chrono::milliseconds timeout) {
-  return SDL_WaitConditionTimeout(cond, mutex, NarrowS32(timeout.count()));
+																 MutexRef mutex,
+																 std::chrono::milliseconds timeout) {
+	return SDL_WaitConditionTimeout(cond, mutex, NarrowS32(timeout.count()));
 }
 
 inline bool Condition::WaitTimeout(MutexRef mutex,
-                                   std::chrono::milliseconds timeout) {
-  return SDL::WaitConditionTimeout(m_resource, mutex, timeout);
+																	 std::chrono::milliseconds timeout) {
+	return SDL::WaitConditionTimeout(m_resource, mutex, timeout);
 }
 
 /**
@@ -1886,16 +1886,16 @@ inline bool Condition::WaitTimeout(MutexRef mutex,
 using InitStatus = SDL_InitStatus;
 
 constexpr InitStatus INIT_STATUS_UNINITIALIZED =
-  SDL_INIT_STATUS_UNINITIALIZED; ///< INIT_STATUS_UNINITIALIZED
+	SDL_INIT_STATUS_UNINITIALIZED; ///< INIT_STATUS_UNINITIALIZED
 
 constexpr InitStatus INIT_STATUS_INITIALIZING =
-  SDL_INIT_STATUS_INITIALIZING; ///< INIT_STATUS_INITIALIZING
+	SDL_INIT_STATUS_INITIALIZING; ///< INIT_STATUS_INITIALIZING
 
 constexpr InitStatus INIT_STATUS_INITIALIZED =
-  SDL_INIT_STATUS_INITIALIZED; ///< INIT_STATUS_INITIALIZED
+	SDL_INIT_STATUS_INITIALIZED; ///< INIT_STATUS_INITIALIZED
 
 constexpr InitStatus INIT_STATUS_UNINITIALIZING =
-  SDL_INIT_STATUS_UNINITIALIZING; ///< INIT_STATUS_UNINITIALIZING
+	SDL_INIT_STATUS_UNINITIALIZING; ///< INIT_STATUS_UNINITIALIZING
 
 /**
  * A structure used for thread-safe initialization and shutdown.
@@ -1955,69 +1955,69 @@ constexpr InitStatus INIT_STATUS_UNINITIALIZING =
  * @since This struct is available since SDL 3.2.0.
  */
 struct InitState : InitStateRaw {
-  constexpr InitState()
-    : SDL_InitState{} {
-  }
+	constexpr InitState()
+		: SDL_InitState{} {
+	}
 
-  /**
-   * Return whether initialization should be done.
-   *
-   * This function checks the passed in state and if initialization should be
-   * done, sets the status to `INIT_STATUS_INITIALIZING` and returns true. If
-   * another thread is already modifying this state, it will wait until that's
-   * done before returning.
-   *
-   * If this function returns true, the calling code must call
-   * InitState.SetInitialized() to complete the initialization.
-   *
-   * @returns true if initialization needs to be done, false otherwise.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa InitState.SetInitialized
-   * @sa InitState.ShouldQuit
-   */
-  bool ShouldInit();
+	/**
+	 * Return whether initialization should be done.
+	 *
+	 * This function checks the passed in state and if initialization should be
+	 * done, sets the status to `INIT_STATUS_INITIALIZING` and returns true. If
+	 * another thread is already modifying this state, it will wait until that's
+	 * done before returning.
+	 *
+	 * If this function returns true, the calling code must call
+	 * InitState.SetInitialized() to complete the initialization.
+	 *
+	 * @returns true if initialization needs to be done, false otherwise.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa InitState.SetInitialized
+	 * @sa InitState.ShouldQuit
+	 */
+	bool ShouldInit();
 
-  /**
-   * Return whether cleanup should be done.
-   *
-   * This function checks the passed in state and if cleanup should be done,
-   * sets the status to `INIT_STATUS_UNINITIALIZING` and returns true.
-   *
-   * If this function returns true, the calling code must call
-   * InitState.SetInitialized() to complete the cleanup.
-   *
-   * @returns true if cleanup needs to be done, false otherwise.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa InitState.SetInitialized
-   * @sa InitState.ShouldInit
-   */
-  bool ShouldQuit();
+	/**
+	 * Return whether cleanup should be done.
+	 *
+	 * This function checks the passed in state and if cleanup should be done,
+	 * sets the status to `INIT_STATUS_UNINITIALIZING` and returns true.
+	 *
+	 * If this function returns true, the calling code must call
+	 * InitState.SetInitialized() to complete the cleanup.
+	 *
+	 * @returns true if cleanup needs to be done, false otherwise.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa InitState.SetInitialized
+	 * @sa InitState.ShouldInit
+	 */
+	bool ShouldQuit();
 
-  /**
-   * Finish an initialization state transition.
-   *
-   * This function sets the status of the passed in state to
-   * `INIT_STATUS_INITIALIZED` or `INIT_STATUS_UNINITIALIZED` and allows any
-   * threads waiting for the status to proceed.
-   *
-   * @param initialized the new initialization state.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa InitState.ShouldInit
-   * @sa InitState.ShouldQuit
-   */
-  void SetInitialized(bool initialized);
+	/**
+	 * Finish an initialization state transition.
+	 *
+	 * This function sets the status of the passed in state to
+	 * `INIT_STATUS_INITIALIZED` or `INIT_STATUS_UNINITIALIZED` and allows any
+	 * threads waiting for the status to proceed.
+	 *
+	 * @param initialized the new initialization state.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa InitState.ShouldInit
+	 * @sa InitState.ShouldQuit
+	 */
+	void SetInitialized(bool initialized);
 };
 
 /**
@@ -2086,11 +2086,11 @@ inline bool InitState::ShouldQuit() { return SDL::ShouldQuit(this); }
  * @sa InitState.ShouldQuit
  */
 inline void SetInitialized(InitStateRaw* state, bool initialized) {
-  SDL_SetInitialized(state, initialized);
+	SDL_SetInitialized(state, initialized);
 }
 
 inline void InitState::SetInitialized(bool initialized) {
-  SDL::SetInitialized(this, initialized);
+	SDL::SetInitialized(this, initialized);
 }
 
 /// @}

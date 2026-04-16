@@ -70,13 +70,13 @@ using WindowsMessageHook = bool(SDLCALL*)(void* userdata, MSG* msg);
  * @sa SDL_HINT_WINDOWS_ENABLE_MESSAGELOOP
  */
 inline void SetWindowsMessageHook(WindowsMessageHook callback, void* userdata) {
-  SDL_SetWindowsMessageHook(callback, userdata);
+	SDL_SetWindowsMessageHook(callback, userdata);
 }
 
 #endif // SDL_PLATFORM_WINDOWS
 
 #if defined(SDL_PLATFORM_WIN32) || defined(SDL_PLATFORM_WINGDK) ||             \
-  defined(SDL3PP_DOC)
+	defined(SDL3PP_DOC)
 
 /**
  * Get the D3D9 adapter index that matches the specified display.
@@ -91,7 +91,7 @@ inline void SetWindowsMessageHook(WindowsMessageHook callback, void* userdata) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int GetDirect3D9AdapterIndex(Display displayID) {
-  return CheckError(SDL_GetDirect3D9AdapterIndex(displayID));
+	return CheckError(SDL_GetDirect3D9AdapterIndex(displayID));
 }
 
 /**
@@ -109,9 +109,9 @@ inline int GetDirect3D9AdapterIndex(Display displayID) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void GetDXGIOutputInfo(Display displayID,
-                              int* adapterIndex,
-                              int* outputIndex) {
-  CheckError(SDL_GetDXGIOutputInfo(displayID, adapterIndex, outputIndex));
+															int* adapterIndex,
+															int* outputIndex) {
+	CheckError(SDL_GetDXGIOutputInfo(displayID, adapterIndex, outputIndex));
 }
 
 #endif // defined(SDL_PLATFORM_WIN32) || defined(SDL_PLATFORM_WINGDK)
@@ -155,7 +155,7 @@ using X11EventHook = bool(SDLCALL*)(void* userdata, XEvent* xevent);
  * @since This function is available since SDL 3.2.0.
  */
 inline void SetX11EventHook(X11EventHook callback, void* userdata) {
-  SDL_SetX11EventHook(callback, userdata);
+	SDL_SetX11EventHook(callback, userdata);
 }
 
 /* Platform specific functions for Linux*/
@@ -175,7 +175,7 @@ inline void SetX11EventHook(X11EventHook callback, void* userdata) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void SetLinuxThreadPriority(Sint64 threadID, int priority) {
-  CheckError(SDL_SetLinuxThreadPriority(threadID, priority));
+	CheckError(SDL_SetLinuxThreadPriority(threadID, priority));
 }
 
 /**
@@ -194,10 +194,10 @@ inline void SetLinuxThreadPriority(Sint64 threadID, int priority) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void SetLinuxThreadPriorityAndPolicy(Sint64 threadID,
-                                            int sdlPriority,
-                                            int schedPolicy) {
-  CheckError(
-    SDL_SetLinuxThreadPriorityAndPolicy(threadID, sdlPriority, schedPolicy));
+																						int sdlPriority,
+																						int schedPolicy) {
+	CheckError(
+		SDL_SetLinuxThreadPriorityAndPolicy(threadID, sdlPriority, schedPolicy));
 }
 
 #endif // SDL_PLATFORM_LINUX
@@ -262,11 +262,11 @@ using iOSAnimationCallback = void(SDLCALL*)(void* userdata);
  * @sa SetiOSEventPump
  */
 inline void SetiOSAnimationCallback(WindowRef window,
-                                    int interval,
-                                    iOSAnimationCallback callback,
-                                    void* callbackParam) {
-  CheckError(
-    SDL_SetiOSAnimationCallback(window, interval, callback, callbackParam));
+																		int interval,
+																		iOSAnimationCallback callback,
+																		void* callbackParam) {
+	CheckError(
+		SDL_SetiOSAnimationCallback(window, interval, callback, callbackParam));
 }
 
 /**
@@ -339,7 +339,7 @@ inline void* GetAndroidJNIEnv() { return CheckError(SDL_GetAndroidJNIEnv()); }
  * @sa GetAndroidJNIEnv
  */
 inline void* GetAndroidActivity() {
-  return CheckError(SDL_GetAndroidActivity());
+	return CheckError(SDL_GetAndroidActivity());
 }
 
 /**
@@ -418,7 +418,7 @@ inline void SendAndroidBackButton() { SDL_SendAndroidBackButton(); }
  * @since This constant is available since SDL 3.2.0.
  */
 constexpr Uint32 ANDROID_EXTERNAL_STORAGE_READ =
-  SDL_ANDROID_EXTERNAL_STORAGE_READ;
+	SDL_ANDROID_EXTERNAL_STORAGE_READ;
 
 /**
  * See the official Android developer guide for more information:
@@ -427,7 +427,7 @@ constexpr Uint32 ANDROID_EXTERNAL_STORAGE_READ =
  * @since This constant is available since SDL 3.2.0.
  */
 constexpr Uint32 ANDROID_EXTERNAL_STORAGE_WRITE =
-  SDL_ANDROID_EXTERNAL_STORAGE_WRITE;
+	SDL_ANDROID_EXTERNAL_STORAGE_WRITE;
 
 /**
  * Get the path used for internal storage for this Android application.
@@ -450,7 +450,7 @@ constexpr Uint32 ANDROID_EXTERNAL_STORAGE_WRITE =
  * @sa GetAndroidCachePath
  */
 inline const char* GetAndroidInternalStoragePath() {
-  return SDL_GetAndroidInternalStoragePath();
+	return SDL_GetAndroidInternalStoragePath();
 }
 
 /**
@@ -469,7 +469,7 @@ inline const char* GetAndroidInternalStoragePath() {
  * @sa GetAndroidExternalStoragePath
  */
 inline Uint32 GetAndroidExternalStorageState() {
-  return SDL_GetAndroidExternalStorageState();
+	return SDL_GetAndroidExternalStorageState();
 }
 
 /**
@@ -496,7 +496,7 @@ inline Uint32 GetAndroidExternalStorageState() {
  * @sa GetAndroidCachePath
  */
 inline const char* GetAndroidExternalStoragePath() {
-  return CheckError(SDL_GetAndroidExternalStoragePath());
+	return CheckError(SDL_GetAndroidExternalStoragePath());
 }
 
 /**
@@ -521,7 +521,7 @@ inline const char* GetAndroidExternalStoragePath() {
  * @sa GetAndroidExternalStoragePath
  */
 inline const char* GetAndroidCachePath() {
-  return CheckError(SDL_GetAndroidCachePath());
+	return CheckError(SDL_GetAndroidCachePath());
 }
 
 /**
@@ -536,8 +536,8 @@ inline const char* GetAndroidCachePath() {
  * @sa RequestAndroidPermission
  */
 using RequestAndroidPermissionCallback = void(SDLCALL*)(void* userdata,
-                                                        const char* permission,
-                                                        bool granted);
+																												const char* permission,
+																												bool granted);
 
 /**
  * Callback that presents a response from a RequestAndroidPermission call.
@@ -552,7 +552,7 @@ using RequestAndroidPermissionCallback = void(SDLCALL*)(void* userdata,
  * @sa RequestAndroidPermissionCallback
  */
 using RequestAndroidPermissionCB =
-  std::function<void(const char* permission, bool granted)>;
+	std::function<void(const char* permission, bool granted)>;
 
 /**
  * Request permissions at runtime, asynchronously.
@@ -589,9 +589,9 @@ using RequestAndroidPermissionCB =
  * @since This function is available since SDL 3.2.0.
  */
 inline bool RequestAndroidPermission(StringParam permission,
-                                     RequestAndroidPermissionCallback cb,
-                                     void* userdata) {
-  return SDL_RequestAndroidPermission(permission, cb, userdata);
+																		 RequestAndroidPermissionCallback cb,
+																		 void* userdata) {
+	return SDL_RequestAndroidPermission(permission, cb, userdata);
 }
 
 /**
@@ -628,13 +628,13 @@ inline bool RequestAndroidPermission(StringParam permission,
  * @since This function is available since SDL 3.2.0.
  */
 inline bool RequestAndroidPermission(StringParam permission,
-                                     RequestAndroidPermissionCB cb) {
-  using Wrapper = CallbackWrapper<RequestAndroidPermissionCB>;
-  auto callback = Wrapper::Wrap(std::move(cb));
-  if (!RequestAndroidPermission(
-        std::move(permission), &Wrapper::CallOnce, callback)) {
-    Wrapper::Release(callback);
-  }
+																		 RequestAndroidPermissionCB cb) {
+	using Wrapper = CallbackWrapper<RequestAndroidPermissionCB>;
+	auto callback = Wrapper::Wrap(std::move(cb));
+	if (!RequestAndroidPermission(
+				std::move(permission), &Wrapper::CallOnce, callback)) {
+		Wrapper::Release(callback);
+	}
 }
 
 /**
@@ -663,12 +663,12 @@ inline bool RequestAndroidPermission(StringParam permission,
  * @since This function is available since SDL 3.2.0.
  */
 inline void ShowAndroidToast(StringParam message,
-                             int duration,
-                             int gravity,
-                             int xoffset,
-                             int yoffset) {
-  CheckError(
-    SDL_ShowAndroidToast(message, duration, gravity, xoffset, yoffset));
+														 int duration,
+														 int gravity,
+														 int xoffset,
+														 int yoffset) {
+	CheckError(
+		SDL_ShowAndroidToast(message, duration, gravity, xoffset, yoffset));
 }
 
 /**
@@ -685,7 +685,7 @@ inline void ShowAndroidToast(StringParam message,
  * @since This function is available since SDL 3.2.0.
  */
 inline void SendAndroidMessage(Uint32 command, int param) {
-  CheckError(SDL_SendAndroidMessage(command, param));
+	CheckError(SDL_SendAndroidMessage(command, param));
 }
 
 #endif // defined(SDL_PLATFORM_ANDROID)
@@ -726,7 +726,7 @@ using Sandbox = SDL_Sandbox;
 constexpr Sandbox SANDBOX_NONE = SDL_SANDBOX_NONE; ///< NONE
 
 constexpr Sandbox SANDBOX_UNKNOWN_CONTAINER =
-  SDL_SANDBOX_UNKNOWN_CONTAINER; ///< UNKNOWN_CONTAINER
+	SDL_SANDBOX_UNKNOWN_CONTAINER; ///< UNKNOWN_CONTAINER
 
 constexpr Sandbox SANDBOX_FLATPAK = SDL_SANDBOX_FLATPAK; ///< FLATPAK
 
@@ -776,7 +776,7 @@ inline void OnApplicationWillTerminate() { SDL_OnApplicationWillTerminate(); }
  * @since This function is available since SDL 3.2.0.
  */
 inline void OnApplicationDidReceiveMemoryWarning() {
-  SDL_OnApplicationDidReceiveMemoryWarning();
+	SDL_OnApplicationDidReceiveMemoryWarning();
 }
 
 /**
@@ -795,7 +795,7 @@ inline void OnApplicationDidReceiveMemoryWarning() {
  * @since This function is available since SDL 3.2.0.
  */
 inline void OnApplicationWillEnterBackground() {
-  SDL_OnApplicationWillEnterBackground();
+	SDL_OnApplicationWillEnterBackground();
 }
 
 /**
@@ -814,7 +814,7 @@ inline void OnApplicationWillEnterBackground() {
  * @since This function is available since SDL 3.2.0.
  */
 inline void OnApplicationDidEnterBackground() {
-  SDL_OnApplicationDidEnterBackground();
+	SDL_OnApplicationDidEnterBackground();
 }
 
 /**
@@ -833,7 +833,7 @@ inline void OnApplicationDidEnterBackground() {
  * @since This function is available since SDL 3.2.0.
  */
 inline void OnApplicationWillEnterForeground() {
-  SDL_OnApplicationWillEnterForeground();
+	SDL_OnApplicationWillEnterForeground();
 }
 
 /**
@@ -852,7 +852,7 @@ inline void OnApplicationWillEnterForeground() {
  * @since This function is available since SDL 3.2.0.
  */
 inline void OnApplicationDidEnterForeground() {
-  SDL_OnApplicationDidEnterForeground();
+	SDL_OnApplicationDidEnterForeground();
 }
 
 #if defined(SDL_PLATFORM_IOS) || defined(SDL3PP_DOC)
@@ -873,7 +873,7 @@ inline void OnApplicationDidEnterForeground() {
  * @since This function is available since SDL 3.2.0.
  */
 inline void OnApplicationDidChangeStatusBarOrientation() {
-  SDL_OnApplicationDidChangeStatusBarOrientation();
+	SDL_OnApplicationDidChangeStatusBarOrientation();
 }
 
 #endif // defined(SDL_PLATFORM_IOS)
@@ -899,7 +899,7 @@ using XUserHandle = ::XUserHandle;
  * @since This function is available since SDL 3.2.0.
  */
 inline void GetGDKTaskQueue(XTaskQueueHandle* outTaskQueue) {
-  CheckError(SDL_GetGDKTaskQueue(outTaskQueue));
+	CheckError(SDL_GetGDKTaskQueue(outTaskQueue));
 }
 
 /**
@@ -915,7 +915,7 @@ inline void GetGDKTaskQueue(XTaskQueueHandle* outTaskQueue) {
  * @since This function is available since SDL 3.2.0.
  */
 inline bool GetGDKDefaultUser(XUserHandle* outUserHandle) {
-  return SDL_GetGDKDefaultUser(outUserHandle);
+	return SDL_GetGDKDefaultUser(outUserHandle);
 }
 #endif // defined(SDL_PLATFORM_GDK)
 

@@ -34,250 +34,250 @@ struct DateTime;
  * @since This struct is available since SDL 3.2.0.
  */
 struct DateTime : DateTimeRaw {
-  /**
-   * Wraps DateTime.
-   *
-   * @param dateTime the value to be wrapped
-   */
-  constexpr DateTime(const DateTimeRaw& dateTime = {}) noexcept
-    : DateTimeRaw(dateTime) {
-  }
+	/**
+	 * Wraps DateTime.
+	 *
+	 * @param dateTime the value to be wrapped
+	 */
+	constexpr DateTime(const DateTimeRaw& dateTime = {}) noexcept
+		: DateTimeRaw(dateTime) {
+	}
 
-  /**
-   * Constructs from its fields.
-   *
-   * @param year the value for year.
-   * @param month the value for month.
-   * @param day the value for day.
-   * @param hour the value for hour.
-   * @param minute the value for minute.
-   * @param second the value for second.
-   * @param nanosecond the value for nanosecond.
-   * @param day_of_week the value for day_of_week.
-   * @param utc_offset the value for utc_offset.
-   */
-  constexpr DateTime(int year,
-                     int month,
-                     int day,
-                     int hour,
-                     int minute,
-                     int second,
-                     int nanosecond,
-                     int day_of_week,
-                     int utc_offset) noexcept
-    : DateTimeRaw{year,
-                  month,
-                  day,
-                  hour,
-                  minute,
-                  second,
-                  nanosecond,
-                  day_of_week,
-                  utc_offset} {
-  }
+	/**
+	 * Constructs from its fields.
+	 *
+	 * @param year the value for year.
+	 * @param month the value for month.
+	 * @param day the value for day.
+	 * @param hour the value for hour.
+	 * @param minute the value for minute.
+	 * @param second the value for second.
+	 * @param nanosecond the value for nanosecond.
+	 * @param day_of_week the value for day_of_week.
+	 * @param utc_offset the value for utc_offset.
+	 */
+	constexpr DateTime(int year,
+										 int month,
+										 int day,
+										 int hour,
+										 int minute,
+										 int second,
+										 int nanosecond,
+										 int day_of_week,
+										 int utc_offset) noexcept
+		: DateTimeRaw{year,
+									month,
+									day,
+									hour,
+									minute,
+									second,
+									nanosecond,
+									day_of_week,
+									utc_offset} {
+	}
 
-  /**
-   * Converts an Time in nanoseconds since the epoch to a calendar time in the
-   * DateTime format.
-   *
-   * @param ticks the Time to be converted.
-   * @param localTime the resulting DateTime will be expressed in local time if
-   *                  true, otherwise it will be in Universal Coordinated Time
-   *                  (UTC).
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  DateTime(Time ticks, bool localTime = true);
+	/**
+	 * Converts an Time in nanoseconds since the epoch to a calendar time in the
+	 * DateTime format.
+	 *
+	 * @param ticks the Time to be converted.
+	 * @param localTime the resulting DateTime will be expressed in local time if
+	 *                  true, otherwise it will be in Universal Coordinated Time
+	 *                  (UTC).
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	DateTime(Time ticks, bool localTime = true);
 
-  /**
-   * Check if valid.
-   *
-   * @returns True if valid state, false otherwise.
-   */
-  constexpr explicit operator bool() const noexcept {
-    return year != 0 || month != 0 || day != 0 || hour != 0 || minute != 0 ||
-           second != 0 || nanosecond != 0;
-  }
+	/**
+	 * Check if valid.
+	 *
+	 * @returns True if valid state, false otherwise.
+	 */
+	constexpr explicit operator bool() const noexcept {
+		return year != 0 || month != 0 || day != 0 || hour != 0 || minute != 0 ||
+					 second != 0 || nanosecond != 0;
+	}
 
-  /**
-   * Get the year.
-   *
-   * @returns current year value.
-   */
-  constexpr int GetYear() const noexcept { return year; }
+	/**
+	 * Get the year.
+	 *
+	 * @returns current year value.
+	 */
+	constexpr int GetYear() const noexcept { return year; }
 
-  /**
-   * Set the year.
-   *
-   * @param newYear the new year value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetYear(int newYear) noexcept {
-    year = newYear;
-    return *this;
-  }
+	/**
+	 * Set the year.
+	 *
+	 * @param newYear the new year value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetYear(int newYear) noexcept {
+		year = newYear;
+		return *this;
+	}
 
-  /**
-   * Get the month.
-   *
-   * @returns current month value.
-   */
-  constexpr int GetMonth() const noexcept { return month; }
+	/**
+	 * Get the month.
+	 *
+	 * @returns current month value.
+	 */
+	constexpr int GetMonth() const noexcept { return month; }
 
-  /**
-   * Set the month.
-   *
-   * @param newMonth the new month value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetMonth(int newMonth) noexcept {
-    month = newMonth;
-    return *this;
-  }
+	/**
+	 * Set the month.
+	 *
+	 * @param newMonth the new month value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetMonth(int newMonth) noexcept {
+		month = newMonth;
+		return *this;
+	}
 
-  /**
-   * Get the day.
-   *
-   * @returns current day value.
-   */
-  constexpr int GetDay() const noexcept { return day; }
+	/**
+	 * Get the day.
+	 *
+	 * @returns current day value.
+	 */
+	constexpr int GetDay() const noexcept { return day; }
 
-  /**
-   * Set the day.
-   *
-   * @param newDay the new day value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetDay(int newDay) noexcept {
-    day = newDay;
-    return *this;
-  }
+	/**
+	 * Set the day.
+	 *
+	 * @param newDay the new day value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetDay(int newDay) noexcept {
+		day = newDay;
+		return *this;
+	}
 
-  /**
-   * Get the hour.
-   *
-   * @returns current hour value.
-   */
-  constexpr int GetHour() const noexcept { return hour; }
+	/**
+	 * Get the hour.
+	 *
+	 * @returns current hour value.
+	 */
+	constexpr int GetHour() const noexcept { return hour; }
 
-  /**
-   * Set the hour.
-   *
-   * @param newHour the new hour value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetHour(int newHour) noexcept {
-    hour = newHour;
-    return *this;
-  }
+	/**
+	 * Set the hour.
+	 *
+	 * @param newHour the new hour value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetHour(int newHour) noexcept {
+		hour = newHour;
+		return *this;
+	}
 
-  /**
-   * Get the minute.
-   *
-   * @returns current minute value.
-   */
-  constexpr int GetMinute() const noexcept { return minute; }
+	/**
+	 * Get the minute.
+	 *
+	 * @returns current minute value.
+	 */
+	constexpr int GetMinute() const noexcept { return minute; }
 
-  /**
-   * Set the minute.
-   *
-   * @param newMinute the new minute value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetMinute(int newMinute) noexcept {
-    minute = newMinute;
-    return *this;
-  }
+	/**
+	 * Set the minute.
+	 *
+	 * @param newMinute the new minute value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetMinute(int newMinute) noexcept {
+		minute = newMinute;
+		return *this;
+	}
 
-  /**
-   * Get the second.
-   *
-   * @returns current second value.
-   */
-  constexpr int GetSecond() const noexcept { return second; }
+	/**
+	 * Get the second.
+	 *
+	 * @returns current second value.
+	 */
+	constexpr int GetSecond() const noexcept { return second; }
 
-  /**
-   * Set the second.
-   *
-   * @param newSecond the new second value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetSecond(int newSecond) noexcept {
-    second = newSecond;
-    return *this;
-  }
+	/**
+	 * Set the second.
+	 *
+	 * @param newSecond the new second value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetSecond(int newSecond) noexcept {
+		second = newSecond;
+		return *this;
+	}
 
-  /**
-   * Get the nanosecond.
-   *
-   * @returns current nanosecond value.
-   */
-  constexpr int GetNanosecond() const noexcept { return nanosecond; }
+	/**
+	 * Get the nanosecond.
+	 *
+	 * @returns current nanosecond value.
+	 */
+	constexpr int GetNanosecond() const noexcept { return nanosecond; }
 
-  /**
-   * Set the nanosecond.
-   *
-   * @param newNanosecond the new nanosecond value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetNanosecond(int newNanosecond) noexcept {
-    nanosecond = newNanosecond;
-    return *this;
-  }
+	/**
+	 * Set the nanosecond.
+	 *
+	 * @param newNanosecond the new nanosecond value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetNanosecond(int newNanosecond) noexcept {
+		nanosecond = newNanosecond;
+		return *this;
+	}
 
-  /**
-   * Get the day_of_week.
-   *
-   * @returns current day_of_week value.
-   */
-  constexpr int GetDay_of_week() const noexcept { return day_of_week; }
+	/**
+	 * Get the day_of_week.
+	 *
+	 * @returns current day_of_week value.
+	 */
+	constexpr int GetDay_of_week() const noexcept { return day_of_week; }
 
-  /**
-   * Set the day_of_week.
-   *
-   * @param newDay_of_week the new day_of_week value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetDay_of_week(int newDay_of_week) noexcept {
-    day_of_week = newDay_of_week;
-    return *this;
-  }
+	/**
+	 * Set the day_of_week.
+	 *
+	 * @param newDay_of_week the new day_of_week value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetDay_of_week(int newDay_of_week) noexcept {
+		day_of_week = newDay_of_week;
+		return *this;
+	}
 
-  /**
-   * Get the utc_offset.
-   *
-   * @returns current utc_offset value.
-   */
-  constexpr int GetUtc_offset() const noexcept { return utc_offset; }
+	/**
+	 * Get the utc_offset.
+	 *
+	 * @returns current utc_offset value.
+	 */
+	constexpr int GetUtc_offset() const noexcept { return utc_offset; }
 
-  /**
-   * Set the utc_offset.
-   *
-   * @param newUtc_offset the new utc_offset value.
-   * @returns Reference to self.
-   */
-  constexpr DateTime& SetUtc_offset(int newUtc_offset) noexcept {
-    utc_offset = newUtc_offset;
-    return *this;
-  }
+	/**
+	 * Set the utc_offset.
+	 *
+	 * @param newUtc_offset the new utc_offset value.
+	 * @returns Reference to self.
+	 */
+	constexpr DateTime& SetUtc_offset(int newUtc_offset) noexcept {
+		utc_offset = newUtc_offset;
+		return *this;
+	}
 
-  /**
-   * Converts a calendar time to an Time in nanoseconds since the epoch.
-   *
-   * This function ignores the day_of_week member of the DateTime struct, so it
-   * may remain unset.
-   *
-   * @returns time on success.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  operator Time() const;
+	/**
+	 * Converts a calendar time to an Time in nanoseconds since the epoch.
+	 *
+	 * This function ignores the day_of_week member of the DateTime struct, so it
+	 * may remain unset.
+	 *
+	 * @returns time on success.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	operator Time() const;
 };
 
 /**
@@ -290,13 +290,13 @@ struct DateTime : DateTimeRaw {
 using DateFormat = SDL_DateFormat;
 
 constexpr DateFormat DATE_FORMAT_YYYYMMDD =
-  SDL_DATE_FORMAT_YYYYMMDD; ///< Year/Month/Day
+	SDL_DATE_FORMAT_YYYYMMDD; ///< Year/Month/Day
 
 constexpr DateFormat DATE_FORMAT_DDMMYYYY =
-  SDL_DATE_FORMAT_DDMMYYYY; ///< Day/Month/Year
+	SDL_DATE_FORMAT_DDMMYYYY; ///< Day/Month/Year
 
 constexpr DateFormat DATE_FORMAT_MMDDYYYY =
-  SDL_DATE_FORMAT_MMDDYYYY; ///< Month/Day/Year
+	SDL_DATE_FORMAT_MMDDYYYY; ///< Month/Day/Year
 
 /**
  * The preferred time format of the current system locale.
@@ -330,14 +330,14 @@ constexpr TimeFormat TIME_FORMAT_12HR = SDL_TIME_FORMAT_12HR; ///< 12 hour time
  * @since This function is available since SDL 3.2.0.
  */
 inline void GetDateTimeLocalePreferences(DateFormat* dateFormat,
-                                         TimeFormat* timeFormat) {
-  CheckError(SDL_GetDateTimeLocalePreferences(dateFormat, timeFormat));
+																				 TimeFormat* timeFormat) {
+	CheckError(SDL_GetDateTimeLocalePreferences(dateFormat, timeFormat));
 }
 
 inline Time Time::Current() {
-  SDL_Time t;
-  CheckError(SDL_GetCurrentTime(&t));
-  return Time::FromNS(t);
+	SDL_Time t;
+	CheckError(SDL_GetCurrentTime(&t));
+	return Time::FromNS(t);
 }
 
 /**
@@ -356,11 +356,11 @@ inline Time Time::Current() {
  * @since This function is available since SDL 3.2.0.
  */
 inline DateTime TimeToDateTime(Time ticks, bool localTime = true) {
-  return DateTime(ticks, localTime);
+	return DateTime(ticks, localTime);
 }
 
 inline DateTime::DateTime(Time ticks, bool localTime) {
-  CheckError(SDL_TimeToDateTime(ticks.ToNS(), this, localTime));
+	CheckError(SDL_TimeToDateTime(ticks.ToNS(), this, localTime));
 }
 
 /**
@@ -378,19 +378,19 @@ inline DateTime::DateTime(Time ticks, bool localTime) {
  * @since This function is available since SDL 3.2.0.
  */
 inline Time DateTimeToTime(const DateTimeRaw& dt) {
-  SDL_Time t;
-  CheckError(SDL_DateTimeToTime(&dt, &t));
-  return Time::FromNS(t);
+	SDL_Time t;
+	CheckError(SDL_DateTimeToTime(&dt, &t));
+	return Time::FromNS(t);
 }
 
 inline DateTime::operator Time() const { return SDL::DateTimeToTime(*this); }
 
 inline void Time::ToWindows(Uint32* dwLowDateTime, Uint32* dwHighDateTime) const {
-  SDL_TimeToWindows(ToNS(), dwLowDateTime, dwHighDateTime);
+	SDL_TimeToWindows(ToNS(), dwLowDateTime, dwHighDateTime);
 }
 
 inline Time Time::FromWindows(Uint32 dwLowDateTime, Uint32 dwHighDateTime) {
-  return Time::FromNS(SDL_TimeFromWindows(dwLowDateTime, dwHighDateTime));
+	return Time::FromNS(SDL_TimeFromWindows(dwLowDateTime, dwHighDateTime));
 }
 
 /**
@@ -406,7 +406,7 @@ inline Time Time::FromWindows(Uint32 dwLowDateTime, Uint32 dwHighDateTime) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int GetDaysInMonth(int year, int month) {
-  return CheckError(SDL_GetDaysInMonth(year, month), -1);
+	return CheckError(SDL_GetDaysInMonth(year, month), -1);
 }
 
 /**
@@ -423,7 +423,7 @@ inline int GetDaysInMonth(int year, int month) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int GetDayOfYear(int year, int month, int day) {
-  return CheckError(SDL_GetDayOfYear(year, month, day), -1);
+	return CheckError(SDL_GetDayOfYear(year, month, day), -1);
 }
 
 /**
@@ -440,7 +440,7 @@ inline int GetDayOfYear(int year, int month, int day) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int GetDayOfWeek(int year, int month, int day) {
-  return CheckError(SDL_GetDayOfWeek(year, month, day), -1);
+	return CheckError(SDL_GetDayOfWeek(year, month, day), -1);
 }
 
 /// @}

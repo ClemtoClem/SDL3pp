@@ -15,8 +15,8 @@ namespace SDL {
 
 /// Calls SDL_free()
 struct PtrDeleter {
-  /// @private
-  void operator()(void* ptr) const;
+	/// @private
+	void operator()(void* ptr) const;
 };
 
 /**
@@ -40,107 +40,107 @@ using OwnPtr = std::unique_ptr<T, PtrDeleter>;
  */
 template<class T>
 class OwnArray {
-  OwnPtr<T> m_ptr;
-  size_t m_size = 0;
+	OwnPtr<T> m_ptr;
+	size_t m_size = 0;
 
 public:
-  /// Constructor
-  constexpr OwnArray(std::nullptr_t = nullptr) {}
+	/// Constructor
+	constexpr OwnArray(std::nullptr_t = nullptr) {}
 
-  /// Constructor
-  constexpr explicit OwnArray(T* ptr, size_t size)
-    : m_ptr(ptr)
-    , m_size(size) {
-  }
+	/// Constructor
+	constexpr explicit OwnArray(T* ptr, size_t size)
+		: m_ptr(ptr)
+		, m_size(size) {
+	}
 
-  /// Constructor
-  constexpr explicit OwnArray(T* ptr)
-    : m_ptr(ptr) {
-    if (ptr) {
-      auto endPtr = ptr;
-      while (*endPtr) ++endPtr;
-      m_size = endPtr - ptr;
-    }
-  }
+	/// Constructor
+	constexpr explicit OwnArray(T* ptr)
+		: m_ptr(ptr) {
+		if (ptr) {
+			auto endPtr = ptr;
+			while (*endPtr) ++endPtr;
+			m_size = endPtr - ptr;
+		}
+	}
 
-  /// True if not empty
-  constexpr explicit operator bool() const { return bool(m_ptr); }
+	/// True if not empty
+	constexpr explicit operator bool() const { return bool(m_ptr); }
 
-  /// True if size() == 0
-  constexpr bool empty() const { return !m_ptr; }
+	/// True if size() == 0
+	constexpr bool empty() const { return !m_ptr; }
 
-  /// data
-  constexpr T* data() { return m_ptr.get(); }
+	/// data
+	constexpr T* data() { return m_ptr.get(); }
 
-  /// data
-  constexpr const T* data() const { return m_ptr.get(); }
+	/// data
+	constexpr const T* data() const { return m_ptr.get(); }
 
-  /// size
-  constexpr size_t size() const { return m_size; }
+	/// size
+	constexpr size_t size() const { return m_size; }
 
-  /**
-   * Release control on object.
-   *
-   * You are responsible to call Free() on the returned value, if its different
-   * than nullptr.
-   */
-  T* Release() { return m_ptr.release(); }
+	/**
+	 * Release control on object.
+	 *
+	 * You are responsible to call Free() on the returned value, if its different
+	 * than nullptr.
+	 */
+	T* Release() { return m_ptr.release(); }
 
-  /**
-   * Reset object.
-   *
-   * You are responsible to call Free() on the returned value, if its different
-   * than nullptr.
-   */
-  void Reset(T* newValue = nullptr) {
-    m_ptr.reset(newValue);
-    if (newValue) {
-      auto endPtr = newValue;
-      while (*endPtr) ++endPtr;
-      m_size = endPtr - newValue;
-    }
-  }
+	/**
+	 * Reset object.
+	 *
+	 * You are responsible to call Free() on the returned value, if its different
+	 * than nullptr.
+	 */
+	void Reset(T* newValue = nullptr) {
+		m_ptr.reset(newValue);
+		if (newValue) {
+			auto endPtr = newValue;
+			while (*endPtr) ++endPtr;
+			m_size = endPtr - newValue;
+		}
+	}
 
-  /**
-   * Reset object.
-   *
-   * You are responsible to call Free() on the returned value, if its different
-   * than nullptr.
-   */
-  void Reset(T* newValue, size_t size) {
-    m_ptr.reset(newValue);
-    m_size = size;
-  }
+	/**
+	 * Reset object.
+	 *
+	 * You are responsible to call Free() on the returned value, if its different
+	 * than nullptr.
+	 */
+	void Reset(T* newValue, size_t size) {
+		m_ptr.reset(newValue);
+		m_size = size;
+	}
 
-  /// Access index
-  constexpr T& operator[](size_t i) { return m_ptr.get()[i]; }
+	/// Access index
+	constexpr T& operator[](size_t i) { return m_ptr.get()[i]; }
 
-  /// Access index
-  constexpr const T& operator[](size_t i) const { return m_ptr.get()[i]; }
+	/// Access index
+	constexpr const T& operator[](size_t i) const { return m_ptr.get()[i]; }
 
-  /// Get iterator to first element
-  T* begin() { return data(); }
+	/// Get iterator to first element
+	T* begin() { return data(); }
 
-  /// Get iterator to first element
-  const T* begin() const { return data(); }
+	/// Get iterator to first element
+	const T* begin() const { return data(); }
 
-  /// Get iterator to first element
-  const T* cbegin() const { return begin(); }
+	/// Get iterator to first element
+	const T* cbegin() const { return begin(); }
 
-  /// Get iterator to one past end element
-  T* end() { return begin() + size(); }
+	/// Get iterator to one past end element
+	T* end() { return begin() + size(); }
 
-  /// Get iterator to one past end element
-  const T* end() const { return begin() + size(); }
+	/// Get iterator to one past end element
+	const T* end() const { return begin() + size(); }
 
-  /// Get iterator to one past end element
-  const T* cend() const { return begin() + size(); }
+	/// Get iterator to one past end element
+	const T* cend() const { return begin() + size(); }
 
-  /// Return first element.
-  T& front() { return *data(); }
+	/// Return first element.
+	T& front() { return *data(); }
 
-  /// Return last element
-  T& back() { return begin()[size()]; }
+	/// Return last element
+	T& back() { return begin()[size()]; }
 };
 
 /**

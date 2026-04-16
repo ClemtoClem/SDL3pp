@@ -76,7 +76,7 @@ constexpr EventType EVENT_LOW_MEMORY = SDL_EVENT_LOW_MEMORY;
  * applicationWillResignActive() Called on Android in onPause()
  */
 constexpr EventType EVENT_WILL_ENTER_BACKGROUND =
-  SDL_EVENT_WILL_ENTER_BACKGROUND;
+	SDL_EVENT_WILL_ENTER_BACKGROUND;
 
 /**
  * The application did enter the background and may not Get CPU for some time.
@@ -91,7 +91,7 @@ constexpr EventType EVENT_DID_ENTER_BACKGROUND = SDL_EVENT_DID_ENTER_BACKGROUND;
  * applicationWillEnterForeground() Called on Android in onResume()
  */
 constexpr EventType EVENT_WILL_ENTER_FOREGROUND =
-  SDL_EVENT_WILL_ENTER_FOREGROUND;
+	SDL_EVENT_WILL_ENTER_FOREGROUND;
 
 /**
  * The application is now interactive. This event must be handled in a callback
@@ -101,52 +101,52 @@ constexpr EventType EVENT_WILL_ENTER_FOREGROUND =
 constexpr EventType EVENT_DID_ENTER_FOREGROUND = SDL_EVENT_DID_ENTER_FOREGROUND;
 
 constexpr EventType EVENT_LOCALE_CHANGED =
-  SDL_EVENT_LOCALE_CHANGED; ///< The user's locale preferences have changed.
+	SDL_EVENT_LOCALE_CHANGED; ///< The user's locale preferences have changed.
 
 constexpr EventType EVENT_SYSTEM_THEME_CHANGED =
-  SDL_EVENT_SYSTEM_THEME_CHANGED; ///< The system theme changed
+	SDL_EVENT_SYSTEM_THEME_CHANGED; ///< The system theme changed
 
 constexpr EventType EVENT_DISPLAY_ORIENTATION =
-  SDL_EVENT_DISPLAY_ORIENTATION; ///< Display orientation has changed to data1
+	SDL_EVENT_DISPLAY_ORIENTATION; ///< Display orientation has changed to data1
 
 constexpr EventType EVENT_DISPLAY_ADDED =
-  SDL_EVENT_DISPLAY_ADDED; ///< Display has been added to the system
+	SDL_EVENT_DISPLAY_ADDED; ///< Display has been added to the system
 
 constexpr EventType EVENT_DISPLAY_REMOVED =
-  SDL_EVENT_DISPLAY_REMOVED; ///< Display has been removed from the system
+	SDL_EVENT_DISPLAY_REMOVED; ///< Display has been removed from the system
 
 constexpr EventType EVENT_DISPLAY_MOVED =
-  SDL_EVENT_DISPLAY_MOVED; ///< Display has changed position
+	SDL_EVENT_DISPLAY_MOVED; ///< Display has changed position
 
 constexpr EventType EVENT_DISPLAY_DESKTOP_MODE_CHANGED =
-  SDL_EVENT_DISPLAY_DESKTOP_MODE_CHANGED; ///< Display has changed desktop mode
+	SDL_EVENT_DISPLAY_DESKTOP_MODE_CHANGED; ///< Display has changed desktop mode
 
 constexpr EventType EVENT_DISPLAY_CURRENT_MODE_CHANGED =
-  SDL_EVENT_DISPLAY_CURRENT_MODE_CHANGED; ///< Display has changed current mode
+	SDL_EVENT_DISPLAY_CURRENT_MODE_CHANGED; ///< Display has changed current mode
 
 constexpr EventType EVENT_DISPLAY_CONTENT_SCALE_CHANGED =
-  SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED; ///< Display has changed content
-                                           ///< scale
+	SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED; ///< Display has changed content
+																					 ///< scale
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
 constexpr EventType EVENT_DISPLAY_USABLE_BOUNDS_CHANGED =
-  SDL_EVENT_DISPLAY_USABLE_BOUNDS_CHANGED; ///< Display has changed usable
-                                           ///< bounds
+	SDL_EVENT_DISPLAY_USABLE_BOUNDS_CHANGED; ///< Display has changed usable
+																					 ///< bounds
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
 constexpr EventType EVENT_DISPLAY_FIRST =
-  SDL_EVENT_DISPLAY_FIRST; ///< DISPLAY_FIRST
+	SDL_EVENT_DISPLAY_FIRST; ///< DISPLAY_FIRST
 
 constexpr EventType EVENT_DISPLAY_LAST =
-  SDL_EVENT_DISPLAY_LAST; ///< DISPLAY_LAST
+	SDL_EVENT_DISPLAY_LAST; ///< DISPLAY_LAST
 
 constexpr EventType EVENT_WINDOW_SHOWN =
-  SDL_EVENT_WINDOW_SHOWN; ///< Window has been shown
+	SDL_EVENT_WINDOW_SHOWN; ///< Window has been shown
 
 constexpr EventType EVENT_WINDOW_HIDDEN =
-  SDL_EVENT_WINDOW_HIDDEN; ///< Window has been hidden
+	SDL_EVENT_WINDOW_HIDDEN; ///< Window has been hidden
 
 /**
  * Window has been exposed and should be redrawn, and can be redrawn directly
@@ -156,70 +156,70 @@ constexpr EventType EVENT_WINDOW_HIDDEN =
 constexpr EventType EVENT_WINDOW_EXPOSED = SDL_EVENT_WINDOW_EXPOSED;
 
 constexpr EventType EVENT_WINDOW_MOVED =
-  SDL_EVENT_WINDOW_MOVED; ///< Window has been moved to data1, data2
+	SDL_EVENT_WINDOW_MOVED; ///< Window has been moved to data1, data2
 
 constexpr EventType EVENT_WINDOW_RESIZED =
-  SDL_EVENT_WINDOW_RESIZED; ///< Window has been resized to data1xdata2
+	SDL_EVENT_WINDOW_RESIZED; ///< Window has been resized to data1xdata2
 
 /// The pixel size of the window has changed to data1xdata2
 constexpr EventType EVENT_WINDOW_PIXEL_SIZE_CHANGED =
-  SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
+	SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
 
 /// The pixel size of a Metal view associated with the window has changed
 constexpr EventType EVENT_WINDOW_METAL_VIEW_RESIZED =
-  SDL_EVENT_WINDOW_METAL_VIEW_RESIZED;
+	SDL_EVENT_WINDOW_METAL_VIEW_RESIZED;
 
 constexpr EventType EVENT_WINDOW_MINIMIZED =
-  SDL_EVENT_WINDOW_MINIMIZED; ///< Window has been minimized
+	SDL_EVENT_WINDOW_MINIMIZED; ///< Window has been minimized
 
 constexpr EventType EVENT_WINDOW_MAXIMIZED =
-  SDL_EVENT_WINDOW_MAXIMIZED; ///< Window has been maximized
+	SDL_EVENT_WINDOW_MAXIMIZED; ///< Window has been maximized
 
 /// Window has been restored to normal size and position
 constexpr EventType EVENT_WINDOW_RESTORED = SDL_EVENT_WINDOW_RESTORED;
 
 constexpr EventType EVENT_WINDOW_MOUSE_ENTER =
-  SDL_EVENT_WINDOW_MOUSE_ENTER; ///< Window has gained mouse focus
+	SDL_EVENT_WINDOW_MOUSE_ENTER; ///< Window has gained mouse focus
 
 constexpr EventType EVENT_WINDOW_MOUSE_LEAVE =
-  SDL_EVENT_WINDOW_MOUSE_LEAVE; ///< Window has lost mouse focus
+	SDL_EVENT_WINDOW_MOUSE_LEAVE; ///< Window has lost mouse focus
 
 constexpr EventType EVENT_WINDOW_FOCUS_GAINED =
-  SDL_EVENT_WINDOW_FOCUS_GAINED; ///< Window has gained keyboard focus
+	SDL_EVENT_WINDOW_FOCUS_GAINED; ///< Window has gained keyboard focus
 
 constexpr EventType EVENT_WINDOW_FOCUS_LOST =
-  SDL_EVENT_WINDOW_FOCUS_LOST; ///< Window has lost keyboard focus
+	SDL_EVENT_WINDOW_FOCUS_LOST; ///< Window has lost keyboard focus
 
 /// The window manager requests that the window be closed
 constexpr EventType EVENT_WINDOW_CLOSE_REQUESTED =
-  SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+	SDL_EVENT_WINDOW_CLOSE_REQUESTED;
 
 constexpr EventType EVENT_WINDOW_HIT_TEST =
-  SDL_EVENT_WINDOW_HIT_TEST; ///< Window had a hit test that wasn't
-                             ///< HITTEST_NORMAL
+	SDL_EVENT_WINDOW_HIT_TEST; ///< Window had a hit test that wasn't
+														 ///< HITTEST_NORMAL
 
 /// The ICC profile of the window's display has changed
 constexpr EventType EVENT_WINDOW_ICCPROF_CHANGED =
-  SDL_EVENT_WINDOW_ICCPROF_CHANGED;
+	SDL_EVENT_WINDOW_ICCPROF_CHANGED;
 
 constexpr EventType EVENT_WINDOW_DISPLAY_CHANGED =
-  SDL_EVENT_WINDOW_DISPLAY_CHANGED; ///< Window has been moved to display data1
+	SDL_EVENT_WINDOW_DISPLAY_CHANGED; ///< Window has been moved to display data1
 
 constexpr EventType EVENT_WINDOW_DISPLAY_SCALE_CHANGED =
-  SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED; ///< Window display scale has been
-                                          ///< changed
+	SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED; ///< Window display scale has been
+																					///< changed
 
 constexpr EventType EVENT_WINDOW_SAFE_AREA_CHANGED =
-  SDL_EVENT_WINDOW_SAFE_AREA_CHANGED; ///< The window safe area has been changed
+	SDL_EVENT_WINDOW_SAFE_AREA_CHANGED; ///< The window safe area has been changed
 
 constexpr EventType EVENT_WINDOW_OCCLUDED =
-  SDL_EVENT_WINDOW_OCCLUDED; ///< The window has been occluded
+	SDL_EVENT_WINDOW_OCCLUDED; ///< The window has been occluded
 
 constexpr EventType EVENT_WINDOW_ENTER_FULLSCREEN =
-  SDL_EVENT_WINDOW_ENTER_FULLSCREEN; ///< The window has entered fullscreen mode
+	SDL_EVENT_WINDOW_ENTER_FULLSCREEN; ///< The window has entered fullscreen mode
 
 constexpr EventType EVENT_WINDOW_LEAVE_FULLSCREEN =
-  SDL_EVENT_WINDOW_LEAVE_FULLSCREEN; ///< The window has left fullscreen mode
+	SDL_EVENT_WINDOW_LEAVE_FULLSCREEN; ///< The window has left fullscreen mode
 
 /**
  * The window with the associated ID is being or has been destroyed. If this
@@ -231,10 +231,10 @@ constexpr EventType EVENT_WINDOW_LEAVE_FULLSCREEN =
 constexpr EventType EVENT_WINDOW_DESTROYED = SDL_EVENT_WINDOW_DESTROYED;
 
 constexpr EventType EVENT_WINDOW_HDR_STATE_CHANGED =
-  SDL_EVENT_WINDOW_HDR_STATE_CHANGED; ///< Window HDR properties have changed
+	SDL_EVENT_WINDOW_HDR_STATE_CHANGED; ///< Window HDR properties have changed
 
 constexpr EventType EVENT_WINDOW_FIRST =
-  SDL_EVENT_WINDOW_FIRST; ///< WINDOW_FIRST
+	SDL_EVENT_WINDOW_FIRST; ///< WINDOW_FIRST
 
 constexpr EventType EVENT_WINDOW_LAST = SDL_EVENT_WINDOW_LAST; ///< WINDOW_LAST
 
@@ -243,10 +243,10 @@ constexpr EventType EVENT_KEY_DOWN = SDL_EVENT_KEY_DOWN; ///< Key pressed
 constexpr EventType EVENT_KEY_UP = SDL_EVENT_KEY_UP; ///< Key released
 
 constexpr EventType EVENT_TEXT_EDITING =
-  SDL_EVENT_TEXT_EDITING; ///< Keyboard text editing (composition)
+	SDL_EVENT_TEXT_EDITING; ///< Keyboard text editing (composition)
 
 constexpr EventType EVENT_TEXT_INPUT =
-  SDL_EVENT_TEXT_INPUT; ///< Keyboard text input
+	SDL_EVENT_TEXT_INPUT; ///< Keyboard text input
 
 /**
  * Keymap changed due to a system event such as an input language or keyboard
@@ -255,195 +255,195 @@ constexpr EventType EVENT_TEXT_INPUT =
 constexpr EventType EVENT_KEYMAP_CHANGED = SDL_EVENT_KEYMAP_CHANGED;
 
 constexpr EventType EVENT_KEYBOARD_ADDED =
-  SDL_EVENT_KEYBOARD_ADDED; ///< A new keyboard has been inserted into the
-                            ///< system
+	SDL_EVENT_KEYBOARD_ADDED; ///< A new keyboard has been inserted into the
+														///< system
 
 constexpr EventType EVENT_KEYBOARD_REMOVED =
-  SDL_EVENT_KEYBOARD_REMOVED; ///< A keyboard has been removed
+	SDL_EVENT_KEYBOARD_REMOVED; ///< A keyboard has been removed
 
 constexpr EventType EVENT_TEXT_EDITING_CANDIDATES =
-  SDL_EVENT_TEXT_EDITING_CANDIDATES; ///< Keyboard text editing candidates
+	SDL_EVENT_TEXT_EDITING_CANDIDATES; ///< Keyboard text editing candidates
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
 constexpr EventType EVENT_SCREEN_KEYBOARD_SHOWN =
-  SDL_EVENT_SCREEN_KEYBOARD_SHOWN; ///< The on-screen keyboard has been shown
+	SDL_EVENT_SCREEN_KEYBOARD_SHOWN; ///< The on-screen keyboard has been shown
 
 constexpr EventType EVENT_SCREEN_KEYBOARD_HIDDEN =
-  SDL_EVENT_SCREEN_KEYBOARD_HIDDEN; ///< The on-screen keyboard has been hidden
+	SDL_EVENT_SCREEN_KEYBOARD_HIDDEN; ///< The on-screen keyboard has been hidden
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
 constexpr EventType EVENT_MOUSE_MOTION =
-  SDL_EVENT_MOUSE_MOTION; ///< Mouse moved
+	SDL_EVENT_MOUSE_MOTION; ///< Mouse moved
 
 constexpr EventType EVENT_MOUSE_BUTTON_DOWN =
-  SDL_EVENT_MOUSE_BUTTON_DOWN; ///< Mouse button pressed
+	SDL_EVENT_MOUSE_BUTTON_DOWN; ///< Mouse button pressed
 
 constexpr EventType EVENT_MOUSE_BUTTON_UP =
-  SDL_EVENT_MOUSE_BUTTON_UP; ///< Mouse button released
+	SDL_EVENT_MOUSE_BUTTON_UP; ///< Mouse button released
 
 constexpr EventType EVENT_MOUSE_WHEEL =
-  SDL_EVENT_MOUSE_WHEEL; ///< Mouse wheel motion
+	SDL_EVENT_MOUSE_WHEEL; ///< Mouse wheel motion
 
 constexpr EventType EVENT_MOUSE_ADDED =
-  SDL_EVENT_MOUSE_ADDED; ///< A new mouse has been inserted into the system
+	SDL_EVENT_MOUSE_ADDED; ///< A new mouse has been inserted into the system
 
 constexpr EventType EVENT_MOUSE_REMOVED =
-  SDL_EVENT_MOUSE_REMOVED; ///< A mouse has been removed
+	SDL_EVENT_MOUSE_REMOVED; ///< A mouse has been removed
 
 constexpr EventType EVENT_JOYSTICK_AXIS_MOTION =
-  SDL_EVENT_JOYSTICK_AXIS_MOTION; ///< Joystick axis motion
+	SDL_EVENT_JOYSTICK_AXIS_MOTION; ///< Joystick axis motion
 
 constexpr EventType EVENT_JOYSTICK_BALL_MOTION =
-  SDL_EVENT_JOYSTICK_BALL_MOTION; ///< Joystick trackball motion
+	SDL_EVENT_JOYSTICK_BALL_MOTION; ///< Joystick trackball motion
 
 constexpr EventType EVENT_JOYSTICK_HAT_MOTION =
-  SDL_EVENT_JOYSTICK_HAT_MOTION; ///< Joystick hat position change
+	SDL_EVENT_JOYSTICK_HAT_MOTION; ///< Joystick hat position change
 
 constexpr EventType EVENT_JOYSTICK_BUTTON_DOWN =
-  SDL_EVENT_JOYSTICK_BUTTON_DOWN; ///< Joystick button pressed
+	SDL_EVENT_JOYSTICK_BUTTON_DOWN; ///< Joystick button pressed
 
 constexpr EventType EVENT_JOYSTICK_BUTTON_UP =
-  SDL_EVENT_JOYSTICK_BUTTON_UP; ///< Joystick button released
+	SDL_EVENT_JOYSTICK_BUTTON_UP; ///< Joystick button released
 
 constexpr EventType EVENT_JOYSTICK_ADDED =
-  SDL_EVENT_JOYSTICK_ADDED; ///< A new joystick has been inserted into the
-                            ///< system
+	SDL_EVENT_JOYSTICK_ADDED; ///< A new joystick has been inserted into the
+														///< system
 
 constexpr EventType EVENT_JOYSTICK_REMOVED =
-  SDL_EVENT_JOYSTICK_REMOVED; ///< An opened joystick has been removed
+	SDL_EVENT_JOYSTICK_REMOVED; ///< An opened joystick has been removed
 
 constexpr EventType EVENT_JOYSTICK_BATTERY_UPDATED =
-  SDL_EVENT_JOYSTICK_BATTERY_UPDATED; ///< Joystick battery level change
+	SDL_EVENT_JOYSTICK_BATTERY_UPDATED; ///< Joystick battery level change
 
 constexpr EventType EVENT_JOYSTICK_UPDATE_COMPLETE =
-  SDL_EVENT_JOYSTICK_UPDATE_COMPLETE; ///< Joystick update is complete
+	SDL_EVENT_JOYSTICK_UPDATE_COMPLETE; ///< Joystick update is complete
 
 constexpr EventType EVENT_GAMEPAD_AXIS_MOTION =
-  SDL_EVENT_GAMEPAD_AXIS_MOTION; ///< Gamepad axis motion
+	SDL_EVENT_GAMEPAD_AXIS_MOTION; ///< Gamepad axis motion
 
 constexpr EventType EVENT_GAMEPAD_BUTTON_DOWN =
-  SDL_EVENT_GAMEPAD_BUTTON_DOWN; ///< Gamepad button pressed
+	SDL_EVENT_GAMEPAD_BUTTON_DOWN; ///< Gamepad button pressed
 
 constexpr EventType EVENT_GAMEPAD_BUTTON_UP =
-  SDL_EVENT_GAMEPAD_BUTTON_UP; ///< Gamepad button released
+	SDL_EVENT_GAMEPAD_BUTTON_UP; ///< Gamepad button released
 
 constexpr EventType EVENT_GAMEPAD_ADDED =
-  SDL_EVENT_GAMEPAD_ADDED; ///< A new gamepad has been inserted into the system
+	SDL_EVENT_GAMEPAD_ADDED; ///< A new gamepad has been inserted into the system
 
 constexpr EventType EVENT_GAMEPAD_REMOVED =
-  SDL_EVENT_GAMEPAD_REMOVED; ///< A gamepad has been removed
+	SDL_EVENT_GAMEPAD_REMOVED; ///< A gamepad has been removed
 
 constexpr EventType EVENT_GAMEPAD_REMAPPED =
-  SDL_EVENT_GAMEPAD_REMAPPED; ///< The gamepad mapping was updated
+	SDL_EVENT_GAMEPAD_REMAPPED; ///< The gamepad mapping was updated
 
 constexpr EventType EVENT_GAMEPAD_TOUCHPAD_DOWN =
-  SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN; ///< Gamepad touchpad was touched
+	SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN; ///< Gamepad touchpad was touched
 
 constexpr EventType EVENT_GAMEPAD_TOUCHPAD_MOTION =
-  SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION; ///< Gamepad touchpad finger was moved
+	SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION; ///< Gamepad touchpad finger was moved
 
 constexpr EventType EVENT_GAMEPAD_TOUCHPAD_UP =
-  SDL_EVENT_GAMEPAD_TOUCHPAD_UP; ///< Gamepad touchpad finger was lifted
+	SDL_EVENT_GAMEPAD_TOUCHPAD_UP; ///< Gamepad touchpad finger was lifted
 
 constexpr EventType EVENT_GAMEPAD_SENSOR_UPDATE =
-  SDL_EVENT_GAMEPAD_SENSOR_UPDATE; ///< Gamepad sensor was updated
+	SDL_EVENT_GAMEPAD_SENSOR_UPDATE; ///< Gamepad sensor was updated
 
 constexpr EventType EVENT_GAMEPAD_UPDATE_COMPLETE =
-  SDL_EVENT_GAMEPAD_UPDATE_COMPLETE; ///< Gamepad update is complete
+	SDL_EVENT_GAMEPAD_UPDATE_COMPLETE; ///< Gamepad update is complete
 
 constexpr EventType EVENT_GAMEPAD_STEAM_HANDLE_UPDATED =
-  SDL_EVENT_GAMEPAD_STEAM_HANDLE_UPDATED; ///< Gamepad Steam handle has changed
+	SDL_EVENT_GAMEPAD_STEAM_HANDLE_UPDATED; ///< Gamepad Steam handle has changed
 
 constexpr EventType EVENT_FINGER_DOWN = SDL_EVENT_FINGER_DOWN; ///< FINGER_DOWN
 
 constexpr EventType EVENT_FINGER_UP = SDL_EVENT_FINGER_UP; ///< FINGER_UP
 
 constexpr EventType EVENT_FINGER_MOTION =
-  SDL_EVENT_FINGER_MOTION; ///< FINGER_MOTION
+	SDL_EVENT_FINGER_MOTION; ///< FINGER_MOTION
 
 constexpr EventType EVENT_FINGER_CANCELED =
-  SDL_EVENT_FINGER_CANCELED; ///< FINGER_CANCELED
+	SDL_EVENT_FINGER_CANCELED; ///< FINGER_CANCELED
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
 constexpr EventType EVENT_PINCH_BEGIN =
-  SDL_EVENT_PINCH_BEGIN; ///< Pinch gesture started
+	SDL_EVENT_PINCH_BEGIN; ///< Pinch gesture started
 
 constexpr EventType EVENT_PINCH_UPDATE =
-  SDL_EVENT_PINCH_UPDATE; ///< Pinch gesture updated
+	SDL_EVENT_PINCH_UPDATE; ///< Pinch gesture updated
 
 constexpr EventType EVENT_PINCH_END =
-  SDL_EVENT_PINCH_END; ///< Pinch gesture ended
+	SDL_EVENT_PINCH_END; ///< Pinch gesture ended
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
 constexpr EventType EVENT_CLIPBOARD_UPDATE =
-  SDL_EVENT_CLIPBOARD_UPDATE; ///< The clipboard changed
+	SDL_EVENT_CLIPBOARD_UPDATE; ///< The clipboard changed
 
 constexpr EventType EVENT_DROP_FILE =
-  SDL_EVENT_DROP_FILE; ///< The system requests a file open
+	SDL_EVENT_DROP_FILE; ///< The system requests a file open
 
 constexpr EventType EVENT_DROP_TEXT =
-  SDL_EVENT_DROP_TEXT; ///< text/plain drag-and-drop event
+	SDL_EVENT_DROP_TEXT; ///< text/plain drag-and-drop event
 
 constexpr EventType EVENT_DROP_BEGIN =
-  SDL_EVENT_DROP_BEGIN; ///< A new set of drops is beginning (NULL filename)
+	SDL_EVENT_DROP_BEGIN; ///< A new set of drops is beginning (NULL filename)
 
 /// Current set of drops is now complete (NULL filename)
 constexpr EventType EVENT_DROP_COMPLETE = SDL_EVENT_DROP_COMPLETE;
 
 constexpr EventType EVENT_DROP_POSITION =
-  SDL_EVENT_DROP_POSITION; ///< Position while moving over the window
+	SDL_EVENT_DROP_POSITION; ///< Position while moving over the window
 
 constexpr EventType EVENT_AUDIO_DEVICE_ADDED =
-  SDL_EVENT_AUDIO_DEVICE_ADDED; ///< A new audio device is available
+	SDL_EVENT_AUDIO_DEVICE_ADDED; ///< A new audio device is available
 
 constexpr EventType EVENT_AUDIO_DEVICE_REMOVED =
-  SDL_EVENT_AUDIO_DEVICE_REMOVED; ///< An audio device has been removed.
+	SDL_EVENT_AUDIO_DEVICE_REMOVED; ///< An audio device has been removed.
 
 /// An audio device's format has been changed by the system.
 constexpr EventType EVENT_AUDIO_DEVICE_FORMAT_CHANGED =
-  SDL_EVENT_AUDIO_DEVICE_FORMAT_CHANGED;
+	SDL_EVENT_AUDIO_DEVICE_FORMAT_CHANGED;
 
 constexpr EventType EVENT_SENSOR_UPDATE =
-  SDL_EVENT_SENSOR_UPDATE; ///< A sensor was updated
+	SDL_EVENT_SENSOR_UPDATE; ///< A sensor was updated
 
 constexpr EventType EVENT_PEN_PROXIMITY_IN =
-  SDL_EVENT_PEN_PROXIMITY_IN; ///< Pressure-sensitive pen has become available
+	SDL_EVENT_PEN_PROXIMITY_IN; ///< Pressure-sensitive pen has become available
 
 constexpr EventType EVENT_PEN_PROXIMITY_OUT =
-  SDL_EVENT_PEN_PROXIMITY_OUT; ///< Pressure-sensitive pen has become
-                               ///< unavailable
+	SDL_EVENT_PEN_PROXIMITY_OUT; ///< Pressure-sensitive pen has become
+															 ///< unavailable
 
 constexpr EventType EVENT_PEN_DOWN =
-  SDL_EVENT_PEN_DOWN; ///< Pressure-sensitive pen touched drawing surface
+	SDL_EVENT_PEN_DOWN; ///< Pressure-sensitive pen touched drawing surface
 
 /// Pressure-sensitive pen stopped touching drawing surface
 constexpr EventType EVENT_PEN_UP = SDL_EVENT_PEN_UP;
 
 constexpr EventType EVENT_PEN_BUTTON_DOWN =
-  SDL_EVENT_PEN_BUTTON_DOWN; ///< Pressure-sensitive pen button pressed
+	SDL_EVENT_PEN_BUTTON_DOWN; ///< Pressure-sensitive pen button pressed
 
 constexpr EventType EVENT_PEN_BUTTON_UP =
-  SDL_EVENT_PEN_BUTTON_UP; ///< Pressure-sensitive pen button released
+	SDL_EVENT_PEN_BUTTON_UP; ///< Pressure-sensitive pen button released
 
 constexpr EventType EVENT_PEN_MOTION =
-  SDL_EVENT_PEN_MOTION; ///< Pressure-sensitive pen is moving on the tablet
+	SDL_EVENT_PEN_MOTION; ///< Pressure-sensitive pen is moving on the tablet
 
 constexpr EventType EVENT_PEN_AXIS =
-  SDL_EVENT_PEN_AXIS; ///< Pressure-sensitive pen angle/pressure/etc changed
+	SDL_EVENT_PEN_AXIS; ///< Pressure-sensitive pen angle/pressure/etc changed
 
 constexpr EventType EVENT_CAMERA_DEVICE_ADDED =
-  SDL_EVENT_CAMERA_DEVICE_ADDED; ///< A new camera device is available
+	SDL_EVENT_CAMERA_DEVICE_ADDED; ///< A new camera device is available
 
 constexpr EventType EVENT_CAMERA_DEVICE_REMOVED =
-  SDL_EVENT_CAMERA_DEVICE_REMOVED; ///< A camera device has been removed.
+	SDL_EVENT_CAMERA_DEVICE_REMOVED; ///< A camera device has been removed.
 
 /// A camera device has been approved for use by the user.
 constexpr EventType EVENT_CAMERA_DEVICE_APPROVED =
-  SDL_EVENT_CAMERA_DEVICE_APPROVED;
+	SDL_EVENT_CAMERA_DEVICE_APPROVED;
 
 /// A camera device has been denied for use by the user.
 constexpr EventType EVENT_CAMERA_DEVICE_DENIED = SDL_EVENT_CAMERA_DEVICE_DENIED;
@@ -455,8 +455,8 @@ constexpr EventType EVENT_RENDER_TARGETS_RESET = SDL_EVENT_RENDER_TARGETS_RESET;
 constexpr EventType EVENT_RENDER_DEVICE_RESET = SDL_EVENT_RENDER_DEVICE_RESET;
 
 constexpr EventType EVENT_RENDER_DEVICE_LOST =
-  SDL_EVENT_RENDER_DEVICE_LOST; ///< The device has been lost and can't be
-                                ///< recovered.
+	SDL_EVENT_RENDER_DEVICE_LOST; ///< The device has been lost and can't be
+																///< recovered.
 
 constexpr EventType EVENT_PRIVATE0 = SDL_EVENT_PRIVATE0; ///< PRIVATE0
 
@@ -467,7 +467,7 @@ constexpr EventType EVENT_PRIVATE2 = SDL_EVENT_PRIVATE2; ///< PRIVATE2
 constexpr EventType EVENT_PRIVATE3 = SDL_EVENT_PRIVATE3; ///< PRIVATE3
 
 constexpr EventType EVENT_POLL_SENTINEL =
-  SDL_EVENT_POLL_SENTINEL; ///< Signals the end of an event poll cycle
+	SDL_EVENT_POLL_SENTINEL; ///< Signals the end of an event poll cycle
 
 /**
  * Events EVENT_USER through EVENT_LAST are for your use, and should be
@@ -479,7 +479,7 @@ constexpr EventType EVENT_USER = SDL_EVENT_USER;
 constexpr EventType EVENT_LAST = SDL_EVENT_LAST;
 
 constexpr EventType EVENT_ENUM_PADDING =
-  SDL_EVENT_ENUM_PADDING; ///< ENUM_PADDING
+	SDL_EVENT_ENUM_PADDING; ///< ENUM_PADDING
 
 /// @}
 
@@ -879,7 +879,7 @@ inline void PumpEvents() { SDL_PumpEvents(); }
 using EventAction = SDL_EventAction;
 
 constexpr EventAction ADDEVENT =
-  SDL_ADDEVENT; ///< Add events to the back of the queue.
+	SDL_ADDEVENT; ///< Add events to the back of the queue.
 
 /// Check but don't remove events from the queue front.
 constexpr EventAction PEEKEVENT = SDL_PEEKEVENT;
@@ -933,11 +933,11 @@ constexpr EventAction GETEVENT = SDL_GETEVENT;
  * @sa PushEvent
  */
 inline int PeepEvents(Event* events,
-                      int numevents,
-                      EventAction action,
-                      Uint32 minType = EVENT_FIRST,
-                      Uint32 maxType = EVENT_LAST) {
-  return SDL_PeepEvents(events, numevents, action, minType, maxType);
+											int numevents,
+											EventAction action,
+											Uint32 minType = EVENT_FIRST,
+											Uint32 maxType = EVENT_LAST) {
+	return SDL_PeepEvents(events, numevents, action, minType, maxType);
 }
 
 /**
@@ -976,7 +976,7 @@ inline bool HasEvent(Uint32 type) { return SDL_HasEvent(type); }
  * @sa HasEvents
  */
 inline bool HasEvents(Uint32 minType = EVENT_FIRST, Uint32 maxType = EVENT_LAST) {
-  return SDL_HasEvents(minType, maxType);
+	return SDL_HasEvents(minType, maxType);
 }
 
 /**
@@ -1032,8 +1032,8 @@ inline void FlushEvent(Uint32 type) { SDL_FlushEvent(type); }
  * @sa FlushEvent
  */
 inline void FlushEvents(Uint32 minType = EVENT_FIRST,
-                        Uint32 maxType = EVENT_LAST) {
-  SDL_FlushEvents(minType, maxType);
+												Uint32 maxType = EVENT_LAST) {
+	SDL_FlushEvents(minType, maxType);
 }
 
 /**
@@ -1131,8 +1131,8 @@ inline bool PollEvent(Event* event) { return SDL_PollEvent(event); }
  * @sa WaitEventTimeout
  */
 inline std::optional<Event> PollEvent() {
-  if (Event event; PollEvent(&event)) return event;
-  return std::nullopt;
+	if (Event event; PollEvent(&event)) return event;
+	return std::nullopt;
 }
 
 /**
@@ -1179,9 +1179,9 @@ inline void WaitEvent(Event* event) { CheckError(SDL_WaitEvent(event)); }
  * @sa WaitEventTimeout
  */
 inline Event WaitEvent() {
-  Event event;
-  WaitEvent(&event);
-  return event;
+	Event event;
+	WaitEvent(&event);
+	return event;
 }
 
 /**
@@ -1213,7 +1213,7 @@ inline Event WaitEvent() {
  * @sa WaitEvent
  */
 inline bool WaitEventTimeout(Event* event, Sint32 timeoutMS) {
-  return SDL_WaitEventTimeout(event, timeoutMS);
+	return SDL_WaitEventTimeout(event, timeoutMS);
 }
 
 /**
@@ -1240,8 +1240,8 @@ inline bool WaitEventTimeout(Event* event, Sint32 timeoutMS) {
  * @sa WaitEvent
  */
 inline std::optional<Event> WaitEventTimeout(Sint32 timeoutMS) {
-  if (Event event; WaitEventTimeout(&event, timeoutMS)) return event;
-  return std::nullopt;
+	if (Event event; WaitEventTimeout(&event, timeoutMS)) return event;
+	return std::nullopt;
 }
 
 /**
@@ -1273,9 +1273,9 @@ inline std::optional<Event> WaitEventTimeout(Sint32 timeoutMS) {
  * @sa WaitEvent
  */
 inline bool WaitEventTimeout(Event* event,
-                             std::chrono::milliseconds timeoutDuration) {
-  return WaitEventTimeout(event,
-                          Sint32(std::max(timeoutDuration.count(), Sint64(1))));
+														 std::chrono::milliseconds timeoutDuration) {
+	return WaitEventTimeout(event,
+													Sint32(std::max(timeoutDuration.count(), Sint64(1))));
 }
 
 /**
@@ -1304,9 +1304,9 @@ inline bool WaitEventTimeout(Event* event,
  * @sa WaitEvent
  */
 inline std::optional<Event> WaitEventTimeout(
-  std::chrono::milliseconds timeoutDuration) {
-  if (Event event; WaitEventTimeout(&event, timeoutDuration)) return event;
-  return std::nullopt;
+	std::chrono::milliseconds timeoutDuration) {
+	if (Event event; WaitEventTimeout(&event, timeoutDuration)) return event;
+	return std::nullopt;
 }
 
 /**
@@ -1372,7 +1372,7 @@ inline void PushEvent(Event* event) { CheckError(SDL_PushEvent(event)); }
  * @sa RegisterEvents
  */
 inline void PushEvent(const Event& event) {
-  PushEvent(const_cast<Event*>(&event));
+	PushEvent(const_cast<Event*>(&event));
 }
 
 /**
@@ -1479,7 +1479,7 @@ using EventWatcherCB = MakeFrontCallback<bool(Event* event)>;
  * @sa PushEvent
  */
 inline void SetEventFilter(EventSurfaceFilter filter, void* userdata) {
-  SDL_SetEventFilter(filter, userdata);
+	SDL_SetEventFilter(filter, userdata);
 }
 
 /**
@@ -1524,10 +1524,10 @@ inline void SetEventFilter(EventSurfaceFilter filter, void* userdata) {
  * @sa PushEvent
  */
 inline void SetEventFilter(EventSurfaceFilterCB filter) {
-  static EventSurfaceFilterCB StaticSurfaceFilter;
-  StaticSurfaceFilter = std::move(filter);
-  SetEventFilter([](void*, Event* event) { return StaticSurfaceFilter(event); },
-                 nullptr);
+	static EventSurfaceFilterCB StaticSurfaceFilter;
+	StaticSurfaceFilter = std::move(filter);
+	SetEventFilter([](void*, Event* event) { return StaticSurfaceFilter(event); },
+								 nullptr);
 }
 
 /**
@@ -1548,7 +1548,7 @@ inline void SetEventFilter(EventSurfaceFilterCB filter) {
  * @sa SetEventFilter
  */
 inline bool GetEventFilter(EventSurfaceFilter* filter, void** userdata) {
-  return SDL_GetEventFilter(filter, userdata);
+	return SDL_GetEventFilter(filter, userdata);
 }
 
 /**
@@ -1581,7 +1581,7 @@ inline bool GetEventFilter(EventSurfaceFilter* filter, void** userdata) {
  * @sa SetEventFilter
  */
 inline void AddEventWatch(EventSurfaceFilter filter, void* userdata) {
-  CheckError(SDL_AddEventWatch(filter, userdata));
+	CheckError(SDL_AddEventWatch(filter, userdata));
 }
 
 /**
@@ -1615,7 +1615,7 @@ inline void AddEventWatch(EventSurfaceFilter filter, void* userdata) {
  * @sa SetEventFilter
  */
 inline void AddEventWatch(EventWatcherCB filter) {
-  AddEventWatch(filter.wrapper, filter.data);
+	AddEventWatch(filter.wrapper, filter.data);
 }
 
 /**
@@ -1634,7 +1634,7 @@ inline void AddEventWatch(EventWatcherCB filter) {
  * @sa AddEventWatch
  */
 inline void RemoveEventWatch(EventSurfaceFilter filter, void* userdata) {
-  SDL_RemoveEventWatch(filter, userdata);
+	SDL_RemoveEventWatch(filter, userdata);
 }
 
 /**
@@ -1656,7 +1656,7 @@ inline void RemoveEventWatch(EventSurfaceFilter filter, void* userdata) {
  * @sa SetEventFilter
  */
 inline void FilterEvents(EventSurfaceFilter filter, void* userdata) {
-  SDL_FilterEvents(filter, userdata);
+	SDL_FilterEvents(filter, userdata);
 }
 
 /**
@@ -1679,12 +1679,12 @@ inline void FilterEvents(EventSurfaceFilter filter, void* userdata) {
  * @sa SetEventFilter
  */
 inline void FilterEvents(EventSurfaceFilterCB filter) {
-  return FilterEvents(
-    [](void* userdata, Event* event) {
-      const auto& f = *static_cast<EventSurfaceFilterCB*>(userdata);
-      return f(event);
-    },
-    &filter);
+	return FilterEvents(
+		[](void* userdata, Event* event) {
+			const auto& f = *static_cast<EventSurfaceFilterCB*>(userdata);
+			return f(event);
+		},
+		&filter);
 }
 
 /**
@@ -1700,7 +1700,7 @@ inline void FilterEvents(EventSurfaceFilterCB filter) {
  * @sa EventEnabled
  */
 inline void SetEventEnabled(Uint32 type, bool enabled) {
-  SDL_SetEventEnabled(type, enabled);
+	SDL_SetEventEnabled(type, enabled);
 }
 
 /**
@@ -1732,7 +1732,7 @@ inline bool EventEnabled(Uint32 type) { return SDL_EventEnabled(type); }
  * @sa PushEvent
  */
 inline Uint32 RegisterEvents(int numevents) {
-  return SDL_RegisterEvents(numevents);
+	return SDL_RegisterEvents(numevents);
 }
 
 /**
@@ -1750,7 +1750,7 @@ inline Uint32 RegisterEvents(int numevents) {
  * @sa WaitEventTimeout
  */
 inline WindowRef GetWindowFromEvent(const Event& event) {
-  return SDL_GetWindowFromEvent(&event);
+	return SDL_GetWindowFromEvent(&event);
 }
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
@@ -1786,9 +1786,9 @@ inline WindowRef GetWindowFromEvent(const Event& event) {
  * @since This function is available since SDL 3.4.0.
  */
 inline int GetEventDescription(const Event& event, TargetBytes buf) {
-  if (buf.size_bytes() == 0) return SDL_GetEventDescription(&event, nullptr, 0);
-  return SDL_GetEventDescription(
-    &event, buf.data(), NarrowS32(buf.size_bytes()));
+	if (buf.size_bytes() == 0) return SDL_GetEventDescription(&event, nullptr, 0);
+	return SDL_GetEventDescription(
+		&event, buf.data(), NarrowS32(buf.size_bytes()));
 }
 
 /**
@@ -1819,11 +1819,11 @@ inline int GetEventDescription(const Event& event, TargetBytes buf) {
  * @since This function is available since SDL 3.4.0.
  */
 inline std::string GetEventDescription(const Event& event) {
-  int sz = SDL_GetEventDescription(&event, nullptr, 0);
-  std::string r;
-  r.reserve(sz);
-  GetEventDescription(event, r);
-  return r;
+	int sz = SDL_GetEventDescription(&event, nullptr, 0);
+	std::string r;
+	r.reserve(sz);
+	GetEventDescription(event, r);
+	return r;
 }
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)

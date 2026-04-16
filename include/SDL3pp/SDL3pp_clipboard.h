@@ -74,7 +74,7 @@ namespace SDL {
  * @sa HasClipboardText
  */
 inline void SetClipboardText(StringParam text) {
-  CheckError(SDL_SetClipboardText(text));
+	CheckError(SDL_SetClipboardText(text));
 }
 
 /**
@@ -95,7 +95,7 @@ inline void SetClipboardText(StringParam text) {
  * @sa SetClipboardText
  */
 inline StringResult GetClipboardText() {
-  return StringResult{CheckError(SDL_GetClipboardText())};
+	return StringResult{CheckError(SDL_GetClipboardText())};
 }
 
 /**
@@ -126,7 +126,7 @@ inline bool HasClipboardText() { return SDL_HasClipboardText(); }
  * @sa HasPrimarySelectionText
  */
 inline void SetPrimarySelectionText(StringParam text) {
-  CheckError(SDL_SetPrimarySelectionText(text));
+	CheckError(SDL_SetPrimarySelectionText(text));
 }
 
 /**
@@ -147,7 +147,7 @@ inline void SetPrimarySelectionText(StringParam text) {
  * @sa SetPrimarySelectionText
  */
 inline StringResult GetPrimarySelectionText() {
-  return StringResult{CheckError(SDL_GetPrimarySelectionText())};
+	return StringResult{CheckError(SDL_GetPrimarySelectionText())};
 }
 
 /**
@@ -187,8 +187,8 @@ inline bool HasPrimarySelectionText() { return SDL_HasPrimarySelectionText(); }
  * @sa SetClipboardData
  */
 using ClipboardDataCallback = const void*(SDLCALL*)(void* userdata,
-                                                    const char* mime_type,
-                                                    size_t* size);
+																										const char* mime_type,
+																										size_t* size);
 
 /**
  * Callback function that will be called when data for the specified mime-type
@@ -267,11 +267,11 @@ using ClipboardCleanupCB = std::function<void()>;
  * @sa HasClipboardData
  */
 inline void SetClipboardData(ClipboardDataCallback callback,
-                             ClipboardCleanupCallback cleanup,
-                             void* userdata,
-                             std::span<const char*> mime_types) {
-  CheckError(SDL_SetClipboardData(
-    callback, cleanup, userdata, mime_types.data(), mime_types.size()));
+														 ClipboardCleanupCallback cleanup,
+														 void* userdata,
+														 std::span<const char*> mime_types) {
+	CheckError(SDL_SetClipboardData(
+		callback, cleanup, userdata, mime_types.data(), mime_types.size()));
 }
 
 /**
@@ -303,24 +303,24 @@ inline void SetClipboardData(ClipboardDataCallback callback,
  * @sa HasClipboardData
  */
 inline void SetClipboardData(ClipboardDataCB callback,
-                             ClipboardCleanupCB cleanup,
-                             std::span<const char*> mime_types) {
-  static ClipboardDataCB s_callback;
-  static ClipboardCleanupCB s_cleanup;
-  CheckError(SDL_ClearClipboardData());
-  s_callback = std::move(callback);
-  s_cleanup = std::move(cleanup);
-  SetClipboardData(
-    [](void*, const char* mime_type, size_t* size) -> const void* {
-      auto source = s_callback(mime_type);
-      *size = source.size_bytes();
-      return source.data();
-    },
-    [](void*) {
-      if (s_cleanup) s_cleanup();
-    },
-    nullptr,
-    mime_types);
+														 ClipboardCleanupCB cleanup,
+														 std::span<const char*> mime_types) {
+	static ClipboardDataCB s_callback;
+	static ClipboardCleanupCB s_cleanup;
+	CheckError(SDL_ClearClipboardData());
+	s_callback = std::move(callback);
+	s_cleanup = std::move(cleanup);
+	SetClipboardData(
+		[](void*, const char* mime_type, size_t* size) -> const void* {
+			auto source = s_callback(mime_type);
+			*size = source.size_bytes();
+			return source.data();
+		},
+		[](void*) {
+			if (s_cleanup) s_cleanup();
+		},
+		nullptr,
+		mime_types);
 }
 
 /**
@@ -354,10 +354,10 @@ inline void ClearClipboardData() { CheckError(SDL_ClearClipboardData()); }
  * @sa SetClipboardData
  */
 inline StringResult GetClipboardData(StringParam mime_type) {
-  size_t count = 0;
-  auto data = SDL_GetClipboardData(mime_type, &count);
-  if (!data) return {};
-  return StringResult{static_cast<char*>(data), count};
+	size_t count = 0;
+	auto data = SDL_GetClipboardData(mime_type, &count);
+	if (!data) return {};
+	return StringResult{static_cast<char*>(data), count};
 }
 
 /**
@@ -379,10 +379,10 @@ inline StringResult GetClipboardData(StringParam mime_type) {
  */
 template<class T>
 inline OwnArray<T> GetClipboardDataAs(StringParam mime_type) {
-  size_t count = 0;
-  auto data = SDL_GetClipboardData(mime_type, &count);
-  if (!data) return {};
-  return OwnArray<T>{static_cast<T*>(data), count / sizeof(T)};
+	size_t count = 0;
+	auto data = SDL_GetClipboardData(mime_type, &count);
+	if (!data) return {};
+	return OwnArray<T>{static_cast<T*>(data), count / sizeof(T)};
 }
 
 /**
@@ -400,7 +400,7 @@ inline OwnArray<T> GetClipboardDataAs(StringParam mime_type) {
  * @sa GetClipboardData
  */
 inline bool HasClipboardData(StringParam mime_type) {
-  return SDL_HasClipboardData(mime_type);
+	return SDL_HasClipboardData(mime_type);
 }
 
 /**
@@ -416,10 +416,10 @@ inline bool HasClipboardData(StringParam mime_type) {
  * @sa SetClipboardData
  */
 inline OwnArray<char*> GetClipboardMimeTypes() {
-  size_t count = 0;
-  auto data = CheckError(SDL_GetClipboardMimeTypes(&count));
-  if (!data) return {};
-  return OwnArray<char*>{data, count};
+	size_t count = 0;
+	auto data = CheckError(SDL_GetClipboardMimeTypes(&count));
+	if (!data) return {};
+	return OwnArray<char*>{data, count};
 }
 
 /// @}

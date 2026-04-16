@@ -106,13 +106,13 @@ using CameraSpec = SDL_CameraSpec;
 using CameraPosition = SDL_CameraPosition;
 
 constexpr CameraPosition CAMERA_POSITION_UNKNOWN =
-  SDL_CAMERA_POSITION_UNKNOWN; ///< CAMERA_POSITION_UNKNOWN
+	SDL_CAMERA_POSITION_UNKNOWN; ///< CAMERA_POSITION_UNKNOWN
 
 constexpr CameraPosition CAMERA_POSITION_FRONT_FACING =
-  SDL_CAMERA_POSITION_FRONT_FACING; ///< CAMERA_POSITION_FRONT_FACING
+	SDL_CAMERA_POSITION_FRONT_FACING; ///< CAMERA_POSITION_FRONT_FACING
 
 constexpr CameraPosition CAMERA_POSITION_BACK_FACING =
-  SDL_CAMERA_POSITION_BACK_FACING; ///< CAMERA_POSITION_BACK_FACING
+	SDL_CAMERA_POSITION_BACK_FACING; ///< CAMERA_POSITION_BACK_FACING
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -126,13 +126,13 @@ constexpr CameraPosition CAMERA_POSITION_BACK_FACING =
 using CameraPermissionState = SDL_CameraPermissionState;
 
 constexpr CameraPermissionState CAMERA_PERMISSION_STATE_DENIED =
-  SDL_CAMERA_PERMISSION_STATE_DENIED; ///< CAMERA_PERMISSION_STATE_DENIED
+	SDL_CAMERA_PERMISSION_STATE_DENIED; ///< CAMERA_PERMISSION_STATE_DENIED
 
 constexpr CameraPermissionState CAMERA_PERMISSION_STATE_PENDING =
-  SDL_CAMERA_PERMISSION_STATE_PENDING; ///< CAMERA_PERMISSION_STATE_PENDING
+	SDL_CAMERA_PERMISSION_STATE_PENDING; ///< CAMERA_PERMISSION_STATE_PENDING
 
 constexpr CameraPermissionState CAMERA_PERMISSION_STATE_APPROVED =
-  SDL_CAMERA_PERMISSION_STATE_APPROVED; ///< CAMERA_PERMISSION_STATE_APPROVED
+	SDL_CAMERA_PERMISSION_STATE_APPROVED; ///< CAMERA_PERMISSION_STATE_APPROVED
 #else
 
 /**
@@ -154,274 +154,274 @@ using CameraPermissionState = int;
  * @cat resource
  */
 class Camera {
-  CameraRaw m_resource = nullptr;
+	CameraRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr Camera(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr Camera(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw Camera.
-   *
-   * @param resource a CameraRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Camera(CameraRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Camera.
+	 *
+	 * @param resource a CameraRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Camera(CameraRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Camera(const Camera& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Camera(const Camera& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Camera(Camera&& other) noexcept
-    : Camera(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Camera(Camera&& other) noexcept
+		: Camera(other.Release()) {
+	}
 
-  constexpr Camera(const CameraRef& other) = delete;
+	constexpr Camera(const CameraRef& other) = delete;
 
-  constexpr Camera(CameraRef&& other) = delete;
+	constexpr Camera(CameraRef&& other) = delete;
 
-  /**
-   * Open a video recording device (a "camera").
-   *
-   * You can open the device with any reasonable spec, and if the hardware can't
-   * directly support it, it will convert data seamlessly to the requested
-   * format. This might incur overhead, including scaling of image data.
-   *
-   * If you would rather accept whatever format the device offers, you can pass
-   * a nullptr spec here and it will choose one for you (and you can use
-   * Surface's conversion/scaling functions directly if necessary).
-   *
-   * You can call Camera.GetFormat() to Get the actual data format if passing a
-   * nullptr spec here. You can see the exact specs a device can support without
-   * conversion with GetCameraSupportedFormats().
-   *
-   * SDL will not attempt to emulate framerate; it will try to set the hardware
-   * to the rate closest to the requested speed, but it won't attempt to limit
-   * or duplicate frames artificially; call Camera.GetFormat() to see the actual
-   * framerate of the opened the device, and check your timestamps if this is
-   * crucial to your app!
-   *
-   * Note that the camera is not usable until the user approves its use! On some
-   * platforms, the operating system will prompt the user to permit access to
-   * the camera, and they can choose Yes or No at that point. Until they do, the
-   * camera will not be usable. The app should either wait for an
-   * EVENT_CAMERA_DEVICE_APPROVED (or EVENT_CAMERA_DEVICE_DENIED) event, or poll
-   * Camera.GetPermissionState() occasionally until it returns non-Zero. On
-   * platforms that don't require explicit user approval (and perhaps in places
-   * where the user previously permitted access), the approval event might come
-   * immediately, but it might come seconds, minutes, or hours later!
-   *
-   * @param instance_id the camera device instance ID.
-   * @param spec the desired format for data the device will provide. Can be
-   *             std::nullopt.
-   * @post an Camera object on success..
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa GetCameras
-   * @sa Camera.GetFormat
-   */
-  Camera(CameraID instance_id, OptionalRef<const CameraSpec> spec = {});
+	/**
+	 * Open a video recording device (a "camera").
+	 *
+	 * You can open the device with any reasonable spec, and if the hardware can't
+	 * directly support it, it will convert data seamlessly to the requested
+	 * format. This might incur overhead, including scaling of image data.
+	 *
+	 * If you would rather accept whatever format the device offers, you can pass
+	 * a nullptr spec here and it will choose one for you (and you can use
+	 * Surface's conversion/scaling functions directly if necessary).
+	 *
+	 * You can call Camera.GetFormat() to Get the actual data format if passing a
+	 * nullptr spec here. You can see the exact specs a device can support without
+	 * conversion with GetCameraSupportedFormats().
+	 *
+	 * SDL will not attempt to emulate framerate; it will try to set the hardware
+	 * to the rate closest to the requested speed, but it won't attempt to limit
+	 * or duplicate frames artificially; call Camera.GetFormat() to see the actual
+	 * framerate of the opened the device, and check your timestamps if this is
+	 * crucial to your app!
+	 *
+	 * Note that the camera is not usable until the user approves its use! On some
+	 * platforms, the operating system will prompt the user to permit access to
+	 * the camera, and they can choose Yes or No at that point. Until they do, the
+	 * camera will not be usable. The app should either wait for an
+	 * EVENT_CAMERA_DEVICE_APPROVED (or EVENT_CAMERA_DEVICE_DENIED) event, or poll
+	 * Camera.GetPermissionState() occasionally until it returns non-Zero. On
+	 * platforms that don't require explicit user approval (and perhaps in places
+	 * where the user previously permitted access), the approval event might come
+	 * immediately, but it might come seconds, minutes, or hours later!
+	 *
+	 * @param instance_id the camera device instance ID.
+	 * @param spec the desired format for data the device will provide. Can be
+	 *             std::nullopt.
+	 * @post an Camera object on success..
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa GetCameras
+	 * @sa Camera.GetFormat
+	 */
+	Camera(CameraID instance_id, OptionalRef<const CameraSpec> spec = {});
 
-  /// Destructor
-  ~Camera() { SDL_CloseCamera(m_resource); }
+	/// Destructor
+	~Camera() { SDL_CloseCamera(m_resource); }
 
-  /// Assignment operator.
-  constexpr Camera& operator=(Camera&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Camera& operator=(Camera&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Camera& operator=(const Camera& other) = delete;
+	/// Assignment operator.
+	Camera& operator=(const Camera& other) = delete;
 
-  /// Retrieves underlying CameraRaw.
-  constexpr CameraRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying CameraRaw.
+	constexpr CameraRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying CameraRaw and clear this.
-  constexpr CameraRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying CameraRaw and clear this.
+	constexpr CameraRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Camera& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Camera& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Use this function to shut down camera processing and close the camera
-   * device.
-   *
-   * @threadsafety It is safe to call this function from any thread, but no
-   *               thread may reference `device` once this function is called.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa OpenCamera
-   */
-  void Close();
+	/**
+	 * Use this function to shut down camera processing and close the camera
+	 * device.
+	 *
+	 * @threadsafety It is safe to call this function from any thread, but no
+	 *               thread may reference `device` once this function is called.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa OpenCamera
+	 */
+	void Close();
 
-  /**
-   * Query if camera access has been approved by the user.
-   *
-   * Cameras will not function between when the device is opened by the app and
-   * when the user permits access to the hardware. On some platforms, this
-   * presents as a popup dialog where the user has to explicitly approve access;
-   * on others the approval might be implicit and not alert the user at all.
-   *
-   * This function can be used to check the status of that approval. It will
-   * return CAMERA_PERMISSION_STATE_PENDING if waiting for user response,
-   * CAMERA_PERMISSION_STATE_APPROVED if the camera is approved for use, and
-   * CAMERA_PERMISSION_STATE_DENIED if the user denied access.
-   *
-   * Instead of polling with this function, you can wait for a
-   * EVENT_CAMERA_DEVICE_APPROVED (or EVENT_CAMERA_DEVICE_DENIED) event in the
-   * standard SDL event loop, which is guaranteed to be sent once when
-   * permission to use the camera is decided.
-   *
-   * If a camera is declined, there's nothing to be done but call Camera.Close()
-   * to dispose of it.
-   *
-   * @returns an CameraPermissionState value indicating if access is granted, or
-   *          `CAMERA_PERMISSION_STATE_PENDING` if the decision is still
-   *          pending.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa OpenCamera
-   * @sa Camera.Close
-   */
-  CameraPermissionState GetPermissionState();
+	/**
+	 * Query if camera access has been approved by the user.
+	 *
+	 * Cameras will not function between when the device is opened by the app and
+	 * when the user permits access to the hardware. On some platforms, this
+	 * presents as a popup dialog where the user has to explicitly approve access;
+	 * on others the approval might be implicit and not alert the user at all.
+	 *
+	 * This function can be used to check the status of that approval. It will
+	 * return CAMERA_PERMISSION_STATE_PENDING if waiting for user response,
+	 * CAMERA_PERMISSION_STATE_APPROVED if the camera is approved for use, and
+	 * CAMERA_PERMISSION_STATE_DENIED if the user denied access.
+	 *
+	 * Instead of polling with this function, you can wait for a
+	 * EVENT_CAMERA_DEVICE_APPROVED (or EVENT_CAMERA_DEVICE_DENIED) event in the
+	 * standard SDL event loop, which is guaranteed to be sent once when
+	 * permission to use the camera is decided.
+	 *
+	 * If a camera is declined, there's nothing to be done but call Camera.Close()
+	 * to dispose of it.
+	 *
+	 * @returns an CameraPermissionState value indicating if access is granted, or
+	 *          `CAMERA_PERMISSION_STATE_PENDING` if the decision is still
+	 *          pending.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa OpenCamera
+	 * @sa Camera.Close
+	 */
+	CameraPermissionState GetPermissionState();
 
-  /**
-   * Get the instance ID of an opened camera.
-   *
-   * @returns the instance ID of the specified camera on success.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa OpenCamera
-   */
-  CameraID GetID();
+	/**
+	 * Get the instance ID of an opened camera.
+	 *
+	 * @returns the instance ID of the specified camera on success.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa OpenCamera
+	 */
+	CameraID GetID();
 
-  /**
-   * Get the properties associated with an opened camera.
-   *
-   * @returns a valid property ID on success.
-   * @throws Error on failure.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  PropertiesRef GetProperties();
+	/**
+	 * Get the properties associated with an opened camera.
+	 *
+	 * @returns a valid property ID on success.
+	 * @throws Error on failure.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	PropertiesRef GetProperties();
 
-  /**
-   * Get the spec that a camera is using when generating images.
-   *
-   * Note that this might not be the native format of the hardware, as SDL might
-   * be converting to this format behind the scenes.
-   *
-   * If the system is waiting for the user to approve access to the camera, as
-   * some platforms require, this will return false, but this isn't necessarily
-   * a fatal error; you should either wait for an EVENT_CAMERA_DEVICE_APPROVED
-   * (or EVENT_CAMERA_DEVICE_DENIED) event, or poll Camera.GetPermissionState()
-   * occasionally until it returns non-Zero.
-   *
-   * @returns the CameraSpec or std::nullopt if waiting for user approval.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa OpenCamera
-   */
-  std::optional<CameraSpec> GetFormat();
+	/**
+	 * Get the spec that a camera is using when generating images.
+	 *
+	 * Note that this might not be the native format of the hardware, as SDL might
+	 * be converting to this format behind the scenes.
+	 *
+	 * If the system is waiting for the user to approve access to the camera, as
+	 * some platforms require, this will return false, but this isn't necessarily
+	 * a fatal error; you should either wait for an EVENT_CAMERA_DEVICE_APPROVED
+	 * (or EVENT_CAMERA_DEVICE_DENIED) event, or poll Camera.GetPermissionState()
+	 * occasionally until it returns non-Zero.
+	 *
+	 * @returns the CameraSpec or std::nullopt if waiting for user approval.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa OpenCamera
+	 */
+	std::optional<CameraSpec> GetFormat();
 
-  /**
-   * Acquire a frame.
-   *
-   * The frame is a memory pointer to the image data, whose size and format are
-   * given by the spec requested when opening the device.
-   *
-   * This is a non blocking API. If there is a frame available, a non-nullptr
-   * surface is returned, and timestampNS will be filled with a non-Zero value.
-   *
-   * Note that an error case can also return nullptr, but a nullptr by itself is
-   * normal and just signifies that a new frame is not yet available. Note that
-   * even if a camera device fails outright (a USB camera is unplugged while in
-   * use, etc), SDL will send an event separately to notify the app, but
-   * continue to provide blank frames at ongoing intervals until Camera.Close()
-   * is called, so real failure here is almost always an out of memory
-   * condition.
-   *
-   * After use, the frame should be released with Camera.ReleaseFrame(). If you
-   * don't do this, the system may stop providing more video!
-   *
-   * Do not call Surface.Destroy() on the returned surface! It must be given
-   * back to the camera subsystem with Camera.ReleaseFrame!
-   *
-   * If the system is waiting for the user to approve access to the camera, as
-   * some platforms require, this will return nullptr (no frames available); you
-   * should either wait for an EVENT_CAMERA_DEVICE_APPROVED (or
-   * EVENT_CAMERA_DEVICE_DENIED) event, or poll Camera.GetPermissionState()
-   * occasionally until it returns non-Zero.
-   *
-   * @param timestampNS a pointer filled in with the frame's timestamp, or 0 on
-   *                    error. Can be nullptr.
-   * @returns a new frame of video on success, nullptr if none is currently
-   *          available.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Camera.ReleaseFrame
-   */
-  CameraFrame AcquireFrame(Uint64* timestampNS = nullptr);
+	/**
+	 * Acquire a frame.
+	 *
+	 * The frame is a memory pointer to the image data, whose size and format are
+	 * given by the spec requested when opening the device.
+	 *
+	 * This is a non blocking API. If there is a frame available, a non-nullptr
+	 * surface is returned, and timestampNS will be filled with a non-Zero value.
+	 *
+	 * Note that an error case can also return nullptr, but a nullptr by itself is
+	 * normal and just signifies that a new frame is not yet available. Note that
+	 * even if a camera device fails outright (a USB camera is unplugged while in
+	 * use, etc), SDL will send an event separately to notify the app, but
+	 * continue to provide blank frames at ongoing intervals until Camera.Close()
+	 * is called, so real failure here is almost always an out of memory
+	 * condition.
+	 *
+	 * After use, the frame should be released with Camera.ReleaseFrame(). If you
+	 * don't do this, the system may stop providing more video!
+	 *
+	 * Do not call Surface.Destroy() on the returned surface! It must be given
+	 * back to the camera subsystem with Camera.ReleaseFrame!
+	 *
+	 * If the system is waiting for the user to approve access to the camera, as
+	 * some platforms require, this will return nullptr (no frames available); you
+	 * should either wait for an EVENT_CAMERA_DEVICE_APPROVED (or
+	 * EVENT_CAMERA_DEVICE_DENIED) event, or poll Camera.GetPermissionState()
+	 * occasionally until it returns non-Zero.
+	 *
+	 * @param timestampNS a pointer filled in with the frame's timestamp, or 0 on
+	 *                    error. Can be nullptr.
+	 * @returns a new frame of video on success, nullptr if none is currently
+	 *          available.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Camera.ReleaseFrame
+	 */
+	CameraFrame AcquireFrame(Uint64* timestampNS = nullptr);
 
-  /**
-   * Release a frame of video acquired from a camera.
-   *
-   * Let the back-end re-use the internal buffer for camera.
-   *
-   * This function _must_ be called only on surface objects returned by
-   * Camera.AcquireFrame(). This function should be called as quickly as
-   * possible after acquisition, as SDL keeps a small FIFO queue of surfaces for
-   * video frames; if surfaces aren't released in a timely manner, SDL may drop
-   * upcoming video frames from the camera.
-   *
-   * If the app needs to keep the surface for a significant time, they should
-   * make a copy of it and Release the original.
-   *
-   * The app should not use the surface again after calling this function;
-   * assume the surface is freed and the pointer is invalid.
-   *
-   * @param lock the video frame surface to Release.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Camera.AcquireFrame
-   */
-  void ReleaseFrame(CameraFrame&& lock);
+	/**
+	 * Release a frame of video acquired from a camera.
+	 *
+	 * Let the back-end re-use the internal buffer for camera.
+	 *
+	 * This function _must_ be called only on surface objects returned by
+	 * Camera.AcquireFrame(). This function should be called as quickly as
+	 * possible after acquisition, as SDL keeps a small FIFO queue of surfaces for
+	 * video frames; if surfaces aren't released in a timely manner, SDL may drop
+	 * upcoming video frames from the camera.
+	 *
+	 * If the app needs to keep the surface for a significant time, they should
+	 * make a copy of it and Release the original.
+	 *
+	 * The app should not use the surface again after calling this function;
+	 * assume the surface is freed and the pointer is invalid.
+	 *
+	 * @param lock the video frame surface to Release.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Camera.AcquireFrame
+	 */
+	void ReleaseFrame(CameraFrame&& lock);
 };
 
 /**
@@ -430,182 +430,182 @@ public:
  * This does not take ownership!
  */
 struct CameraRef : Camera {
-  using Camera::Camera;
+	using Camera::Camera;
 
-  /**
-   * Constructs from raw Camera.
-   *
-   * @param resource a CameraRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr CameraRef(CameraRaw resource) noexcept
-    : Camera(resource) {
-  }
+	/**
+	 * Constructs from raw Camera.
+	 *
+	 * @param resource a CameraRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr CameraRef(CameraRaw resource) noexcept
+		: Camera(resource) {
+	}
 
-  /**
-   * Constructs from Camera.
-   *
-   * @param resource a Camera.
-   *
-   * This does not takes ownership!
-   */
-  constexpr CameraRef(const Camera& resource) noexcept
-    : Camera(resource.Get()) {
-  }
+	/**
+	 * Constructs from Camera.
+	 *
+	 * @param resource a Camera.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr CameraRef(const Camera& resource) noexcept
+		: Camera(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Camera.
-   *
-   * @param resource a Camera.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr CameraRef(Camera&& resource) noexcept
-    : Camera(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Camera.
+	 *
+	 * @param resource a Camera.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr CameraRef(Camera&& resource) noexcept
+		: Camera(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr CameraRef(const CameraRef& other) noexcept
-    : Camera(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr CameraRef(const CameraRef& other) noexcept
+		: Camera(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr CameraRef(CameraRef&& other) noexcept
-    : Camera(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr CameraRef(CameraRef&& other) noexcept
+		: Camera(other.Get()) {
+	}
 
-  /// Destructor
-  ~CameraRef() { Release(); }
+	/// Destructor
+	~CameraRef() { Release(); }
 
-  /// Assignment operator.
-  CameraRef& operator=(const CameraRef& other) noexcept {
-    Release();
-    Camera::operator=(Camera(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	CameraRef& operator=(const CameraRef& other) noexcept {
+		Release();
+		Camera::operator=(Camera(other.Get()));
+		return *this;
+	}
 
-  /// Converts to CameraRaw
-  constexpr operator CameraRaw() const noexcept { return Get(); }
+	/// Converts to CameraRaw
+	constexpr operator CameraRaw() const noexcept { return Get(); }
 };
 
 /// Camera Frame.
 class CameraFrame : public Surface {
-  CameraRef m_lock;
+	CameraRef m_lock;
 
 public:
-  /**
-   * Acquire a frame.
-   *
-   * The frame is a memory pointer to the image data, whose size and format are
-   * given by the spec requested when opening the device.
-   *
-   * This is a non blocking API. If there is a frame available, a non-nullptr
-   * surface is returned, and timestampNS will be filled with a non-Zero value.
-   *
-   * Note that an error case can also return nullptr, but a nullptr by itself is
-   * normal and just signifies that a new frame is not yet available. Note that
-   * even if a camera device fails outright (a USB camera is unplugged while in
-   * use, etc), SDL will send an event separately to notify the app, but
-   * continue to provide blank frames at ongoing intervals until Camera.Close()
-   * is called, so real failure here is almost always an out of memory
-   * condition.
-   *
-   * After use, the frame should be released with Camera.ReleaseFrame(). If you
-   * don't do this, the system may stop providing more video!
-   *
-   * Do not call Surface.Destroy() on the returned surface! It must be given
-   * back to the camera subsystem with Camera.ReleaseFrame!
-   *
-   * If the system is waiting for the user to approve access to the camera, as
-   * some platforms require, this will return nullptr (no frames available); you
-   * should either wait for an EVENT_CAMERA_DEVICE_APPROVED (or
-   * EVENT_CAMERA_DEVICE_DENIED) event, or poll Camera.GetPermissionState()
-   * occasionally until it returns non-Zero.
-   *
-   * @param resource opened camera device.
-   * @param timestampNS a pointer filled in with the frame's timestamp, or 0 on
-   *                    error. Can be nullptr.
-   * @post a new frame of video on success, nullptr if none is currently
-   *       available.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Camera.ReleaseFrame
-   */
-  CameraFrame(CameraRef resource, Uint64* timestampNS = nullptr);
+	/**
+	 * Acquire a frame.
+	 *
+	 * The frame is a memory pointer to the image data, whose size and format are
+	 * given by the spec requested when opening the device.
+	 *
+	 * This is a non blocking API. If there is a frame available, a non-nullptr
+	 * surface is returned, and timestampNS will be filled with a non-Zero value.
+	 *
+	 * Note that an error case can also return nullptr, but a nullptr by itself is
+	 * normal and just signifies that a new frame is not yet available. Note that
+	 * even if a camera device fails outright (a USB camera is unplugged while in
+	 * use, etc), SDL will send an event separately to notify the app, but
+	 * continue to provide blank frames at ongoing intervals until Camera.Close()
+	 * is called, so real failure here is almost always an out of memory
+	 * condition.
+	 *
+	 * After use, the frame should be released with Camera.ReleaseFrame(). If you
+	 * don't do this, the system may stop providing more video!
+	 *
+	 * Do not call Surface.Destroy() on the returned surface! It must be given
+	 * back to the camera subsystem with Camera.ReleaseFrame!
+	 *
+	 * If the system is waiting for the user to approve access to the camera, as
+	 * some platforms require, this will return nullptr (no frames available); you
+	 * should either wait for an EVENT_CAMERA_DEVICE_APPROVED (or
+	 * EVENT_CAMERA_DEVICE_DENIED) event, or poll Camera.GetPermissionState()
+	 * occasionally until it returns non-Zero.
+	 *
+	 * @param resource opened camera device.
+	 * @param timestampNS a pointer filled in with the frame's timestamp, or 0 on
+	 *                    error. Can be nullptr.
+	 * @post a new frame of video on success, nullptr if none is currently
+	 *       available.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Camera.ReleaseFrame
+	 */
+	CameraFrame(CameraRef resource, Uint64* timestampNS = nullptr);
 
-  /// Copy constructor
-  CameraFrame(const CameraFrame& other) = delete;
+	/// Copy constructor
+	CameraFrame(const CameraFrame& other) = delete;
 
-  /// Move constructor
-  CameraFrame(CameraFrame&& other) noexcept
-    : Surface(std::move(other))
-    , m_lock(std::move(other.m_lock)) {
-  }
+	/// Move constructor
+	CameraFrame(CameraFrame&& other) noexcept
+		: Surface(std::move(other))
+		, m_lock(std::move(other.m_lock)) {
+	}
 
-  /**
-   * Release a frame of video acquired from a camera.
-   *
-   * Let the back-end re-use the internal buffer for camera.
-   *
-   * This function _must_ be called only on surface objects returned by
-   * Camera.AcquireFrame(). This function should be called as quickly as
-   * possible after acquisition, as SDL keeps a small FIFO queue of surfaces for
-   * video frames; if surfaces aren't released in a timely manner, SDL may drop
-   * upcoming video frames from the camera.
-   *
-   * If the app needs to keep the surface for a significant time, they should
-   * make a copy of it and Release the original.
-   *
-   * The app should not use the surface again after calling this function;
-   * assume the surface is freed and the pointer is invalid.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Camera.AcquireFrame
-   */
-  ~CameraFrame() { Reset(); }
+	/**
+	 * Release a frame of video acquired from a camera.
+	 *
+	 * Let the back-end re-use the internal buffer for camera.
+	 *
+	 * This function _must_ be called only on surface objects returned by
+	 * Camera.AcquireFrame(). This function should be called as quickly as
+	 * possible after acquisition, as SDL keeps a small FIFO queue of surfaces for
+	 * video frames; if surfaces aren't released in a timely manner, SDL may drop
+	 * upcoming video frames from the camera.
+	 *
+	 * If the app needs to keep the surface for a significant time, they should
+	 * make a copy of it and Release the original.
+	 *
+	 * The app should not use the surface again after calling this function;
+	 * assume the surface is freed and the pointer is invalid.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Camera.AcquireFrame
+	 */
+	~CameraFrame() { Reset(); }
 
-  CameraFrame& operator=(const CameraFrame& other) = delete;
+	CameraFrame& operator=(const CameraFrame& other) = delete;
 
-  /// Assignment operator
-  CameraFrame& operator=(CameraFrame&& other) noexcept {
-    std::swap(m_lock, other.m_lock);
-    return *this;
-  }
+	/// Assignment operator
+	CameraFrame& operator=(CameraFrame&& other) noexcept {
+		std::swap(m_lock, other.m_lock);
+		return *this;
+	}
 
-  /**
-   * Release a frame of video acquired from a camera.
-   *
-   * Let the back-end re-use the internal buffer for camera.
-   *
-   * This function _must_ be called only on surface objects returned by
-   * Camera.AcquireFrame(). This function should be called as quickly as
-   * possible after acquisition, as SDL keeps a small FIFO queue of surfaces for
-   * video frames; if surfaces aren't released in a timely manner, SDL may drop
-   * upcoming video frames from the camera.
-   *
-   * If the app needs to keep the surface for a significant time, they should
-   * make a copy of it and Release the original.
-   *
-   * The app should not use the surface again after calling this function;
-   * assume the surface is freed and the pointer is invalid.
-   *
-   * @threadsafety It is safe to call this function from any thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Camera.AcquireFrame
-   */
-  void Reset();
+	/**
+	 * Release a frame of video acquired from a camera.
+	 *
+	 * Let the back-end re-use the internal buffer for camera.
+	 *
+	 * This function _must_ be called only on surface objects returned by
+	 * Camera.AcquireFrame(). This function should be called as quickly as
+	 * possible after acquisition, as SDL keeps a small FIFO queue of surfaces for
+	 * video frames; if surfaces aren't released in a timely manner, SDL may drop
+	 * upcoming video frames from the camera.
+	 *
+	 * If the app needs to keep the surface for a significant time, they should
+	 * make a copy of it and Release the original.
+	 *
+	 * The app should not use the surface again after calling this function;
+	 * assume the surface is freed and the pointer is invalid.
+	 *
+	 * @threadsafety It is safe to call this function from any thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Camera.AcquireFrame
+	 */
+	void Reset();
 
-  /// Get the reference to locked resource.
-  CameraRef resource() const { return m_lock; }
+	/// Get the reference to locked resource.
+	CameraRef resource() const { return m_lock; }
 };
 
 /**
@@ -654,7 +654,7 @@ inline int GetNumCameraDrivers() { return SDL_GetNumCameraDrivers(); }
  * @sa GetNumCameraDrivers
  */
 inline const char* GetCameraDriver(int index) {
-  return SDL_GetCameraDriver(index);
+	return SDL_GetCameraDriver(index);
 }
 
 /**
@@ -672,7 +672,7 @@ inline const char* GetCameraDriver(int index) {
  * @since This function is available since SDL 3.2.0.
  */
 inline const char* GetCurrentCameraDriver() {
-  return SDL_GetCurrentCameraDriver();
+	return SDL_GetCurrentCameraDriver();
 }
 
 /**
@@ -688,9 +688,9 @@ inline const char* GetCurrentCameraDriver() {
  * @sa OpenCamera
  */
 inline OwnArray<CameraID> GetCameras() {
-  int count;
-  auto data = SDL_GetCameras(&count);
-  return OwnArray<CameraID>(data, count);
+	int count;
+	auto data = SDL_GetCameras(&count);
+	return OwnArray<CameraID>(data, count);
 }
 
 /**
@@ -726,9 +726,9 @@ inline OwnArray<CameraID> GetCameras() {
  * @sa OpenCamera
  */
 inline OwnArray<CameraSpec*> GetCameraSupportedFormats(CameraID instance_id) {
-  int count;
-  auto data = SDL_GetCameraSupportedFormats(instance_id, &count);
-  return OwnArray<CameraSpec*>(data, count);
+	int count;
+	auto data = SDL_GetCameraSupportedFormats(instance_id, &count);
+	return OwnArray<CameraSpec*>(data, count);
 }
 
 /**
@@ -745,7 +745,7 @@ inline OwnArray<CameraSpec*> GetCameraSupportedFormats(CameraID instance_id) {
  * @sa GetCameras
  */
 inline const char* GetCameraName(CameraID instance_id) {
-  return SDL_GetCameraName(instance_id);
+	return SDL_GetCameraName(instance_id);
 }
 
 /**
@@ -766,7 +766,7 @@ inline const char* GetCameraName(CameraID instance_id) {
  * @sa GetCameras
  */
 inline CameraPosition GetCameraPosition(CameraID instance_id) {
-  return SDL_GetCameraPosition(instance_id);
+	return SDL_GetCameraPosition(instance_id);
 }
 
 /**
@@ -814,12 +814,12 @@ inline CameraPosition GetCameraPosition(CameraID instance_id) {
  * @sa Camera.GetFormat
  */
 inline Camera OpenCamera(CameraID instance_id,
-                         OptionalRef<const CameraSpec> spec = {}) {
-  return Camera(instance_id, spec);
+												 OptionalRef<const CameraSpec> spec = {}) {
+	return Camera(instance_id, spec);
 }
 
 inline Camera::Camera(CameraID instance_id, OptionalRef<const CameraSpec> spec)
-  : m_resource(SDL_OpenCamera(instance_id, spec)) {
+	: m_resource(SDL_OpenCamera(instance_id, spec)) {
 }
 
 /**
@@ -855,11 +855,11 @@ inline Camera::Camera(CameraID instance_id, OptionalRef<const CameraSpec> spec)
  * @sa Camera.Close
  */
 inline CameraPermissionState GetCameraPermissionState(CameraRef camera) {
-  return SDL_GetCameraPermissionState(camera);
+	return SDL_GetCameraPermissionState(camera);
 }
 
 inline CameraPermissionState Camera::GetPermissionState() {
-  return SDL::GetCameraPermissionState(m_resource);
+	return SDL::GetCameraPermissionState(m_resource);
 }
 
 /**
@@ -876,7 +876,7 @@ inline CameraPermissionState Camera::GetPermissionState() {
  * @sa OpenCamera
  */
 inline CameraID GetCameraID(CameraRef camera) {
-  return CheckError(SDL_GetCameraID(camera));
+	return CheckError(SDL_GetCameraID(camera));
 }
 
 inline CameraID Camera::GetID() { return SDL::GetCameraID(m_resource); }
@@ -893,11 +893,11 @@ inline CameraID Camera::GetID() { return SDL::GetCameraID(m_resource); }
  * @since This function is available since SDL 3.2.0.
  */
 inline PropertiesRef GetCameraProperties(CameraRef camera) {
-  return {CheckError(SDL_GetCameraProperties(camera))};
+	return {CheckError(SDL_GetCameraProperties(camera))};
 }
 
 inline PropertiesRef Camera::GetProperties() {
-  return SDL::GetCameraProperties(m_resource);
+	return SDL::GetCameraProperties(m_resource);
 }
 
 /**
@@ -922,12 +922,12 @@ inline PropertiesRef Camera::GetProperties() {
  * @sa OpenCamera
  */
 inline std::optional<CameraSpec> GetCameraFormat(CameraRef camera) {
-  if (CameraSpec spec; SDL_GetCameraFormat(camera, &spec)) return spec;
-  return std::nullopt;
+	if (CameraSpec spec; SDL_GetCameraFormat(camera, &spec)) return spec;
+	return std::nullopt;
 }
 
 inline std::optional<CameraSpec> Camera::GetFormat() {
-  return SDL::GetCameraFormat(m_resource);
+	return SDL::GetCameraFormat(m_resource);
 }
 
 /**
@@ -971,18 +971,18 @@ inline std::optional<CameraSpec> Camera::GetFormat() {
  * @sa Camera.ReleaseFrame
  */
 inline Surface AcquireCameraFrame(CameraRef camera,
-                                  Uint64* timestampNS = nullptr) {
-  return Surface::Borrow(SDL_AcquireCameraFrame(camera, timestampNS));
+																	Uint64* timestampNS = nullptr) {
+	return Surface::Borrow(SDL_AcquireCameraFrame(camera, timestampNS));
 }
 
 inline CameraFrame Camera::AcquireFrame(Uint64* timestampNS) {
-  return {CameraRef(*this), timestampNS};
+	return {CameraRef(*this), timestampNS};
 }
 
 inline CameraFrame::CameraFrame(CameraRef resource, Uint64* timestampNS)
-  : Surface(AcquireCameraFrame(resource, timestampNS))
-  , m_lock(std::move(resource)) {
-  if (!*this) m_lock.Release();
+	: Surface(AcquireCameraFrame(resource, timestampNS))
+	, m_lock(std::move(resource)) {
+	if (!*this) m_lock.Release();
 }
 
 /**
@@ -1012,18 +1012,18 @@ inline CameraFrame::CameraFrame(CameraRef resource, Uint64* timestampNS)
  * @sa Camera.AcquireFrame
  */
 inline void ReleaseCameraFrame(CameraRef camera, SurfaceRef frame) {
-  SDL_ReleaseCameraFrame(camera, frame);
+	SDL_ReleaseCameraFrame(camera, frame);
 }
 
 inline void Camera::ReleaseFrame(CameraFrame&& lock) {
-  SDL_assert_paranoid(lock.resource() == *this);
-  std::move(lock).Reset();
+	SDL_assert_paranoid(lock.resource() == *this);
+	std::move(lock).Reset();
 }
 
 inline void CameraFrame::Reset() {
-  if (!m_lock) return;
-  ReleaseCameraFrame(m_lock, Surface::Release());
-  m_lock = {};
+	if (!m_lock) return;
+	ReleaseCameraFrame(m_lock, Surface::Release());
+	m_lock = {};
 }
 
 /**

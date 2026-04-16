@@ -55,7 +55,7 @@ namespace SDL {
  * @since This macro is available since SDL 3.2.0.
  */
 #define SDL_VERSIONNUM(major, minor, patch)                                    \
-  ((major) * 1000000 + (minor) * 1000 + (patch))
+	((major) * 1000000 + (minor) * 1000 + (patch))
 
 /**
  * This macro extracts the major version from a version number
@@ -106,7 +106,7 @@ namespace SDL {
  * @sa GetVersion
  */
 #define SDL_VERSION                                                            \
-  SDL_VERSIONNUM(SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_MICRO_VERSION)
+	SDL_VERSIONNUM(SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_MICRO_VERSION)
 
 /**
  * This macro will evaluate to true if compiled with SDL at least X.Y.Z.
@@ -178,26 +178,26 @@ inline const char* GetRevision() { return SDL_GetRevision(); }
 
 /// This is the version number macro for the current SDL3pp wrapper version.
 #define SDL3PP_VERSION                                                         \
-  SDL_VERSIONNUM(                                                              \
-    SDL3PP_MAJOR_VERSION, SDL3PP_MINOR_VERSION, SDL3PP_MICRO_VERSION)
+	SDL_VERSIONNUM(                                                              \
+		SDL3PP_MAJOR_VERSION, SDL3PP_MINOR_VERSION, SDL3PP_MICRO_VERSION)
 
 /// @}
 
 // Check if SDL_image is available
 #if !defined(SDL3PP_DISABLE_IMAGE) && !defined(SDL3PP_ENABLE_IMAGE) &&         \
-  __has_include(<SDL3_image/SDL_image.h>)
+	__has_include(<SDL3_image/SDL_image.h>)
 #define SDL3PP_ENABLE_IMAGE
 #endif
 
 // Check if SDL_mixer is available
 #if !defined(SDL3PP_DISABLE_MIXER) && !defined(SDL3PP_ENABLE_MIXER) &&         \
-  __has_include(<SDL3_mixer/SDL_mixer.h>)
+	__has_include(<SDL3_mixer/SDL_mixer.h>)
 #define SDL3PP_ENABLE_MIXER
 #endif
 
 // Check if SDL_ttf is available
 #if !defined(SDL3PP_DISABLE_TTF) && !defined(SDL3PP_ENABLE_TTF) &&             \
-  __has_include(<SDL3_ttf/SDL_ttf.h>)
+	__has_include(<SDL3_ttf/SDL_ttf.h>)
 #define SDL3PP_ENABLE_TTF
 #endif
 

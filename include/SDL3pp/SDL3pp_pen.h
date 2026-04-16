@@ -90,30 +90,30 @@ constexpr TouchID PEN_TOUCHID = SDL_PEN_TOUCHID;
 using PenInputFlags = Uint32;
 
 constexpr PenInputFlags PEN_INPUT_DOWN =
-  SDL_PEN_INPUT_DOWN; ///< pen is pressed down
+	SDL_PEN_INPUT_DOWN; ///< pen is pressed down
 
 constexpr PenInputFlags PEN_INPUT_BUTTON_1 =
-  SDL_PEN_INPUT_BUTTON_1; ///< button 1 is pressed
+	SDL_PEN_INPUT_BUTTON_1; ///< button 1 is pressed
 
 constexpr PenInputFlags PEN_INPUT_BUTTON_2 =
-  SDL_PEN_INPUT_BUTTON_2; ///< button 2 is pressed
+	SDL_PEN_INPUT_BUTTON_2; ///< button 2 is pressed
 
 constexpr PenInputFlags PEN_INPUT_BUTTON_3 =
-  SDL_PEN_INPUT_BUTTON_3; ///< button 3 is pressed
+	SDL_PEN_INPUT_BUTTON_3; ///< button 3 is pressed
 
 constexpr PenInputFlags PEN_INPUT_BUTTON_4 =
-  SDL_PEN_INPUT_BUTTON_4; ///< button 4 is pressed
+	SDL_PEN_INPUT_BUTTON_4; ///< button 4 is pressed
 
 constexpr PenInputFlags PEN_INPUT_BUTTON_5 =
-  SDL_PEN_INPUT_BUTTON_5; ///< button 5 is pressed
+	SDL_PEN_INPUT_BUTTON_5; ///< button 5 is pressed
 
 constexpr PenInputFlags PEN_INPUT_ERASER_TIP =
-  SDL_PEN_INPUT_ERASER_TIP; ///< eraser tip is used
+	SDL_PEN_INPUT_ERASER_TIP; ///< eraser tip is used
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
 constexpr PenInputFlags PEN_INPUT_IN_PROXIMITY =
-  SDL_PEN_INPUT_IN_PROXIMITY; ///< pen is in proximity (since SDL 3.4.0)
+	SDL_PEN_INPUT_IN_PROXIMITY; ///< pen is in proximity (since SDL 3.4.0)
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
@@ -135,7 +135,7 @@ constexpr PenInputFlags PEN_INPUT_IN_PROXIMITY =
 using PenAxis = SDL_PenAxis;
 
 constexpr PenAxis PEN_AXIS_PRESSURE =
-  SDL_PEN_AXIS_PRESSURE; ///< Pen pressure. Unidirectional: 0 to 1.0
+	SDL_PEN_AXIS_PRESSURE; ///< Pen pressure. Unidirectional: 0 to 1.0
 
 /// Pen horizontal tilt angle. Bidirectional: -90.0 to 90.0 (left-to-right).
 constexpr PenAxis PEN_AXIS_XTILT = SDL_PEN_AXIS_XTILT;
@@ -157,7 +157,7 @@ constexpr PenAxis PEN_AXIS_SLIDER = SDL_PEN_AXIS_SLIDER;
 
 /// Pressure from squeezing the pen ("barrel pressure").
 constexpr PenAxis PEN_AXIS_TANGENTIAL_PRESSURE =
-  SDL_PEN_AXIS_TANGENTIAL_PRESSURE;
+	SDL_PEN_AXIS_TANGENTIAL_PRESSURE;
 
 /**
  * Total known pen axis types in this version of SDL. This number may grow in
@@ -185,17 +185,17 @@ constexpr PenAxis PEN_AXIS_COUNT = SDL_PEN_AXIS_COUNT;
 using PenDeviceType = SDL_PenDeviceType;
 
 constexpr PenDeviceType PEN_DEVICE_TYPE_INVALID =
-  SDL_PEN_DEVICE_TYPE_INVALID; ///< Not a valid pen device.
+	SDL_PEN_DEVICE_TYPE_INVALID; ///< Not a valid pen device.
 
 constexpr PenDeviceType PEN_DEVICE_TYPE_UNKNOWN =
-  SDL_PEN_DEVICE_TYPE_UNKNOWN; ///< Don't know specifics of this pen.
+	SDL_PEN_DEVICE_TYPE_UNKNOWN; ///< Don't know specifics of this pen.
 
 constexpr PenDeviceType PEN_DEVICE_TYPE_DIRECT =
-  SDL_PEN_DEVICE_TYPE_DIRECT; ///< Pen touches display.
+	SDL_PEN_DEVICE_TYPE_DIRECT; ///< Pen touches display.
 
 constexpr PenDeviceType PEN_DEVICE_TYPE_INDIRECT =
-  SDL_PEN_DEVICE_TYPE_INDIRECT; ///< Pen touches something that isn't the
-                                ///< display.
+	SDL_PEN_DEVICE_TYPE_INDIRECT; ///< Pen touches something that isn't the
+																///< display.
 
 /**
  * Get the device type of the given pen.
@@ -212,7 +212,7 @@ constexpr PenDeviceType PEN_DEVICE_TYPE_INDIRECT =
  * @since This function is available since SDL 3.4.0.
  */
 inline PenDeviceType GetPenDeviceType(PenID instance_id) {
-  return CheckError(SDL_GetPenDeviceType(instance_id));
+	return CheckError(SDL_GetPenDeviceType(instance_id));
 }
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)

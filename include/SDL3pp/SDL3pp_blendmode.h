@@ -35,7 +35,7 @@ namespace SDL {
 using BlendMode = Uint32;
 
 constexpr BlendMode BLENDMODE_NONE =
-  SDL_BLENDMODE_NONE; ///< no blending: dstRGBA = srcRGBA
+	SDL_BLENDMODE_NONE; ///< no blending: dstRGBA = srcRGBA
 
 /**
  * alpha blending: dstRGB = (srcRGB * srcA) + (dstRGB * (1-srcA)), dstA = srcA +
@@ -45,14 +45,14 @@ constexpr BlendMode BLENDMODE_BLEND = SDL_BLENDMODE_BLEND;
 
 /// pre-multiplied alpha blending: dstRGBA = srcRGBA + (dstRGBA * (1-srcA))
 constexpr BlendMode BLENDMODE_BLEND_PREMULTIPLIED =
-  SDL_BLENDMODE_BLEND_PREMULTIPLIED;
+	SDL_BLENDMODE_BLEND_PREMULTIPLIED;
 
 /// additive blending: dstRGB = (srcRGB * srcA) + dstRGB, dstA = dstA
 constexpr BlendMode BLENDMODE_ADD = SDL_BLENDMODE_ADD;
 
 /// pre-multiplied additive blending: dstRGB = srcRGB + dstRGB, dstA = dstA
 constexpr BlendMode BLENDMODE_ADD_PREMULTIPLIED =
-  SDL_BLENDMODE_ADD_PREMULTIPLIED;
+	SDL_BLENDMODE_ADD_PREMULTIPLIED;
 
 /// color modulate: dstRGB = srcRGB * dstRGB, dstA = dstA
 constexpr BlendMode BLENDMODE_MOD = SDL_BLENDMODE_MOD;
@@ -75,14 +75,14 @@ constexpr BlendMode BLENDMODE_INVALID = SDL_BLENDMODE_INVALID; ///< INVALID
 using BlendOperation = SDL_BlendOperation;
 
 constexpr BlendOperation BLENDOPERATION_ADD =
-  SDL_BLENDOPERATION_ADD; ///< dst + src: supported by all renderers
+	SDL_BLENDOPERATION_ADD; ///< dst + src: supported by all renderers
 
 /// src - dst : supported by D3D, OpenGL, OpenGLES, and Vulkan
 constexpr BlendOperation BLENDOPERATION_SUBTRACT = SDL_BLENDOPERATION_SUBTRACT;
 
 /// dst - src : supported by D3D, OpenGL, OpenGLES, and Vulkan
 constexpr BlendOperation BLENDOPERATION_REV_SUBTRACT =
-  SDL_BLENDOPERATION_REV_SUBTRACT;
+	SDL_BLENDOPERATION_REV_SUBTRACT;
 
 /// Min(dst, src) : supported by D3D, OpenGL, OpenGLES, and Vulkan
 constexpr BlendOperation BLENDOPERATION_MINIMUM = SDL_BLENDOPERATION_MINIMUM;
@@ -107,28 +107,28 @@ constexpr BlendFactor BLENDFACTOR_ZERO = SDL_BLENDFACTOR_ZERO; ///< 0, 0, 0, 0
 constexpr BlendFactor BLENDFACTOR_ONE = SDL_BLENDFACTOR_ONE; ///< 1, 1, 1, 1
 
 constexpr BlendFactor BLENDFACTOR_SRC_COLOR =
-  SDL_BLENDFACTOR_SRC_COLOR; ///< srcR, srcG, srcB, srcA
+	SDL_BLENDFACTOR_SRC_COLOR; ///< srcR, srcG, srcB, srcA
 
 constexpr BlendFactor BLENDFACTOR_ONE_MINUS_SRC_COLOR =
-  SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR; ///< 1-srcR, 1-srcG, 1-srcB, 1-srcA
+	SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR; ///< 1-srcR, 1-srcG, 1-srcB, 1-srcA
 
 constexpr BlendFactor BLENDFACTOR_SRC_ALPHA =
-  SDL_BLENDFACTOR_SRC_ALPHA; ///< srcA, srcA, srcA, srcA
+	SDL_BLENDFACTOR_SRC_ALPHA; ///< srcA, srcA, srcA, srcA
 
 constexpr BlendFactor BLENDFACTOR_ONE_MINUS_SRC_ALPHA =
-  SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA; ///< 1-srcA, 1-srcA, 1-srcA, 1-srcA
+	SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA; ///< 1-srcA, 1-srcA, 1-srcA, 1-srcA
 
 constexpr BlendFactor BLENDFACTOR_DST_COLOR =
-  SDL_BLENDFACTOR_DST_COLOR; ///< dstR, dstG, dstB, dstA
+	SDL_BLENDFACTOR_DST_COLOR; ///< dstR, dstG, dstB, dstA
 
 constexpr BlendFactor BLENDFACTOR_ONE_MINUS_DST_COLOR =
-  SDL_BLENDFACTOR_ONE_MINUS_DST_COLOR; ///< 1-dstR, 1-dstG, 1-dstB, 1-dstA
+	SDL_BLENDFACTOR_ONE_MINUS_DST_COLOR; ///< 1-dstR, 1-dstG, 1-dstB, 1-dstA
 
 constexpr BlendFactor BLENDFACTOR_DST_ALPHA =
-  SDL_BLENDFACTOR_DST_ALPHA; ///< dstA, dstA, dstA, dstA
+	SDL_BLENDFACTOR_DST_ALPHA; ///< dstA, dstA, dstA, dstA
 
 constexpr BlendFactor BLENDFACTOR_ONE_MINUS_DST_ALPHA =
-  SDL_BLENDFACTOR_ONE_MINUS_DST_ALPHA; ///< 1-dstA, 1-dstA, 1-dstA, 1-dstA
+	SDL_BLENDFACTOR_ONE_MINUS_DST_ALPHA; ///< 1-dstA, 1-dstA, 1-dstA, 1-dstA
 
 /**
  * Compose a custom blend mode for renderers.
@@ -213,17 +213,17 @@ constexpr BlendFactor BLENDFACTOR_ONE_MINUS_DST_ALPHA =
  * @sa Texture.GetBlendMode
  */
 inline BlendMode ComposeCustomBlendMode(BlendFactor srcColorFactor,
-                                        BlendFactor dstColorFactor,
-                                        BlendOperation colorOperation,
-                                        BlendFactor srcAlphaFactor,
-                                        BlendFactor dstAlphaFactor,
-                                        BlendOperation alphaOperation) {
-  return SDL_ComposeCustomBlendMode(srcColorFactor,
-                                    dstColorFactor,
-                                    colorOperation,
-                                    srcAlphaFactor,
-                                    dstAlphaFactor,
-                                    alphaOperation);
+																				BlendFactor dstColorFactor,
+																				BlendOperation colorOperation,
+																				BlendFactor srcAlphaFactor,
+																				BlendFactor dstAlphaFactor,
+																				BlendOperation alphaOperation) {
+	return SDL_ComposeCustomBlendMode(srcColorFactor,
+																		dstColorFactor,
+																		colorOperation,
+																		srcAlphaFactor,
+																		dstAlphaFactor,
+																		alphaOperation);
 }
 
 /// @}

@@ -57,26 +57,26 @@ constexpr Keymod KMOD_NONE = SDL_KMOD_NONE; ///< no modifier is applicable.
 constexpr Keymod KMOD_LSHIFT = SDL_KMOD_LSHIFT; ///< the left Shift key is down.
 
 constexpr Keymod KMOD_RSHIFT =
-  SDL_KMOD_RSHIFT; ///< the right Shift key is down.
+	SDL_KMOD_RSHIFT; ///< the right Shift key is down.
 
 constexpr Keymod KMOD_LEVEL5 =
-  SDL_KMOD_LEVEL5; ///< the Level 5 Shift key is down.
+	SDL_KMOD_LEVEL5; ///< the Level 5 Shift key is down.
 
 constexpr Keymod KMOD_LCTRL =
-  SDL_KMOD_LCTRL; ///< the left Ctrl (Control) key is down.
+	SDL_KMOD_LCTRL; ///< the left Ctrl (Control) key is down.
 
 constexpr Keymod KMOD_RCTRL =
-  SDL_KMOD_RCTRL; ///< the right Ctrl (Control) key is down.
+	SDL_KMOD_RCTRL; ///< the right Ctrl (Control) key is down.
 
 constexpr Keymod KMOD_LALT = SDL_KMOD_LALT; ///< the left Alt key is down.
 
 constexpr Keymod KMOD_RALT = SDL_KMOD_RALT; ///< the right Alt key is down.
 
 constexpr Keymod KMOD_LGUI =
-  SDL_KMOD_LGUI; ///< the left GUI key (often the Windows key) is down.
+	SDL_KMOD_LGUI; ///< the left GUI key (often the Windows key) is down.
 
 constexpr Keymod KMOD_RGUI =
-  SDL_KMOD_RGUI; ///< the right GUI key (often the Windows key) is down.
+	SDL_KMOD_RGUI; ///< the right GUI key (often the Windows key) is down.
 
 /// the Num Lock key (may be located on an extended keypad) is down.
 constexpr Keymod KMOD_NUM = SDL_KMOD_NUM;
@@ -86,7 +86,7 @@ constexpr Keymod KMOD_CAPS = SDL_KMOD_CAPS; ///< the Caps Lock key is down.
 constexpr Keymod KMOD_MODE = SDL_KMOD_MODE; ///< the !AltGr key is down.
 
 constexpr Keymod KMOD_SCROLL =
-  SDL_KMOD_SCROLL; ///< the Scroll Lock key is down.
+	SDL_KMOD_SCROLL; ///< the Scroll Lock key is down.
 
 constexpr Keymod KMOD_CTRL = SDL_KMOD_CTRL; ///< Any Ctrl key is down.
 
@@ -117,110 +117,110 @@ constexpr Keymod KMOD_GUI = SDL_KMOD_GUI; ///< Any GUI key is down.
  * @sa SDL_HINT_KEYCODE_OPTIONS
  */
 class Keycode {
-  KeycodeRaw m_keycode;
+	KeycodeRaw m_keycode;
 
 public:
-  /**
-   * Wraps Keycode.
-   *
-   * @param keycode the value to be wrapped
-   */
-  constexpr Keycode(KeycodeRaw keycode = {}) noexcept
-    : m_keycode(keycode) {
-  }
+	/**
+	 * Wraps Keycode.
+	 *
+	 * @param keycode the value to be wrapped
+	 */
+	constexpr Keycode(KeycodeRaw keycode = {}) noexcept
+		: m_keycode(keycode) {
+	}
 
-  /**
-   * Get the key code corresponding to the given scancode according to the
-   * current keyboard layout.
-   *
-   * If you want to Get the keycode as it would be delivered in key events,
-   * including options specified in SDL_HINT_KEYCODE_OPTIONS, then you should
-   * pass `key_event` as true. Otherwise this function simply translates the
-   * scancode based on the given modifier state.
-   *
-   * @param scancode the desired Scancode to query.
-   * @param modstate the modifier state to use when translating the scancode to
-   *                 a keycode.
-   * @param key_event true if the keycode will be used in key events.
-   * @post the Keycode that corresponds to the given Scancode.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Keycode.GetName
-   * @sa Keycode.GetScancode
-   */
-  Keycode(Scancode scancode, Keymod modstate, bool key_event);
+	/**
+	 * Get the key code corresponding to the given scancode according to the
+	 * current keyboard layout.
+	 *
+	 * If you want to Get the keycode as it would be delivered in key events,
+	 * including options specified in SDL_HINT_KEYCODE_OPTIONS, then you should
+	 * pass `key_event` as true. Otherwise this function simply translates the
+	 * scancode based on the given modifier state.
+	 *
+	 * @param scancode the desired Scancode to query.
+	 * @param modstate the modifier state to use when translating the scancode to
+	 *                 a keycode.
+	 * @param key_event true if the keycode will be used in key events.
+	 * @post the Keycode that corresponds to the given Scancode.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Keycode.GetName
+	 * @sa Keycode.GetScancode
+	 */
+	Keycode(Scancode scancode, Keymod modstate, bool key_event);
 
-  /**
-   * Get a key code from a human-readable name.
-   *
-   * @param name the human-readable key name.
-   * @post key code, or `SDLK_UNKNOWN` if the name wasn't recognized; call
-   *       GetError() for more information.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Keycode.Keycode
-   * @sa Keycode.GetName
-   * @sa Scancode.Scancode
-   */
-  Keycode(StringParam name);
+	/**
+	 * Get a key code from a human-readable name.
+	 *
+	 * @param name the human-readable key name.
+	 * @post key code, or `SDLK_UNKNOWN` if the name wasn't recognized; call
+	 *       GetError() for more information.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Keycode.Keycode
+	 * @sa Keycode.GetName
+	 * @sa Scancode.Scancode
+	 */
+	Keycode(StringParam name);
 
-  /**
-   * Unwraps to the underlying Keycode.
-   *
-   * @returns the underlying KeycodeRaw.
-   */
-  constexpr operator KeycodeRaw() const noexcept { return m_keycode; }
+	/**
+	 * Unwraps to the underlying Keycode.
+	 *
+	 * @returns the underlying KeycodeRaw.
+	 */
+	constexpr operator KeycodeRaw() const noexcept { return m_keycode; }
 
-  /// Has Extended flag.
-  constexpr bool IsExtended() const;
+	/// Has Extended flag.
+	constexpr bool IsExtended() const;
 
-  /// Has Scancode flag.
-  constexpr bool IsScancode() const;
+	/// Has Scancode flag.
+	constexpr bool IsScancode() const;
 
-  /**
-   * Get the scancode corresponding to the given key code according to the
-   * current keyboard layout.
-   *
-   * Note that there may be multiple scancode+modifier states that can generate
-   * this keycode, this will just return the first one found.
-   *
-   * @param modstate a pointer to the modifier state that would be used when the
-   *                 scancode generates this key, may be nullptr.
-   * @returns the Scancode that corresponds to the given Keycode.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Keycode.Keycode
-   * @sa Scancode.GetName
-   */
-  Scancode GetScancode(Keymod* modstate) const;
+	/**
+	 * Get the scancode corresponding to the given key code according to the
+	 * current keyboard layout.
+	 *
+	 * Note that there may be multiple scancode+modifier states that can generate
+	 * this keycode, this will just return the first one found.
+	 *
+	 * @param modstate a pointer to the modifier state that would be used when the
+	 *                 scancode generates this key, may be nullptr.
+	 * @returns the Scancode that corresponds to the given Keycode.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Keycode.Keycode
+	 * @sa Scancode.GetName
+	 */
+	Scancode GetScancode(Keymod* modstate) const;
 
-  /**
-   * Get a human-readable name for a key.
-   *
-   * If the key doesn't have a name, this function returns an empty string ("").
-   *
-   * Letters will be presented in their uppercase form, if applicable.
-   *
-   * @returns a UTF-8 encoded string of the key name.
-   *
-   * @threadsafety This function is not thread safe.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Keycode.Keycode
-   * @sa Keycode.Keycode
-   * @sa Keycode.GetScancode
-   */
-  const char* GetName() const;
+	/**
+	 * Get a human-readable name for a key.
+	 *
+	 * If the key doesn't have a name, this function returns an empty string ("").
+	 *
+	 * Letters will be presented in their uppercase form, if applicable.
+	 *
+	 * @returns a UTF-8 encoded string of the key name.
+	 *
+	 * @threadsafety This function is not thread safe.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Keycode.Keycode
+	 * @sa Keycode.Keycode
+	 * @sa Keycode.GetScancode
+	 */
+	const char* GetName() const;
 };
 
 constexpr Keycode KEYCODE_UNKNOWN = SDLK_UNKNOWN; ///< 0
@@ -376,7 +376,7 @@ constexpr Keycode KEYCODE_DELETE = SDLK_DELETE; ///< '\\x7F'
 constexpr Keycode KEYCODE_PLUSMINUS = SDLK_PLUSMINUS; ///< '\\xB1'
 
 constexpr Keycode KEYCODE_CAPSLOCK =
-  SDLK_CAPSLOCK; ///< ScancodeToKeycode(SCANCODE_CAPSLOCK)
+	SDLK_CAPSLOCK; ///< ScancodeToKeycode(SCANCODE_CAPSLOCK)
 
 constexpr Keycode KEYCODE_F1 = SDLK_F1; ///< ScancodeToKeycode(SCANCODE_F1)
 
@@ -403,98 +403,98 @@ constexpr Keycode KEYCODE_F11 = SDLK_F11; ///< ScancodeToKeycode(SCANCODE_F11)
 constexpr Keycode KEYCODE_F12 = SDLK_F12; ///< ScancodeToKeycode(SCANCODE_F12)
 
 constexpr Keycode KEYCODE_PRINTSCREEN =
-  SDLK_PRINTSCREEN; ///< ScancodeToKeycode(SCANCODE_PRINTSCREEN)
+	SDLK_PRINTSCREEN; ///< ScancodeToKeycode(SCANCODE_PRINTSCREEN)
 
 constexpr Keycode KEYCODE_SCROLLLOCK =
-  SDLK_SCROLLLOCK; ///< ScancodeToKeycode(SCANCODE_SCROLLLOCK)
+	SDLK_SCROLLLOCK; ///< ScancodeToKeycode(SCANCODE_SCROLLLOCK)
 
 constexpr Keycode KEYCODE_PAUSE =
-  SDLK_PAUSE; ///< ScancodeToKeycode(SCANCODE_PAUSE)
+	SDLK_PAUSE; ///< ScancodeToKeycode(SCANCODE_PAUSE)
 
 constexpr Keycode KEYCODE_INSERT =
-  SDLK_INSERT; ///< ScancodeToKeycode(SCANCODE_INSERT)
+	SDLK_INSERT; ///< ScancodeToKeycode(SCANCODE_INSERT)
 
 constexpr Keycode KEYCODE_HOME =
-  SDLK_HOME; ///< ScancodeToKeycode(SCANCODE_HOME)
+	SDLK_HOME; ///< ScancodeToKeycode(SCANCODE_HOME)
 
 constexpr Keycode KEYCODE_PAGEUP =
-  SDLK_PAGEUP; ///< ScancodeToKeycode(SCANCODE_PAGEUP)
+	SDLK_PAGEUP; ///< ScancodeToKeycode(SCANCODE_PAGEUP)
 
 constexpr Keycode KEYCODE_END = SDLK_END; ///< ScancodeToKeycode(SCANCODE_END)
 
 constexpr Keycode KEYCODE_PAGEDOWN =
-  SDLK_PAGEDOWN; ///< ScancodeToKeycode(SCANCODE_PAGEDOWN)
+	SDLK_PAGEDOWN; ///< ScancodeToKeycode(SCANCODE_PAGEDOWN)
 
 constexpr Keycode KEYCODE_RIGHT =
-  SDLK_RIGHT; ///< ScancodeToKeycode(SCANCODE_RIGHT)
+	SDLK_RIGHT; ///< ScancodeToKeycode(SCANCODE_RIGHT)
 
 constexpr Keycode KEYCODE_LEFT =
-  SDLK_LEFT; ///< ScancodeToKeycode(SCANCODE_LEFT)
+	SDLK_LEFT; ///< ScancodeToKeycode(SCANCODE_LEFT)
 
 constexpr Keycode KEYCODE_DOWN =
-  SDLK_DOWN; ///< ScancodeToKeycode(SCANCODE_DOWN)
+	SDLK_DOWN; ///< ScancodeToKeycode(SCANCODE_DOWN)
 
 constexpr Keycode KEYCODE_UP = SDLK_UP; ///< ScancodeToKeycode(SCANCODE_UP)
 
 constexpr Keycode KEYCODE_NUMLOCKCLEAR =
-  SDLK_NUMLOCKCLEAR; ///< ScancodeToKeycode(SCANCODE_NUMLOCKCLEAR)
+	SDLK_NUMLOCKCLEAR; ///< ScancodeToKeycode(SCANCODE_NUMLOCKCLEAR)
 
 constexpr Keycode KEYCODE_KP_DIVIDE =
-  SDLK_KP_DIVIDE; ///< ScancodeToKeycode(SCANCODE_KP_DIVIDE)
+	SDLK_KP_DIVIDE; ///< ScancodeToKeycode(SCANCODE_KP_DIVIDE)
 
 constexpr Keycode KEYCODE_KP_MULTIPLY =
-  SDLK_KP_MULTIPLY; ///< ScancodeToKeycode(SCANCODE_KP_MULTIPLY)
+	SDLK_KP_MULTIPLY; ///< ScancodeToKeycode(SCANCODE_KP_MULTIPLY)
 
 constexpr Keycode KEYCODE_KP_MINUS =
-  SDLK_KP_MINUS; ///< ScancodeToKeycode(SCANCODE_KP_MINUS)
+	SDLK_KP_MINUS; ///< ScancodeToKeycode(SCANCODE_KP_MINUS)
 
 constexpr Keycode KEYCODE_KP_PLUS =
-  SDLK_KP_PLUS; ///< ScancodeToKeycode(SCANCODE_KP_PLUS)
+	SDLK_KP_PLUS; ///< ScancodeToKeycode(SCANCODE_KP_PLUS)
 
 constexpr Keycode KEYCODE_KP_ENTER =
-  SDLK_KP_ENTER; ///< ScancodeToKeycode(SCANCODE_KP_ENTER)
+	SDLK_KP_ENTER; ///< ScancodeToKeycode(SCANCODE_KP_ENTER)
 
 constexpr Keycode KEYCODE_KP_1 =
-  SDLK_KP_1; ///< ScancodeToKeycode(SCANCODE_KP_1)
+	SDLK_KP_1; ///< ScancodeToKeycode(SCANCODE_KP_1)
 
 constexpr Keycode KEYCODE_KP_2 =
-  SDLK_KP_2; ///< ScancodeToKeycode(SCANCODE_KP_2)
+	SDLK_KP_2; ///< ScancodeToKeycode(SCANCODE_KP_2)
 
 constexpr Keycode KEYCODE_KP_3 =
-  SDLK_KP_3; ///< ScancodeToKeycode(SCANCODE_KP_3)
+	SDLK_KP_3; ///< ScancodeToKeycode(SCANCODE_KP_3)
 
 constexpr Keycode KEYCODE_KP_4 =
-  SDLK_KP_4; ///< ScancodeToKeycode(SCANCODE_KP_4)
+	SDLK_KP_4; ///< ScancodeToKeycode(SCANCODE_KP_4)
 
 constexpr Keycode KEYCODE_KP_5 =
-  SDLK_KP_5; ///< ScancodeToKeycode(SCANCODE_KP_5)
+	SDLK_KP_5; ///< ScancodeToKeycode(SCANCODE_KP_5)
 
 constexpr Keycode KEYCODE_KP_6 =
-  SDLK_KP_6; ///< ScancodeToKeycode(SCANCODE_KP_6)
+	SDLK_KP_6; ///< ScancodeToKeycode(SCANCODE_KP_6)
 
 constexpr Keycode KEYCODE_KP_7 =
-  SDLK_KP_7; ///< ScancodeToKeycode(SCANCODE_KP_7)
+	SDLK_KP_7; ///< ScancodeToKeycode(SCANCODE_KP_7)
 
 constexpr Keycode KEYCODE_KP_8 =
-  SDLK_KP_8; ///< ScancodeToKeycode(SCANCODE_KP_8)
+	SDLK_KP_8; ///< ScancodeToKeycode(SCANCODE_KP_8)
 
 constexpr Keycode KEYCODE_KP_9 =
-  SDLK_KP_9; ///< ScancodeToKeycode(SCANCODE_KP_9)
+	SDLK_KP_9; ///< ScancodeToKeycode(SCANCODE_KP_9)
 
 constexpr Keycode KEYCODE_KP_0 =
-  SDLK_KP_0; ///< ScancodeToKeycode(SCANCODE_KP_0)
+	SDLK_KP_0; ///< ScancodeToKeycode(SCANCODE_KP_0)
 
 constexpr Keycode KEYCODE_KP_PERIOD =
-  SDLK_KP_PERIOD; ///< ScancodeToKeycode(SCANCODE_KP_PERIOD)
+	SDLK_KP_PERIOD; ///< ScancodeToKeycode(SCANCODE_KP_PERIOD)
 
 constexpr Keycode KEYCODE_APPLICATION =
-  SDLK_APPLICATION; ///< ScancodeToKeycode(SCANCODE_APPLICATION)
+	SDLK_APPLICATION; ///< ScancodeToKeycode(SCANCODE_APPLICATION)
 
 constexpr Keycode KEYCODE_POWER =
-  SDLK_POWER; ///< ScancodeToKeycode(SCANCODE_POWER)
+	SDLK_POWER; ///< ScancodeToKeycode(SCANCODE_POWER)
 
 constexpr Keycode KEYCODE_KP_EQUALS =
-  SDLK_KP_EQUALS; ///< ScancodeToKeycode(SCANCODE_KP_EQUALS)
+	SDLK_KP_EQUALS; ///< ScancodeToKeycode(SCANCODE_KP_EQUALS)
 
 constexpr Keycode KEYCODE_F13 = SDLK_F13; ///< ScancodeToKeycode(SCANCODE_F13)
 
@@ -521,358 +521,358 @@ constexpr Keycode KEYCODE_F23 = SDLK_F23; ///< ScancodeToKeycode(SCANCODE_F23)
 constexpr Keycode KEYCODE_F24 = SDLK_F24; ///< ScancodeToKeycode(SCANCODE_F24)
 
 constexpr Keycode KEYCODE_EXECUTE =
-  SDLK_EXECUTE; ///< ScancodeToKeycode(SCANCODE_EXECUTE)
+	SDLK_EXECUTE; ///< ScancodeToKeycode(SCANCODE_EXECUTE)
 
 constexpr Keycode KEYCODE_HELP =
-  SDLK_HELP; ///< ScancodeToKeycode(SCANCODE_HELP)
+	SDLK_HELP; ///< ScancodeToKeycode(SCANCODE_HELP)
 
 constexpr Keycode KEYCODE_MENU =
-  SDLK_MENU; ///< ScancodeToKeycode(SCANCODE_MENU)
+	SDLK_MENU; ///< ScancodeToKeycode(SCANCODE_MENU)
 
 constexpr Keycode KEYCODE_SELECT =
-  SDLK_SELECT; ///< ScancodeToKeycode(SCANCODE_SELECT)
+	SDLK_SELECT; ///< ScancodeToKeycode(SCANCODE_SELECT)
 
 constexpr Keycode KEYCODE_STOP =
-  SDLK_STOP; ///< ScancodeToKeycode(SCANCODE_STOP)
+	SDLK_STOP; ///< ScancodeToKeycode(SCANCODE_STOP)
 
 constexpr Keycode KEYCODE_AGAIN =
-  SDLK_AGAIN; ///< ScancodeToKeycode(SCANCODE_AGAIN)
+	SDLK_AGAIN; ///< ScancodeToKeycode(SCANCODE_AGAIN)
 
 constexpr Keycode KEYCODE_UNDO =
-  SDLK_UNDO; ///< ScancodeToKeycode(SCANCODE_UNDO)
+	SDLK_UNDO; ///< ScancodeToKeycode(SCANCODE_UNDO)
 
 constexpr Keycode KEYCODE_CUT = SDLK_CUT; ///< ScancodeToKeycode(SCANCODE_CUT)
 
 constexpr Keycode KEYCODE_COPY =
-  SDLK_COPY; ///< ScancodeToKeycode(SCANCODE_COPY)
+	SDLK_COPY; ///< ScancodeToKeycode(SCANCODE_COPY)
 
 constexpr Keycode KEYCODE_PASTE =
-  SDLK_PASTE; ///< ScancodeToKeycode(SCANCODE_PASTE)
+	SDLK_PASTE; ///< ScancodeToKeycode(SCANCODE_PASTE)
 
 constexpr Keycode KEYCODE_FIND =
-  SDLK_FIND; ///< ScancodeToKeycode(SCANCODE_FIND)
+	SDLK_FIND; ///< ScancodeToKeycode(SCANCODE_FIND)
 
 constexpr Keycode KEYCODE_MUTE =
-  SDLK_MUTE; ///< ScancodeToKeycode(SCANCODE_MUTE)
+	SDLK_MUTE; ///< ScancodeToKeycode(SCANCODE_MUTE)
 
 constexpr Keycode KEYCODE_VOLUMEUP =
-  SDLK_VOLUMEUP; ///< ScancodeToKeycode(SCANCODE_VOLUMEUP)
+	SDLK_VOLUMEUP; ///< ScancodeToKeycode(SCANCODE_VOLUMEUP)
 
 constexpr Keycode KEYCODE_VOLUMEDOWN =
-  SDLK_VOLUMEDOWN; ///< ScancodeToKeycode(SCANCODE_VOLUMEDOWN)
+	SDLK_VOLUMEDOWN; ///< ScancodeToKeycode(SCANCODE_VOLUMEDOWN)
 
 constexpr Keycode KEYCODE_KP_COMMA =
-  SDLK_KP_COMMA; ///< ScancodeToKeycode(SCANCODE_KP_COMMA)
+	SDLK_KP_COMMA; ///< ScancodeToKeycode(SCANCODE_KP_COMMA)
 
 constexpr Keycode KEYCODE_KP_EQUALSAS400 =
-  SDLK_KP_EQUALSAS400; ///< ScancodeToKeycode(SCANCODE_KP_EQUALSAS400)
+	SDLK_KP_EQUALSAS400; ///< ScancodeToKeycode(SCANCODE_KP_EQUALSAS400)
 
 constexpr Keycode KEYCODE_ALTERASE =
-  SDLK_ALTERASE; ///< ScancodeToKeycode(SCANCODE_ALTERASE)
+	SDLK_ALTERASE; ///< ScancodeToKeycode(SCANCODE_ALTERASE)
 
 constexpr Keycode KEYCODE_SYSREQ =
-  SDLK_SYSREQ; ///< ScancodeToKeycode(SCANCODE_SYSREQ)
+	SDLK_SYSREQ; ///< ScancodeToKeycode(SCANCODE_SYSREQ)
 
 constexpr Keycode KEYCODE_CANCEL =
-  SDLK_CANCEL; ///< ScancodeToKeycode(SCANCODE_CANCEL)
+	SDLK_CANCEL; ///< ScancodeToKeycode(SCANCODE_CANCEL)
 
 constexpr Keycode KEYCODE_CLEAR =
-  SDLK_CLEAR; ///< ScancodeToKeycode(SCANCODE_CLEAR)
+	SDLK_CLEAR; ///< ScancodeToKeycode(SCANCODE_CLEAR)
 
 constexpr Keycode KEYCODE_PRIOR =
-  SDLK_PRIOR; ///< ScancodeToKeycode(SCANCODE_PRIOR)
+	SDLK_PRIOR; ///< ScancodeToKeycode(SCANCODE_PRIOR)
 
 constexpr Keycode KEYCODE_RETURN2 =
-  SDLK_RETURN2; ///< ScancodeToKeycode(SCANCODE_RETURN2)
+	SDLK_RETURN2; ///< ScancodeToKeycode(SCANCODE_RETURN2)
 
 constexpr Keycode KEYCODE_SEPARATOR =
-  SDLK_SEPARATOR; ///< ScancodeToKeycode(SCANCODE_SEPARATOR)
+	SDLK_SEPARATOR; ///< ScancodeToKeycode(SCANCODE_SEPARATOR)
 
 constexpr Keycode KEYCODE_OUT = SDLK_OUT; ///< ScancodeToKeycode(SCANCODE_OUT)
 
 constexpr Keycode KEYCODE_OPER =
-  SDLK_OPER; ///< ScancodeToKeycode(SCANCODE_OPER)
+	SDLK_OPER; ///< ScancodeToKeycode(SCANCODE_OPER)
 
 constexpr Keycode KEYCODE_CLEARAGAIN =
-  SDLK_CLEARAGAIN; ///< ScancodeToKeycode(SCANCODE_CLEARAGAIN)
+	SDLK_CLEARAGAIN; ///< ScancodeToKeycode(SCANCODE_CLEARAGAIN)
 
 constexpr Keycode KEYCODE_CRSEL =
-  SDLK_CRSEL; ///< ScancodeToKeycode(SCANCODE_CRSEL)
+	SDLK_CRSEL; ///< ScancodeToKeycode(SCANCODE_CRSEL)
 
 constexpr Keycode KEYCODE_EXSEL =
-  SDLK_EXSEL; ///< ScancodeToKeycode(SCANCODE_EXSEL)
+	SDLK_EXSEL; ///< ScancodeToKeycode(SCANCODE_EXSEL)
 
 constexpr Keycode KEYCODE_KP_00 =
-  SDLK_KP_00; ///< ScancodeToKeycode(SCANCODE_KP_00)
+	SDLK_KP_00; ///< ScancodeToKeycode(SCANCODE_KP_00)
 
 constexpr Keycode KEYCODE_KP_000 =
-  SDLK_KP_000; ///< ScancodeToKeycode(SCANCODE_KP_000)
+	SDLK_KP_000; ///< ScancodeToKeycode(SCANCODE_KP_000)
 
 constexpr Keycode KEYCODE_THOUSANDSSEPARATOR =
-  SDLK_THOUSANDSSEPARATOR; ///< ScancodeToKeycode(SCANCODE_THOUSANDSSEPARATOR)
+	SDLK_THOUSANDSSEPARATOR; ///< ScancodeToKeycode(SCANCODE_THOUSANDSSEPARATOR)
 
 constexpr Keycode KEYCODE_DECIMALSEPARATOR =
-  SDLK_DECIMALSEPARATOR; ///< ScancodeToKeycode(SCANCODE_DECIMALSEPARATOR)
+	SDLK_DECIMALSEPARATOR; ///< ScancodeToKeycode(SCANCODE_DECIMALSEPARATOR)
 
 constexpr Keycode KEYCODE_CURRENCYUNIT =
-  SDLK_CURRENCYUNIT; ///< ScancodeToKeycode(SCANCODE_CURRENCYUNIT)
+	SDLK_CURRENCYUNIT; ///< ScancodeToKeycode(SCANCODE_CURRENCYUNIT)
 
 constexpr Keycode KEYCODE_CURRENCYSUBUNIT =
-  SDLK_CURRENCYSUBUNIT; ///< ScancodeToKeycode(SCANCODE_CURRENCYSUBUNIT)
+	SDLK_CURRENCYSUBUNIT; ///< ScancodeToKeycode(SCANCODE_CURRENCYSUBUNIT)
 
 constexpr Keycode KEYCODE_KP_LEFTPAREN =
-  SDLK_KP_LEFTPAREN; ///< ScancodeToKeycode(SCANCODE_KP_LEFTPAREN)
+	SDLK_KP_LEFTPAREN; ///< ScancodeToKeycode(SCANCODE_KP_LEFTPAREN)
 
 constexpr Keycode KEYCODE_KP_RIGHTPAREN =
-  SDLK_KP_RIGHTPAREN; ///< ScancodeToKeycode(SCANCODE_KP_RIGHTPAREN)
+	SDLK_KP_RIGHTPAREN; ///< ScancodeToKeycode(SCANCODE_KP_RIGHTPAREN)
 
 constexpr Keycode KEYCODE_KP_LEFTBRACE =
-  SDLK_KP_LEFTBRACE; ///< ScancodeToKeycode(SCANCODE_KP_LEFTBRACE)
+	SDLK_KP_LEFTBRACE; ///< ScancodeToKeycode(SCANCODE_KP_LEFTBRACE)
 
 constexpr Keycode KEYCODE_KP_RIGHTBRACE =
-  SDLK_KP_RIGHTBRACE; ///< ScancodeToKeycode(SCANCODE_KP_RIGHTBRACE)
+	SDLK_KP_RIGHTBRACE; ///< ScancodeToKeycode(SCANCODE_KP_RIGHTBRACE)
 
 constexpr Keycode KEYCODE_KP_TAB =
-  SDLK_KP_TAB; ///< ScancodeToKeycode(SCANCODE_KP_TAB)
+	SDLK_KP_TAB; ///< ScancodeToKeycode(SCANCODE_KP_TAB)
 
 constexpr Keycode KEYCODE_KP_BACKSPACE =
-  SDLK_KP_BACKSPACE; ///< ScancodeToKeycode(SCANCODE_KP_BACKSPACE)
+	SDLK_KP_BACKSPACE; ///< ScancodeToKeycode(SCANCODE_KP_BACKSPACE)
 
 constexpr Keycode KEYCODE_KP_A =
-  SDLK_KP_A; ///< ScancodeToKeycode(SCANCODE_KP_A)
+	SDLK_KP_A; ///< ScancodeToKeycode(SCANCODE_KP_A)
 
 constexpr Keycode KEYCODE_KP_B =
-  SDLK_KP_B; ///< ScancodeToKeycode(SCANCODE_KP_B)
+	SDLK_KP_B; ///< ScancodeToKeycode(SCANCODE_KP_B)
 
 constexpr Keycode KEYCODE_KP_C =
-  SDLK_KP_C; ///< ScancodeToKeycode(SCANCODE_KP_C)
+	SDLK_KP_C; ///< ScancodeToKeycode(SCANCODE_KP_C)
 
 constexpr Keycode KEYCODE_KP_D =
-  SDLK_KP_D; ///< ScancodeToKeycode(SCANCODE_KP_D)
+	SDLK_KP_D; ///< ScancodeToKeycode(SCANCODE_KP_D)
 
 constexpr Keycode KEYCODE_KP_E =
-  SDLK_KP_E; ///< ScancodeToKeycode(SCANCODE_KP_E)
+	SDLK_KP_E; ///< ScancodeToKeycode(SCANCODE_KP_E)
 
 constexpr Keycode KEYCODE_KP_F =
-  SDLK_KP_F; ///< ScancodeToKeycode(SCANCODE_KP_F)
+	SDLK_KP_F; ///< ScancodeToKeycode(SCANCODE_KP_F)
 
 constexpr Keycode KEYCODE_KP_XOR =
-  SDLK_KP_XOR; ///< ScancodeToKeycode(SCANCODE_KP_XOR)
+	SDLK_KP_XOR; ///< ScancodeToKeycode(SCANCODE_KP_XOR)
 
 constexpr Keycode KEYCODE_KP_POWER =
-  SDLK_KP_POWER; ///< ScancodeToKeycode(SCANCODE_KP_POWER)
+	SDLK_KP_POWER; ///< ScancodeToKeycode(SCANCODE_KP_POWER)
 
 constexpr Keycode KEYCODE_KP_PERCENT =
-  SDLK_KP_PERCENT; ///< ScancodeToKeycode(SCANCODE_KP_PERCENT)
+	SDLK_KP_PERCENT; ///< ScancodeToKeycode(SCANCODE_KP_PERCENT)
 
 constexpr Keycode KEYCODE_KP_LESS =
-  SDLK_KP_LESS; ///< ScancodeToKeycode(SCANCODE_KP_LESS)
+	SDLK_KP_LESS; ///< ScancodeToKeycode(SCANCODE_KP_LESS)
 
 constexpr Keycode KEYCODE_KP_GREATER =
-  SDLK_KP_GREATER; ///< ScancodeToKeycode(SCANCODE_KP_GREATER)
+	SDLK_KP_GREATER; ///< ScancodeToKeycode(SCANCODE_KP_GREATER)
 
 constexpr Keycode KEYCODE_KP_AMPERSAND =
-  SDLK_KP_AMPERSAND; ///< ScancodeToKeycode(SCANCODE_KP_AMPERSAND)
+	SDLK_KP_AMPERSAND; ///< ScancodeToKeycode(SCANCODE_KP_AMPERSAND)
 
 constexpr Keycode KEYCODE_KP_DBLAMPERSAND =
-  SDLK_KP_DBLAMPERSAND; ///< ScancodeToKeycode(SCANCODE_KP_DBLAMPERSAND)
+	SDLK_KP_DBLAMPERSAND; ///< ScancodeToKeycode(SCANCODE_KP_DBLAMPERSAND)
 
 constexpr Keycode KEYCODE_KP_VERTICALBAR =
-  SDLK_KP_VERTICALBAR; ///< ScancodeToKeycode(SCANCODE_KP_VERTICALBAR)
+	SDLK_KP_VERTICALBAR; ///< ScancodeToKeycode(SCANCODE_KP_VERTICALBAR)
 
 constexpr Keycode KEYCODE_KP_DBLVERTICALBAR =
-  SDLK_KP_DBLVERTICALBAR; ///< ScancodeToKeycode(SCANCODE_KP_DBLVERTICALBAR)
+	SDLK_KP_DBLVERTICALBAR; ///< ScancodeToKeycode(SCANCODE_KP_DBLVERTICALBAR)
 
 constexpr Keycode KEYCODE_KP_COLON =
-  SDLK_KP_COLON; ///< ScancodeToKeycode(SCANCODE_KP_COLON)
+	SDLK_KP_COLON; ///< ScancodeToKeycode(SCANCODE_KP_COLON)
 
 constexpr Keycode KEYCODE_KP_HASH =
-  SDLK_KP_HASH; ///< ScancodeToKeycode(SCANCODE_KP_HASH)
+	SDLK_KP_HASH; ///< ScancodeToKeycode(SCANCODE_KP_HASH)
 
 constexpr Keycode KEYCODE_KP_SPACE =
-  SDLK_KP_SPACE; ///< ScancodeToKeycode(SCANCODE_KP_SPACE)
+	SDLK_KP_SPACE; ///< ScancodeToKeycode(SCANCODE_KP_SPACE)
 
 constexpr Keycode KEYCODE_KP_AT =
-  SDLK_KP_AT; ///< ScancodeToKeycode(SCANCODE_KP_AT)
+	SDLK_KP_AT; ///< ScancodeToKeycode(SCANCODE_KP_AT)
 
 constexpr Keycode KEYCODE_KP_EXCLAM =
-  SDLK_KP_EXCLAM; ///< ScancodeToKeycode(SCANCODE_KP_EXCLAM)
+	SDLK_KP_EXCLAM; ///< ScancodeToKeycode(SCANCODE_KP_EXCLAM)
 
 constexpr Keycode KEYCODE_KP_MEMSTORE =
-  SDLK_KP_MEMSTORE; ///< ScancodeToKeycode(SCANCODE_KP_MEMSTORE)
+	SDLK_KP_MEMSTORE; ///< ScancodeToKeycode(SCANCODE_KP_MEMSTORE)
 
 constexpr Keycode KEYCODE_KP_MEMRECALL =
-  SDLK_KP_MEMRECALL; ///< ScancodeToKeycode(SCANCODE_KP_MEMRECALL)
+	SDLK_KP_MEMRECALL; ///< ScancodeToKeycode(SCANCODE_KP_MEMRECALL)
 
 constexpr Keycode KEYCODE_KP_MEMCLEAR =
-  SDLK_KP_MEMCLEAR; ///< ScancodeToKeycode(SCANCODE_KP_MEMCLEAR)
+	SDLK_KP_MEMCLEAR; ///< ScancodeToKeycode(SCANCODE_KP_MEMCLEAR)
 
 constexpr Keycode KEYCODE_KP_MEMADD =
-  SDLK_KP_MEMADD; ///< ScancodeToKeycode(SCANCODE_KP_MEMADD)
+	SDLK_KP_MEMADD; ///< ScancodeToKeycode(SCANCODE_KP_MEMADD)
 
 constexpr Keycode KEYCODE_KP_MEMSUBTRACT =
-  SDLK_KP_MEMSUBTRACT; ///< ScancodeToKeycode(SCANCODE_KP_MEMSUBTRACT)
+	SDLK_KP_MEMSUBTRACT; ///< ScancodeToKeycode(SCANCODE_KP_MEMSUBTRACT)
 
 constexpr Keycode KEYCODE_KP_MEMMULTIPLY =
-  SDLK_KP_MEMMULTIPLY; ///< ScancodeToKeycode(SCANCODE_KP_MEMMULTIPLY)
+	SDLK_KP_MEMMULTIPLY; ///< ScancodeToKeycode(SCANCODE_KP_MEMMULTIPLY)
 
 constexpr Keycode KEYCODE_KP_MEMDIVIDE =
-  SDLK_KP_MEMDIVIDE; ///< ScancodeToKeycode(SCANCODE_KP_MEMDIVIDE)
+	SDLK_KP_MEMDIVIDE; ///< ScancodeToKeycode(SCANCODE_KP_MEMDIVIDE)
 
 constexpr Keycode KEYCODE_KP_PLUSMINUS =
-  SDLK_KP_PLUSMINUS; ///< ScancodeToKeycode(SCANCODE_KP_PLUSMINUS)
+	SDLK_KP_PLUSMINUS; ///< ScancodeToKeycode(SCANCODE_KP_PLUSMINUS)
 
 constexpr Keycode KEYCODE_KP_CLEAR =
-  SDLK_KP_CLEAR; ///< ScancodeToKeycode(SCANCODE_KP_CLEAR)
+	SDLK_KP_CLEAR; ///< ScancodeToKeycode(SCANCODE_KP_CLEAR)
 
 constexpr Keycode KEYCODE_KP_CLEARENTRY =
-  SDLK_KP_CLEARENTRY; ///< ScancodeToKeycode(SCANCODE_KP_CLEARENTRY)
+	SDLK_KP_CLEARENTRY; ///< ScancodeToKeycode(SCANCODE_KP_CLEARENTRY)
 
 constexpr Keycode KEYCODE_KP_BINARY =
-  SDLK_KP_BINARY; ///< ScancodeToKeycode(SCANCODE_KP_BINARY)
+	SDLK_KP_BINARY; ///< ScancodeToKeycode(SCANCODE_KP_BINARY)
 
 constexpr Keycode KEYCODE_KP_OCTAL =
-  SDLK_KP_OCTAL; ///< ScancodeToKeycode(SCANCODE_KP_OCTAL)
+	SDLK_KP_OCTAL; ///< ScancodeToKeycode(SCANCODE_KP_OCTAL)
 
 constexpr Keycode KEYCODE_KP_DECIMAL =
-  SDLK_KP_DECIMAL; ///< ScancodeToKeycode(SCANCODE_KP_DECIMAL)
+	SDLK_KP_DECIMAL; ///< ScancodeToKeycode(SCANCODE_KP_DECIMAL)
 
 constexpr Keycode KEYCODE_KP_HEXADECIMAL =
-  SDLK_KP_HEXADECIMAL; ///< ScancodeToKeycode(SCANCODE_KP_HEXADECIMAL)
+	SDLK_KP_HEXADECIMAL; ///< ScancodeToKeycode(SCANCODE_KP_HEXADECIMAL)
 
 constexpr Keycode KEYCODE_LCTRL =
-  SDLK_LCTRL; ///< ScancodeToKeycode(SCANCODE_LCTRL)
+	SDLK_LCTRL; ///< ScancodeToKeycode(SCANCODE_LCTRL)
 
 constexpr Keycode KEYCODE_LSHIFT =
-  SDLK_LSHIFT; ///< ScancodeToKeycode(SCANCODE_LSHIFT)
+	SDLK_LSHIFT; ///< ScancodeToKeycode(SCANCODE_LSHIFT)
 
 constexpr Keycode KEYCODE_LALT =
-  SDLK_LALT; ///< ScancodeToKeycode(SCANCODE_LALT)
+	SDLK_LALT; ///< ScancodeToKeycode(SCANCODE_LALT)
 
 constexpr Keycode KEYCODE_LGUI =
-  SDLK_LGUI; ///< ScancodeToKeycode(SCANCODE_LGUI)
+	SDLK_LGUI; ///< ScancodeToKeycode(SCANCODE_LGUI)
 
 constexpr Keycode KEYCODE_RCTRL =
-  SDLK_RCTRL; ///< ScancodeToKeycode(SCANCODE_RCTRL)
+	SDLK_RCTRL; ///< ScancodeToKeycode(SCANCODE_RCTRL)
 
 constexpr Keycode KEYCODE_RSHIFT =
-  SDLK_RSHIFT; ///< ScancodeToKeycode(SCANCODE_RSHIFT)
+	SDLK_RSHIFT; ///< ScancodeToKeycode(SCANCODE_RSHIFT)
 
 constexpr Keycode KEYCODE_RALT =
-  SDLK_RALT; ///< ScancodeToKeycode(SCANCODE_RALT)
+	SDLK_RALT; ///< ScancodeToKeycode(SCANCODE_RALT)
 
 constexpr Keycode KEYCODE_RGUI =
-  SDLK_RGUI; ///< ScancodeToKeycode(SCANCODE_RGUI)
+	SDLK_RGUI; ///< ScancodeToKeycode(SCANCODE_RGUI)
 
 constexpr Keycode KEYCODE_MODE =
-  SDLK_MODE; ///< ScancodeToKeycode(SCANCODE_MODE)
+	SDLK_MODE; ///< ScancodeToKeycode(SCANCODE_MODE)
 
 constexpr Keycode KEYCODE_SLEEP =
-  SDLK_SLEEP; ///< ScancodeToKeycode(SCANCODE_SLEEP)
+	SDLK_SLEEP; ///< ScancodeToKeycode(SCANCODE_SLEEP)
 
 constexpr Keycode KEYCODE_WAKE =
-  SDLK_WAKE; ///< ScancodeToKeycode(SCANCODE_WAKE)
+	SDLK_WAKE; ///< ScancodeToKeycode(SCANCODE_WAKE)
 
 constexpr Keycode KEYCODE_CHANNEL_INCREMENT =
-  SDLK_CHANNEL_INCREMENT; ///< ScancodeToKeycode(SCANCODE_CHANNEL_INCREMENT)
+	SDLK_CHANNEL_INCREMENT; ///< ScancodeToKeycode(SCANCODE_CHANNEL_INCREMENT)
 
 constexpr Keycode KEYCODE_CHANNEL_DECREMENT =
-  SDLK_CHANNEL_DECREMENT; ///< ScancodeToKeycode(SCANCODE_CHANNEL_DECREMENT)
+	SDLK_CHANNEL_DECREMENT; ///< ScancodeToKeycode(SCANCODE_CHANNEL_DECREMENT)
 
 constexpr Keycode KEYCODE_MEDIA_PLAY =
-  SDLK_MEDIA_PLAY; ///< ScancodeToKeycode(SCANCODE_MEDIA_PLAY)
+	SDLK_MEDIA_PLAY; ///< ScancodeToKeycode(SCANCODE_MEDIA_PLAY)
 
 constexpr Keycode KEYCODE_MEDIA_PAUSE =
-  SDLK_MEDIA_PAUSE; ///< ScancodeToKeycode(SCANCODE_MEDIA_PAUSE)
+	SDLK_MEDIA_PAUSE; ///< ScancodeToKeycode(SCANCODE_MEDIA_PAUSE)
 
 constexpr Keycode KEYCODE_MEDIA_RECORD =
-  SDLK_MEDIA_RECORD; ///< ScancodeToKeycode(SCANCODE_MEDIA_RECORD)
+	SDLK_MEDIA_RECORD; ///< ScancodeToKeycode(SCANCODE_MEDIA_RECORD)
 
 constexpr Keycode KEYCODE_MEDIA_FAST_FORWARD =
-  SDLK_MEDIA_FAST_FORWARD; ///< ScancodeToKeycode(SCANCODE_MEDIA_FAST_FORWARD)
+	SDLK_MEDIA_FAST_FORWARD; ///< ScancodeToKeycode(SCANCODE_MEDIA_FAST_FORWARD)
 
 constexpr Keycode KEYCODE_MEDIA_REWIND =
-  SDLK_MEDIA_REWIND; ///< ScancodeToKeycode(SCANCODE_MEDIA_REWIND)
+	SDLK_MEDIA_REWIND; ///< ScancodeToKeycode(SCANCODE_MEDIA_REWIND)
 
 constexpr Keycode KEYCODE_MEDIA_NEXT_TRACK =
-  SDLK_MEDIA_NEXT_TRACK; ///< ScancodeToKeycode(SCANCODE_MEDIA_NEXT_TRACK)
+	SDLK_MEDIA_NEXT_TRACK; ///< ScancodeToKeycode(SCANCODE_MEDIA_NEXT_TRACK)
 
 constexpr Keycode KEYCODE_MEDIA_PREVIOUS_TRACK =
-  SDLK_MEDIA_PREVIOUS_TRACK; ///< ScancodeToKeycode(SCANCODE_MEDIA_PREVIOUS_TRACK)
+	SDLK_MEDIA_PREVIOUS_TRACK; ///< ScancodeToKeycode(SCANCODE_MEDIA_PREVIOUS_TRACK)
 
 constexpr Keycode KEYCODE_MEDIA_STOP =
-  SDLK_MEDIA_STOP; ///< ScancodeToKeycode(SCANCODE_MEDIA_STOP)
+	SDLK_MEDIA_STOP; ///< ScancodeToKeycode(SCANCODE_MEDIA_STOP)
 
 constexpr Keycode KEYCODE_MEDIA_EJECT =
-  SDLK_MEDIA_EJECT; ///< ScancodeToKeycode(SCANCODE_MEDIA_EJECT)
+	SDLK_MEDIA_EJECT; ///< ScancodeToKeycode(SCANCODE_MEDIA_EJECT)
 
 constexpr Keycode KEYCODE_MEDIA_PLAY_PAUSE =
-  SDLK_MEDIA_PLAY_PAUSE; ///< ScancodeToKeycode(SCANCODE_MEDIA_PLAY_PAUSE)
+	SDLK_MEDIA_PLAY_PAUSE; ///< ScancodeToKeycode(SCANCODE_MEDIA_PLAY_PAUSE)
 
 constexpr Keycode KEYCODE_MEDIA_SELECT =
-  SDLK_MEDIA_SELECT; ///< ScancodeToKeycode(SCANCODE_MEDIA_SELECT)
+	SDLK_MEDIA_SELECT; ///< ScancodeToKeycode(SCANCODE_MEDIA_SELECT)
 
 constexpr Keycode KEYCODE_AC_NEW =
-  SDLK_AC_NEW; ///< ScancodeToKeycode(SCANCODE_AC_NEW)
+	SDLK_AC_NEW; ///< ScancodeToKeycode(SCANCODE_AC_NEW)
 
 constexpr Keycode KEYCODE_AC_OPEN =
-  SDLK_AC_OPEN; ///< ScancodeToKeycode(SCANCODE_AC_OPEN)
+	SDLK_AC_OPEN; ///< ScancodeToKeycode(SCANCODE_AC_OPEN)
 
 constexpr Keycode KEYCODE_AC_CLOSE =
-  SDLK_AC_CLOSE; ///< ScancodeToKeycode(SCANCODE_AC_CLOSE)
+	SDLK_AC_CLOSE; ///< ScancodeToKeycode(SCANCODE_AC_CLOSE)
 
 constexpr Keycode KEYCODE_AC_EXIT =
-  SDLK_AC_EXIT; ///< ScancodeToKeycode(SCANCODE_AC_EXIT)
+	SDLK_AC_EXIT; ///< ScancodeToKeycode(SCANCODE_AC_EXIT)
 
 constexpr Keycode KEYCODE_AC_SAVE =
-  SDLK_AC_SAVE; ///< ScancodeToKeycode(SCANCODE_AC_SAVE)
+	SDLK_AC_SAVE; ///< ScancodeToKeycode(SCANCODE_AC_SAVE)
 
 constexpr Keycode KEYCODE_AC_PRINT =
-  SDLK_AC_PRINT; ///< ScancodeToKeycode(SCANCODE_AC_PRINT)
+	SDLK_AC_PRINT; ///< ScancodeToKeycode(SCANCODE_AC_PRINT)
 
 constexpr Keycode KEYCODE_AC_PROPERTIES =
-  SDLK_AC_PROPERTIES; ///< ScancodeToKeycode(SCANCODE_AC_PROPERTIES)
+	SDLK_AC_PROPERTIES; ///< ScancodeToKeycode(SCANCODE_AC_PROPERTIES)
 
 constexpr Keycode KEYCODE_AC_SEARCH =
-  SDLK_AC_SEARCH; ///< ScancodeToKeycode(SCANCODE_AC_SEARCH)
+	SDLK_AC_SEARCH; ///< ScancodeToKeycode(SCANCODE_AC_SEARCH)
 
 constexpr Keycode KEYCODE_AC_HOME =
-  SDLK_AC_HOME; ///< ScancodeToKeycode(SCANCODE_AC_HOME)
+	SDLK_AC_HOME; ///< ScancodeToKeycode(SCANCODE_AC_HOME)
 
 constexpr Keycode KEYCODE_AC_BACK =
-  SDLK_AC_BACK; ///< ScancodeToKeycode(SCANCODE_AC_BACK)
+	SDLK_AC_BACK; ///< ScancodeToKeycode(SCANCODE_AC_BACK)
 
 constexpr Keycode KEYCODE_AC_FORWARD =
-  SDLK_AC_FORWARD; ///< ScancodeToKeycode(SCANCODE_AC_FORWARD)
+	SDLK_AC_FORWARD; ///< ScancodeToKeycode(SCANCODE_AC_FORWARD)
 
 constexpr Keycode KEYCODE_AC_STOP =
-  SDLK_AC_STOP; ///< ScancodeToKeycode(SCANCODE_AC_STOP)
+	SDLK_AC_STOP; ///< ScancodeToKeycode(SCANCODE_AC_STOP)
 
 constexpr Keycode KEYCODE_AC_REFRESH =
-  SDLK_AC_REFRESH; ///< ScancodeToKeycode(SCANCODE_AC_REFRESH)
+	SDLK_AC_REFRESH; ///< ScancodeToKeycode(SCANCODE_AC_REFRESH)
 
 constexpr Keycode KEYCODE_AC_BOOKMARKS =
-  SDLK_AC_BOOKMARKS; ///< ScancodeToKeycode(SCANCODE_AC_BOOKMARKS)
+	SDLK_AC_BOOKMARKS; ///< ScancodeToKeycode(SCANCODE_AC_BOOKMARKS)
 
 constexpr Keycode KEYCODE_SOFTLEFT =
-  SDLK_SOFTLEFT; ///< ScancodeToKeycode(SCANCODE_SOFTLEFT)
+	SDLK_SOFTLEFT; ///< ScancodeToKeycode(SCANCODE_SOFTLEFT)
 
 constexpr Keycode KEYCODE_SOFTRIGHT =
-  SDLK_SOFTRIGHT; ///< ScancodeToKeycode(SCANCODE_SOFTRIGHT)
+	SDLK_SOFTRIGHT; ///< ScancodeToKeycode(SCANCODE_SOFTRIGHT)
 
 constexpr Keycode KEYCODE_CALL =
-  SDLK_CALL; ///< ScancodeToKeycode(SCANCODE_CALL)
+	SDLK_CALL; ///< ScancodeToKeycode(SCANCODE_CALL)
 
 constexpr Keycode KEYCODE_ENDCALL =
-  SDLK_ENDCALL; ///< ScancodeToKeycode(SCANCODE_ENDCALL)
+	SDLK_ENDCALL; ///< ScancodeToKeycode(SCANCODE_ENDCALL)
 
 constexpr Keycode KEYCODE_LEFT_TAB = SDLK_LEFT_TAB; ///< Extended key Left Tab
 
 constexpr Keycode KEYCODE_LEVEL5_SHIFT =
-  SDLK_LEVEL5_SHIFT; ///< Extended key Level 5 Shift
+	SDLK_LEVEL5_SHIFT; ///< Extended key Level 5 Shift
 
 constexpr Keycode KEYCODE_MULTI_KEY_COMPOSE =
-  SDLK_MULTI_KEY_COMPOSE; ///< Extended key Multi-key Compose
+	SDLK_MULTI_KEY_COMPOSE; ///< Extended key Multi-key Compose
 
 constexpr Keycode KEYCODE_LMETA = SDLK_LMETA; ///< Extended key Left Meta
 
@@ -885,13 +885,13 @@ constexpr Keycode KEYCODE_RHYPER = SDLK_RHYPER; ///< Extended key Right Hyper
 constexpr Keycode KEYCODE_EXTENDED_MASK = SDLK_EXTENDED_MASK; ///< EXTENDED_MASK
 
 constexpr bool Keycode::IsExtended() const {
-  return m_keycode & SDLK_EXTENDED_MASK;
+	return m_keycode & SDLK_EXTENDED_MASK;
 }
 
 constexpr Keycode KEYCODE_SCANCODE_MASK = SDLK_SCANCODE_MASK; ///< SCANCODE_MASK
 
 constexpr bool Keycode::IsScancode() const {
-  return m_keycode & SDLK_SCANCODE_MASK;
+	return m_keycode & SDLK_SCANCODE_MASK;
 }
 
 /**
@@ -901,7 +901,7 @@ constexpr bool Keycode::IsScancode() const {
  * @return keycode
  */
 constexpr Keycode ScancodeToKeycode(Scancode x) {
-  return SDL_SCANCODE_TO_KEYCODE(x);
+	return SDL_SCANCODE_TO_KEYCODE(x);
 }
 
 /// @}

@@ -62,7 +62,7 @@ namespace SDL {
  * @sa SetError
  */
 inline bool SetErrorUnformatted(StringParam message) {
-  return SDL_SetError("%s", static_cast<const char*>(message));
+	return SDL_SetError("%s", static_cast<const char*>(message));
 }
 
 /**
@@ -101,7 +101,7 @@ inline bool SetErrorUnformatted(StringParam message) {
  */
 template<class... ARGS>
 inline bool SetError(std::string_view fmt, ARGS... args) {
-  return SetError(std::vformat(fmt, std::make_format_args(args...)));
+	return SetError(std::vformat(fmt, std::make_format_args(args...)));
 }
 
 /**
@@ -158,28 +158,28 @@ inline const char* GetError() { return SDL_GetError(); }
  *
  */
 class Error : public std::exception {
-  std::string m_message;
+	std::string m_message;
 
 public:
-  /// Default ctor.
-  Error()
-    : m_message(SDL_GetError()) {
-  }
+	/// Default ctor.
+	Error()
+		: m_message(SDL_GetError()) {
+	}
 
-  /// Default ctor.
-  Error(std::string message)
-    : m_message(std::move(message)) {
-  }
+	/// Default ctor.
+	Error(std::string message)
+		: m_message(std::move(message)) {
+	}
 
-  /// Returns the explanatory string.
-  constexpr const char* what() const noexcept final {
-    return m_message.c_str();
-  }
+	/// Returns the explanatory string.
+	constexpr const char* what() const noexcept final {
+		return m_message.c_str();
+	}
 
-  /**
-   * Returns the explanatory string.
-   */
-  constexpr const std::string& str() const noexcept { return m_message; }
+	/**
+	 * Returns the explanatory string.
+	 */
+	constexpr const std::string& str() const noexcept { return m_message; }
 };
 
 /**
@@ -191,7 +191,7 @@ public:
  * @param result the result returned
  */
 constexpr void CheckError(bool result) {
-  if (!result) throw Error();
+	if (!result) throw Error();
 }
 
 /**
@@ -204,8 +204,8 @@ constexpr void CheckError(bool result) {
  */
 template<class T>
 constexpr T CheckError(T result) {
-  if (!result) throw Error();
-  return result;
+	if (!result) throw Error();
+	return result;
 }
 
 /**
@@ -220,8 +220,8 @@ constexpr T CheckError(T result) {
  */
 template<class T>
 constexpr T CheckError(T result, T invalidValue) {
-  if (result == invalidValue) throw Error();
-  return result;
+	if (result == invalidValue) throw Error();
+	return result;
 }
 
 /**
@@ -235,7 +235,7 @@ constexpr T CheckError(T result, T invalidValue) {
  */
 template<class T>
 constexpr void CheckErrorIfNot(T result, T validValue) {
-  if (result != validValue) throw Error();
+	if (result != validValue) throw Error();
 }
 
 /**
@@ -289,7 +289,7 @@ inline bool ClearError() { return SDL_ClearError(); }
  * @since This macro is available since SDL 3.2.0.
  */
 #define SDL_InvalidParamError(param)                                           \
-  SDL_SetError("Parameter '%s' is invalid", (param))
+	SDL_SetError("Parameter '%s' is invalid", (param))
 
 #endif // SDL3PP_DOC
 

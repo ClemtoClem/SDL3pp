@@ -67,9 +67,9 @@ inline bool HasKeyboard() { return SDL_HasKeyboard(); }
  * @sa HasKeyboard
  */
 inline OwnArray<KeyboardID> GetKeyboards() {
-  int count;
-  auto data = CheckError(SDL_GetKeyboards(&count));
-  return OwnArray<KeyboardID>{data, size_t(count)};
+	int count;
+	auto data = CheckError(SDL_GetKeyboards(&count));
+	return OwnArray<KeyboardID>{data, size_t(count)};
 }
 
 /**
@@ -88,7 +88,7 @@ inline OwnArray<KeyboardID> GetKeyboards() {
  * @sa GetKeyboards
  */
 inline const char* GetKeyboardNameForID(KeyboardID instance_id) {
-  return SDL_GetKeyboardNameForID(instance_id);
+	return SDL_GetKeyboardNameForID(instance_id);
 }
 
 /**
@@ -133,9 +133,9 @@ inline WindowRef GetKeyboardFocus() { return {SDL_GetKeyboardFocus()}; }
  * @sa ResetKeyboard
  */
 inline std::span<const bool> GetKeyboardState() {
-  int count;
-  auto data = SDL_GetKeyboardState(&count);
-  return std::span{data, size_t(count)};
+	int count;
+	auto data = SDL_GetKeyboardState(&count);
+	return std::span{data, size_t(count)};
 }
 
 /**
@@ -186,39 +186,39 @@ inline Keymod GetModState() { return SDL_GetModState(); }
 inline void SetModState(Keymod modstate) { SDL_SetModState(modstate); }
 
 inline Keycode::Keycode(Scancode scancode, Keymod modstate, bool key_event)
-  : m_keycode(SDL_GetKeyFromScancode(scancode, modstate, key_event)) {
+	: m_keycode(SDL_GetKeyFromScancode(scancode, modstate, key_event)) {
 }
 
 inline Keycode::Keycode(StringParam name)
-  : m_keycode(SDL_GetKeyFromName(name)) {
+	: m_keycode(SDL_GetKeyFromName(name)) {
 }
 
 inline Scancode Keycode::GetScancode(Keymod* modstate) const {
-  return SDL_GetScancodeFromKey(m_keycode, modstate);
+	return SDL_GetScancodeFromKey(m_keycode, modstate);
 }
 
 inline void Scancode::SetName(StringParam name) {
-  CheckError(SDL_SetScancodeName(m_scancode, name));
+	CheckError(SDL_SetScancodeName(m_scancode, name));
 }
 
 inline const char* Scancode::GetName() const {
-  return SDL_GetScancodeName(m_scancode);
+	return SDL_GetScancodeName(m_scancode);
 }
 
 inline Scancode::Scancode(StringParam name)
-  : m_scancode(SDL_GetScancodeFromName(name)) {
+	: m_scancode(SDL_GetScancodeFromName(name)) {
 }
 
 inline const char* Keycode::GetName() const {
-  return SDL_GetKeyName(m_keycode);
+	return SDL_GetKeyName(m_keycode);
 }
 
 inline void Window::StartTextInput() {
-  CheckError(SDL_StartTextInput(m_resource));
+	CheckError(SDL_StartTextInput(m_resource));
 }
 
 inline void Window::StartTextInput(PropertiesRef props) {
-  CheckError(SDL_StartTextInputWithProperties(m_resource, props));
+	CheckError(SDL_StartTextInputWithProperties(m_resource, props));
 }
 
 /**
@@ -235,35 +235,35 @@ inline void Window::StartTextInput(PropertiesRef props) {
 using TextInputType = SDL_TextInputType;
 
 constexpr TextInputType TEXTINPUT_TYPE_TEXT =
-  SDL_TEXTINPUT_TYPE_TEXT; ///< The input is text
+	SDL_TEXTINPUT_TYPE_TEXT; ///< The input is text
 
 constexpr TextInputType TEXTINPUT_TYPE_TEXT_NAME =
-  SDL_TEXTINPUT_TYPE_TEXT_NAME; ///< The input is a person's name
+	SDL_TEXTINPUT_TYPE_TEXT_NAME; ///< The input is a person's name
 
 constexpr TextInputType TEXTINPUT_TYPE_TEXT_EMAIL =
-  SDL_TEXTINPUT_TYPE_TEXT_EMAIL; ///< The input is an e-mail address
+	SDL_TEXTINPUT_TYPE_TEXT_EMAIL; ///< The input is an e-mail address
 
 constexpr TextInputType TEXTINPUT_TYPE_TEXT_USERNAME =
-  SDL_TEXTINPUT_TYPE_TEXT_USERNAME; ///< The input is a username
+	SDL_TEXTINPUT_TYPE_TEXT_USERNAME; ///< The input is a username
 
 constexpr TextInputType TEXTINPUT_TYPE_TEXT_PASSWORD_HIDDEN =
-  SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_HIDDEN; ///< The input is a secure password
-                                           ///< that is hidden
+	SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_HIDDEN; ///< The input is a secure password
+																					 ///< that is hidden
 
 constexpr TextInputType TEXTINPUT_TYPE_TEXT_PASSWORD_VISIBLE =
-  SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_VISIBLE; ///< The input is a secure password
-                                            ///< that is visible
+	SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_VISIBLE; ///< The input is a secure password
+																						///< that is visible
 
 constexpr TextInputType TEXTINPUT_TYPE_NUMBER =
-  SDL_TEXTINPUT_TYPE_NUMBER; ///< The input is a number
+	SDL_TEXTINPUT_TYPE_NUMBER; ///< The input is a number
 
 constexpr TextInputType TEXTINPUT_TYPE_NUMBER_PASSWORD_HIDDEN =
-  SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_HIDDEN; ///< The input is a secure PIN that
-                                             ///< is hidden
+	SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_HIDDEN; ///< The input is a secure PIN that
+																						 ///< is hidden
 
 constexpr TextInputType TEXTINPUT_TYPE_NUMBER_PASSWORD_VISIBLE =
-  SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_VISIBLE; ///< The input is a secure PIN
-                                              ///< that is visible
+	SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_VISIBLE; ///< The input is a secure PIN
+																							///< that is visible
 
 /**
  * Auto capitalization type.
@@ -279,17 +279,17 @@ constexpr TextInputType TEXTINPUT_TYPE_NUMBER_PASSWORD_VISIBLE =
 using Capitalization = SDL_Capitalization;
 
 constexpr Capitalization CAPITALIZE_NONE =
-  SDL_CAPITALIZE_NONE; ///< No auto-capitalization will be done
+	SDL_CAPITALIZE_NONE; ///< No auto-capitalization will be done
 
 constexpr Capitalization CAPITALIZE_SENTENCES =
-  SDL_CAPITALIZE_SENTENCES; ///< The first letter of sentences will be
-                            ///< capitalized
+	SDL_CAPITALIZE_SENTENCES; ///< The first letter of sentences will be
+														///< capitalized
 
 constexpr Capitalization CAPITALIZE_WORDS =
-  SDL_CAPITALIZE_WORDS; ///< The first letter of words will be capitalized
+	SDL_CAPITALIZE_WORDS; ///< The first letter of words will be capitalized
 
 constexpr Capitalization CAPITALIZE_LETTERS =
-  SDL_CAPITALIZE_LETTERS; ///< All letters will be capitalized
+	SDL_CAPITALIZE_LETTERS; ///< All letters will be capitalized
 
 namespace prop::TextInput {
 
@@ -302,28 +302,28 @@ constexpr auto AUTOCORRECT_BOOLEAN = SDL_PROP_TEXTINPUT_AUTOCORRECT_BOOLEAN;
 constexpr auto MULTILINE_BOOLEAN = SDL_PROP_TEXTINPUT_MULTILINE_BOOLEAN;
 
 constexpr auto ANDROID_INPUTTYPE_NUMBER =
-  SDL_PROP_TEXTINPUT_ANDROID_INPUTTYPE_NUMBER;
+	SDL_PROP_TEXTINPUT_ANDROID_INPUTTYPE_NUMBER;
 
 } // namespace prop::TextInput
 
 inline bool Window::IsTextInputActive() const {
-  return SDL_TextInputActive(m_resource);
+	return SDL_TextInputActive(m_resource);
 }
 
 inline void Window::StopTextInput() {
-  CheckError(SDL_StopTextInput(m_resource));
+	CheckError(SDL_StopTextInput(m_resource));
 }
 
 inline void Window::ClearComposition() {
-  CheckError(SDL_ClearComposition(m_resource));
+	CheckError(SDL_ClearComposition(m_resource));
 }
 
 inline void Window::SetTextInputArea(const RectRaw& rect, int cursor) {
-  CheckError(SDL_SetTextInputArea(m_resource, &rect, cursor));
+	CheckError(SDL_SetTextInputArea(m_resource, &rect, cursor));
 }
 
 inline void Window::GetTextInputArea(RectRaw* rect, int* cursor) {
-  CheckError(SDL_GetTextInputArea(m_resource, rect, cursor));
+	CheckError(SDL_GetTextInputArea(m_resource, rect, cursor));
 }
 
 /**
@@ -340,11 +340,11 @@ inline void Window::GetTextInputArea(RectRaw* rect, int* cursor) {
  * @sa Window.IsScreenKeyboardShown
  */
 inline bool HasScreenKeyboardSupport() {
-  return SDL_HasScreenKeyboardSupport();
+	return SDL_HasScreenKeyboardSupport();
 }
 
 inline bool Window::IsScreenKeyboardShown() const {
-  return SDL_ScreenKeyboardShown(m_resource);
+	return SDL_ScreenKeyboardShown(m_resource);
 }
 
 /// @}

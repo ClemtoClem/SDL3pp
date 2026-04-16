@@ -73,9 +73,9 @@ using Locale = SDL_Locale;
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<Locale*> GetPreferredLocales() {
-  int count = 0;
-  auto data = SDL_GetPreferredLocales(&count);
-  return OwnArray<Locale*>{CheckError(data), size_t(count)};
+	int count = 0;
+	auto data = SDL_GetPreferredLocales(&count);
+	return OwnArray<Locale*>{CheckError(data), size_t(count)};
 }
 
 /// @}

@@ -15,7 +15,7 @@ using namespace core;
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum class EntityType {
-    Default, Player, Pnj, Blob, Dragon, Goblin, Skeleton
+	Default, Player, Pnj, Blob, Dragon, Goblin, Skeleton
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ enum class EntityType {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct Transform {
-    float x = 0.f, y = 0.f;
+	float x = 0.f, y = 0.f;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ struct Transform {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct Velocity {
-    float vx = 0.f, vy = 0.f;
+	float vx = 0.f, vy = 0.f;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ struct Velocity {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct DirectionComp {
-    Direction dir = Direction::South;
+	Direction dir = Direction::South;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,9 +47,9 @@ struct DirectionComp {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct SpeedComp {
-    float walkSpeed = 0.05f;
-    float runSpeed  = 0.1f;
-    bool  running   = false;
+	float walkSpeed = 0.05f;
+	float runSpeed  = 0.1f;
+	bool  running   = false;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,8 +57,8 @@ struct SpeedComp {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct EntityTag {
-    EntityType  type = EntityType::Default;
-    std::string name;
+	EntityType  type = EntityType::Default;
+	std::string name;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,16 +76,16 @@ struct PlayerTag { int polypoints = 0; };
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct SpriteAnim {
-    SDL::TextureRef texture;
-    int   tileSize     = 64;  // source frame size (px)
-    int   nbCols       = 3;   // animation frames per row
-    float scale         = 1.5f;// display scale relative to dispTileSize
-    int   currentCol   = 0;   // current animation column
-    float timer        = 0.f;
-    int   framesPerCol = 5;   // game ticks before advancing frame
-    int   tickCounter  = 0;
-    bool  firstIsStand = true;
-    bool  moving       = false;
+	SDL::TextureRef texture;
+	int   tileSize     = 64;  // source frame size (px)
+	int   nbCols       = 3;   // animation frames per row
+	float scale         = 1.5f;// display scale relative to dispTileSize
+	int   currentCol   = 0;   // current animation column
+	float timer        = 0.f;
+	int   framesPerCol = 5;   // game ticks before advancing frame
+	int   tickCounter  = 0;
+	bool  firstIsStand = true;
+	bool  moving       = false;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,9 +96,9 @@ struct SpriteAnim {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct CollisionBoxes {
-    SDL::FRect body[4] = {};
-    SDL::FRect step[4] = {};
-    int        tileSize = 64;
+	SDL::FRect body[4] = {};
+	SDL::FRect step[4] = {};
+	int        tileSize = 64;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,13 +106,13 @@ struct CollisionBoxes {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct HealthComp {
-    float hp         = 100.f;
-    float maxHp      = 100.f;
-    float regenPerSec = 0.f;
-    float damagePerSec = 0.f;
-    bool  sick       = false;
-    bool  enabled    = true;
-    float invincibleTimer = 0.f; // invincibility frames after being hit
+	float hp         = 100.f;
+	float maxHp      = 100.f;
+	float regenPerSec = 0.f;
+	float damagePerSec = 0.f;
+	bool  sick       = false;
+	bool  enabled    = true;
+	float invincibleTimer = 0.f; // invincibility frames after being hit
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -122,18 +122,18 @@ struct HealthComp {
 enum class AIState { Idle, Patrol, Chase, Attack, Dead };
 
 struct MobAI {
-    AIState state        = AIState::Idle;
-    float   patrolRadius = 3.f;
-    float   chaseRadius  = 8.f;
-    float   attackRange  = 0.8f;
-    float   stateTimer   = 0.f;
-    float   spawnX       = 0.f;
-    float   spawnY       = 0.f;
-    float   patrolTargX  = 0.f;
-    float   patrolTargY  = 0.f;
-    float   pushForce    = 8.f;
-    float   attackCooldown = 0.f;
-    SDL::ECS::EntityId targetEntity = SDL::ECS::NullEntity;
+	AIState state        = AIState::Idle;
+	float   patrolRadius = 3.f;
+	float   chaseRadius  = 8.f;
+	float   attackRange  = 0.8f;
+	float   stateTimer   = 0.f;
+	float   spawnX       = 0.f;
+	float   spawnY       = 0.f;
+	float   patrolTargX  = 0.f;
+	float   patrolTargY  = 0.f;
+	float   pushForce    = 8.f;
+	float   attackCooldown = 0.f;
+	SDL::ECS::EntityId targetEntity = SDL::ECS::NullEntity;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,10 +141,10 @@ struct MobAI {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct AutoWalk {
-    float targetX   = 0.f;
-    float targetY   = 0.f;
-    float remaining = 0.f;
-    bool  active    = false;
+	float targetX   = 0.f;
+	float targetY   = 0.f;
+	float remaining = 0.f;
+	bool  active    = false;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,9 +152,9 @@ struct AutoWalk {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct Dialogue {
-    std::vector<std::string> lines;
-    bool  active  = false;
-    int   current = 0;
+	std::vector<std::string> lines;
+	bool  active  = false;
+	int   current = 0;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,9 +162,9 @@ struct Dialogue {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct CollisionResult {
-    CollisionId facing       = CollisionId::None; // tile in front of entity
-    bool        fromOther    = false; // collided with another entity
-    bool        stepFromOther= false;
+	CollisionId facing       = CollisionId::None; // tile in front of entity
+	bool        fromOther    = false; // collided with another entity
+	bool        stepFromOther= false;
 };
 
 } // namespace game

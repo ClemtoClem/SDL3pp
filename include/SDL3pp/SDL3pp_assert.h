@@ -170,9 +170,9 @@ namespace SDL {
  * @since This macro is available since SDL 3.2.0.
  */
 #define SDL_disabled_assert(condition)                                         \
-  do {                                                                         \
-    (void)sizeof((condition));                                                 \
-  } while (SDL_NULL_WHILE_LOOP_CONDITION)
+	do {                                                                         \
+		(void)sizeof((condition));                                                 \
+	} while (SDL_NULL_WHILE_LOOP_CONDITION)
 
 #endif // SDL3PP_DOC
 
@@ -192,19 +192,19 @@ namespace SDL {
 using AssertState = SDL_AssertState;
 
 constexpr AssertState ASSERTION_RETRY =
-  SDL_ASSERTION_RETRY; ///< Retry the assert immediately.
+	SDL_ASSERTION_RETRY; ///< Retry the assert immediately.
 
 constexpr AssertState ASSERTION_BREAK =
-  SDL_ASSERTION_BREAK; ///< Make the debugger trigger a breakpoint.
+	SDL_ASSERTION_BREAK; ///< Make the debugger trigger a breakpoint.
 
 constexpr AssertState ASSERTION_ABORT =
-  SDL_ASSERTION_ABORT; ///< Terminate the program.
+	SDL_ASSERTION_ABORT; ///< Terminate the program.
 
 constexpr AssertState ASSERTION_IGNORE =
-  SDL_ASSERTION_IGNORE; ///< Ignore the assert.
+	SDL_ASSERTION_IGNORE; ///< Ignore the assert.
 
 constexpr AssertState ASSERTION_ALWAYS_IGNORE =
-  SDL_ASSERTION_ALWAYS_IGNORE; ///< Ignore the assert from now on.
+	SDL_ASSERTION_ALWAYS_IGNORE; ///< Ignore the assert from now on.
 
 /**
  * Information about an assertion failure.
@@ -233,10 +233,10 @@ using AssertData = SDL_AssertData;
  * @since This function is available since SDL 3.2.0.
  */
 inline AssertState ReportAssertion(AssertData* data,
-                                   StringParam func,
-                                   StringParam file,
-                                   int line) {
-  return SDL_ReportAssertion(data, func, file, line);
+																	 StringParam func,
+																	 StringParam file,
+																	 int line) {
+	return SDL_ReportAssertion(data, func, file, line);
 }
 
 #ifdef SDL3PP_DOC
@@ -272,20 +272,20 @@ inline AssertState ReportAssertion(AssertData* data,
  * @since This macro is available since SDL 3.2.0.
  */
 #define SDL_enabled_assert(condition)                                          \
-  do {                                                                         \
-    while (!(condition)) {                                                     \
-      static struct SDL_AssertData sdl_assert_data = {                         \
-        false, 0, #condition, NULL, 0, NULL, NULL};                            \
-      const SDL_AssertState sdl_assert_state = SDL_ReportAssertion(            \
-        &sdl_assert_data, SDL_FUNCTION, SDL_ASSERT_FILE, SDL_LINE);            \
-      if (sdl_assert_state == SDL_ASSERTION_RETRY) {                           \
-        continue; /* go again. */                                              \
-      } else if (sdl_assert_state == SDL_ASSERTION_BREAK) {                    \
-        SDL_AssertBreakpoint();                                                \
-      }                                                                        \
-      break; /* not retrying. */                                               \
-    }                                                                          \
-  } while (SDL_NULL_WHILE_LOOP_CONDITION)
+	do {                                                                         \
+		while (!(condition)) {                                                     \
+			static struct SDL_AssertData sdl_assert_data = {                         \
+				false, 0, #condition, NULL, 0, NULL, NULL};                            \
+			const SDL_AssertState sdl_assert_state = SDL_ReportAssertion(            \
+				&sdl_assert_data, SDL_FUNCTION, SDL_ASSERT_FILE, SDL_LINE);            \
+			if (sdl_assert_state == SDL_ASSERTION_RETRY) {                           \
+				continue; /* go again. */                                              \
+			} else if (sdl_assert_state == SDL_ASSERTION_BREAK) {                    \
+				SDL_AssertBreakpoint();                                                \
+			}                                                                        \
+			break; /* not retrying. */                                               \
+		}                                                                          \
+	} while (SDL_NULL_WHILE_LOOP_CONDITION)
 
 /**
  * An assertion test that is normally performed only in debug builds.
@@ -318,7 +318,7 @@ inline AssertState ReportAssertion(AssertData* data,
  * @since This macro is available since SDL 3.2.0.
  */
 #define SDL_assert(condition)                                                  \
-  if (assertion_enabled && (condition)) { trigger_assertion; }
+	if (assertion_enabled && (condition)) { trigger_assertion; }
 
 /**
  * An assertion test that is performed even in Release builds.
@@ -420,7 +420,7 @@ inline AssertState ReportAssertion(AssertData* data,
  * @since This datatype is available since SDL 3.2.0.
  */
 using AssertionHandler = AssertState(SDLCALL*)(const AssertData* data,
-                                               void* userdata);
+																							 void* userdata);
 
 /**
  * A callback that fires when an SDL assertion fails.
@@ -437,7 +437,7 @@ using AssertionHandler = AssertState(SDLCALL*)(const AssertData* data,
  * @sa AssertionHandler
  */
 using AssertionHandlerCB =
-  MakeTrailingCallback<AssertState(const AssertData* data)>;
+	MakeTrailingCallback<AssertState(const AssertData* data)>;
 
 /**
  * Set an application-defined assertion handler.
@@ -463,7 +463,7 @@ using AssertionHandlerCB =
  * @sa GetAssertionHandler
  */
 inline void SetAssertionHandler(AssertionHandler handler, void* userdata) {
-  return SDL_SetAssertionHandler(handler, userdata);
+	return SDL_SetAssertionHandler(handler, userdata);
 }
 
 /**
@@ -489,7 +489,7 @@ inline void SetAssertionHandler(AssertionHandler handler, void* userdata) {
  * @sa GetAssertionHandler
  */
 inline void SetAssertionHandler(AssertionHandlerCB handler) {
-  SetAssertionHandler(handler.wrapper, handler.data);
+	SetAssertionHandler(handler.wrapper, handler.data);
 }
 
 /**
@@ -509,7 +509,7 @@ inline void SetAssertionHandler(AssertionHandlerCB handler) {
  * @sa GetAssertionHandler
  */
 inline AssertionHandler GetDefaultAssertionHandler() {
-  return SDL_GetDefaultAssertionHandler();
+	return SDL_GetDefaultAssertionHandler();
 }
 
 /**
@@ -536,7 +536,7 @@ inline AssertionHandler GetDefaultAssertionHandler() {
  * @sa SetAssertionHandler
  */
 inline AssertionHandler GetAssertionHandler(void** puserdata) {
-  return SDL_GetAssertionHandler(puserdata);
+	return SDL_GetAssertionHandler(puserdata);
 }
 /**
  * Get a list of all assertion failures.
@@ -571,7 +571,7 @@ inline AssertionHandler GetAssertionHandler(void** puserdata) {
  * @sa ResetAssertionReport
  */
 inline const AssertData& GetAssertionReport() {
-  return *SDL_GetAssertionReport();
+	return *SDL_GetAssertionReport();
 }
 
 /**

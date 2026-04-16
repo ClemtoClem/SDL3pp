@@ -2,6 +2,13 @@
 #  Improved SDL3pp Makefile
 # ============================================================
 
+# ── Détection de l'OS (Gère le problème de recompilation continue sous Windows) ──
+ifeq ($(OS),Windows_NT)
+    EXE := .exe
+else
+    EXE :=
+endif
+
 TARGET_NAME := Game
 LIB_NAME	:= SDL3pp
 
@@ -13,7 +20,7 @@ SRCDIR	  	:= src
 BUILDDIR	:= build
 
 LIB_TARGET  := $(BUILDDIR)/lib$(LIB_NAME).a
-APP_TARGET  := $(TARGET_NAME)
+APP_TARGET  := $(TARGET_NAME)$(EXE)
 
 EXTS	:= c cpp
 SOURCES := $(foreach ext,$(EXTS),$(shell find $(SRCDIR) -type f -name '*.$(ext)' 2>/dev/null))
@@ -26,6 +33,10 @@ CPPFLAGS := -I$(INCDIR)
 
 LDLIBS := $(shell pkg-config --libs sdl3 sdl3-image sdl3-mixer sdl3-ttf sdl3-net 2>/dev/null) \
 		  $(shell pkg-config --libs vulkan 2>/dev/null)
+
+# FFmpeg libraries – used only by the video player example
+FFMPEG_CFLAGS := $(shell pkg-config --cflags libavutil libavcodec libavformat libswscale libswresample 2>/dev/null)
+FFMPEG_LIBS   := $(shell pkg-config --libs   libavformat libavcodec libavutil libswscale libswresample 2>/dev/null)
 
 # ── Colours ─────────────────────────────────────────────────
 GREEN  := $(shell tput setaf 2 2>/dev/null)
@@ -73,24 +84,39 @@ $(APP_TARGET): $(LIB_TARGET)
 # ── Examples ────────────────────────────────────────────────
 EXAMPLE_SRCS := $(shell find examples -name '*.cpp' 2>/dev/null)
 EXAMPLE_OBJS := $(patsubst examples/%.cpp,$(BUILDDIR)/examples/%.o,$(EXAMPLE_SRCS))
-EXAMPLE_BINS := $(patsubst examples/%.cpp,$(BUILDDIR)/examples/%,$(EXAMPLE_SRCS))
+
+# Ajout de $(EXE) pour s'assurer que Make trouve la cible
+EXAMPLE_BINS := $(patsubst examples/%.cpp,$(BUILDDIR)/examples/%$(EXE),$(EXAMPLE_SRCS))
 
 examples: $(EXAMPLE_BINS)
 
 # 1. Compilation des objets pour les exemples (génère aussi les .d)
+# Règle spécifique : video player (nécessite les flags FFmpeg)
+$(BUILDDIR)/examples/demo/06_video_player.o: examples/demo/06_video_player.cpp | $(BUILDDIR)
+	@mkdir -p $(dir $@)
+	$(call print_yellow,"Compiling FFmpeg $<")
+	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FFMPEG_CFLAGS) -c $< -o $@
+
+# Règle générique pour tous les autres exemples
 $(BUILDDIR)/examples/%.o: examples/%.cpp | $(BUILDDIR)
 	@mkdir -p $(dir $@)
 	$(call print_yellow,"Compiling example $<")
 	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
 
 # 2. Édition de liens (linking) des exemples
-$(BUILDDIR)/examples/%: $(BUILDDIR)/examples/%.o $(LIB_TARGET)
+# Règle spécifique : video player (link avec FFmpeg)
+$(BUILDDIR)/examples/demo/06_video_player$(EXE): $(BUILDDIR)/examples/demo/06_video_player.o $(LIB_TARGET)
+	$(call print_green,"Linking FFmpeg $@")
+	@$(CXX) $< -L$(BUILDDIR) -l$(LIB_NAME) $(LDLIBS) $(FFMPEG_LIBS) -o $@
+
+# Règle générique pour tous les autres exemples
+$(BUILDDIR)/examples/%$(EXE): $(BUILDDIR)/examples/%.o $(LIB_TARGET)
 	$(call print_green,"Linking example $@")
 	@$(CXX) $< -L$(BUILDDIR) -l$(LIB_NAME) $(LDLIBS) -o $@
 
 # ── Shaders ────────────────────────────────────────────────
 GLSLC		   := glslc
-SPIRV_CROSS	 := spirv-cross
+SPIRV_CROSS	   := spirv-cross
 
 SHADER_SRCDIR   := assets/shaders/src
 SHADER_BINDIR   := assets/shaders/bin

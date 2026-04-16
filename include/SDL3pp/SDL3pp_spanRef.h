@@ -9,7 +9,7 @@ namespace SDL {
 
 template<class T, class BASE>
 concept DerivedWrapper =
-  std::derived_from<T, BASE> && sizeof(T) == sizeof(BASE);
+	std::derived_from<T, BASE> && sizeof(T) == sizeof(BASE);
 
 /**
  * span-like for empty-derived structs
@@ -21,54 +21,54 @@ concept DerivedWrapper =
  */
 template<class T>
 class SpanRef {
-  std::span<T> value;
+	std::span<T> value;
 
 public:
-  constexpr SpanRef() = default;
+	constexpr SpanRef() = default;
 
-  /// Constructor
-  template<DerivedWrapper<T> U, size_t N>
-  constexpr SpanRef(U (&other)[N])
-    : value(static_cast<T*>(other), N) {
-  }
+	/// Constructor
+	template<DerivedWrapper<T> U, size_t N>
+	constexpr SpanRef(U (&other)[N])
+		: value(static_cast<T*>(other), N) {
+	}
 
-  /// Constructor
-  template<DerivedWrapper<T> U>
-  constexpr SpanRef(const std::span<U>& other)
-    : value(other.data(), other.size()) {
-  }
+	/// Constructor
+	template<DerivedWrapper<T> U>
+	constexpr SpanRef(const std::span<U>& other)
+		: value(other.data(), other.size()) {
+	}
 
-  /// Constructor
-  template<std::contiguous_iterator It>
-    requires DerivedWrapper<std::iter_value_t<It>, T>
-  constexpr SpanRef(It first, size_t count)
-    : value((T*)(&*first), count) {
-  }
+	/// Constructor
+	template<std::contiguous_iterator It>
+		requires DerivedWrapper<std::iter_value_t<It>, T>
+	constexpr SpanRef(It first, size_t count)
+		: value((T*)(&*first), count) {
+	}
 
-  /// Constructor
-  template<std::contiguous_iterator It, std::sized_sentinel_for<It> end>
-    requires DerivedWrapper<std::iter_value_t<It>, T>
-  constexpr SpanRef(It first, end last)
-    : value((T*)(&*first), size_t(last - first)) {
-  }
+	/// Constructor
+	template<std::contiguous_iterator It, std::sized_sentinel_for<It> end>
+		requires DerivedWrapper<std::iter_value_t<It>, T>
+	constexpr SpanRef(It first, end last)
+		: value((T*)(&*first), size_t(last - first)) {
+	}
 
-  /// Constructor
-  template<std::ranges::contiguous_range R>
-    requires DerivedWrapper<std::iter_value_t<std::ranges::iterator_t<R>>, T>
-  constexpr SpanRef(R&& range)
-    : SpanRef(std::begin(range), std::end(range)) {
-  }
+	/// Constructor
+	template<std::ranges::contiguous_range R>
+		requires DerivedWrapper<std::iter_value_t<std::ranges::iterator_t<R>>, T>
+	constexpr SpanRef(R&& range)
+		: SpanRef(std::begin(range), std::end(range)) {
+	}
 
-  /// Retrieves contained size
-  constexpr size_t size() const { return value.size(); }
+	/// Retrieves contained size
+	constexpr size_t size() const { return value.size(); }
 
-  /// Retrieves contained size in bytes
-  constexpr size_t size_bytes() const { return value.size_bytes(); }
+	/// Retrieves contained size in bytes
+	constexpr size_t size_bytes() const { return value.size_bytes(); }
 
-  /// Retrieves contained data
-  constexpr T* data() const { return value.data(); }
+	/// Retrieves contained data
+	constexpr T* data() const { return value.data(); }
 
-  constexpr T& operator[](size_t index) const { return value[index]; }
+	constexpr T& operator[](size_t index) const { return value[index]; }
 };
 
 } // namespace SDL

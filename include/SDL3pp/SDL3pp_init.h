@@ -64,7 +64,7 @@ namespace SDL {
 using InitFlags = Uint32;
 
 constexpr InitFlags INIT_AUDIO =
-  SDL_INIT_AUDIO; ///< `INIT_AUDIO` implies `INIT_EVENTS`
+	SDL_INIT_AUDIO; ///< `INIT_AUDIO` implies `INIT_EVENTS`
 
 /**
  * `INIT_VIDEO` implies `INIT_EVENTS`, should be initialized on the main thread
@@ -72,20 +72,20 @@ constexpr InitFlags INIT_AUDIO =
 constexpr InitFlags INIT_VIDEO = SDL_INIT_VIDEO;
 
 constexpr InitFlags INIT_JOYSTICK =
-  SDL_INIT_JOYSTICK; ///< `INIT_JOYSTICK` implies `INIT_EVENTS`
+	SDL_INIT_JOYSTICK; ///< `INIT_JOYSTICK` implies `INIT_EVENTS`
 
 constexpr InitFlags INIT_HAPTIC = SDL_INIT_HAPTIC; ///< HAPTIC
 
 constexpr InitFlags INIT_GAMEPAD =
-  SDL_INIT_GAMEPAD; ///< `INIT_GAMEPAD` implies `INIT_JOYSTICK`
+	SDL_INIT_GAMEPAD; ///< `INIT_GAMEPAD` implies `INIT_JOYSTICK`
 
 constexpr InitFlags INIT_EVENTS = SDL_INIT_EVENTS; ///< EVENTS
 
 constexpr InitFlags INIT_SENSOR =
-  SDL_INIT_SENSOR; ///< `INIT_SENSOR` implies `INIT_EVENTS`
+	SDL_INIT_SENSOR; ///< `INIT_SENSOR` implies `INIT_EVENTS`
 
 constexpr InitFlags INIT_CAMERA =
-  SDL_INIT_CAMERA; ///< `INIT_CAMERA` implies `INIT_EVENTS`
+	SDL_INIT_CAMERA; ///< `INIT_CAMERA` implies `INIT_EVENTS`
 /// @}
 
 /**
@@ -150,8 +150,8 @@ constexpr AppResult APP_EXIT_FAILURE = SDL_APP_FAILURE; ///< Alias for APP_FAILU
  * @since This datatype is available since SDL 3.2.0.
  */
 using AppInit_func = AppResult(SDLCALL*)(void** appstate,
-                                         int argc,
-                                         char* argv[]);
+																				 int argc,
+																				 char* argv[]);
 
 /**
  * Function pointer typedef for SDL_AppIterate.
@@ -255,7 +255,7 @@ using AppQuit_func = void(SDLCALL*)(void* appstate, AppResult result);
  * @sa WasInit
  */
 inline void Init(InitFlags flags) {
-  CheckError(SDL_Init(flags));
+	CheckError(SDL_Init(flags));
 }
 
 /**
@@ -275,7 +275,7 @@ inline void Init(InitFlags flags) {
  * @sa QuitSubSystem
  */
 inline void InitSubSystem(InitFlags flags) {
-  CheckError(SDL_InitSubSystem(flags));
+	CheckError(SDL_InitSubSystem(flags));
 }
 
 /**
@@ -406,9 +406,9 @@ using MainThreadCB = std::function<void()>;
  * @sa IsMainThread
  */
 inline void RunOnMainThread(MainThreadCallback callback,
-                            void* userdata,
-                            bool wait_complete) {
-  CheckError(SDL_RunOnMainThread(callback, userdata, wait_complete));
+														void* userdata,
+														bool wait_complete) {
+	CheckError(SDL_RunOnMainThread(callback, userdata, wait_complete));
 }
 
 /**
@@ -437,9 +437,9 @@ inline void RunOnMainThread(MainThreadCallback callback,
  * @cat result-callback
  */
 inline void RunOnMainThread(MainThreadCB callback, bool wait_complete) {
-  using Wrapper = CallbackWrapper<MainThreadCB>;
-  void* wrapped = Wrapper::Wrap(std::move(callback));
-  RunOnMainThread(&Wrapper::CallOnce, wrapped, wait_complete);
+	using Wrapper = CallbackWrapper<MainThreadCB>;
+	void* wrapped = Wrapper::Wrap(std::move(callback));
+	RunOnMainThread(&Wrapper::CallOnce, wrapped, wait_complete);
 }
 
 /**
@@ -476,9 +476,9 @@ inline void RunOnMainThread(MainThreadCB callback, bool wait_complete) {
  * @sa SetAppMetadataProperty
  */
 inline void SetAppMetadata(StringParam appname,
-                           StringParam appversion,
-                           StringParam appidentifier) {
-  CheckError(SDL_SetAppMetadata(appname, appversion, appidentifier));
+													 StringParam appversion,
+													 StringParam appidentifier) {
+	CheckError(SDL_SetAppMetadata(appname, appversion, appidentifier));
 }
 
 /**
@@ -541,7 +541,7 @@ inline void SetAppMetadata(StringParam appname,
  * @sa SetAppMetadata
  */
 inline void SetAppMetadataProperty(StringParam name, StringParam value) {
-  CheckError(SDL_SetAppMetadataProperty(name, value));
+	CheckError(SDL_SetAppMetadataProperty(name, value));
 }
 
 namespace prop::appMetaData {
@@ -584,7 +584,7 @@ constexpr auto TYPE_STRING = SDL_PROP_APP_METADATA_TYPE_STRING;
  * @sa SetAppMetadataProperty
  */
 inline const char* GetAppMetadataProperty(StringParam name) {
-  return SDL_GetAppMetadataProperty(name);
+	return SDL_GetAppMetadataProperty(name);
 }
 
 #ifndef SDL3PP_APPCLASS_LOG_PRIORITY
@@ -601,53 +601,53 @@ inline const char* GetAppMetadataProperty(StringParam name) {
  * Represents application parameters
  */
 class AppArgs {
-    int m_argc = 0;
-    char** m_argv = nullptr;
+		int m_argc = 0;
+		char** m_argv = nullptr;
 
 public:
-    AppArgs() = default;
-    AppArgs(int argc, char* argv[]) : m_argc(argc), m_argv(argv) {}
+		AppArgs() = default;
+		AppArgs(int argc, char* argv[]) : m_argc(argc), m_argv(argv) {}
 
-    struct Iterator {
-        char** ptr;
-        
-        // On passe en bidirectional_iterator pour supporter l'itération inverse
-        using iterator_category = std::bidirectional_iterator_tag;
-        using value_type = std::string_view;
-        using difference_type = std::ptrdiff_t;
-        using pointer = void;
-        using reference = std::string_view;
+		struct Iterator {
+				char** ptr;
+				
+				// On passe en bidirectional_iterator pour supporter l'itération inverse
+				using iterator_category = std::bidirectional_iterator_tag;
+				using value_type = std::string_view;
+				using difference_type = std::ptrdiff_t;
+				using pointer = void;
+				using reference = std::string_view;
 
-        reference operator*() const { return {*ptr}; }
-        
-        Iterator& operator++() { ++ptr; return *this; }
-        Iterator operator++(int) { Iterator tmp = *this; ++ptr; return tmp; }
-        
-        Iterator& operator--() { --ptr; return *this; }
-        Iterator operator--(int) { Iterator tmp = *this; --ptr; return tmp; }
-        
-        bool operator==(const Iterator& other) const { return ptr == other.ptr; }
-        bool operator!=(const Iterator& other) const { return ptr != other.ptr; }
-    };
+				reference operator*() const { return {*ptr}; }
+				
+				Iterator& operator++() { ++ptr; return *this; }
+				Iterator operator++(int) { Iterator tmp = *this; ++ptr; return tmp; }
+				
+				Iterator& operator--() { --ptr; return *this; }
+				Iterator operator--(int) { Iterator tmp = *this; --ptr; return tmp; }
+				
+				bool operator==(const Iterator& other) const { return ptr == other.ptr; }
+				bool operator!=(const Iterator& other) const { return ptr != other.ptr; }
+		};
 
-    // Itérateurs standards
-    Iterator begin() const { return {m_argv}; }
-    Iterator end() const { return {m_argv + m_argc}; }
-    
-    // Itérateurs inverses utilisant l'adaptateur standard
-    using reverse_iterator = std::reverse_iterator<Iterator>;
+		// Itérateurs standards
+		Iterator begin() const { return {m_argv}; }
+		Iterator end() const { return {m_argv + m_argc}; }
+		
+		// Itérateurs inverses utilisant l'adaptateur standard
+		using reverse_iterator = std::reverse_iterator<Iterator>;
 
-    reverse_iterator rbegin() const { return reverse_iterator(end()); }
-    reverse_iterator rend() const { return reverse_iterator(begin()); }
+		reverse_iterator rbegin() const { return reverse_iterator(end()); }
+		reverse_iterator rend() const { return reverse_iterator(begin()); }
 
-    // Accès aux données
-    size_t size() const { return static_cast<size_t>(m_argc); }
-    bool empty() const { return m_argc <= 0; }
-    
-    std::string_view operator[](size_t i) const { return {m_argv[i]}; }
-    
-    std::string_view front() const { return empty() ? std::string_view{} : (*this)[0]; }
-    std::string_view back() const { return empty() ? std::string_view{} : (*this)[m_argc - 1]; }
+		// Accès aux données
+		size_t size() const { return static_cast<size_t>(m_argc); }
+		bool empty() const { return m_argc <= 0; }
+		
+		std::string_view operator[](size_t i) const { return {m_argv[i]}; }
+		
+		std::string_view front() const { return empty() ? std::string_view{} : (*this)[0]; }
+		std::string_view back() const { return empty() ? std::string_view{} : (*this)[m_argc - 1]; }
 };
 
 /**
@@ -663,17 +663,17 @@ public:
  * @return the app status
  */
 template<class T>
-  requires std::convertible_to<AppArgs, T>
+	requires std::convertible_to<AppArgs, T>
 inline AppResult DefaultCreateClass(T** state, AppArgs args) {
-  *state = new T{args};
-  return APP_CONTINUE;
+	*state = new T{args};
+	return APP_CONTINUE;
 }
 
 template<class T>
 inline AppResult DefaultCreateClass(T** state, AppArgs) {
-  static_assert(std::is_default_constructible_v<T>);
-  *state = new T{};
-  return APP_CONTINUE;
+	static_assert(std::is_default_constructible_v<T>);
+	*state = new T{};
+	return APP_CONTINUE;
 }
 
 /// @}
@@ -698,29 +698,29 @@ concept HasInitFunction = requires(T** state) { { T::Init(state, AppArgs{}) } ->
  */
 template<class T>
 inline AppResult InitClass(T** state, AppArgs args) {
-  try {
-    return DefaultCreateClass(state, args);
-  } catch (std::exception& e) {
-    LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
-                                            e.what());
-  } catch (...) {
-  }
-  return APP_FAILURE;
+	try {
+		return DefaultCreateClass(state, args);
+	} catch (std::exception& e) {
+		LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
+																						e.what());
+	} catch (...) {
+	}
+	return APP_FAILURE;
 }
 
 template<HasInitFunction T>
 inline AppResult InitClass(T** state, AppArgs args) {
-  *state = nullptr;
-  try {
-    AppResult result = T::Init(state, args);
-    if (*state == nullptr && result != APP_FAILURE) return APP_SUCCESS;
-    return result;
-  } catch (std::exception& e) {
-    LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
-                                            e.what());
-  } catch (...) {
-  }
-  return APP_FAILURE;
+	*state = nullptr;
+	try {
+		AppResult result = T::Init(state, args);
+		if (*state == nullptr && result != APP_FAILURE) return APP_SUCCESS;
+		return result;
+	} catch (std::exception& e) {
+		LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
+																						e.what());
+	} catch (...) {
+	}
+	return APP_FAILURE;
 }
 /// @}
 
@@ -737,20 +737,20 @@ concept HasIterateFunction = requires(T* state) { state->Iterate(); };
  */
 template<HasIterateFunction T>
 inline AppResult IterateClass(T* state) {
-  try {
-    return state->Iterate();
-  } catch (std::exception& e) {
-    LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
-                                            e.what());
-  } catch (...) {
-  }
-  return APP_FAILURE;
+	try {
+		return state->Iterate();
+	} catch (std::exception& e) {
+		LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
+																						e.what());
+	} catch (...) {
+	}
+	return APP_FAILURE;
 }
 
 /// @private
 template<class T>
 concept HasEventFunction =
-  requires(T* state, const SDL_Event& event) { state->Event(event); };
+	requires(T* state, const SDL_Event& event) { state->Event(event); };
 
 /**
  * Default handle by finishing if QUIT is requested
@@ -761,8 +761,8 @@ concept HasEventFunction =
  */
 template<class T>
 inline AppResult DefaultEventClass(T*, const SDL_Event& event) {
-  if (event.type == SDL_EVENT_QUIT) return APP_SUCCESS;
-  return APP_CONTINUE;
+	if (event.type == SDL_EVENT_QUIT) return APP_SUCCESS;
+	return APP_CONTINUE;
 }
 
 /**
@@ -776,26 +776,26 @@ inline AppResult DefaultEventClass(T*, const SDL_Event& event) {
  */
 template<class T>
 inline AppResult EventClass(T* state, const SDL_Event& event) {
-  try {
-    return DefaultEventClass(state, event);
-  } catch (std::exception& e) {
-    LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
-                                            e.what());
-  } catch (...) {
-  }
-  return APP_FAILURE;
+	try {
+		return DefaultEventClass(state, event);
+	} catch (std::exception& e) {
+		LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
+																						e.what());
+	} catch (...) {
+	}
+	return APP_FAILURE;
 }
 
 template<HasEventFunction T>
 inline AppResult EventClass(T* state, const SDL_Event& event) {
-  try {
-    return state->Event(event);
-  } catch (std::exception& e) {
-    LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
-                                            e.what());
-  } catch (...) {
-  }
-  return APP_FAILURE;
+	try {
+		return state->Event(event);
+	} catch (std::exception& e) {
+		LOG_CATEGORY_APPLICATION.LogUnformatted(SDL3PP_APPCLASS_LOG_PRIORITY,
+																						e.what());
+	} catch (...) {
+	}
+	return APP_FAILURE;
 }
 
 /// @}
@@ -808,13 +808,13 @@ inline AppResult EventClass(T* state, const SDL_Event& event) {
  */
 template<class T>
 inline void DefaultClassDestroy(T* state) {
-  delete state;
+	delete state;
 }
 
 /// @private
 template<class T>
 concept HasQuitFunction =
-  requires(T* state, AppResult result) { T::Quit(state, result); };
+	requires(T* state, AppResult result) { T::Quit(state, result); };
 
 /**
  * @{
@@ -830,12 +830,12 @@ concept HasQuitFunction =
  */
 template<class T>
 inline void QuitClass(T* state, AppResult) {
-  DefaultClassDestroy(state);
+	DefaultClassDestroy(state);
 }
 
 template<HasQuitFunction T>
 inline void QuitClass(T* state, AppResult result) {
-  T::Quit(state, result);
+	T::Quit(state, result);
 }
 /// @}
 

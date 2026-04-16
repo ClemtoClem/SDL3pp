@@ -59,16 +59,16 @@ using TrayEntryRef = TrayEntry;
 using TrayEntryFlags = Uint32;
 
 constexpr TrayEntryFlags TRAYENTRY_BUTTON =
-  SDL_TRAYENTRY_BUTTON; ///< Make the entry a simple button. Required.
+	SDL_TRAYENTRY_BUTTON; ///< Make the entry a simple button. Required.
 
 constexpr TrayEntryFlags TRAYENTRY_CHECKBOX =
-  SDL_TRAYENTRY_CHECKBOX; ///< Make the entry a checkbox. Required.
+	SDL_TRAYENTRY_CHECKBOX; ///< Make the entry a checkbox. Required.
 
 constexpr TrayEntryFlags TRAYENTRY_SUBMENU =
-  SDL_TRAYENTRY_SUBMENU; ///< Prepare the entry to have a submenu. Required
+	SDL_TRAYENTRY_SUBMENU; ///< Prepare the entry to have a submenu. Required
 
 constexpr TrayEntryFlags TRAYENTRY_DISABLED =
-  SDL_TRAYENTRY_DISABLED; ///< Make the entry disabled. Optional.
+	SDL_TRAYENTRY_DISABLED; ///< Make the entry disabled. Optional.
 
 /// Make the entry checked. This is valid only for checkboxes. Optional.
 constexpr TrayEntryFlags TRAYENTRY_CHECKED = SDL_TRAYENTRY_CHECKED;
@@ -107,177 +107,177 @@ using TrayCB = MakeFrontCallback<void(TrayEntryRaw entry)>;
  * @cat resource
  */
 class Tray {
-  TrayRaw m_resource = nullptr;
+	TrayRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr Tray(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr Tray(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw Tray.
-   *
-   * @param resource a TrayRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit Tray(TrayRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw Tray.
+	 *
+	 * @param resource a TrayRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit Tray(TrayRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr Tray(const Tray& other) noexcept = delete;
+	/// Copy constructor
+	constexpr Tray(const Tray& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr Tray(Tray&& other) noexcept
-    : Tray(other.Release()) {
-  }
+	/// Move constructor
+	constexpr Tray(Tray&& other) noexcept
+		: Tray(other.Release()) {
+	}
 
-  constexpr Tray(const TrayRef& other) = delete;
+	constexpr Tray(const TrayRef& other) = delete;
 
-  constexpr Tray(TrayRef&& other) = delete;
+	constexpr Tray(TrayRef&& other) = delete;
 
-  /**
-   * Create an icon to be placed in the operating system's tray, or equivalent.
-   *
-   * Many platforms advise not using a system tray unless persistence is a
-   * necessary feature. Avoid needlessly creating a tray icon, as the user may
-   * feel like it clutters their interface.
-   *
-   * Using tray icons require the video subsystem.
-   *
-   * @param icon a surface to be used as icon. May be nullptr.
-   * @param tooltip a tooltip to be displayed when the mouse hovers the icon in
-   *                UTF-8 encoding. Not supported on all platforms. May be
-   *                nullptr.
-   * @post The newly created system tray icon.
-   *
-   * @threadsafety This function should only be called on the main thread.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Tray.CreateMenu
-   * @sa Tray.GetMenu
-   * @sa Tray.Destroy
-   */
-  Tray(SurfaceRef icon, StringParam tooltip);
+	/**
+	 * Create an icon to be placed in the operating system's tray, or equivalent.
+	 *
+	 * Many platforms advise not using a system tray unless persistence is a
+	 * necessary feature. Avoid needlessly creating a tray icon, as the user may
+	 * feel like it clutters their interface.
+	 *
+	 * Using tray icons require the video subsystem.
+	 *
+	 * @param icon a surface to be used as icon. May be nullptr.
+	 * @param tooltip a tooltip to be displayed when the mouse hovers the icon in
+	 *                UTF-8 encoding. Not supported on all platforms. May be
+	 *                nullptr.
+	 * @post The newly created system tray icon.
+	 *
+	 * @threadsafety This function should only be called on the main thread.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Tray.CreateMenu
+	 * @sa Tray.GetMenu
+	 * @sa Tray.Destroy
+	 */
+	Tray(SurfaceRef icon, StringParam tooltip);
 
-  /// Destructor
-  ~Tray() { SDL_DestroyTray(m_resource); }
+	/// Destructor
+	~Tray() { SDL_DestroyTray(m_resource); }
 
-  /// Assignment operator.
-  constexpr Tray& operator=(Tray&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr Tray& operator=(Tray&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  Tray& operator=(const Tray& other) = delete;
+	/// Assignment operator.
+	Tray& operator=(const Tray& other) = delete;
 
-  /// Retrieves underlying TrayRaw.
-  constexpr TrayRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying TrayRaw.
+	constexpr TrayRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying TrayRaw and clear this.
-  constexpr TrayRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying TrayRaw and clear this.
+	constexpr TrayRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const Tray& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const Tray& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Destroys a tray object.
-   *
-   * This also destroys all associated menus and entries.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateTray
-   */
-  void Destroy();
+	/**
+	 * Destroys a tray object.
+	 *
+	 * This also destroys all associated menus and entries.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateTray
+	 */
+	void Destroy();
 
-  /**
-   * Updates the system tray icon's icon.
-   *
-   * @param icon the new icon. May be nullptr.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateTray
-   */
-  void SetIcon(SurfaceRef icon);
+	/**
+	 * Updates the system tray icon's icon.
+	 *
+	 * @param icon the new icon. May be nullptr.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateTray
+	 */
+	void SetIcon(SurfaceRef icon);
 
-  /**
-   * Updates the system tray icon's tooltip.
-   *
-   * @param tooltip the new tooltip in UTF-8 encoding. May be nullptr.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateTray
-   */
-  void SetTooltip(StringParam tooltip);
+	/**
+	 * Updates the system tray icon's tooltip.
+	 *
+	 * @param tooltip the new tooltip in UTF-8 encoding. May be nullptr.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateTray
+	 */
+	void SetTooltip(StringParam tooltip);
 
-  /**
-   * Create a menu for a system tray.
-   *
-   * This should be called at most once per tray icon.
-   *
-   * This function does the same thing as TrayEntry.CreateSubmenu(), except that
-   * it takes a Tray instead of a TrayEntry.
-   *
-   * A menu does not need to be destroyed; it will be destroyed with the tray.
-   *
-   * @returns the newly created menu.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateTray
-   * @sa Tray.GetMenu
-   * @sa TrayMenu.GetParentTray
-   */
-  TrayMenu CreateMenu();
+	/**
+	 * Create a menu for a system tray.
+	 *
+	 * This should be called at most once per tray icon.
+	 *
+	 * This function does the same thing as TrayEntry.CreateSubmenu(), except that
+	 * it takes a Tray instead of a TrayEntry.
+	 *
+	 * A menu does not need to be destroyed; it will be destroyed with the tray.
+	 *
+	 * @returns the newly created menu.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateTray
+	 * @sa Tray.GetMenu
+	 * @sa TrayMenu.GetParentTray
+	 */
+	TrayMenu CreateMenu();
 
-  /**
-   * Gets a previously created tray menu.
-   *
-   * You should have called Tray.CreateMenu() on the tray object. This function
-   * allows you to fetch it again later.
-   *
-   * This function does the same thing as TrayEntry.GetSubmenu(), except that it
-   * takes a Tray instead of a TrayEntry.
-   *
-   * A menu does not need to be destroyed; it will be destroyed with the tray.
-   *
-   * @returns the newly created menu.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa CreateTray
-   * @sa Tray.CreateMenu
-   */
-  TrayMenu GetMenu() const;
+	/**
+	 * Gets a previously created tray menu.
+	 *
+	 * You should have called Tray.CreateMenu() on the tray object. This function
+	 * allows you to fetch it again later.
+	 *
+	 * This function does the same thing as TrayEntry.GetSubmenu(), except that it
+	 * takes a Tray instead of a TrayEntry.
+	 *
+	 * A menu does not need to be destroyed; it will be destroyed with the tray.
+	 *
+	 * @returns the newly created menu.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa CreateTray
+	 * @sa Tray.CreateMenu
+	 */
+	TrayMenu GetMenu() const;
 };
 
 /**
@@ -286,63 +286,63 @@ public:
  * This does not take ownership!
  */
 struct TrayRef : Tray {
-  using Tray::Tray;
+	using Tray::Tray;
 
-  /**
-   * Constructs from raw Tray.
-   *
-   * @param resource a TrayRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr TrayRef(TrayRaw resource) noexcept
-    : Tray(resource) {
-  }
+	/**
+	 * Constructs from raw Tray.
+	 *
+	 * @param resource a TrayRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr TrayRef(TrayRaw resource) noexcept
+		: Tray(resource) {
+	}
 
-  /**
-   * Constructs from Tray.
-   *
-   * @param resource a Tray.
-   *
-   * This does not takes ownership!
-   */
-  constexpr TrayRef(const Tray& resource) noexcept
-    : Tray(resource.Get()) {
-  }
+	/**
+	 * Constructs from Tray.
+	 *
+	 * @param resource a Tray.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr TrayRef(const Tray& resource) noexcept
+		: Tray(resource.Get()) {
+	}
 
-  /**
-   * Constructs from Tray.
-   *
-   * @param resource a Tray.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr TrayRef(Tray&& resource) noexcept
-    : Tray(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from Tray.
+	 *
+	 * @param resource a Tray.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr TrayRef(Tray&& resource) noexcept
+		: Tray(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr TrayRef(const TrayRef& other) noexcept
-    : Tray(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr TrayRef(const TrayRef& other) noexcept
+		: Tray(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr TrayRef(TrayRef&& other) noexcept
-    : Tray(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr TrayRef(TrayRef&& other) noexcept
+		: Tray(other.Get()) {
+	}
 
-  /// Destructor
-  ~TrayRef() { Release(); }
+	/// Destructor
+	~TrayRef() { Release(); }
 
-  /// Assignment operator.
-  TrayRef& operator=(const TrayRef& other) noexcept {
-    Release();
-    Tray::operator=(Tray(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	TrayRef& operator=(const TrayRef& other) noexcept {
+		Release();
+		Tray::operator=(Tray(other.Get()));
+		return *this;
+	}
 
-  /// Converts to TrayRaw
-  constexpr operator TrayRaw() const noexcept { return Get(); }
+	/// Converts to TrayRaw
+	constexpr operator TrayRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -351,132 +351,132 @@ struct TrayRef : Tray {
  * @since This struct is available since SDL 3.2.0.
  */
 class TrayMenu {
-  TrayMenuRaw m_trayMenu;
+	TrayMenuRaw m_trayMenu;
 
 public:
-  /**
-   * Wraps TrayMenu.
-   *
-   * @param trayMenu the value to be wrapped
-   */
-  constexpr TrayMenu(TrayMenuRaw trayMenu = {}) noexcept
-    : m_trayMenu(trayMenu) {
-  }
+	/**
+	 * Wraps TrayMenu.
+	 *
+	 * @param trayMenu the value to be wrapped
+	 */
+	constexpr TrayMenu(TrayMenuRaw trayMenu = {}) noexcept
+		: m_trayMenu(trayMenu) {
+	}
 
-  /**
-   * Unwraps to the underlying TrayMenu.
-   *
-   * @returns the underlying TrayMenuRaw.
-   */
-  constexpr operator TrayMenuRaw() const noexcept { return m_trayMenu; }
+	/**
+	 * Unwraps to the underlying TrayMenu.
+	 *
+	 * @returns the underlying TrayMenuRaw.
+	 */
+	constexpr operator TrayMenuRaw() const noexcept { return m_trayMenu; }
 
-  /**
-   * Returns a list of entries in the menu, in order.
-   *
-   * @returns a nullptr-terminated list of entries within the given menu. The
-   *          pointer becomes invalid when any function that inserts or deletes
-   *          entries in the menu is called.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayEntry.Remove
-   * @sa TrayMenu.InsertEntry
-   */
-  std::span<TrayEntry> GetEntries();
+	/**
+	 * Returns a list of entries in the menu, in order.
+	 *
+	 * @returns a nullptr-terminated list of entries within the given menu. The
+	 *          pointer becomes invalid when any function that inserts or deletes
+	 *          entries in the menu is called.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayEntry.Remove
+	 * @sa TrayMenu.InsertEntry
+	 */
+	std::span<TrayEntry> GetEntries();
 
-  /**
-   * Insert a tray entry at a given position.
-   *
-   * If label is nullptr, the entry will be a separator. Many functions won't
-   * work for an entry that is a separator.
-   *
-   * An entry does not need to be destroyed; it will be destroyed with the tray.
-   *
-   * @param pos the desired position for the new entry. Entries at or following
-   *            this place will be moved. If pos is -1, the entry is appended.
-   * @param label the text to be displayed on the entry, in UTF-8 encoding, or
-   *              nullptr for a separator.
-   * @param flags a combination of flags, some of which are mandatory.
-   * @returns the newly created entry, or nullptr if pos is out of bounds.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayEntryFlags
-   * @sa TrayMenu.GetEntries
-   * @sa TrayEntry.Remove
-   * @sa TrayEntry.GetParent
-   */
-  TrayEntry InsertEntry(int pos, StringParam label, TrayEntryFlags flags);
+	/**
+	 * Insert a tray entry at a given position.
+	 *
+	 * If label is nullptr, the entry will be a separator. Many functions won't
+	 * work for an entry that is a separator.
+	 *
+	 * An entry does not need to be destroyed; it will be destroyed with the tray.
+	 *
+	 * @param pos the desired position for the new entry. Entries at or following
+	 *            this place will be moved. If pos is -1, the entry is appended.
+	 * @param label the text to be displayed on the entry, in UTF-8 encoding, or
+	 *              nullptr for a separator.
+	 * @param flags a combination of flags, some of which are mandatory.
+	 * @returns the newly created entry, or nullptr if pos is out of bounds.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayEntryFlags
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayEntry.Remove
+	 * @sa TrayEntry.GetParent
+	 */
+	TrayEntry InsertEntry(int pos, StringParam label, TrayEntryFlags flags);
 
-  /**
-   * Appends a tray entry.
-   *
-   * If label is nullptr, the entry will be a separator. Many functions won't
-   * work for an entry that is a separator.
-   *
-   * An entry does not need to be destroyed; it will be destroyed with the tray.
-   *
-   * @param label the text to be displayed on the entry, in UTF-8 encoding, or
-   *              nullptr for a separator.
-   * @param flags a combination of flags, some of which are mandatory.
-   * @returns the newly created entry, or nullptr if pos is out of bounds.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntryFlags
-   * @sa TrayMenu.GetEntries
-   * @sa TrayEntry.Remove
-   * @sa TrayEntry.GetParent
-   */
-  TrayEntry AppendEntry(StringParam label, TrayEntryFlags flags);
+	/**
+	 * Appends a tray entry.
+	 *
+	 * If label is nullptr, the entry will be a separator. Many functions won't
+	 * work for an entry that is a separator.
+	 *
+	 * An entry does not need to be destroyed; it will be destroyed with the tray.
+	 *
+	 * @param label the text to be displayed on the entry, in UTF-8 encoding, or
+	 *              nullptr for a separator.
+	 * @param flags a combination of flags, some of which are mandatory.
+	 * @returns the newly created entry, or nullptr if pos is out of bounds.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntryFlags
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayEntry.Remove
+	 * @sa TrayEntry.GetParent
+	 */
+	TrayEntry AppendEntry(StringParam label, TrayEntryFlags flags);
 
-  /**
-   * Gets the entry for which the menu is a submenu, if the current menu is a
-   * submenu.
-   *
-   * Either this function or TrayMenu.GetParentTray() will return non-nullptr
-   * for any given menu.
-   *
-   * @returns the parent entry, or nullptr if this menu is not a submenu.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayEntry.CreateSubmenu
-   * @sa TrayMenu.GetParentTray
-   */
-  TrayEntryRef GetParentEntry() const;
+	/**
+	 * Gets the entry for which the menu is a submenu, if the current menu is a
+	 * submenu.
+	 *
+	 * Either this function or TrayMenu.GetParentTray() will return non-nullptr
+	 * for any given menu.
+	 *
+	 * @returns the parent entry, or nullptr if this menu is not a submenu.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayEntry.CreateSubmenu
+	 * @sa TrayMenu.GetParentTray
+	 */
+	TrayEntryRef GetParentEntry() const;
 
-  /**
-   * Gets the tray for which this menu is the first-level menu, if the current
-   * menu isn't a submenu.
-   *
-   * Either this function or TrayMenu.GetParentEntry() will return non-nullptr
-   * for any given menu.
-   *
-   * @returns the parent tray, or nullptr if this menu is a submenu.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa Tray.CreateMenu
-   * @sa TrayMenu.GetParentEntry
-   */
-  TrayRef GetParentTray() const;
+	/**
+	 * Gets the tray for which this menu is the first-level menu, if the current
+	 * menu isn't a submenu.
+	 *
+	 * Either this function or TrayMenu.GetParentEntry() will return non-nullptr
+	 * for any given menu.
+	 *
+	 * @returns the parent tray, or nullptr if this menu is a submenu.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa Tray.CreateMenu
+	 * @sa TrayMenu.GetParentEntry
+	 */
+	TrayRef GetParentTray() const;
 };
 
 /**
@@ -487,283 +487,283 @@ public:
  * @cat resource
  */
 class TrayEntry {
-  TrayEntryRaw m_resource = nullptr;
+	TrayEntryRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr TrayEntry(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr TrayEntry(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw TrayEntry.
-   *
-   * @param resource a TrayEntryRaw to be wrapped.
-   */
-  constexpr TrayEntry(TrayEntryRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw TrayEntry.
+	 *
+	 * @param resource a TrayEntryRaw to be wrapped.
+	 */
+	constexpr TrayEntry(TrayEntryRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Converts to underlying TrayEntryRaw.
-  constexpr operator TrayEntryRaw() const noexcept { return m_resource; }
+	/// Converts to underlying TrayEntryRaw.
+	constexpr operator TrayEntryRaw() const noexcept { return m_resource; }
 
-  /// Retrieves underlying TrayEntryRaw.
-  constexpr TrayEntryRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying TrayEntryRaw.
+	constexpr TrayEntryRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying TrayEntryRaw and clear this.
-  constexpr TrayEntryRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying TrayEntryRaw and clear this.
+	constexpr TrayEntryRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const TrayEntry& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const TrayEntry& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Removes a tray entry.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   */
-  void Remove();
+	/**
+	 * Removes a tray entry.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 */
+	void Remove();
 
-  /**
-   * Create a submenu for a system tray entry.
-   *
-   * This should be called at most once per tray entry.
-   *
-   * This function does the same thing as Tray.CreateMenu, except that it takes
-   * a TrayEntry instead of a Tray.
-   *
-   * A menu does not need to be destroyed; it will be destroyed with the tray.
-   *
-   * @returns the newly created menu.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntry.GetSubmenu
-   * @sa TrayMenu.GetParentEntry
-   */
-  TrayMenu CreateSubmenu();
+	/**
+	 * Create a submenu for a system tray entry.
+	 *
+	 * This should be called at most once per tray entry.
+	 *
+	 * This function does the same thing as Tray.CreateMenu, except that it takes
+	 * a TrayEntry instead of a Tray.
+	 *
+	 * A menu does not need to be destroyed; it will be destroyed with the tray.
+	 *
+	 * @returns the newly created menu.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntry.GetSubmenu
+	 * @sa TrayMenu.GetParentEntry
+	 */
+	TrayMenu CreateSubmenu();
 
-  /**
-   * Gets a previously created tray entry submenu.
-   *
-   * You should have called TrayEntry.CreateSubmenu() on the entry object. This
-   * function allows you to fetch it again later.
-   *
-   * This function does the same thing as Tray.GetMenu(), except that it takes a
-   * TrayEntry instead of a Tray.
-   *
-   * A menu does not need to be destroyed; it will be destroyed with the tray.
-   *
-   * @returns the newly created menu.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntry.CreateSubmenu
-   */
-  TrayMenu GetSubmenu();
+	/**
+	 * Gets a previously created tray entry submenu.
+	 *
+	 * You should have called TrayEntry.CreateSubmenu() on the entry object. This
+	 * function allows you to fetch it again later.
+	 *
+	 * This function does the same thing as Tray.GetMenu(), except that it takes a
+	 * TrayEntry instead of a Tray.
+	 *
+	 * A menu does not need to be destroyed; it will be destroyed with the tray.
+	 *
+	 * @returns the newly created menu.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntry.CreateSubmenu
+	 */
+	TrayMenu GetSubmenu();
 
-  /**
-   * Sets the label of an entry.
-   *
-   * An entry cannot change between a separator and an ordinary entry; that is,
-   * it is not possible to set a non-nullptr label on an entry that has a
-   * nullptr label (separators), or to set a nullptr label to an entry that has
-   * a non-nullptr label. The function will silently fail if that happens.
-   *
-   * @param label the new label for the entry in UTF-8 encoding.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntry.GetLabel
-   */
-  void SetLabel(StringParam label);
+	/**
+	 * Sets the label of an entry.
+	 *
+	 * An entry cannot change between a separator and an ordinary entry; that is,
+	 * it is not possible to set a non-nullptr label on an entry that has a
+	 * nullptr label (separators), or to set a nullptr label to an entry that has
+	 * a non-nullptr label. The function will silently fail if that happens.
+	 *
+	 * @param label the new label for the entry in UTF-8 encoding.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntry.GetLabel
+	 */
+	void SetLabel(StringParam label);
 
-  /**
-   * Gets the label of an entry.
-   *
-   * If the returned value is nullptr, the entry is a separator.
-   *
-   * @returns the label of the entry in UTF-8 encoding.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntry.SetLabel
-   */
-  const char* GetLabel() const;
+	/**
+	 * Gets the label of an entry.
+	 *
+	 * If the returned value is nullptr, the entry is a separator.
+	 *
+	 * @returns the label of the entry in UTF-8 encoding.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntry.SetLabel
+	 */
+	const char* GetLabel() const;
 
-  /**
-   * Sets whether or not an entry is checked.
-   *
-   * The entry must have been created with the TRAYENTRY_CHECKBOX flag.
-   *
-   * @param checked true if the entry should be checked; false otherwise.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntry.GetChecked
-   */
-  void SetChecked(bool checked);
+	/**
+	 * Sets whether or not an entry is checked.
+	 *
+	 * The entry must have been created with the TRAYENTRY_CHECKBOX flag.
+	 *
+	 * @param checked true if the entry should be checked; false otherwise.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntry.GetChecked
+	 */
+	void SetChecked(bool checked);
 
-  /**
-   * Gets whether or not an entry is checked.
-   *
-   * The entry must have been created with the TRAYENTRY_CHECKBOX flag.
-   *
-   * @returns true if the entry is checked; false otherwise.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntry.SetChecked
-   */
-  bool GetChecked() const;
+	/**
+	 * Gets whether or not an entry is checked.
+	 *
+	 * The entry must have been created with the TRAYENTRY_CHECKBOX flag.
+	 *
+	 * @returns true if the entry is checked; false otherwise.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntry.SetChecked
+	 */
+	bool GetChecked() const;
 
-  /**
-   * Sets whether or not an entry is enabled.
-   *
-   * @param enabled true if the entry should be enabled; false otherwise.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntry.GetEnabled
-   */
-  void SetEnabled(bool enabled);
+	/**
+	 * Sets whether or not an entry is enabled.
+	 *
+	 * @param enabled true if the entry should be enabled; false otherwise.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntry.GetEnabled
+	 */
+	void SetEnabled(bool enabled);
 
-  /**
-   * Gets whether or not an entry is enabled.
-   *
-   * @returns true if the entry is enabled; false otherwise.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   * @sa TrayEntry.SetEnabled
-   */
-  bool GetEnabled() const;
+	/**
+	 * Gets whether or not an entry is enabled.
+	 *
+	 * @returns true if the entry is enabled; false otherwise.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 * @sa TrayEntry.SetEnabled
+	 */
+	bool GetEnabled() const;
 
-  /**
-   * Sets a callback to be invoked when the entry is selected.
-   *
-   * @param callback a callback to be invoked when the entry is selected.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   */
-  void SetCallback(TrayCB callback);
+	/**
+	 * Sets a callback to be invoked when the entry is selected.
+	 *
+	 * @param callback a callback to be invoked when the entry is selected.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 */
+	void SetCallback(TrayCB callback);
 
-  /**
-   * Sets a callback to be invoked when the entry is selected.
-   *
-   * @param callback a callback to be invoked when the entry is selected.
-   * @param userdata an optional pointer to pass extra data to the callback when
-   *                 it will be invoked.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.GetEntries
-   * @sa TrayMenu.InsertEntry
-   */
-  void SetCallback(TrayCallback callback, void* userdata);
+	/**
+	 * Sets a callback to be invoked when the entry is selected.
+	 *
+	 * @param callback a callback to be invoked when the entry is selected.
+	 * @param userdata an optional pointer to pass extra data to the callback when
+	 *                 it will be invoked.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.GetEntries
+	 * @sa TrayMenu.InsertEntry
+	 */
+	void SetCallback(TrayCallback callback, void* userdata);
 
-  /**
-   * Simulate a click on a tray entry.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void Click();
+	/**
+	 * Simulate a click on a tray entry.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void Click();
 
-  /**
-   * Gets the menu containing a certain tray entry.
-   *
-   * @returns the parent menu.
-   *
-   * @threadsafety This function should be called on the thread that created the
-   *               tray.
-   *
-   * @since This function is available since SDL 3.2.0.
-   *
-   * @sa TrayMenu.InsertEntry
-   */
-  TrayMenu GetParent();
+	/**
+	 * Gets the menu containing a certain tray entry.
+	 *
+	 * @returns the parent menu.
+	 *
+	 * @threadsafety This function should be called on the thread that created the
+	 *               tray.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 *
+	 * @sa TrayMenu.InsertEntry
+	 */
+	TrayMenu GetParent();
 };
 
 /// RAII owning version TrayEntry.
 struct TrayEntryScoped : TrayEntry {
-  using TrayEntry::TrayEntry;
+	using TrayEntry::TrayEntry;
 
-  constexpr TrayEntryScoped(const TrayEntryScoped& other) = delete;
+	constexpr TrayEntryScoped(const TrayEntryScoped& other) = delete;
 
-  /// Move constructor
-  constexpr TrayEntryScoped(TrayEntryScoped&& other) noexcept
-    : TrayEntry(other.Release()) {
-  }
+	/// Move constructor
+	constexpr TrayEntryScoped(TrayEntryScoped&& other) noexcept
+		: TrayEntry(other.Release()) {
+	}
 
-  /// Move constructor
-  constexpr TrayEntryScoped(TrayEntry&& other) noexcept
-    : TrayEntry(std::move(other).Release()) {
-  }
+	/// Move constructor
+	constexpr TrayEntryScoped(TrayEntry&& other) noexcept
+		: TrayEntry(std::move(other).Release()) {
+	}
 
-  /// Destructor
-  ~TrayEntryScoped() { Remove(); }
+	/// Destructor
+	~TrayEntryScoped() { Remove(); }
 };
 
 /**
@@ -790,11 +790,11 @@ struct TrayEntryScoped : TrayEntry {
  * @sa Tray.Destroy
  */
 inline Tray CreateTray(SurfaceRef icon, StringParam tooltip) {
-  return Tray(icon, std::move(tooltip));
+	return Tray(icon, std::move(tooltip));
 }
 
 inline Tray::Tray(SurfaceRef icon, StringParam tooltip)
-  : m_resource(SDL_CreateTray(icon, tooltip)) {
+	: m_resource(SDL_CreateTray(icon, tooltip)) {
 }
 
 /**
@@ -811,11 +811,11 @@ inline Tray::Tray(SurfaceRef icon, StringParam tooltip)
  * @sa CreateTray
  */
 inline void SetTrayIcon(TrayRef tray, SurfaceRef icon) {
-  SDL_SetTrayIcon(tray, icon);
+	SDL_SetTrayIcon(tray, icon);
 }
 
 inline void Tray::SetIcon(SurfaceRef icon) {
-  SDL::SetTrayIcon(m_resource, icon);
+	SDL::SetTrayIcon(m_resource, icon);
 }
 
 /**
@@ -832,11 +832,11 @@ inline void Tray::SetIcon(SurfaceRef icon) {
  * @sa CreateTray
  */
 inline void SetTrayTooltip(TrayRef tray, StringParam tooltip) {
-  SDL_SetTrayTooltip(tray, tooltip);
+	SDL_SetTrayTooltip(tray, tooltip);
 }
 
 inline void Tray::SetTooltip(StringParam tooltip) {
-  SDL::SetTrayTooltip(m_resource, std::move(tooltip));
+	SDL::SetTrayTooltip(m_resource, std::move(tooltip));
 }
 
 /**
@@ -862,7 +862,7 @@ inline void Tray::SetTooltip(StringParam tooltip) {
  * @sa TrayMenu.GetParentTray
  */
 inline TrayMenu CreateTrayMenu(TrayRef tray) {
-  return SDL_CreateTrayMenu(tray);
+	return SDL_CreateTrayMenu(tray);
 }
 
 inline TrayMenu Tray::CreateMenu() { return SDL::CreateTrayMenu(m_resource); }
@@ -890,11 +890,11 @@ inline TrayMenu Tray::CreateMenu() { return SDL::CreateTrayMenu(m_resource); }
  * @sa TrayMenu.GetParentEntry
  */
 inline TrayMenu CreateTraySubmenu(TrayEntryRef entry) {
-  return SDL_CreateTraySubmenu(entry);
+	return SDL_CreateTraySubmenu(entry);
 }
 
 inline TrayMenu TrayEntry::CreateSubmenu() {
-  return SDL::CreateTraySubmenu(m_resource);
+	return SDL::CreateTraySubmenu(m_resource);
 }
 
 /**
@@ -946,11 +946,11 @@ inline TrayMenu Tray::GetMenu() const { return SDL::GetTrayMenu(m_resource); }
  * @sa TrayEntry.CreateSubmenu
  */
 inline TrayMenu GetTraySubmenu(TrayEntryRef entry) {
-  return SDL_GetTraySubmenu(entry);
+	return SDL_GetTraySubmenu(entry);
 }
 
 inline TrayMenu TrayEntry::GetSubmenu() {
-  return SDL::GetTraySubmenu(m_resource);
+	return SDL::GetTraySubmenu(m_resource);
 }
 
 /**
@@ -970,14 +970,14 @@ inline TrayMenu TrayEntry::GetSubmenu() {
  * @sa TrayMenu.InsertEntry
  */
 inline std::span<TrayEntry> GetTrayEntries(TrayMenu menu) {
-  int count;
-  auto entries = SDL_GetTrayEntries(menu, &count);
-  return std::span<TrayEntry>{reinterpret_cast<TrayEntry*>(entries),
-                              size_t(count)};
+	int count;
+	auto entries = SDL_GetTrayEntries(menu, &count);
+	return std::span<TrayEntry>{reinterpret_cast<TrayEntry*>(entries),
+															size_t(count)};
 }
 
 inline std::span<TrayEntry> TrayMenu::GetEntries() {
-  return SDL::GetTrayEntries(m_trayMenu);
+	return SDL::GetTrayEntries(m_trayMenu);
 }
 
 /**
@@ -1024,16 +1024,16 @@ inline void TrayEntry::Remove() { RemoveTrayEntry(Release()); }
  * @sa TrayEntry.GetParent
  */
 inline TrayEntry InsertTrayEntryAt(TrayMenu menu,
-                                   int pos,
-                                   StringParam label,
-                                   TrayEntryFlags flags) {
-  return SDL_InsertTrayEntryAt(menu, pos, label, flags);
+																	 int pos,
+																	 StringParam label,
+																	 TrayEntryFlags flags) {
+	return SDL_InsertTrayEntryAt(menu, pos, label, flags);
 }
 
 inline TrayEntry TrayMenu::InsertEntry(int pos,
-                                       StringParam label,
-                                       TrayEntryFlags flags) {
-  return SDL::InsertTrayEntryAt(m_trayMenu, pos, std::move(label), flags);
+																			 StringParam label,
+																			 TrayEntryFlags flags) {
+	return SDL::InsertTrayEntryAt(m_trayMenu, pos, std::move(label), flags);
 }
 
 /**
@@ -1057,11 +1057,11 @@ inline TrayEntry TrayMenu::InsertEntry(int pos,
  * @sa TrayEntry.GetLabel
  */
 inline void SetTrayEntryLabel(TrayEntryRef entry, StringParam label) {
-  SDL_SetTrayEntryLabel(entry, label);
+	SDL_SetTrayEntryLabel(entry, label);
 }
 
 inline void TrayEntry::SetLabel(StringParam label) {
-  SDL::SetTrayEntryLabel(m_resource, std::move(label));
+	SDL::SetTrayEntryLabel(m_resource, std::move(label));
 }
 
 /**
@@ -1082,11 +1082,11 @@ inline void TrayEntry::SetLabel(StringParam label) {
  * @sa TrayEntry.SetLabel
  */
 inline const char* GetTrayEntryLabel(TrayEntryRef entry) {
-  return SDL_GetTrayEntryLabel(entry);
+	return SDL_GetTrayEntryLabel(entry);
 }
 
 inline const char* TrayEntry::GetLabel() const {
-  return SDL::GetTrayEntryLabel(m_resource);
+	return SDL::GetTrayEntryLabel(m_resource);
 }
 
 /**
@@ -1107,11 +1107,11 @@ inline const char* TrayEntry::GetLabel() const {
  * @sa TrayEntry.GetChecked
  */
 inline void SetTrayEntryChecked(TrayEntryRef entry, bool checked) {
-  SDL_SetTrayEntryChecked(entry, checked);
+	SDL_SetTrayEntryChecked(entry, checked);
 }
 
 inline void TrayEntry::SetChecked(bool checked) {
-  SDL::SetTrayEntryChecked(m_resource, checked);
+	SDL::SetTrayEntryChecked(m_resource, checked);
 }
 
 /**
@@ -1132,11 +1132,11 @@ inline void TrayEntry::SetChecked(bool checked) {
  * @sa TrayEntry.SetChecked
  */
 inline bool GetTrayEntryChecked(TrayEntryRef entry) {
-  return SDL_GetTrayEntryChecked(entry);
+	return SDL_GetTrayEntryChecked(entry);
 }
 
 inline bool TrayEntry::GetChecked() const {
-  return SDL::GetTrayEntryChecked(m_resource);
+	return SDL::GetTrayEntryChecked(m_resource);
 }
 
 /**
@@ -1155,11 +1155,11 @@ inline bool TrayEntry::GetChecked() const {
  * @sa TrayEntry.GetEnabled
  */
 inline void SetTrayEntryEnabled(TrayEntryRef entry, bool enabled) {
-  SDL_SetTrayEntryEnabled(entry, enabled);
+	SDL_SetTrayEntryEnabled(entry, enabled);
 }
 
 inline void TrayEntry::SetEnabled(bool enabled) {
-  SDL::SetTrayEntryEnabled(m_resource, enabled);
+	SDL::SetTrayEntryEnabled(m_resource, enabled);
 }
 
 /**
@@ -1178,11 +1178,11 @@ inline void TrayEntry::SetEnabled(bool enabled) {
  * @sa TrayEntry.SetEnabled
  */
 inline bool GetTrayEntryEnabled(TrayEntryRef entry) {
-  return SDL_GetTrayEntryEnabled(entry);
+	return SDL_GetTrayEntryEnabled(entry);
 }
 
 inline bool TrayEntry::GetEnabled() const {
-  return SDL::GetTrayEntryEnabled(m_resource);
+	return SDL::GetTrayEntryEnabled(m_resource);
 }
 
 /**
@@ -1202,13 +1202,13 @@ inline bool TrayEntry::GetEnabled() const {
  * @sa TrayMenu.InsertEntry
  */
 inline void SetTrayEntryCallback(TrayEntryRef entry,
-                                 TrayCallback callback,
-                                 void* userdata) {
-  SDL_SetTrayEntryCallback(entry, callback, userdata);
+																 TrayCallback callback,
+																 void* userdata) {
+	SDL_SetTrayEntryCallback(entry, callback, userdata);
 }
 
 inline void TrayEntry::SetCallback(TrayCallback callback, void* userdata) {
-  SDL::SetTrayEntryCallback(m_resource, callback, userdata);
+	SDL::SetTrayEntryCallback(m_resource, callback, userdata);
 }
 
 /**
@@ -1257,11 +1257,11 @@ inline void Tray::Destroy() { DestroyTray(Release()); }
  * @sa TrayMenu.InsertEntry
  */
 inline TrayMenu GetTrayEntryParent(TrayEntryRef entry) {
-  return SDL_GetTrayEntryParent(entry);
+	return SDL_GetTrayEntryParent(entry);
 }
 
 inline TrayMenu TrayEntry::GetParent() {
-  return SDL::GetTrayEntryParent(m_resource);
+	return SDL::GetTrayEntryParent(m_resource);
 }
 
 /**
@@ -1283,11 +1283,11 @@ inline TrayMenu TrayEntry::GetParent() {
  * @sa TrayMenu.GetParentTray
  */
 inline TrayEntryRef GetTrayMenuParentEntry(TrayMenuRaw menu) {
-  return SDL_GetTrayMenuParentEntry(menu);
+	return SDL_GetTrayMenuParentEntry(menu);
 }
 
 inline TrayEntryRef TrayMenu::GetParentEntry() const {
-  return SDL::GetTrayMenuParentEntry(m_trayMenu);
+	return SDL::GetTrayMenuParentEntry(m_trayMenu);
 }
 
 /**
@@ -1309,11 +1309,11 @@ inline TrayEntryRef TrayMenu::GetParentEntry() const {
  * @sa TrayMenu.GetParentEntry
  */
 inline TrayRef GetTrayMenuParentTray(TrayMenuRaw menu) {
-  return SDL_GetTrayMenuParentTray(menu);
+	return SDL_GetTrayMenuParentTray(menu);
 }
 
 inline TrayRef TrayMenu::GetParentTray() const {
-  return SDL::GetTrayMenuParentTray(m_trayMenu);
+	return SDL::GetTrayMenuParentTray(m_trayMenu);
 }
 
 /**
@@ -1331,11 +1331,11 @@ inline void UpdateTrays() { SDL_UpdateTrays(); }
 /// @}
 
 inline TrayEntry TrayMenu::AppendEntry(StringParam label, TrayEntryFlags flags) {
-  return InsertEntry(-1, std::move(label), flags);
+	return InsertEntry(-1, std::move(label), flags);
 }
 
 inline void TrayEntry::SetCallback(TrayCB callback) {
-  SetCallback(callback.wrapper, callback.data);
+	SetCallback(callback.wrapper, callback.data);
 }
 
 } // namespace SDL

@@ -55,7 +55,7 @@ struct HidDeviceRef;
 using hid_bus_type = SDL_hid_bus_type;
 
 constexpr hid_bus_type HID_API_BUS_UNKNOWN =
-  SDL_HID_API_BUS_UNKNOWN; ///< Unknown bus type
+	SDL_HID_API_BUS_UNKNOWN; ///< Unknown bus type
 
 /**
  * USB bus Specifications:
@@ -102,333 +102,333 @@ using hid_device_info = SDL_hid_device_info;
  * @cat resource
  */
 class HidDevice {
-  HidDeviceRaw m_resource = nullptr;
+	HidDeviceRaw m_resource = nullptr;
 
 public:
-  /// Default ctor
-  constexpr HidDevice(std::nullptr_t = nullptr) noexcept
-    : m_resource(nullptr) {
-  }
+	/// Default ctor
+	constexpr HidDevice(std::nullptr_t = nullptr) noexcept
+		: m_resource(nullptr) {
+	}
 
-  /**
-   * Constructs from raw HidDevice.
-   *
-   * @param resource a HidDeviceRaw to be wrapped.
-   *
-   * This assumes the ownership, call Release() if you need to take back.
-   */
-  constexpr explicit HidDevice(HidDeviceRaw resource) noexcept
-    : m_resource(resource) {
-  }
+	/**
+	 * Constructs from raw HidDevice.
+	 *
+	 * @param resource a HidDeviceRaw to be wrapped.
+	 *
+	 * This assumes the ownership, call Release() if you need to take back.
+	 */
+	constexpr explicit HidDevice(HidDeviceRaw resource) noexcept
+		: m_resource(resource) {
+	}
 
-  /// Copy constructor
-  constexpr HidDevice(const HidDevice& other) noexcept = delete;
+	/// Copy constructor
+	constexpr HidDevice(const HidDevice& other) noexcept = delete;
 
-  /// Move constructor
-  constexpr HidDevice(HidDevice&& other) noexcept
-    : HidDevice(other.Release()) {
-  }
+	/// Move constructor
+	constexpr HidDevice(HidDevice&& other) noexcept
+		: HidDevice(other.Release()) {
+	}
 
-  constexpr HidDevice(const HidDeviceRef& other) = delete;
+	constexpr HidDevice(const HidDeviceRef& other) = delete;
 
-  constexpr HidDevice(HidDeviceRef&& other) = delete;
+	constexpr HidDevice(HidDeviceRef&& other) = delete;
 
-  /**
-   * Open a HID device using a Vendor ID (VID), Product ID (PID) and optionally
-   * a serial number.
-   *
-   * If `serial_number` is nullptr, the first device with the specified VID and
-   * PID is opened.
-   *
-   * @param vendor_id the Vendor ID (VID) of the device to open.
-   * @param product_id the Product ID (PID) of the device to open.
-   * @param serial_number the Serial Number of the device to open (Optionally
-   *                      nullptr).
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  HidDevice(unsigned short vendor_id,
-            unsigned short product_id,
-            const wchar_t* serial_number);
+	/**
+	 * Open a HID device using a Vendor ID (VID), Product ID (PID) and optionally
+	 * a serial number.
+	 *
+	 * If `serial_number` is nullptr, the first device with the specified VID and
+	 * PID is opened.
+	 *
+	 * @param vendor_id the Vendor ID (VID) of the device to open.
+	 * @param product_id the Product ID (PID) of the device to open.
+	 * @param serial_number the Serial Number of the device to open (Optionally
+	 *                      nullptr).
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	HidDevice(unsigned short vendor_id,
+						unsigned short product_id,
+						const wchar_t* serial_number);
 
-  /**
-   * Open a HID device by its path name.
-   *
-   * The path name be determined by calling HidEnumerate(), or a
-   * platform-specific path name can be used (eg: /dev/hidraw0 on Linux).
-   *
-   * @param path the path name of the device to open.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  HidDevice(StringParam path);
+	/**
+	 * Open a HID device by its path name.
+	 *
+	 * The path name be determined by calling HidEnumerate(), or a
+	 * platform-specific path name can be used (eg: /dev/hidraw0 on Linux).
+	 *
+	 * @param path the path name of the device to open.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	HidDevice(StringParam path);
 
-  /// Destructor
-  ~HidDevice() { SDL_hid_close(m_resource); }
+	/// Destructor
+	~HidDevice() { SDL_hid_close(m_resource); }
 
-  /// Assignment operator.
-  constexpr HidDevice& operator=(HidDevice&& other) noexcept {
-    std::swap(m_resource, other.m_resource);
-    return *this;
-  }
+	/// Assignment operator.
+	constexpr HidDevice& operator=(HidDevice&& other) noexcept {
+		std::swap(m_resource, other.m_resource);
+		return *this;
+	}
 
-  /// Assignment operator.
-  HidDevice& operator=(const HidDevice& other) = delete;
+	/// Assignment operator.
+	HidDevice& operator=(const HidDevice& other) = delete;
 
-  /// Retrieves underlying HidDeviceRaw.
-  constexpr HidDeviceRaw Get() const noexcept { return m_resource; }
+	/// Retrieves underlying HidDeviceRaw.
+	constexpr HidDeviceRaw Get() const noexcept { return m_resource; }
 
-  /// Retrieves underlying HidDeviceRaw and clear this.
-  constexpr HidDeviceRaw Release() noexcept {
-    auto r = m_resource;
-    m_resource = nullptr;
-    return r;
-  }
+	/// Retrieves underlying HidDeviceRaw and clear this.
+	constexpr HidDeviceRaw Release() noexcept {
+		auto r = m_resource;
+		m_resource = nullptr;
+		return r;
+	}
 
-  /// Comparison
-  constexpr auto operator<=>(const HidDevice& other) const noexcept = default;
+	/// Comparison
+	constexpr auto operator<=>(const HidDevice& other) const noexcept = default;
 
-  /// Converts to bool
-  constexpr explicit operator bool() const noexcept { return !!m_resource; }
+	/// Converts to bool
+	constexpr explicit operator bool() const noexcept { return !!m_resource; }
 
-  /**
-   * Close a HID device.
-   *
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void close();
+	/**
+	 * Close a HID device.
+	 *
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void close();
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
 
-  /**
-   * Get the properties associated with an HidDevice.
-   *
-   * The following read-only properties are provided by SDL:
-   *
-   * - `prop::Hidapi.LIBUSB_DEVICE_HANDLE_POINTER`: the libusb_device_handle
-   *   associated with the device, if it was opened using libusb.
-   *
-   * @returns a valid property ID on success.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.4.0.
-   */
-  PropertiesRef HidGetProperties();
+	/**
+	 * Get the properties associated with an HidDevice.
+	 *
+	 * The following read-only properties are provided by SDL:
+	 *
+	 * - `prop::Hidapi.LIBUSB_DEVICE_HANDLE_POINTER`: the libusb_device_handle
+	 *   associated with the device, if it was opened using libusb.
+	 *
+	 * @returns a valid property ID on success.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.4.0.
+	 */
+	PropertiesRef HidGetProperties();
 
 #endif // SDL_VERSION_ATLEAST(3, 4, 0)
 
-  /**
-   * Write an Output report to a HID device.
-   *
-   * The first byte of `data` must contain the Report ID. For devices which only
-   * support a single report, this must be set to 0x0. The remaining bytes
-   * contain the report data. Since the Report ID is mandatory, calls to
-   * HidDevice.write() will always contain one more byte than the report
-   * contains. For example, if a hid report is 16 bytes long, 17 bytes must be
-   * passed to HidDevice.write(), the Report ID (or 0x0, for devices with a
-   * single report), followed by the report data (16 bytes). In this example,
-   * the length passed in would be 17.
-   *
-   * HidDevice.write() will send the data on the first OUT endpoint, if one
-   * exists. If it does not, it will send the data through the Control Endpoint
-   * (Endpoint 0).
-   *
-   * @param data the data to send, including the report number as the first
-   *             byte.
-   * @returns the actual number of bytes written and -1 on on failure; call
-   *          GetError() for more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  int write(SourceBytes data);
+	/**
+	 * Write an Output report to a HID device.
+	 *
+	 * The first byte of `data` must contain the Report ID. For devices which only
+	 * support a single report, this must be set to 0x0. The remaining bytes
+	 * contain the report data. Since the Report ID is mandatory, calls to
+	 * HidDevice.write() will always contain one more byte than the report
+	 * contains. For example, if a hid report is 16 bytes long, 17 bytes must be
+	 * passed to HidDevice.write(), the Report ID (or 0x0, for devices with a
+	 * single report), followed by the report data (16 bytes). In this example,
+	 * the length passed in would be 17.
+	 *
+	 * HidDevice.write() will send the data on the first OUT endpoint, if one
+	 * exists. If it does not, it will send the data through the Control Endpoint
+	 * (Endpoint 0).
+	 *
+	 * @param data the data to send, including the report number as the first
+	 *             byte.
+	 * @returns the actual number of bytes written and -1 on on failure; call
+	 *          GetError() for more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	int write(SourceBytes data);
 
-  /**
-   * Read an Input report from a HID device with timeout.
-   *
-   * Input reports are returned to the host through the INTERRUPT IN endpoint.
-   * The first byte will contain the Report number if the device uses numbered
-   * reports.
-   *
-   * @param data a buffer to put the read data into.
-   * @param timeout timeout in milliseconds
-   * @returns the actual number of bytes read and -1 on on failure; call
-   *          GetError() for more information. If no packet was available to be
-   *          read within the timeout period, this function returns 0.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  int ReadTimeout(TargetBytes data, Milliseconds timeout);
+	/**
+	 * Read an Input report from a HID device with timeout.
+	 *
+	 * Input reports are returned to the host through the INTERRUPT IN endpoint.
+	 * The first byte will contain the Report number if the device uses numbered
+	 * reports.
+	 *
+	 * @param data a buffer to put the read data into.
+	 * @param timeout timeout in milliseconds
+	 * @returns the actual number of bytes read and -1 on on failure; call
+	 *          GetError() for more information. If no packet was available to be
+	 *          read within the timeout period, this function returns 0.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	int ReadTimeout(TargetBytes data, Milliseconds timeout);
 
-  /**
-   * Read an Input report from a HID device.
-   *
-   * Input reports are returned to the host through the INTERRUPT IN endpoint.
-   * The first byte will contain the Report number if the device uses numbered
-   * reports.
-   *
-   * @param data a buffer to put the read data into.
-   * @returns the actual number of bytes read and -1 on failure; call GetError()
-   *          for more information. If no packet was available to be read and
-   *          the handle is in non-blocking mode, this function returns 0.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  int read(TargetBytes data);
+	/**
+	 * Read an Input report from a HID device.
+	 *
+	 * Input reports are returned to the host through the INTERRUPT IN endpoint.
+	 * The first byte will contain the Report number if the device uses numbered
+	 * reports.
+	 *
+	 * @param data a buffer to put the read data into.
+	 * @returns the actual number of bytes read and -1 on failure; call GetError()
+	 *          for more information. If no packet was available to be read and
+	 *          the handle is in non-blocking mode, this function returns 0.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	int read(TargetBytes data);
 
-  /**
-   * Set the device handle to be non-blocking.
-   *
-   * In non-blocking mode calls to HidDevice.read() will return immediately with
-   * a value of 0 if there is no data to be read. In blocking mode,
-   * HidDevice.read() will wait (block) until there is data to read before
-   * returning.
-   *
-   * Nonblocking can be turned on and off at any time.
-   *
-   * @param nonblock enable or not the nonblocking reads - true to enable
-   *                 nonblocking - false to disable nonblocking.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void SetNonblocking(bool nonblock);
+	/**
+	 * Set the device handle to be non-blocking.
+	 *
+	 * In non-blocking mode calls to HidDevice.read() will return immediately with
+	 * a value of 0 if there is no data to be read. In blocking mode,
+	 * HidDevice.read() will wait (block) until there is data to read before
+	 * returning.
+	 *
+	 * Nonblocking can be turned on and off at any time.
+	 *
+	 * @param nonblock enable or not the nonblocking reads - true to enable
+	 *                 nonblocking - false to disable nonblocking.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void SetNonblocking(bool nonblock);
 
-  /**
-   * Send a Feature report to the device.
-   *
-   * Feature reports are sent over the Control endpoint as a Set_Report
-   * transfer. The first byte of `data` must contain the Report ID. For devices
-   * which only support a single report, this must be set to 0x0. The remaining
-   * bytes contain the report data. Since the Report ID is mandatory, calls to
-   * HidDevice.SendFeatureReport() will always contain one more byte than the
-   * report contains. For example, if a hid report is 16 bytes long, 17 bytes
-   * must be passed to HidDevice.SendFeatureReport(): the Report ID (or 0x0,
-   * for devices which do not use numbered reports), followed by the report data
-   * (16 bytes). In this example, the length passed in would be 17.
-   *
-   * @param data the data to send, including the report number as the first
-   *             byte.
-   * @returns the actual number of bytes written and -1 on failure; call
-   *          GetError() for more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  int SendFeatureReport(SourceBytes data);
+	/**
+	 * Send a Feature report to the device.
+	 *
+	 * Feature reports are sent over the Control endpoint as a Set_Report
+	 * transfer. The first byte of `data` must contain the Report ID. For devices
+	 * which only support a single report, this must be set to 0x0. The remaining
+	 * bytes contain the report data. Since the Report ID is mandatory, calls to
+	 * HidDevice.SendFeatureReport() will always contain one more byte than the
+	 * report contains. For example, if a hid report is 16 bytes long, 17 bytes
+	 * must be passed to HidDevice.SendFeatureReport(): the Report ID (or 0x0,
+	 * for devices which do not use numbered reports), followed by the report data
+	 * (16 bytes). In this example, the length passed in would be 17.
+	 *
+	 * @param data the data to send, including the report number as the first
+	 *             byte.
+	 * @returns the actual number of bytes written and -1 on failure; call
+	 *          GetError() for more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	int SendFeatureReport(SourceBytes data);
 
-  /**
-   * Get a feature report from a HID device.
-   *
-   * Set the first byte of `data` to the Report ID of the report to be read.
-   * Make sure to allow space for this extra byte in `data`. Upon return, the
-   * first byte will still contain the Report ID, and the report data will start
-   * in data[1].
-   *
-   * @param data a buffer to put the read data into, including the Report ID.
-   *             Set the first byte of `data` to the Report ID of the report to
-   *             be read, or set it to Zero if your device does not use numbered
-   *             reports.
-   * @returns the number of bytes read plus one for the report ID (which is
-   *          still in the first byte), or -1 on on failure; call GetError() for
-   *          more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  int GetFeatureReport(TargetBytes data);
+	/**
+	 * Get a feature report from a HID device.
+	 *
+	 * Set the first byte of `data` to the Report ID of the report to be read.
+	 * Make sure to allow space for this extra byte in `data`. Upon return, the
+	 * first byte will still contain the Report ID, and the report data will start
+	 * in data[1].
+	 *
+	 * @param data a buffer to put the read data into, including the Report ID.
+	 *             Set the first byte of `data` to the Report ID of the report to
+	 *             be read, or set it to Zero if your device does not use numbered
+	 *             reports.
+	 * @returns the number of bytes read plus one for the report ID (which is
+	 *          still in the first byte), or -1 on on failure; call GetError() for
+	 *          more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	int GetFeatureReport(TargetBytes data);
 
-  /**
-   * Get an input report from a HID device.
-   *
-   * Set the first byte of `data` to the Report ID of the report to be read.
-   * Make sure to allow space for this extra byte in `data`. Upon return, the
-   * first byte will still contain the Report ID, and the report data will start
-   * in data[1].
-   *
-   * @param data a buffer to put the read data into, including the Report ID.
-   *             Set the first byte of `data` to the Report ID of the report to
-   *             be read, or set it to Zero if your device does not use numbered
-   *             reports.
-   * @returns the number of bytes read plus one for the report ID (which is
-   *          still in the first byte), or -1 on on failure; call GetError() for
-   *          more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  int GetInputReport(TargetBytes data);
+	/**
+	 * Get an input report from a HID device.
+	 *
+	 * Set the first byte of `data` to the Report ID of the report to be read.
+	 * Make sure to allow space for this extra byte in `data`. Upon return, the
+	 * first byte will still contain the Report ID, and the report data will start
+	 * in data[1].
+	 *
+	 * @param data a buffer to put the read data into, including the Report ID.
+	 *             Set the first byte of `data` to the Report ID of the report to
+	 *             be read, or set it to Zero if your device does not use numbered
+	 *             reports.
+	 * @returns the number of bytes read plus one for the report ID (which is
+	 *          still in the first byte), or -1 on on failure; call GetError() for
+	 *          more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	int GetInputReport(TargetBytes data);
 
-  /**
-   * Get The Manufacturer String from a HID device.
-   *
-   * @param string a wide string buffer to put the data into.
-   * @param maxlen the length of the buffer in multiples of wchar_t.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void GetManufacturerString(wchar_t* string, size_t maxlen);
+	/**
+	 * Get The Manufacturer String from a HID device.
+	 *
+	 * @param string a wide string buffer to put the data into.
+	 * @param maxlen the length of the buffer in multiples of wchar_t.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void GetManufacturerString(wchar_t* string, size_t maxlen);
 
-  /**
-   * Get The Product String from a HID device.
-   *
-   * @param string a wide string buffer to put the data into.
-   * @param maxlen the length of the buffer in multiples of wchar_t.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void GetProductString(wchar_t* string, size_t maxlen);
+	/**
+	 * Get The Product String from a HID device.
+	 *
+	 * @param string a wide string buffer to put the data into.
+	 * @param maxlen the length of the buffer in multiples of wchar_t.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void GetProductString(wchar_t* string, size_t maxlen);
 
-  /**
-   * Get The Serial Number String from a HID device.
-   *
-   * @param string a wide string buffer to put the data into.
-   * @param maxlen the length of the buffer in multiples of wchar_t.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void GetSerialNumberString(wchar_t* string, size_t maxlen);
+	/**
+	 * Get The Serial Number String from a HID device.
+	 *
+	 * @param string a wide string buffer to put the data into.
+	 * @param maxlen the length of the buffer in multiples of wchar_t.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void GetSerialNumberString(wchar_t* string, size_t maxlen);
 
-  /**
-   * Get a string from a HID device, based on its string index.
-   *
-   * @param string_index the index of the string to Get.
-   * @param string a wide string buffer to put the data into.
-   * @param maxlen the length of the buffer in multiples of wchar_t.
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  void GetIndexedString(int string_index, wchar_t* string, size_t maxlen);
+	/**
+	 * Get a string from a HID device, based on its string index.
+	 *
+	 * @param string_index the index of the string to Get.
+	 * @param string a wide string buffer to put the data into.
+	 * @param maxlen the length of the buffer in multiples of wchar_t.
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	void GetIndexedString(int string_index, wchar_t* string, size_t maxlen);
 
-  /**
-   * Get the device info from a HID device.
-   *
-   * @returns a pointer to the hid_device_info for this hid_device on success.
-   *          This struct is valid until the device is closed with
-   *          HidDevice.close().
-   * @throws Error on failure.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  hid_device_info* get_device_info();
+	/**
+	 * Get the device info from a HID device.
+	 *
+	 * @returns a pointer to the hid_device_info for this hid_device on success.
+	 *          This struct is valid until the device is closed with
+	 *          HidDevice.close().
+	 * @throws Error on failure.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	hid_device_info* get_device_info();
 
-  /**
-   * Get a report descriptor from a HID device.
-   *
-   * User has to provide a preallocated buffer where descriptor will be copied
-   * to. The recommended size for a preallocated buffer is 4096 bytes.
-   *
-   * @param buf the buffer to copy descriptor into.
-   * @returns the number of bytes actually copied or -1 on failure; call
-   *          GetError() for more information.
-   *
-   * @since This function is available since SDL 3.2.0.
-   */
-  int GetReportDescriptor(TargetBytes buf);
+	/**
+	 * Get a report descriptor from a HID device.
+	 *
+	 * User has to provide a preallocated buffer where descriptor will be copied
+	 * to. The recommended size for a preallocated buffer is 4096 bytes.
+	 *
+	 * @param buf the buffer to copy descriptor into.
+	 * @returns the number of bytes actually copied or -1 on failure; call
+	 *          GetError() for more information.
+	 *
+	 * @since This function is available since SDL 3.2.0.
+	 */
+	int GetReportDescriptor(TargetBytes buf);
 };
 
 /**
@@ -437,63 +437,63 @@ public:
  * This does not take ownership!
  */
 struct HidDeviceRef : HidDevice {
-  using HidDevice::HidDevice;
+	using HidDevice::HidDevice;
 
-  /**
-   * Constructs from raw HidDevice.
-   *
-   * @param resource a HidDeviceRaw.
-   *
-   * This does not takes ownership!
-   */
-  constexpr HidDeviceRef(HidDeviceRaw resource) noexcept
-    : HidDevice(resource) {
-  }
+	/**
+	 * Constructs from raw HidDevice.
+	 *
+	 * @param resource a HidDeviceRaw.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr HidDeviceRef(HidDeviceRaw resource) noexcept
+		: HidDevice(resource) {
+	}
 
-  /**
-   * Constructs from HidDevice.
-   *
-   * @param resource a HidDevice.
-   *
-   * This does not takes ownership!
-   */
-  constexpr HidDeviceRef(const HidDevice& resource) noexcept
-    : HidDevice(resource.Get()) {
-  }
+	/**
+	 * Constructs from HidDevice.
+	 *
+	 * @param resource a HidDevice.
+	 *
+	 * This does not takes ownership!
+	 */
+	constexpr HidDeviceRef(const HidDevice& resource) noexcept
+		: HidDevice(resource.Get()) {
+	}
 
-  /**
-   * Constructs from HidDevice.
-   *
-   * @param resource a HidDevice.
-   *
-   * This will Release the ownership from resource!
-   */
-  constexpr HidDeviceRef(HidDevice&& resource) noexcept
-    : HidDevice(std::move(resource).Release()) {
-  }
+	/**
+	 * Constructs from HidDevice.
+	 *
+	 * @param resource a HidDevice.
+	 *
+	 * This will Release the ownership from resource!
+	 */
+	constexpr HidDeviceRef(HidDevice&& resource) noexcept
+		: HidDevice(std::move(resource).Release()) {
+	}
 
-  /// Copy constructor.
-  constexpr HidDeviceRef(const HidDeviceRef& other) noexcept
-    : HidDevice(other.Get()) {
-  }
+	/// Copy constructor.
+	constexpr HidDeviceRef(const HidDeviceRef& other) noexcept
+		: HidDevice(other.Get()) {
+	}
 
-  /// Move constructor.
-  constexpr HidDeviceRef(HidDeviceRef&& other) noexcept
-    : HidDevice(other.Get()) {
-  }
+	/// Move constructor.
+	constexpr HidDeviceRef(HidDeviceRef&& other) noexcept
+		: HidDevice(other.Get()) {
+	}
 
-  /// Destructor
-  ~HidDeviceRef() { Release(); }
+	/// Destructor
+	~HidDeviceRef() { Release(); }
 
-  /// Assignment operator.
-  HidDeviceRef& operator=(const HidDeviceRef& other) noexcept {
-    Release();
-    HidDevice::operator=(HidDevice(other.Get()));
-    return *this;
-  }
+	/// Assignment operator.
+	HidDeviceRef& operator=(const HidDeviceRef& other) noexcept {
+		Release();
+		HidDevice::operator=(HidDevice(other.Get()));
+		return *this;
+	}
 
-  /// Converts to HidDeviceRaw
-  constexpr operator HidDeviceRaw() const noexcept { return Get(); }
+	/// Converts to HidDeviceRaw
+	constexpr operator HidDeviceRaw() const noexcept { return Get(); }
 };
 
 /**
@@ -549,7 +549,7 @@ inline void HidExit() { CheckErrorIfNot(SDL_hid_exit(), 0); }
  * @sa HidEnumerate
  */
 inline Uint32 HidDeviceChangeCount() {
-  return SDL_hid_device_change_count();
+	return SDL_hid_device_change_count();
 }
 
 /**
@@ -579,8 +579,8 @@ inline Uint32 HidDeviceChangeCount() {
  * @sa HidDeviceChangeCount
  */
 inline hid_device_info* HidEnumerate(unsigned short vendor_id,
-                                      unsigned short product_id) {
-  return CheckError(SDL_hid_enumerate(vendor_id, product_id));
+																			unsigned short product_id) {
+	return CheckError(SDL_hid_enumerate(vendor_id, product_id));
 }
 
 /**
@@ -593,7 +593,7 @@ inline hid_device_info* HidEnumerate(unsigned short vendor_id,
  * @since This function is available since SDL 3.2.0.
  */
 inline void HidFreeEnumeration(hid_device_info* devs) {
-  SDL_hid_free_enumeration(devs);
+	SDL_hid_free_enumeration(devs);
 }
 
 /**
@@ -613,19 +613,19 @@ inline void HidFreeEnumeration(hid_device_info* devs) {
  * @since This function is available since SDL 3.2.0.
  */
 inline HidDevice HidOpen(unsigned short vendor_id,
-                          unsigned short product_id,
-                          const wchar_t* serial_number) {
-  return HidDevice(vendor_id, product_id, serial_number);
+													unsigned short product_id,
+													const wchar_t* serial_number) {
+	return HidDevice(vendor_id, product_id, serial_number);
 }
 
 inline HidDevice::HidDevice(unsigned short vendor_id,
-                            unsigned short product_id,
-                            const wchar_t* serial_number)
-  : m_resource(CheckError(SDL_hid_open(vendor_id, product_id, serial_number))) {
+														unsigned short product_id,
+														const wchar_t* serial_number)
+	: m_resource(CheckError(SDL_hid_open(vendor_id, product_id, serial_number))) {
 }
 
 inline HidDevice::HidDevice(StringParam path)
-  : m_resource(CheckError(SDL_hid_open_path(path))) {
+	: m_resource(CheckError(SDL_hid_open_path(path))) {
 }
 
 /**
@@ -641,7 +641,7 @@ inline HidDevice::HidDevice(StringParam path)
  * @since This function is available since SDL 3.2.0.
  */
 inline HidDevice HidOpenPath(StringParam path) {
-  return HidDevice(std::move(path));
+	return HidDevice(std::move(path));
 }
 
 #if SDL_VERSION_ATLEAST(3, 4, 0)
@@ -661,17 +661,17 @@ inline HidDevice HidOpenPath(StringParam path) {
  * @since This function is available since SDL 3.4.0.
  */
 inline PropertiesRef HidGetProperties(HidDeviceRef dev) {
-  return CheckError(SDL_hid_get_properties(dev));
+	return CheckError(SDL_hid_get_properties(dev));
 }
 
 inline PropertiesRef HidDevice::HidGetProperties() {
-  return SDL::HidGetProperties(m_resource);
+	return SDL::HidGetProperties(m_resource);
 }
 
 namespace prop::Hidapi {
 
 constexpr auto LIBUSB_DEVICE_HANDLE_POINTER =
-  SDL_PROP_HIDAPI_LIBUSB_DEVICE_HANDLE_POINTER;
+	SDL_PROP_HIDAPI_LIBUSB_DEVICE_HANDLE_POINTER;
 
 } // namespace prop::Hidapi
 
@@ -700,11 +700,11 @@ constexpr auto LIBUSB_DEVICE_HANDLE_POINTER =
  * @since This function is available since SDL 3.2.0.
  */
 inline int HidWrite(HidDeviceRef dev, SourceBytes data) {
-  return SDL_hid_write(dev, data.data_as<Uint8>(), data.size_bytes());
+	return SDL_hid_write(dev, data.data_as<Uint8>(), data.size_bytes());
 }
 
 inline int HidDevice::write(SourceBytes data) {
-  return SDL::HidWrite(m_resource, std::move(data));
+	return SDL::HidWrite(m_resource, std::move(data));
 }
 
 /**
@@ -724,14 +724,14 @@ inline int HidDevice::write(SourceBytes data) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int HidReadTimeout(HidDeviceRef dev,
-                            TargetBytes data,
-                            Milliseconds timeout) {
-  return SDL_hid_read_timeout(
-    dev, data.data_as<Uint8>(), data.size_bytes(), NarrowS32(timeout.count()));
+														TargetBytes data,
+														Milliseconds timeout) {
+	return SDL_hid_read_timeout(
+		dev, data.data_as<Uint8>(), data.size_bytes(), NarrowS32(timeout.count()));
 }
 
 inline int HidDevice::ReadTimeout(TargetBytes data, Milliseconds timeout) {
-  return SDL::HidReadTimeout(m_resource, std::move(data), timeout);
+	return SDL::HidReadTimeout(m_resource, std::move(data), timeout);
 }
 
 /**
@@ -750,11 +750,11 @@ inline int HidDevice::ReadTimeout(TargetBytes data, Milliseconds timeout) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int HidRead(HidDeviceRef dev, TargetBytes data) {
-  return SDL_hid_read(dev, data.data_as<Uint8>(), data.size_bytes());
+	return SDL_hid_read(dev, data.data_as<Uint8>(), data.size_bytes());
 }
 
 inline int HidDevice::read(TargetBytes data) {
-  return SDL::HidRead(m_resource, std::move(data));
+	return SDL::HidRead(m_resource, std::move(data));
 }
 
 /**
@@ -774,11 +774,11 @@ inline int HidDevice::read(TargetBytes data) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void HidSetNonblocking(HidDeviceRef dev, bool nonblock) {
-  CheckErrorIfNot(SDL_hid_set_nonblocking(dev, nonblock), 0);
+	CheckErrorIfNot(SDL_hid_set_nonblocking(dev, nonblock), 0);
 }
 
 inline void HidDevice::SetNonblocking(bool nonblock) {
-  SDL::HidSetNonblocking(m_resource, nonblock);
+	SDL::HidSetNonblocking(m_resource, nonblock);
 }
 
 /**
@@ -802,12 +802,12 @@ inline void HidDevice::SetNonblocking(bool nonblock) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int HidSendFeatureReport(HidDeviceRef dev, SourceBytes data) {
-  return SDL_hid_send_feature_report(
-    dev, data.data_as<Uint8>(), data.size_bytes());
+	return SDL_hid_send_feature_report(
+		dev, data.data_as<Uint8>(), data.size_bytes());
 }
 
 inline int HidDevice::SendFeatureReport(SourceBytes data) {
-  return SDL::HidSendFeatureReport(m_resource, std::move(data));
+	return SDL::HidSendFeatureReport(m_resource, std::move(data));
 }
 
 /**
@@ -830,12 +830,12 @@ inline int HidDevice::SendFeatureReport(SourceBytes data) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int HidGetFeatureReport(HidDeviceRef dev, TargetBytes data) {
-  return SDL_hid_get_feature_report(
-    dev, data.data_as<Uint8>(), data.size_bytes());
+	return SDL_hid_get_feature_report(
+		dev, data.data_as<Uint8>(), data.size_bytes());
 }
 
 inline int HidDevice::GetFeatureReport(TargetBytes data) {
-  return SDL::HidGetFeatureReport(m_resource, std::move(data));
+	return SDL::HidGetFeatureReport(m_resource, std::move(data));
 }
 
 /**
@@ -858,12 +858,12 @@ inline int HidDevice::GetFeatureReport(TargetBytes data) {
  * @since This function is available since SDL 3.2.0.
  */
 inline int HidGetInputReport(HidDeviceRef dev, TargetBytes data) {
-  return SDL_hid_get_input_report(
-    dev, data.data_as<Uint8>(), data.size_bytes());
+	return SDL_hid_get_input_report(
+		dev, data.data_as<Uint8>(), data.size_bytes());
 }
 
 inline int HidDevice::GetInputReport(TargetBytes data) {
-  return SDL::HidGetInputReport(m_resource, std::move(data));
+	return SDL::HidGetInputReport(m_resource, std::move(data));
 }
 
 /**
@@ -875,7 +875,7 @@ inline int HidDevice::GetInputReport(TargetBytes data) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void HidClose(HidDeviceRaw dev) {
-  CheckErrorIfNot(SDL_hid_close(dev), 0);
+	CheckErrorIfNot(SDL_hid_close(dev), 0);
 }
 
 inline void HidDevice::close() { HidClose(Release()); }
@@ -891,13 +891,13 @@ inline void HidDevice::close() { HidClose(Release()); }
  * @since This function is available since SDL 3.2.0.
  */
 inline void HidGetManufacturerString(HidDeviceRef dev,
-                                        wchar_t* string,
-                                        size_t maxlen) {
-  CheckErrorIfNot(SDL_hid_get_manufacturer_string(dev, string, maxlen), 0);
+																				wchar_t* string,
+																				size_t maxlen) {
+	CheckErrorIfNot(SDL_hid_get_manufacturer_string(dev, string, maxlen), 0);
 }
 
 inline void HidDevice::GetManufacturerString(wchar_t* string, size_t maxlen) {
-  SDL::HidGetManufacturerString(m_resource, string, maxlen);
+	SDL::HidGetManufacturerString(m_resource, string, maxlen);
 }
 
 /**
@@ -911,13 +911,13 @@ inline void HidDevice::GetManufacturerString(wchar_t* string, size_t maxlen) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void HidGetProductString(HidDeviceRef dev,
-                                   wchar_t* string,
-                                   size_t maxlen) {
-  CheckErrorIfNot(SDL_hid_get_product_string(dev, string, maxlen), 0);
+																	 wchar_t* string,
+																	 size_t maxlen) {
+	CheckErrorIfNot(SDL_hid_get_product_string(dev, string, maxlen), 0);
 }
 
 inline void HidDevice::GetProductString(wchar_t* string, size_t maxlen) {
-  SDL::HidGetProductString(m_resource, string, maxlen);
+	SDL::HidGetProductString(m_resource, string, maxlen);
 }
 
 /**
@@ -931,13 +931,13 @@ inline void HidDevice::GetProductString(wchar_t* string, size_t maxlen) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void HidGetSerialNumberString(HidDeviceRef dev,
-                                         wchar_t* string,
-                                         size_t maxlen) {
-  CheckErrorIfNot(SDL_hid_get_serial_number_string(dev, string, maxlen), 0);
+																				 wchar_t* string,
+																				 size_t maxlen) {
+	CheckErrorIfNot(SDL_hid_get_serial_number_string(dev, string, maxlen), 0);
 }
 
 inline void HidDevice::GetSerialNumberString(wchar_t* string, size_t maxlen) {
-  SDL::HidGetSerialNumberString(m_resource, string, maxlen);
+	SDL::HidGetSerialNumberString(m_resource, string, maxlen);
 }
 
 /**
@@ -952,17 +952,17 @@ inline void HidDevice::GetSerialNumberString(wchar_t* string, size_t maxlen) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void HidGetIndexedString(HidDeviceRef dev,
-                                   int string_index,
-                                   wchar_t* string,
-                                   size_t maxlen) {
-  CheckErrorIfNot(SDL_hid_get_indexed_string(dev, string_index, string, maxlen),
-                  0);
+																	 int string_index,
+																	 wchar_t* string,
+																	 size_t maxlen) {
+	CheckErrorIfNot(SDL_hid_get_indexed_string(dev, string_index, string, maxlen),
+									0);
 }
 
 inline void HidDevice::GetIndexedString(int string_index,
-                                          wchar_t* string,
-                                          size_t maxlen) {
-  SDL::HidGetIndexedString(m_resource, string_index, string, maxlen);
+																					wchar_t* string,
+																					size_t maxlen) {
+	SDL::HidGetIndexedString(m_resource, string_index, string, maxlen);
 }
 
 /**
@@ -977,11 +977,11 @@ inline void HidDevice::GetIndexedString(int string_index,
  * @since This function is available since SDL 3.2.0.
  */
 inline hid_device_info* HidGetDeviceInfo(HidDeviceRef dev) {
-  return CheckError(SDL_hid_get_device_info(dev));
+	return CheckError(SDL_hid_get_device_info(dev));
 }
 
 inline hid_device_info* HidDevice::get_device_info() {
-  return SDL::HidGetDeviceInfo(m_resource);
+	return SDL::HidGetDeviceInfo(m_resource);
 }
 
 /**
@@ -998,12 +998,12 @@ inline hid_device_info* HidDevice::get_device_info() {
  * @since This function is available since SDL 3.2.0.
  */
 inline int HidGetReportDescriptor(HidDeviceRef dev, TargetBytes buf) {
-  return SDL_hid_get_report_descriptor(
-    dev, buf.data_as<Uint8>(), buf.size_bytes());
+	return SDL_hid_get_report_descriptor(
+		dev, buf.data_as<Uint8>(), buf.size_bytes());
 }
 
 inline int HidDevice::GetReportDescriptor(TargetBytes buf) {
-  return SDL::HidGetReportDescriptor(m_resource, std::move(buf));
+	return SDL::HidGetReportDescriptor(m_resource, std::move(buf));
 }
 
 /**

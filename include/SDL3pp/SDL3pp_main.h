@@ -148,10 +148,10 @@ inline void SetMainReady() { SDL_SetMainReady(); }
  * @since This function is available since SDL 3.2.0.
  */
 inline int RunApp(int argc,
-                  char* argv[],
-                  main_func mainFunction,
-                  void* reserved) {
-  return SDL_RunApp(argc, argv, mainFunction, reserved);
+									char* argv[],
+									main_func mainFunction,
+									void* reserved) {
+	return SDL_RunApp(argc, argv, mainFunction, reserved);
 }
 
 /**
@@ -180,13 +180,13 @@ inline int RunApp(int argc,
  * @since This function is available since SDL 3.2.0.
  */
 inline int EnterAppMainCallbacks(int argc,
-                                 char* argv[],
-                                 AppInit_func appinit,
-                                 AppIterate_func appiter,
-                                 AppEvent_func appevent,
-                                 AppQuit_func appquit) {
-  return SDL_EnterAppMainCallbacks(
-    argc, argv, appinit, appiter, appevent, appquit);
+																 char* argv[],
+																 AppInit_func appinit,
+																 AppIterate_func appiter,
+																 AppEvent_func appevent,
+																 AppQuit_func appquit) {
+	return SDL_EnterAppMainCallbacks(
+		argc, argv, appinit, appiter, appevent, appquit);
 }
 
 #if defined(SDL_PLATFORM_WINDOWS)
@@ -218,7 +218,7 @@ inline int EnterAppMainCallbacks(int argc,
  * @since This function is available since SDL 3.2.0.
  */
 inline bool RegisterApp(StringParam name, Uint32 style, void* hInst) {
-  return SDL_RegisterApp(name, style, hInst);
+	return SDL_RegisterApp(name, style, hInst);
 }
 
 /**
@@ -259,20 +259,20 @@ inline void GDKSuspendComplete() { SDL_GDKSuspendComplete(); }
  * @param CLASS The class to wrap in callbacks.
  */
 #define SDL3PP_DEFINE_CALLBACKS(CLASS)                                          \
-  static_assert(SDL::HasIterateFunction<CLASS>, "Main class not compatible");   \
-  inline SDL::AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {  \
-    return SDL::InitClass(reinterpret_cast<CLASS**>(appstate),                  \
-                          SDL::AppArgs(argc, argv));                            \
-  }                                                                             \
-  inline SDL::AppResult SDL_AppIterate(void* appstate) {                        \
-    return SDL::IterateClass(static_cast<CLASS*>(appstate));                    \
-  }                                                                             \
-  inline SDL::AppResult SDL_AppEvent(void* appstate, SDL::Event* event) {       \
-    return SDL::EventClass(static_cast<CLASS*>(appstate), *event);              \
-  }                                                                             \
-  inline void SDL_AppQuit(void* appstate, SDL::AppResult result) {              \
-    SDL::QuitClass(static_cast<CLASS*>(appstate), result);                      \
-  }
+	static_assert(SDL::HasIterateFunction<CLASS>, "Main class not compatible");   \
+	inline SDL::AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {  \
+		return SDL::InitClass(reinterpret_cast<CLASS**>(appstate),                  \
+													SDL::AppArgs(argc, argv));                            \
+	}                                                                             \
+	inline SDL::AppResult SDL_AppIterate(void* appstate) {                        \
+		return SDL::IterateClass(static_cast<CLASS*>(appstate));                    \
+	}                                                                             \
+	inline SDL::AppResult SDL_AppEvent(void* appstate, SDL::Event* event) {       \
+		return SDL::EventClass(static_cast<CLASS*>(appstate), *event);              \
+	}                                                                             \
+	inline void SDL_AppQuit(void* appstate, SDL::AppResult result) {              \
+		SDL::QuitClass(static_cast<CLASS*>(appstate), result);                      \
+	}
 
 /// @}
 

@@ -24,11 +24,11 @@ namespace SDL {
  */
 
 constexpr Time Time::FromPosix(Sint64 time) {
-  return Time::FromNS(SDL_SECONDS_TO_NS(time));
+	return Time::FromNS(SDL_SECONDS_TO_NS(time));
 }
 
 constexpr Sint64 Time::ToPosix() const {
-  return SDL_NS_TO_SECONDS(m_time.count());
+	return SDL_NS_TO_SECONDS(m_time.count());
 }
 
 /**
@@ -45,7 +45,7 @@ constexpr Sint64 Time::ToPosix() const {
  * @sa GetTicksNS
  */
 inline std::chrono::nanoseconds GetTicks() {
-  return std::chrono::nanoseconds(SDL_GetTicksNS());
+	return std::chrono::nanoseconds(SDL_GetTicksNS());
 }
 
 /**
@@ -106,7 +106,7 @@ inline Uint64 GetPerformanceCounter() { return SDL_GetPerformanceCounter(); }
  * @sa GetPerformanceCounter
  */
 inline Uint64 GetPerformanceFrequency() {
-  return SDL_GetPerformanceFrequency();
+	return SDL_GetPerformanceFrequency();
 }
 
 /**
@@ -143,7 +143,7 @@ inline void Delay(Uint32 ms) { SDL_Delay(ms); }
  * @sa DelayPrecise(std::chrono::nanoseconds)
  */
 inline void Delay(std::chrono::nanoseconds duration) {
-  SDL_DelayNS(duration.count());
+	SDL_DelayNS(duration.count());
 }
 
 /**
@@ -201,7 +201,7 @@ inline void DelayPrecise(Uint64 ns) { SDL_DelayPrecise(ns); }
  * @sa DelayPrecise(Uint64)
  */
 inline void DelayPrecise(std::chrono::nanoseconds duration) {
-  SDL_DelayPrecise(duration.count());
+	SDL_DelayPrecise(duration.count());
 }
 
 /**
@@ -236,8 +236,8 @@ using TimerID = SDL_TimerID;
  * @sa AddTimer
  */
 using MSTimerCallback = Uint32(SDLCALL*)(void* userdata,
-                                         TimerID timerID,
-                                         Uint32 interval);
+																				 TimerID timerID,
+																				 Uint32 interval);
 
 /**
  * Function prototype for the nanosecond timer callback function.
@@ -264,8 +264,8 @@ using MSTimerCallback = Uint32(SDLCALL*)(void* userdata,
  * @sa AddTimer
  */
 using NSTimerCallback = Uint64(SDLCALL*)(void* userdata,
-                                         TimerID timerID,
-                                         Uint64 interval);
+																				 TimerID timerID,
+																				 Uint64 interval);
 
 /**
  * Function prototype for the nanosecond timer callback function.
@@ -294,17 +294,17 @@ using NSTimerCallback = Uint64(SDLCALL*)(void* userdata,
  * @sa NSTimerCallback
  */
 struct TimerCB : LightweightCallbackT<TimerCB, Uint64, TimerID, Uint64> {
-  /// ctor
-  template<std::invocable<TimerID, std::chrono::nanoseconds> F>
-  TimerCB(const F& func)
-    : LightweightCallbackT<TimerCB, Uint64, TimerID, Uint64>(func) {
-  }
+	/// ctor
+	template<std::invocable<TimerID, std::chrono::nanoseconds> F>
+	TimerCB(const F& func)
+		: LightweightCallbackT<TimerCB, Uint64, TimerID, Uint64>(func) {
+	}
 
-  /// @private
-  template<std::invocable<TimerID, std::chrono::nanoseconds> F>
-  static Uint64 DoCall(F& func, TimerID timerID, Uint64 interval) {
-    return func(timerID, std::chrono::nanoseconds(interval)).count();
-  }
+	/// @private
+	template<std::invocable<TimerID, std::chrono::nanoseconds> F>
+	static Uint64 DoCall(F& func, TimerID timerID, Uint64 interval) {
+		return func(timerID, std::chrono::nanoseconds(interval)).count();
+	}
 };
 
 /**
@@ -342,9 +342,9 @@ struct TimerCB : LightweightCallbackT<TimerCB, Uint64, TimerID, Uint64> {
  * @sa RemoveTimer
  */
 inline TimerID AddTimer(std::chrono::milliseconds interval,
-                        MSTimerCallback callback,
-                        void* userdata) {
-  return SDL_AddTimer(Uint32(interval.count()), callback, userdata);
+												MSTimerCallback callback,
+												void* userdata) {
+	return SDL_AddTimer(Uint32(interval.count()), callback, userdata);
 }
 
 /**
@@ -383,9 +383,9 @@ inline TimerID AddTimer(std::chrono::milliseconds interval,
  * @sa RemoveTimer
  */
 inline TimerID AddTimer(std::chrono::nanoseconds interval,
-                        NSTimerCallback callback,
-                        void* userdata) {
-  return CheckError(SDL_AddTimerNS(interval.count(), callback, userdata));
+												NSTimerCallback callback,
+												void* userdata) {
+	return CheckError(SDL_AddTimerNS(interval.count(), callback, userdata));
 }
 
 /**
@@ -426,7 +426,7 @@ inline TimerID AddTimer(std::chrono::nanoseconds interval,
  * @sa RemoveTimer()
  */
 inline TimerID AddTimer(std::chrono::nanoseconds interval, TimerCB callback) {
-  return SDL_AddTimerNS(interval.count(), callback.wrapper, callback.data);
+	return SDL_AddTimerNS(interval.count(), callback.wrapper, callback.data);
 }
 
 /**
@@ -463,142 +463,142 @@ inline void RemoveTimer(TimerID id) { CheckError(SDL_RemoveTimer(id)); }
  * @sa GetFPS
  */
 class FrameTimer {
-  Uint64 m_frameStart     = 0;    ///< ns – timestamp of the current Begin()
-  Uint64 m_prevBeginTime  = 0;    ///< ns – timestamp of the previous Begin()
-  Uint64 m_computeTime    = 0;    ///< ns – computation time (Begin→End)
-  float  m_delta          = 0.f;  ///< seconds between consecutive Begin() calls
-  float  m_targetFPS      = 60.f; ///< target frames per second
-  float  m_time           = 0.f;  ///< counted time in second
-  float  m_fps            = 0.f;  ///< measured FPS (1-second window)
-  Uint32 m_fpsFrameCount  = 0;    ///< frames counted in the current window
-  Uint64 m_fpsWindowStart = 0;    ///< ns – start of the current measurement window
+	Uint64 m_frameStart     = 0;    ///< ns – timestamp of the current Begin()
+	Uint64 m_prevBeginTime  = 0;    ///< ns – timestamp of the previous Begin()
+	Uint64 m_computeTime    = 0;    ///< ns – computation time (Begin→End)
+	float  m_delta          = 0.f;  ///< seconds between consecutive Begin() calls
+	float  m_targetFPS      = 60.f; ///< target frames per second
+	float  m_time           = 0.f;  ///< counted time in second
+	float  m_fps            = 0.f;  ///< measured FPS (1-second window)
+	Uint32 m_fpsFrameCount  = 0;    ///< frames counted in the current window
+	Uint64 m_fpsWindowStart = 0;    ///< ns – start of the current measurement window
 
 public:
-  /**
-   * @brief Construct a FrameTimer with an optional target FPS.
-   *
-   * @param targetFPS desired frames per second (default 60).
-   */
-  explicit FrameTimer(float targetFPS = 60.f)
-    : m_targetFPS(targetFPS) {
-  }
+	/**
+	 * @brief Construct a FrameTimer with an optional target FPS.
+	 *
+	 * @param targetFPS desired frames per second (default 60).
+	 */
+	explicit FrameTimer(float targetFPS = 60.f)
+		: m_targetFPS(targetFPS) {
+	}
 
-  /**
-   * @brief Mark the beginning of a frame.
-   *
-   * Call once at the top of your main loop. On the very first call GetDelta()
-   * returns `1/targetFPS` as a sensible default; the FPS measurement window is
-   * also initialised here.
-   */
-  void Begin() {
-    Uint64 now = GetTicksNS();
+	/**
+	 * @brief Mark the beginning of a frame.
+	 *
+	 * Call once at the top of your main loop. On the very first call GetDelta()
+	 * returns `1/targetFPS` as a sensible default; the FPS measurement window is
+	 * also initialised here.
+	 */
+	void Begin() {
+		Uint64 now = GetTicksNS();
 
-    if (m_prevBeginTime > 0) {
-      m_delta = float(now - m_prevBeginTime) * 1e-9f;
+		if (m_prevBeginTime > 0) {
+			m_delta = float(now - m_prevBeginTime) * 1e-9f;
 
-      // Accumulate frames; refresh the measured FPS every second.
-      ++m_fpsFrameCount;
-      if (now - m_fpsWindowStart >= 1'000'000'000ULL) {
-        m_fps =
-          float(m_fpsFrameCount) / (float(now - m_fpsWindowStart) * 1e-9f);
-        m_fpsWindowStart = now;
-        m_fpsFrameCount  = 0;
-      }
-    } else {
-      // First call: initialise the measurement window.
-      m_fpsWindowStart = now;
-      m_delta          = 1.f / m_targetFPS;
-    }
+			// Accumulate frames; refresh the measured FPS every second.
+			++m_fpsFrameCount;
+			if (now - m_fpsWindowStart >= 1'000'000'000ULL) {
+				m_fps =
+					float(m_fpsFrameCount) / (float(now - m_fpsWindowStart) * 1e-9f);
+				m_fpsWindowStart = now;
+				m_fpsFrameCount  = 0;
+			}
+		} else {
+			// First call: initialise the measurement window.
+			m_fpsWindowStart = now;
+			m_delta          = 1.f / m_targetFPS;
+		}
 
-    m_time         += m_delta;
-    m_prevBeginTime = now;
-    m_frameStart    = now;
-  }
+		m_time         += m_delta;
+		m_prevBeginTime = now;
+		m_frameStart    = now;
+	}
 
-  /**
-   * @brief Mark the end of a frame.
-   *
-   * Computes the computation time (Begin→End). If the frame finished faster
-   * than the target rate, the thread is suspended with nanosecond precision
-   * (via DelayPrecise()) for the remaining budget.
-   */
-  void End() {
-    Uint64 now    = GetTicksNS();
-    m_computeTime = now - m_frameStart;
+	/**
+	 * @brief Mark the end of a frame.
+	 *
+	 * Computes the computation time (Begin→End). If the frame finished faster
+	 * than the target rate, the thread is suspended with nanosecond precision
+	 * (via DelayPrecise()) for the remaining budget.
+	 */
+	void End() {
+		Uint64 now    = GetTicksNS();
+		m_computeTime = now - m_frameStart;
 
-    Uint64 targetNS = Uint64(1'000'000'000.0 / double(m_targetFPS));
-    if (m_computeTime < targetNS) {
-      DelayPrecise(targetNS - m_computeTime);
-    }
-  }
+		Uint64 targetNS = Uint64(1'000'000'000.0 / double(m_targetFPS));
+		if (m_computeTime < targetNS) {
+			DelayPrecise(targetNS - m_computeTime);
+		}
+	}
 
-  /**
-   * @brief Return the computation time of the last frame (Begin→End), in seconds.
-   *
-   * This excludes any sleep added by End(). Useful for profiling how long the
-   * actual work took.
-   *
-   * @returns elapsed computation time in seconds.
-   */
-  float GetTimer() const { return float(m_computeTime) * 1e-9f; }
+	/**
+	 * @brief Return the computation time of the last frame (Begin→End), in seconds.
+	 *
+	 * This excludes any sleep added by End(). Useful for profiling how long the
+	 * actual work took.
+	 *
+	 * @returns elapsed computation time in seconds.
+	 */
+	float GetTimer() const { return float(m_computeTime) * 1e-9f; }
 
-  /**
-   * @brief Return the current time elapsed from the first frame
-   * 
-   * @returns elapsed time in seconds.
-   */
-  float GetTime() const { return m_time; }
+	/**
+	 * @brief Return the current time elapsed from the first frame
+	 * 
+	 * @returns elapsed time in seconds.
+	 */
+	float GetTime() const { return m_time; }
 
-  /**
-   * @brief Return the total duration of the last frame (including sleep), in seconds.
-   *
-   * This is the time between two consecutive Begin() calls and is what you
-   * should use to advance physics or animations.
-   *
-   * @returns delta time in seconds.
-   */
-  float GetDelta() const { return m_delta; }
+	/**
+	 * @brief Return the total duration of the last frame (including sleep), in seconds.
+	 *
+	 * This is the time between two consecutive Begin() calls and is what you
+	 * should use to advance physics or animations.
+	 *
+	 * @returns delta time in seconds.
+	 */
+	float GetDelta() const { return m_delta; }
 
-  /**
-   * @brief Set the target frames per second.
-   *
-   * @param tfps desired frame rate (default 60).
-   */
-  void SetTargetFPS(float tfps = 60.f) { m_targetFPS = tfps; }
+	/**
+	 * @brief Set the target frames per second.
+	 *
+	 * @param tfps desired frame rate (default 60).
+	 */
+	void SetTargetFPS(float tfps = 60.f) { m_targetFPS = tfps; }
 
-  /**
-   * @brief Return the target frames per second.
-   *
-   * @returns target FPS as set by SetTargetFPS() or the constructor.
-   */
-  float GetTargetFPS() const { return m_targetFPS; }
+	/**
+	 * @brief Return the target frames per second.
+	 *
+	 * @returns target FPS as set by SetTargetFPS() or the constructor.
+	 */
+	float GetTargetFPS() const { return m_targetFPS; }
 
-  /**
-   * @brief Return the measured FPS averaged over the last second.
-   *
-   * The value is updated once per second inside Begin(). Returns 0 until the
-   * first full measurement window has elapsed.
-   *
-   * @returns measured FPS.
-   */
-  float GetFPS() const { return m_fps; }
+	/**
+	 * @brief Return the measured FPS averaged over the last second.
+	 *
+	 * The value is updated once per second inside Begin(). Returns 0 until the
+	 * first full measurement window has elapsed.
+	 *
+	 * @returns measured FPS.
+	 */
+	float GetFPS() const { return m_fps; }
 
-  /**
-   * @brief Reset all timer state.
-   *
-   * Clears all counters, timestamps, and the measured FPS. The target FPS set
-   * by SetTargetFPS() (or the constructor) is preserved.
-   */
-  void Reset() {
-    m_frameStart     = 0;
-    m_prevBeginTime  = 0;
-    m_computeTime    = 0;
-    m_delta          = 0.f;
-    m_fps            = 0.f;
-    m_time           = 0.f;
-    m_fpsFrameCount  = 0;
-    m_fpsWindowStart = 0;
-  }
+	/**
+	 * @brief Reset all timer state.
+	 *
+	 * Clears all counters, timestamps, and the measured FPS. The target FPS set
+	 * by SetTargetFPS() (or the constructor) is preserved.
+	 */
+	void Reset() {
+		m_frameStart     = 0;
+		m_prevBeginTime  = 0;
+		m_computeTime    = 0;
+		m_delta          = 0.f;
+		m_fps            = 0.f;
+		m_time           = 0.f;
+		m_fpsFrameCount  = 0;
+		m_fpsWindowStart = 0;
+	}
 };
 
 /// @}
