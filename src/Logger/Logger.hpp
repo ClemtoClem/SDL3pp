@@ -19,8 +19,8 @@ namespace core {
 
 class LogStream {
 public:
-	LogStream(ILogger& logger, LogContext ctx)
-		: m_logger(logger), m_ctx(std::move(ctx)) {}
+	LogStream(ILogger& logger, LogContext ecs_context)
+		: m_logger(logger), m_ctx(std::move(ecs_context)) {}
 
 	~LogStream() {
 		if (m_logger.IsEnabled(m_ctx.level, m_ctx.category))
@@ -78,31 +78,31 @@ public:
 
 	// ── Dispatch ─────────────────────────────────────────────────────────────
 
-	void Dispatch(const LogContext& ctx, const std::string& msg) override {
+	void Dispatch(const LogContext& ecs_context, const std::string& msg) override {
 		// Push to ring buffer (always)
-		LogEntry entry{ ctx, msg, GetTimestamp() };
+		LogEntry entry{ ecs_context, msg, GetTimestamp() };
 		m_ring.Push(entry);
 
 #if LOGGER_HAS_SDL
 		// Forward to SDL's log system (SDL3pp bridge)
-		SDL_LogPriority prio = _ToSDLPriority(ctx.level);
+		SDL_LogPriority prio = _ToSDLPriority(ecs_context.level);
 		int sdlCat = static_cast<int>(SDL_LOG_CATEGORY_CUSTOM) +
-					 static_cast<int>(ctx.category);
+					 static_cast<int>(ecs_context.category);
 		SDL_LogMessage(sdlCat, prio, "%s", msg.c_str());
 #endif
 
 		std::lock_guard lk(m_mx);
-		for (auto& s : m_sinks) s->Write(ctx, msg);
+		for (auto& s : m_sinks) s->Write(ecs_context, msg);
 	}
 
 	// ── Convenience ──────────────────────────────────────────────────────────
 
-	LogStream Log(LogContext ctx) { return LogStream(*this, std::move(ctx)); }
+	LogStream Log(LogContext ecs_context) { return LogStream(*this, std::move(ecs_context)); }
 
 	void Separator(LogCategory cat = LogCategory::App) {
-		LogContext ctx{ LogLevel::None, cat, "", "", 0 };
+		LogContext ecs_context{ LogLevel::None, cat, "", "", 0 };
 		std::string line(LOG_SEPARATOR_SIZE, '-');
-		Dispatch(ctx, line);
+		Dispatch(ecs_context, line);
 	}
 
 	void Flush() {
@@ -122,12 +122,12 @@ public:
 	/// After this call, all SDL_Log* calls will appear in our sinks.
 	static void BridgeSDLFunction() {
 		SDL::SetLogOutputFunction([](void*, int cat, SDL::LogPriority prio, const char* msg) {
-			LogContext ctx;
-			ctx.level    = _FromSDLPriority(prio);
-			ctx.category = _FromSDLCategory(cat);
-			ctx.file     = "SDL";
-			ctx.line     = 0;
-			Logger::Instance().Dispatch(ctx, msg);
+			LogContext ecs_context;
+			ecs_context.level    = _FromSDLPriority(prio);
+			ecs_context.category = _FromSDLCategory(cat);
+			ecs_context.file     = "SDL";
+			ecs_context.line     = 0;
+			Logger::Instance().Dispatch(ecs_context, msg);
 		}, nullptr);
 	}
 #endif

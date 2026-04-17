@@ -937,8 +937,8 @@ struct Main {
 	SDL::ResourcePool& pool_ui   { *resources.CreatePool(pool_key::UI)    };
 	SDL::ResourcePool& pool_tiles{ *resources.CreatePool(pool_key::TILES) };
 
-	SDL::ECS::World  world;
-	SDL::UI::System  ui{ world, renderer, mixer, pool_ui };
+	SDL::ECS::Context  ecs_context;
+	SDL::UI::System  ui{ ecs_context, renderer, mixer, pool_ui };
 	SDL::FrameTimer  frameTimer{ 60.f };
 
 	// ── Editor data ───────────────────────────────────────────────────────────
@@ -1655,21 +1655,21 @@ struct Main {
 		SDL::GetMouseState(mx, my);
 		if (mx >= rect.x && mx < rect.x + rect.w &&
 			my >= rect.y && my < rect.y + rect.h) {
-			int ctx, cty;
-			ScreenToTile(mx, my, ctx, cty);
+			int ecs_context, cty;
+			ScreenToTile(mx, my, ecs_context, cty);
 			if (state.tool == ToolType::Brush) {
 				int half = state.brushSize / 2;
 				for (int dy = -half; dy <= half; ++dy)
 				for (int dx = -half; dx <= half; ++dx) {
-					int bx = ctx + dx, by = cty + dy;
+					int bx = ecs_context + dx, by = cty + dy;
 					if (!map.infinite && (bx < 0 || by < 0 || bx >= map.width || by >= map.height)) continue;
 					auto bp = WorldToScreen(float(bx*map.tileW), float(by*map.tileH));
 					r.SetDrawColor({100, 180, 255, 55});
 					r.RenderFillRect(SDL::FRect{bp.x, bp.y, tw, th});
 				}
 			}
-			if (map.infinite || (ctx >= 0 && cty >= 0 && ctx < map.width && cty < map.height)) {
-				auto cp = WorldToScreen(float(ctx*map.tileW), float(cty*map.tileH));
+			if (map.infinite || (ecs_context >= 0 && cty >= 0 && ecs_context < map.width && cty < map.height)) {
+				auto cp = WorldToScreen(float(ecs_context*map.tileW), float(cty*map.tileH));
 				r.SetDrawColor({255, 255, 100, 75});
 				r.RenderFillRect(SDL::FRect{cp.x, cp.y, tw, th});
 				r.SetDrawColor({255, 255, 100, 190});

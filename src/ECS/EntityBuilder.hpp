@@ -36,7 +36,7 @@ class EntityBuilder {
 public:
 	// `dispTileSizePtr` is a live pointer; the sync script reads it every frame
 	// so scale-in/out is reflected immediately without rebuilding entities.
-	EntityBuilder(SDL::ECS::World&        world,
+	EntityBuilder(SDL::ECS::Context&        world,
 				  SDL::ECS::SceneBuilder& scene,
 				  SDL::RendererRef        renderer,
 				  SDL::ResourcePool&      pool,
@@ -161,12 +161,12 @@ public:
 		// Runs inside scene.Update(dt), before PropagateTransforms2D.
 		// Bridges the gap between game-logic state and scene-graph state.
 		int* dtsPtr = m_dts;
-		nb.OnUpdate([dtsPtr, tileSize](SDL::ECS::EntityId id, SDL::ECS::World& w, float) {
-				auto* tr  = w.Get<Transform>(id);
-				auto* dir = w.Get<DirectionComp>(id);
-				auto* sa  = w.Get<SpriteAnim>(id);
-				auto* t2d = w.Get<SDL::ECS::Transform2D>(id);
-				auto* as  = w.Get<SDL::ECS::AnimatedSprite>(id);
+		nb.OnUpdate([dtsPtr, tileSize](SDL::ECS::EntityId id, SDL::ECS::Context& ctx, float) {
+				auto* tr  = ctx.Get<Transform>(id);
+				auto* dir = ctx.Get<DirectionComp>(id);
+				auto* sa  = ctx.Get<SpriteAnim>(id);
+				auto* t2d = ctx.Get<SDL::ECS::Transform2D>(id);
+				auto* as  = ctx.Get<SDL::ECS::AnimatedSprite>(id);
 				if (!tr || !t2d) return;
 
 				int  dts = *dtsPtr;
@@ -191,7 +191,7 @@ public:
 	}
 
 private:
-	SDL::ECS::World&        m_world;
+	SDL::ECS::Context&        m_world;
 	SDL::ECS::SceneBuilder& m_scene;
 	SDL::RendererRef        m_renderer;
 	SDL::ResourcePool&      m_pool;

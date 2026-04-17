@@ -18,14 +18,14 @@ namespace game {
 
 class PrefaceState : public IState {
 public:
-	void Enter(AppContext& ctx) override {
-		m_ctx = &ctx;
+	void Enter(AppContext& ecs_context) override {
+		m_ctx = &ecs_context;
 		m_time = 0.f;
 		LOG_INFO << "PrefaceState::Enter";
 
-		m_uiWorld = std::make_unique<SDL::ECS::World>();
+		m_uiWorld = std::make_unique<SDL::ECS::Context>();
 		m_ui      = std::make_unique<SDL::UI::System>(
-			*m_uiWorld, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
+			*m_uiWorld, ecs_context.renderer, SDL::MixerRef{nullptr}, *ecs_context.pool);
 
 		m_ui->LoadFont("DejaVuSans", m_ctx->assetsBasePath + "fonts/DejaVuSans.ttf");
 		m_ui->SetDefaultFont("DejaVuSans", 16.f);
@@ -76,7 +76,7 @@ public:
 private:
 	AppContext*  m_ctx  = nullptr;
 	float        m_time = 0.f;
-	std::unique_ptr<SDL::ECS::World>  m_uiWorld;
+	std::unique_ptr<SDL::ECS::Context>  m_uiWorld;
 	std::unique_ptr<SDL::UI::System>  m_ui;
 
 	// ── Animated canvas drawing ───────────────────────────────────────────────

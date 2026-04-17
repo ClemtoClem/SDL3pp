@@ -18,19 +18,19 @@
  * ## Usage
  *
  * ```cpp
- * SDL::World World;
+ * SDL::ECS::Context ecs_context;
  *
  * // Define plain-data components
  * struct Position { float x, y; };
  * struct Velocity { float vx, vy; };
  *
  * // Create entities
- * auto e1 = World.CreateEntity();
- * World.Add<Position>(e1, {100.f, 200.f});
- * World.Add<Velocity>(e1, {1.f, -1.f});
+ * auto e1 = ecs_context.CreateEntity();
+ * ecs_context.Add<Position>(e1, {100.f, 200.f});
+ * ecs_context.Add<Velocity>(e1, {1.f, -1.f});
  *
  * // Query – iterate all entities with both Position AND Velocity
- * World.Each<Position, Velocity>([](SDL::EntityId e,
+ * ecs_context.Each<Position, Velocity>([](SDL::ECS::EntityId e,
  *                                    Position& pos,
  *                                    Velocity& vel) {
  *     pos.x += vel.vx;
@@ -38,15 +38,15 @@
  * });
  *
  * // Register and run systems
- * World.AddSystem([](SDL::World& w) {
- *     w.Each<Position, Velocity>([](SDL::EntityId, Position& p, Velocity& v) {
+ * ecs_context.AddSystem([](SDL::ECS::Context& ctx) {
+ *     ctx.Each<Position, Velocity>([](SDL::ECS::EntityId, Position& p, Velocity& v) {
  *         p.x += v.vx; p.y += v.vy;
  *     });
  * });
- * World.RunSystems();
+ * ecs_context.RunSystems();
  *
  * // Destroy an entity (removes ALL its components automatically)
- * World.DestroyEntity(e1);
+ * ecs_context.DestroyEntity(e1);
  * ```
  *
  * ## C++20 RAII
@@ -56,7 +56,7 @@
  *
  * ```cpp
  * {
- *     auto ref = World.Spawn();  // returns EntityRef
+ *     auto ref = ecs_context.Spawn();  // returns EntityRef
  *     ref.Add<Position>({0, 0});
  * }  // entity destroyed here
  * ```
@@ -211,26 +211,26 @@ private:
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Forward declaration of World (needed by EntityRef)
+// Forward declaration of Context (needed by EntityRef)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class World;
+class Context;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EntityRef  –  RAII handle to a live entity
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Move-only, RAII handle returned by `World::Spawn()`.
+ * Move-only, RAII handle returned by `Context::Spawn()`.
  *
  * The entity is destroyed automatically when the handle goes out of scope
- * (unless `Release()` is called first to transfer ownership back to the World).
+ * (unless `Release()` is called first to transfer ownership back to the Context).
  *
  * Conveniently wraps the common component operations so callers do not need
  * to pass the entity ID explicitly:
  *
  * ```cpp
- * auto crate = World.Spawn();
+ * auto crate = ecs_context.Spawn();
  * crate.Add<Position>({320.f, 240.f})
  *      .Add<Velocity>({0.f, 0.f})
  *      .Add<ECS::Sprite>({texture});
@@ -239,7 +239,7 @@ class World;
 class EntityRef {
 public:
 	EntityRef() = default;
-	EntityRef(World& World, EntityId id) : m_World(&World), m_id(id) {}
+	EntityRef(Context& Context, EntityId id) : m_World(&Context), m_id(id) {}
 
 	~EntityRef() { Destroy(); }
 
@@ -269,7 +269,7 @@ public:
 	[[nodiscard]] bool     IsValid() const noexcept { return m_World && m_id != NullEntity; }
 	explicit operator bool()         const noexcept { return IsValid(); }
 
-	// ── Component helpers (defined after World) ────────────────────────────────
+	// ── Component helpers (defined after Context) ────────────────────────────────
 
 	template<Component T> EntityRef& Add(T value = {});
 	template<Component T> T*         Get();
@@ -287,12 +287,12 @@ public:
 	}
 
 private:
-	World*   m_World = nullptr;
+	Context*   m_World = nullptr;
 	EntityId m_id    = NullEntity;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// World
+// Context
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -301,15 +301,15 @@ private:
  * Thread safety: **none**.  All mutations must occur from the same thread.
  * (Use SDL3pp_resources.h for cross-thread asset loading.)
  */
-class World {
+class Context {
 public:
-	World()           = default;
-	~World()          = default;
+	Context()           = default;
+	~Context()          = default;
 
-	World(const World&)            = delete;
-	World& operator=(const World&) = delete;
-	World(World&&)                 = default;
-	World& operator=(World&&)      = default;
+	Context(const Context&)            = delete;
+	Context& operator=(const Context&) = delete;
+	Context(Context&&)                 = default;
+	Context& operator=(Context&&)      = default;
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// Entity lifecycle
@@ -404,14 +404,14 @@ public:
 	 * Iterate every entity that has component T.
 	 *
 	 * ```cpp
-	 * World.Each<Position>([](EntityId e, Position& p) { ... });
+	 * ecs_context.Each<Position>([](EntityId e, Position& p) { ... });
 	 * ```
 	 */
 	template<Component T, class Fn>
 	void Each(Fn&& fn) {
 		auto* s = TryGetStorage<T>();
 		if (!s) return;
-		auto entities = s->Entities(); // snapshot (fn may modify World)
+		auto entities = s->Entities(); // snapshot (fn may modify Context)
 		for (EntityId e : entities) {
 			if (!IsAlive(e)) continue;
 			fn(e, *s->Get(e));
@@ -422,7 +422,7 @@ public:
 	 * Iterate every entity that has ALL listed component types.
 	 *
 	 * ```cpp
-	 * World.Each<Position, Velocity>([](EntityId e, Position& p, Velocity& v) { ... });
+	 * ecs_context.Each<Position, Velocity>([](EntityId e, Position& p, Velocity& v) { ... });
 	 * ```
 	 *
 	 * Iteration order follows the dense array of the first component type.
@@ -464,7 +464,7 @@ public:
 	// Systems
 	// ─────────────────────────────────────────────────────────────────────────
 
-	using SystemFn = std::function<void(World&)>;
+	using SystemFn = std::function<void(Context&)>;
 
 	/// Register a system to be called by `RunSystems()`.
 	void AddSystem(SystemFn fn) {
@@ -506,7 +506,7 @@ private:
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EntityRef  –  inline method definitions (need World to be complete)
+// EntityRef  –  inline method definitions (need Context to be complete)
 // ─────────────────────────────────────────────────────────────────────────────
 
 template<Component T>

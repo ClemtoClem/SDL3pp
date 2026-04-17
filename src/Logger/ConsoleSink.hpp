@@ -13,7 +13,7 @@ public:
 	/// If `colorEnabled` is false, ANSI codes are omitted (useful for piped output).
 	explicit ConsoleSink(bool colorEnabled = true) : m_color(colorEnabled) {}
 
-	void Write(const LogContext& ctx, const std::string& message) override {
+	void Write(const LogContext& ecs_context, const std::string& message) override {
 		std::ostringstream ss;
 		const char* reset = "\033[0m";
 
@@ -22,34 +22,34 @@ public:
 			ss << "\033[90m" << GetTimestamp() << reset << " ";
 
 			// Level badge with color
-			ss << LogLevelToAnsi(ctx.level)
-			   << '[' << std::left << std::setw(7) << LogLevelToString(ctx.level) << ']'
+			ss << LogLevelToAnsi(ecs_context.level)
+			   << '[' << std::left << std::setw(7) << LogLevelToString(ecs_context.level) << ']'
 			   << reset << ' ';
 
 			// Category tag
-			ss << LogCategoryToAnsi(ctx.category)
-			   << '<' << std::left << std::setw(8) << LogCategoryToString(ctx.category) << '>'
+			ss << LogCategoryToAnsi(ecs_context.category)
+			   << '<' << std::left << std::setw(8) << LogCategoryToString(ecs_context.category) << '>'
 			   << reset << ' ';
 
 			// Message
 			ss << message;
 
 			// Source location (dimmed)
-			if (ctx.line > 0)
-				ss << " \033[90m(" << ctx.file << ':' << ctx.line << ")\033[0m";
+			if (ecs_context.line > 0)
+				ss << " \033[90m(" << ecs_context.file << ':' << ecs_context.line << ")\033[0m";
 		} else {
 			ss << GetTimestamp() << ' '
-			   << '[' << std::left << std::setw(7) << LogLevelToString(ctx.level) << "] "
-			   << '<' << std::left << std::setw(8) << LogCategoryToString(ctx.category) << "> "
+			   << '[' << std::left << std::setw(7) << LogLevelToString(ecs_context.level) << "] "
+			   << '<' << std::left << std::setw(8) << LogCategoryToString(ecs_context.category) << "> "
 			   << message;
-			if (ctx.line > 0)
-				ss << " (" << ctx.file << ':' << ctx.line << ')';
+			if (ecs_context.line > 0)
+				ss << " (" << ecs_context.file << ':' << ecs_context.line << ')';
 		}
 
 		static std::mutex s_mx;
 		std::lock_guard lk(s_mx);
 		// Critical → stderr, rest → stdout
-		if (ctx.level >= LogLevel::Error)
+		if (ecs_context.level >= LogLevel::Error)
 			std::cerr << ss.str() << '\n';
 		else
 			std::cout << ss.str() << '\n';

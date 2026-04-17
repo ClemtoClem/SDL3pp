@@ -56,7 +56,7 @@ struct Main {
 		renderer.RenderClear();                     // start with a blank canvas.
 
 		renderer.SetDrawColor(SDL::Color{255, 255, 255}); // white
-		renderer.RenderDebugText({272, 100}, "Hello ECS::World!");
+		renderer.RenderDebugText({272, 100}, "Hello ECS::Context!");
 		renderer.RenderDebugText({224, 150}, "This is some debug text.");
 
 		renderer.SetDrawColor(SDL::Color{51, 102, 255}); // light blue

@@ -74,6 +74,7 @@
 // Here we have additional "satellite" libraries
 #include "SDL3pp_image.h"
 #include "SDL3pp_mixer.h"
+#include "SDL3pp_net.h"
 #include "SDL3pp_ttf.h"
 
 // Additionnal functionnalities

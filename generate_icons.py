@@ -21,18 +21,18 @@ except IOError:
 
 # Liste des icônes à générer
 ICONS = [
-    # Fichiers et Édition de base
+    # --- Fichiers et Édition de base ---
     "icon_open", "icon_save", "icon_save_as", "icon_new", 
     "icon_import", "icon_export",
     "icon_undo", "icon_redo", "icon_print", 
     
-    # Outils de dessin
+    # --- Outils de dessin ---
     "icon_pencil", "icon_brush", "icon_fill", "icon_erase", "icon_select", 
     
-    # Navigation (Flèches)
+    # --- Navigation (Flèches) ---
     "icon_left_arrow", "icon_right_arrow", "icon_up_arrow", "icon_down_arrow",
 
-    # ÉDITEUR DE TILESET / TILEMAP
+    # --- ÉDITEUR DE TILESET / TILEMAP ---
     "icon_grid",         # Afficher/Masquer la grille
     "icon_stamp",        # Outil tampon (placer un motif de tuiles)
     "icon_eyedropper",   # Pipette (sélectionner une tuile depuis la map)
@@ -49,22 +49,22 @@ ICONS = [
     "icon_play",         # Tester la map
     "icon_magic_wand",   # Baguette magique (sélection par tuiles contiguës)
     
-    # Presse-papiers
+    # --- Presse-papiers ---
     "icon_cut", "icon_copy", "icon_paste",
     
-    # Formatage de texte
+    # --- Formatage de texte ---
     "icon_bold", "icon_italic", "icon_underline", "icon_strikethrough",
     "icon_text_color", "icon_highlight",
     
-    # Paragraphe et Alignement
+    # --- Paragraphe et Alignement ---
     "icon_align_left", "icon_align_center", "icon_align_right", "icon_align_justify",
     "icon_bullet_list", "icon_number_list", 
     "icon_indent_increase", "icon_indent_decrease",
     
-    # Insertion
+    # --- Insertion ---
     "icon_insert_image", "icon_insert_table", "icon_insert_link", "icon_find",
     
-    # Dossiers et fichiers spécifiques
+    # --- Dossiers et fichiers spécifiques ---
     "icon_folder", "icon_file", 
     "icon_file_code", "icon_file_xml", "icon_file_json", "icon_file_yaml", 
     "icon_file_ini", "icon_file_image", "icon_file_png", "icon_file_jpg", 
@@ -72,11 +72,16 @@ ICONS = [
     "icon_file_midi", "icon_file_mp4", "icon_file_mkv", "icon_file_archive", 
     "icon_file_pdf", "icon_file_text", "icon_file_bin",
 
-    # LECTEUR MULTIMEDIA
+    # --- LECTEUR MULTIMEDIA ---
     "icon_play", "icon_pause", "icon_stop", 
     "icon_next", "icon_prev", "icon_fast_forward", "icon_rewind",
     "icon_volume_up", "icon_volume_down", "icon_volume_mute",
     "icon_shuffle", "icon_repeat", "icon_fullscreen", "icon_minimize",
+
+    # --- MÉTÉO ---
+    "icon_weather_sun", "icon_weather_cloud", "icon_weather_partly_cloudy",
+    "icon_weather_rain", "icon_weather_storm", "icon_weather_snow",
+    "icon_weather_wind", "icon_weather_thermometer", "icon_weather_humidity"
 ]
 
 def draw_shape(draw, shape_type, coords, width=LINE_WIDTH, fill=COLOR_FILL, outline=COLOR_OUTLINE):
@@ -92,6 +97,32 @@ def draw_shape(draw, shape_type, coords, width=LINE_WIDTH, fill=COLOR_FILL, outl
         draw.ellipse(coords, fill=fill, outline=outline, width=width)
     elif shape_type == "arc":
         draw.arc(coords, start=180, end=360, fill=outline, width=width+1)
+
+def draw_cloud(draw, offset_y=0):
+    """Dessine un nuage vectoriel composé d'arcs de cercle."""
+    oy = offset_y
+    
+    # 1. Remplissage du nuage (formes pleines pour masquer l'arrière-plan)
+    # Cercle gauche, cercle droit, cercle haut, et un rectangle pour boucher le trou en bas
+    draw.ellipse([(6, 16+oy), (16, 26+oy)], fill=COLOR_FILL)
+    draw.ellipse([(16, 16+oy), (26, 26+oy)], fill=COLOR_FILL)
+    draw.ellipse([(10, 10+oy), (22, 22+oy)], fill=COLOR_FILL)
+    draw.rectangle([(11, 16+oy), (21, 26+oy)], fill=COLOR_FILL)
+    
+    # 2. Tracé des contours extérieurs avec des arcs
+    # (Pillow : 0° = droite, 90° = bas, 180° = gauche, 270° = haut)
+    
+    # Arc gauche (du bas vers le haut-droit)
+    draw.arc([(6, 16+oy), (16, 26+oy)], start=90, end=315, fill=COLOR_OUTLINE, width=LINE_WIDTH)
+    
+    # Arc central haut (de la gauche vers la droite)
+    draw.arc([(10, 10+oy), (22, 22+oy)], start=190, end=350, fill=COLOR_OUTLINE, width=LINE_WIDTH)
+    
+    # Arc droit (du haut-gauche vers le bas)
+    draw.arc([(16, 16+oy), (26, 26+oy)], start=225, end=90, fill=COLOR_OUTLINE, width=LINE_WIDTH)
+    
+    # Ligne de base plate
+    draw.line([(11, 26+oy), (21, 26+oy)], fill=COLOR_OUTLINE, width=LINE_WIDTH)
 
 def generate_icon(icon_name):
     # Création d'une image vierge avec fond transparent
@@ -432,6 +463,65 @@ def generate_icon(icon_name):
         draw_shape(draw, "lines", [(26, 12), (20, 12), (20, 6)])
         draw_shape(draw, "lines", [(6, 20), (12, 20), (12, 26)])
         draw_shape(draw, "lines", [(26, 20), (20, 20), (20, 26)])
+
+    # ==========================================
+    # MÉTÉO
+    # ==========================================
+    elif icon_name == "icon_weather_sun":
+        draw_shape(draw, "ellipse", [(10, 10), (22, 22)])
+        rays = [[(16, 2), (16, 6)], [(16, 26), (16, 30)], [(2, 16), (6, 16)], [(26, 16), (30, 16)],
+                [(6, 6), (9, 9)], [(26, 26), (23, 23)], [(26, 6), (23, 9)], [(6, 26), (9, 23)]]
+        for r in rays: draw_shape(draw, "line", r)
+        
+    elif icon_name == "icon_weather_cloud":
+        draw_cloud(draw, offset_y=0)
+        
+    elif icon_name == "icon_weather_partly_cloudy":
+        # Soleil en arrière-plan (dessiné en premier)
+        draw_shape(draw, "ellipse", [(4, 4), (16, 16)])
+        draw_shape(draw, "line", [(10, 0), (10, 4)])
+        draw_shape(draw, "line", [(0, 10), (4, 10)])
+        draw_shape(draw, "line", [(18, 2), (15, 5)])
+        # Le nuage est dessiné par-dessus et masquera le bas du soleil !
+        draw_cloud(draw, offset_y=2)
+        
+    elif icon_name == "icon_weather_rain":
+        # On remonte le nuage de 4 pixels pour laisser de la place à la pluie
+        draw_cloud(draw, offset_y=-4)
+        draw_shape(draw, "line", [(10, 22), (8, 28)])
+        draw_shape(draw, "line", [(16, 22), (14, 28)])
+        draw_shape(draw, "line", [(22, 22), (20, 28)])
+        
+    elif icon_name == "icon_weather_storm":
+        draw_cloud(draw, offset_y=-4)
+        # Éclair
+        draw_shape(draw, "polygon", [(16, 16), (12, 22), (16, 22), (14, 28), (22, 20), (18, 20)])
+        
+    elif icon_name == "icon_weather_snow":
+        draw_shape(draw, "line", [(16, 4), (16, 28)])
+        draw_shape(draw, "line", [(6, 10), (26, 22)])
+        draw_shape(draw, "line", [(6, 22), (26, 10)])
+        draw_shape(draw, "line", [(16, 4), (12, 8)])
+        draw_shape(draw, "line", [(16, 4), (20, 8)])
+        draw_shape(draw, "line", [(16, 28), (12, 24)])
+        draw_shape(draw, "line", [(16, 28), (20, 24)])
+        
+    elif icon_name == "icon_weather_wind":
+        draw_shape(draw, "lines", [(4, 12), (20, 12), (26, 8), (20, 4)])
+        draw_shape(draw, "lines", [(8, 20), (28, 20), (24, 26), (18, 24)])
+        draw_shape(draw, "line", [(2, 16), (12, 16)])
+        
+    elif icon_name == "icon_weather_thermometer":
+        draw_shape(draw, "line", [(14, 8), (14, 20)])
+        draw_shape(draw, "line", [(18, 8), (18, 20)])
+        draw.arc([(14, 6), (18, 10)], 180, 360, fill=COLOR_OUTLINE, width=LINE_WIDTH)
+        draw_shape(draw, "ellipse", [(12, 20), (20, 28)])
+        draw_shape(draw, "line", [(16, 14), (16, 24)], width=2)
+        for y in [10, 14, 18]: draw_shape(draw, "line", [(20, y), (24, y)], width=1)
+            
+    elif icon_name == "icon_weather_humidity":
+        draw_shape(draw, "polygon", [(16, 4), (24, 16), (22, 26), (10, 26), (8, 16)])
+        draw.arc([(12, 16), (20, 24)], 0, 90, fill=(255, 255, 255, 255), width=2)
 
     # Sauvegarde de l'image
     os.makedirs(PATH, exist_ok=True)

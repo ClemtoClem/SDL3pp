@@ -31,8 +31,8 @@
  *
  * // In update loop:
  * player.Update(dt);
- * if (auto* tex = player.GetVideoTexture())
- *     SDL_RenderTexture(renderer, tex, nullptr, &dst);
+ * if (SDL::TextureRef tex = player.GetVideoTexture())
+ *     renderer.RenderTexture(tex, std::nullopt, dstRect);
  *
  * // Subtitle overlay:
  * if (player.HasActiveSubtitle())
@@ -353,18 +353,12 @@ private:
  */
 class MediaFile {
 public:
-	MediaFile()  = default;
-	MediaFile(const MediaFile& other)
-		: m_fmt(nullptr), m_streams(other.m_streams),
-		  m_activeVideo(other.m_activeVideo), m_activeAudio(other.m_activeAudio),
-		  m_activeSubtitle(other.m_activeSubtitle), m_eof(other.m_eof),
-		  m_path(other.m_path), m_lastError(other.m_lastError) {}
-	MediaFile(MediaFile&&) = default;
-	
-	~MediaFile() { Close(); }
-
+	MediaFile()                            = default;
+	MediaFile(const MediaFile&)            = delete;
 	MediaFile& operator=(const MediaFile&) = delete;
-	MediaFile& operator=(MediaFile&&)      = delete;
+	MediaFile(MediaFile&&)                 = default;
+	MediaFile& operator=(MediaFile&&)      = default;
+	~MediaFile() { Close(); }
 
 	// ── Open / Close ─────────────────────────────────────────────────────────
 
@@ -837,8 +831,8 @@ inline std::vector<SubtitleEvent> MediaFile::ExtractSubtitles(int streamIndex) {
  * 5. Handles looping or EOF state transitions.
  *
  * ## Video texture
- * `GetVideoTexture()` returns an `SDL_Texture*` with `SDL_TEXTUREACCESS_STREAMING`
- * updated in-place by `Update()`.  Render it every frame; the pointer is stable
+ * `GetVideoTexture()` returns an `SDL::TextureRef` backed by `TEXTUREACCESS_STREAMING`,
+ * updated in-place by `Update()`.  Render it every frame; the ref is stable
  * for the lifetime of the loaded file.
  */
 class VideoPlayer {
@@ -1303,13 +1297,15 @@ private:
 		m_audioSampleRate = actx->sample_rate  > 0 ? actx->sample_rate                  : 44100;
 		m_audioChannels   = actx->ch_layout.nb_channels > 0 ? actx->ch_layout.nb_channels : 2;
 
-		m_audioStream = SDL::AudioStream(
-			SDL::AUDIO_DEVICE_DEFAULT_PLAYBACK,
-			SDL::AudioSpec{SDL::AUDIO_F32, (Uint8)m_audioChannels, m_audioSampleRate});
-		
+		SDL::AudioSpec spec;
+		spec.format   = SDL::AUDIO_F32;
+		spec.channels = m_audioChannels;
+		spec.freq     = m_audioSampleRate;
+		m_audioStream = SDL::AudioStream(SDL::AUDIO_DEVICE_DEFAULT_PLAYBACK, spec);
+
 		if (!m_audioStream) {
 			SDL::LogError(SDL::LOG_CATEGORY_APPLICATION,
-						  "VideoPlayer: OpenAudioDeviceStream failed: {}",
+						  "VideoPlayer: OpenAudioDeviceStream failed: %s",
 						  SDL::GetError());
 			return;
 		}
@@ -1328,7 +1324,7 @@ private:
 
 	void _UploadFrame(const VideoFrame& f) {
 		if (!m_videoTex || f.data.empty()) return;
-		m_videoTex.Update({}, f.data.data(), f.linesize);
+		m_videoTex.Update(std::nullopt, f.data.data(), f.linesize);
 	}
 
 	// ── Subtitle update ───────────────────────────────────────────────────────
@@ -1482,7 +1478,7 @@ private:
 		if (converted <= 0) return;
 
 		int bytes = converted * m_audioChannels * (int)sizeof(float);
-		SDL::PutAudioStreamData(m_audioStream, outBuf);
+		m_audioStream.PutData(SDL::SourceBytes(outBuf.data(), (size_t)bytes));
 		m_audioBytesTotal.fetch_add(bytes, std::memory_order_relaxed);
 	}
 };
@@ -1509,7 +1505,7 @@ inline ResourceHandle<MediaFile> LoadMediaFile(
 					  path.c_str(), mf.GetLastError().c_str());
 		return {};
 	}
-	pool.Add<MediaFile>(key, mf);
+	pool.Add<MediaFile>(key, std::move(mf));
 	return pool.Get<MediaFile>(key);
 }
 

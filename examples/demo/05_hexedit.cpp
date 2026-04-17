@@ -353,10 +353,10 @@ struct Main {
 	SDL::Point           windowSz{1100, 760};
 	SDL::Window          window{"SDL3pp HexEdit", windowSz};
 	SDL::Renderer        renderer{window};
-	SDL::ECS::World      world;
+	SDL::ECS::Context	 ecs_context;
 	SDL::ResourceManager rm;
-	SDL::ResourcePool   &pool{*rm.CreatePool("ui")};
-	SDL::UI::System      ui{world, renderer, SDL::MixerRef{}, pool};
+	SDL::ResourcePool    &pool{*rm.CreatePool("ui")};
+	SDL::UI::System      ui{ecs_context, renderer, SDL::MixerRef{}, pool};
 
 	HexView     hex;
 	HexRenderer hexRen;
@@ -645,7 +645,7 @@ struct Main {
 
 	SDL::ECS::EntityId eid(const std::string &name) {
 		SDL::ECS::EntityId found = SDL::ECS::NullEntity;
-		world.Each<Widget>([&](SDL::ECS::EntityId e, Widget &w){
+		ecs_context.Each<Widget>([&](SDL::ECS::EntityId e, Widget &w){
 			if (w.name == name) found = e;
 		});
 		return found;

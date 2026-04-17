@@ -13,7 +13,7 @@ namespace SDL {
  * Event queue management.
  *
  * It's extremely common--often required--that an app deal with SDL's event
- * queue. Almost all useful information about interactions with the real ECS::World
+ * queue. Almost all useful information about interactions with the real ECS::Context
  * flow through here: the user interacting with the computer and app, hardware
  * coming and going, the system changing in some way, etc.
  *

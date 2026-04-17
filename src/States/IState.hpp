@@ -34,8 +34,8 @@ struct AppContext {
 struct IState {
 	virtual ~IState() = default;
 
-	/// Called once when the state becomes active.  `ctx` outlives the state.
-	virtual void Enter(AppContext& ctx) = 0;
+	/// Called once when the state becomes active.  `ecs_context` outlives the state.
+	virtual void Enter(AppContext& ecs_context) = 0;
 
 	/// Called once when this state is replaced by another.
 	virtual void Leave() = 0;

@@ -39,16 +39,16 @@ public:
 		if (m_stream.is_open()) m_stream.close();
 	}
 
-	void Write(const LogContext& ctx, const std::string& message) override {
+	void Write(const LogContext& ecs_context, const std::string& message) override {
 		if (!_EnsureOpen()) return;
 
 		std::ostringstream line;
-		if (ctx.level != LogLevel::None) {
+		if (ecs_context.level != LogLevel::None) {
 			line << GetTimestamp()
-				 << " [" << LogLevelToString(ctx.level) << "] "
-				 << '<' << LogCategoryToString(ctx.category) << "> ";
-			if (ctx.line > 0)
-				line << ctx.file << ':' << ctx.line << " | ";
+				 << " [" << LogLevelToString(ecs_context.level) << "] "
+				 << '<' << LogCategoryToString(ecs_context.category) << "> ";
+			if (ecs_context.line > 0)
+				line << ecs_context.file << ':' << ecs_context.line << " | ";
 		}
 		line << message << '\n';
 

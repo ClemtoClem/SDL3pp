@@ -3,28 +3,30 @@
  * @brief SDL3pp VLC-like Video Player
  *
  * Features:
- *  - Open any format supported by FFmpeg (MP4, MKV, AVI, WebM, MP3, FLAC…)
- *  - Video rendering via SDL streaming texture
- *  - Multi-track audio / subtitle selection
- *  - Seek bar (click / drag to seek)
- *  - Volume control with mute toggle
- *  - Loop mode
- *  - Subtitle overlay (text / ASS markup stripped)
- *  - Metadata viewer (title, artist, album, date…)
- *  - Stream information panel
- *  - Collapsible side panel
+ * - Open any format supported by FFmpeg (MP4, MKV, AVI, WebM, MP3, FLAC…)
+ * - Video rendering via SDL streaming texture
+ * - Multi-track audio / subtitle selection
+ * - Seek bar (click / drag to seek)
+ * - Volume control with mute toggle
+ * - Loop mode
+ * - Subtitle overlay (text / ASS markup stripped)
+ * - Metadata viewer (title, artist, album, date…)
+ * - Stream information panel
+ * - Collapsible side panel
+ * - VLC-like immersive fullscreen (Double-click or F)
  *
  * Keyboard shortcuts:
- *  Space        – Play / Pause
- *  S            – Stop
- *  L            – Toggle loop
- *  M            – Mute
- *  F            – Fullscreen toggle
- *  ←  / →      – Seek ±5 s
- *  Ctrl+← / →  – Seek ±60 s
- *  ↑  / ↓      – Volume ±5 %
- *  Ctrl+O       – Open file dialog
- *  Ctrl+Q       – Quit
+ * Space        – Play / Pause
+ * S            – Stop
+ * L            – Toggle loop
+ * M            – Mute
+ * F / Dbl-click– Fullscreen toggle
+ * Escape       - Exit fullscreen
+ * ←  / →      – Seek ±5 s
+ * Ctrl+← / →  – Seek ±60 s
+ * ↑  / ↓      – Volume ±5 %
+ * Ctrl+O       – Open file dialog
+ * Ctrl+Q       – Quit
  */
 
 #define SDL3PP_MAIN_USE_CALLBACKS 1
@@ -35,12 +37,11 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <format>
 #include <string>
 #include <vector>
 
-#define VIDEO_PLAYER_VERSION "1.0.0"
+#define VIDEO_PLAYER_VERSION "1.1.0"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resource / pool keys
@@ -54,12 +55,12 @@ namespace icon_key {
 	constexpr const char* STOP  = "icon_stop";
 	constexpr const char* PREV  = "icon_prev";
 	constexpr const char* NEXT  = "icon_next";
-	constexpr const char* OPEN  = "icon_open";
-	constexpr const char* MUTE  = "icon_mute";
-	constexpr const char* VOL   = "icon_volume";
-	constexpr const char* LOOP  = "icon_loop";
+	constexpr const char* OPEN  = "icon_folder";
+	constexpr const char* MUTE  = "icon_volume_mute";
+	constexpr const char* VOL   = "icon_volume_up";
+	constexpr const char* LOOP  = "icon_repeat";
 	constexpr const char* FULL  = "icon_fullscreen";
-	constexpr const char* PANEL = "icon_panel";
+	constexpr const char* PANEL = "icon_minimize";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,93 +106,6 @@ static std::string StripASS(const std::string& raw) {
 	return out;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Programmatic icon generator (16×16 RGBA surfaces)
-// ─────────────────────────────────────────────────────────────────────────────
-
-static SDL::Texture MakeIcon(SDL::RendererRef r, int id) {
-	SDL_Surface* s = SDL_CreateSurface(16, 16, SDL_PIXELFORMAT_RGBA32);
-	if (!s) return {};
-
-	const SDL_PixelFormatDetails* fmt = SDL_GetPixelFormatDetails(s->format);
-	auto px = [&](int x, int y, SDL::Color c) {
-		if ((unsigned)x >= 16 || (unsigned)y >= 16) return;
-		*(Uint32*)((Uint8*)s->pixels + y * s->pitch + x * 4) =
-			SDL_MapRGBA(fmt, nullptr, c.r, c.g, c.b, c.a);
-	};
-	auto rc = [&](int x, int y, int w, int h, SDL::Color c) {
-		for (int dy = 0; dy < h; dy++) for (int dx = 0; dx < w; dx++) px(x+dx, y+dy, c);
-	};
-
-	rc(0,0,16,16,{0,0,0,0});
-	SDL::Color W = pal::WHITE;
-
-	switch (id) {
-	case 0: // PLAY ▶
-		for (int y = 0; y < 12; y++) { int w = (y<6)?y/2+1:(12-y)/2+1; rc(2,2+y,w,1,W); }
-		break;
-	case 1: // PAUSE ⏸
-		rc(3,2,3,12,W); rc(10,2,3,12,W);
-		break;
-	case 2: // STOP ⏹
-		rc(2,2,12,12,W);
-		break;
-	case 3: // PREV ⏮
-		rc(2,7,2,2,W);
-		for (int y=0;y<10;y++){int w=(y<5)?y+1:10-y; rc(4,3+y,w,1,W);}
-		break;
-	case 4: // NEXT ⏭
-		rc(12,7,2,2,W);
-		for (int y=0;y<10;y++){int w=(y<5)?y+1:10-y; rc(10-w,3+y,w,1,W);}
-		break;
-	case 5: // OPEN (folder)
-		rc(1,5,14,9,W); rc(1,3,6,2,W);
-		break;
-	case 6: // MUTE (crossed speaker)
-		rc(1,5,5,6,W);
-		for (int i=0;i<5;i++){px(6+i,3+i,W);px(6+i,12-i,W);}
-		for (int i=2;i<14;i++){px(i,i,W);px(i,14-i,W);}
-		break;
-	case 7: // VOLUME (speaker + waves)
-		rc(1,5,5,6,W);
-		for (int i=0;i<5;i++){px(6+i,3+i,W);px(6+i,12-i,W);}
-		px(11,7,W);px(11,8,W);px(12,5,W);px(12,10,W);px(13,4,W);px(13,11,W);
-		break;
-	case 8: // LOOP
-		for (int i=2;i<14;i++){px(i,2,W);px(i,13,W);}
-		for (int i=2;i<14;i++){px(2,i,W);px(13,i,W);}
-		rc(6,0,4,3,W);
-		break;
-	case 9: // FULLSCREEN (corner brackets)
-		rc(1,1,4,1,W);rc(1,1,1,4,W);rc(11,1,4,1,W);rc(14,1,1,4,W);
-		rc(1,11,1,4,W);rc(1,14,4,1,W);rc(14,11,1,4,W);rc(11,14,4,1,W);
-		break;
-	case 10: // PANEL (sidebar icon)
-		rc(1,1,5,14,W); rc(7,1,8,1,W);rc(7,5,8,1,W);rc(7,9,8,1,W);rc(7,13,8,1,W);
-		break;
-	default:
-		rc(1,1,14,14,W);
-	}
-
-	SDL_Texture* tex = SDL_CreateTextureFromSurface(r, s);
-	SDL_DestroySurface(s);
-	return SDL::Texture(tex);
-}
-
-static void LoadIcons(SDL::RendererRef r, SDL::ResourcePool& pool) {
-	pool.Add<SDL::Texture>(icon_key::PLAY,  MakeIcon(r, 0));
-	pool.Add<SDL::Texture>(icon_key::PAUSE, MakeIcon(r, 1));
-	pool.Add<SDL::Texture>(icon_key::STOP,  MakeIcon(r, 2));
-	pool.Add<SDL::Texture>(icon_key::PREV,  MakeIcon(r, 3));
-	pool.Add<SDL::Texture>(icon_key::NEXT,  MakeIcon(r, 4));
-	pool.Add<SDL::Texture>(icon_key::OPEN,  MakeIcon(r, 5));
-	pool.Add<SDL::Texture>(icon_key::MUTE,  MakeIcon(r, 6));
-	pool.Add<SDL::Texture>(icon_key::VOL,   MakeIcon(r, 7));
-	pool.Add<SDL::Texture>(icon_key::LOOP,  MakeIcon(r, 8));
-	pool.Add<SDL::Texture>(icon_key::FULL,  MakeIcon(r, 9));
-	pool.Add<SDL::Texture>(icon_key::PANEL, MakeIcon(r,10));
-}
-
 // =============================================================================
 // Main application
 // =============================================================================
@@ -208,7 +122,7 @@ struct Main {
 
 	static SDL::Window MakeWindow() {
 		return SDL::CreateWindowAndRenderer(
-			"SDL3pp Video Player " VIDEO_PLAYER_VERSION,
+			"SDL3pp - Video Player " VIDEO_PLAYER_VERSION,
 			kWinSz, SDL::WINDOW_RESIZABLE, nullptr);
 	}
 
@@ -221,8 +135,8 @@ struct Main {
 	SDL::ResourceManager resources;
 	SDL::ResourcePool&   pool_ui { *resources.CreatePool(pool_key::UI) };
 
-	SDL::ECS::World  world;
-	SDL::UI::System  ui { world, renderer, mixer, pool_ui };
+	SDL::ECS::Context  ecs_context;
+	SDL::UI::System  ui { ecs_context, renderer, mixer, pool_ui };
 	SDL::FrameTimer  frameTimer { 60.f };
 
 	// ── Video player ──────────────────────────────────────────────────────────
@@ -231,7 +145,11 @@ struct Main {
 
 	// ── UI entity IDs ─────────────────────────────────────────────────────────
 
+	SDL::ECS::EntityId eTopBar         = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eVideoCanvas    = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSeekRow        = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eCtrlBar        = SDL::ECS::NullEntity;
+	
 	SDL::ECS::EntityId eSeekSlider     = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eTimeLabel      = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId ePlayBtn        = SDL::ECS::NullEntity;
@@ -253,8 +171,12 @@ struct Main {
 	// ── App state ─────────────────────────────────────────────────────────────
 
 	std::string pendingOpenPath;
-	bool        showSidePanel = true;
-	bool        fullscreen    = false;
+	bool        showSidePanel  = true;
+	bool        fullscreen     = false;
+	
+	// Ergonomie / Plein écran
+	float       mouseIdleTimer = 0.f;
+	bool        cursorVisible  = true;
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -281,6 +203,7 @@ struct Main {
 	}
 
 	Main() {
+		window.StartTextInput();
 		player.Init(renderer);
 		_LoadResources();
 		_BuildUI();
@@ -296,6 +219,25 @@ struct Main {
 	SDL::AppResult Event(const SDL::Event& ev) {
 		if (ev.type == SDL::EVENT_QUIT) return SDL::APP_SUCCESS;
 
+		// Gestion de l'inactivité de la souris pour masquer le curseur
+		if (ev.type == SDL::EVENT_MOUSE_MOTION) {
+			mouseIdleTimer = 0.f;
+			if (!cursorVisible) {
+				SDL_ShowCursor();
+				cursorVisible = true;
+			}
+		}
+
+		// Double clic sur la vidéo = mode plein écran immersif
+		if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN) {
+			if (ev.button.button == SDL_BUTTON_LEFT && ev.button.clicks >= 2) {
+				if (ui.IsHovered(eVideoCanvas)) {
+					_ToggleFullscreen();
+					return SDL::APP_CONTINUE;
+				}
+			}
+		}
+
 		if (ev.type == SDL::EVENT_KEY_DOWN) {
 			const auto key  = ev.key.key;
 			const bool ctrl = (ev.key.mod & SDL::KMOD_CTRL) != 0;
@@ -307,7 +249,10 @@ struct Main {
 			if (key == SDL::KEYCODE_S)      { player.Stop();            _RefreshPlayBtn();   return SDL::APP_CONTINUE; }
 			if (key == SDL::KEYCODE_L)      { player.SetLoop(!player.IsLooping()); _RefreshLoopBtn(); return SDL::APP_CONTINUE; }
 			if (key == SDL::KEYCODE_M)      { player.ToggleMute();      _RefreshMuteBtn();   return SDL::APP_CONTINUE; }
+			
+			// Raccourcis Plein Écran
 			if (key == SDL::KEYCODE_F)      { _ToggleFullscreen();                           return SDL::APP_CONTINUE; }
+			if (key == SDL::KEYCODE_ESCAPE && fullscreen) { _ToggleFullscreen();             return SDL::APP_CONTINUE; }
 
 			if (key == SDL::KEYCODE_RIGHT)  { player.SeekRelative(ctrl ? 60.0 : 5.0);   return SDL::APP_CONTINUE; }
 			if (key == SDL::KEYCODE_LEFT)   { player.SeekRelative(ctrl ? -60.0 : -5.0); return SDL::APP_CONTINUE; }
@@ -330,6 +275,20 @@ struct Main {
 	SDL::AppResult Iterate() {
 		frameTimer.Begin();
 		const float dt = frameTimer.GetDelta();
+
+		// Masquer le curseur de la souris après 2 secondes d'inactivité en plein écran
+		if (fullscreen) {
+			mouseIdleTimer += dt;
+			if (mouseIdleTimer > 2.0f && cursorVisible) {
+				SDL_HideCursor();
+				cursorVisible = false;
+			}
+		} else {
+			if (!cursorVisible) {
+				SDL_ShowCursor();
+				cursorVisible = true;
+			}
+		}
 
 		resources.UpdateAll();
 		player.Update(dt);
@@ -383,11 +342,11 @@ struct Main {
 		}
 
 		// ── Render ────────────────────────────────────────────────────────────
-		ui.Iterate(dt);
 		renderer.SetDrawColor(pal::BG);
 		renderer.RenderClear();
-		ui.Iterate(0.f);
+		ui.Iterate(dt);
 		renderer.Present();
+		frameTimer.End();
 
 		return SDL::APP_CONTINUE;
 	}
@@ -398,10 +357,23 @@ private:
 	// ─────────────────────────────────────────────────────────────────────────
 
 	void _LoadResources() {
-		std::string assetsPath = std::string(SDL::GetBasePath()) + "../../../assets/";
-		ui.LoadFont(res_key::FONT, assetsPath + "fonts/Roboto-Regular.ttf");
+		const std::string base  = std::string(SDL::GetBasePath()) + "../../../assets/";
+		const std::string icons = base + "textures/icons/";
+
+		ui.LoadFont(res_key::FONT, base + "fonts/Roboto-Regular.ttf");
 		ui.SetDefaultFont(res_key::FONT, 14.f);
-		LoadIcons(renderer, pool_ui);
+
+		ui.LoadTexture(icon_key::PLAY,  icons + "icon_play.png");
+		ui.LoadTexture(icon_key::PAUSE, icons + "icon_pause.png");
+		ui.LoadTexture(icon_key::STOP,  icons + "icon_stop.png");
+		ui.LoadTexture(icon_key::PREV,  icons + "icon_prev.png");
+		ui.LoadTexture(icon_key::NEXT,  icons + "icon_next.png");
+		ui.LoadTexture(icon_key::OPEN,  icons + "icon_folder.png");
+		ui.LoadTexture(icon_key::MUTE,  icons + "icon_volume_mute.png");
+		ui.LoadTexture(icon_key::VOL,   icons + "icon_volume_up.png");
+		ui.LoadTexture(icon_key::LOOP,  icons + "icon_repeat.png");
+		ui.LoadTexture(icon_key::FULL,  icons + "icon_fullscreen.png");
+		ui.LoadTexture(icon_key::PANEL, icons + "icon_minimize.png");
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -415,10 +387,11 @@ private:
 
 		auto makeIconBtn = [&](const std::string& name,
 								const std::string& iconK,
-								const std::string& label = "") -> Builder {
-			return ui.Button(name, label)
-				.W(label.empty() ? Value::Px(32.f) : Value::Auto())
-				.H(32.f)
+								const std::string& label = "",
+								const std::string& tooltip = "") -> Builder {
+			Builder btn = ui.Button(name, label)
+				.W(label.empty() ? Value::Px(42.f) : Value::Auto())
+				.H(38.f)
 				.BgColor(pal::NEUTRAL)
 				.BgHover({45,45,65,255})
 				.BgPress({25,25,40,255})
@@ -427,8 +400,15 @@ private:
 				.Radius(SDL::FCorners(6.f))
 				.TextColor(pal::WHITE)
 				.FontKey(res_key::FONT, 13.f)
-				.Icon(iconK, 4.f)
 				.PaddingH(label.empty() ? 4.f : 8.f);
+			if (!iconK.empty()) {
+				btn.Icon(iconK, 4.f)
+					.IconOpacity(0.65f, 1.f, 0.9f);
+			}
+			if (!tooltip.empty()) {
+				btn.Tooltip(tooltip);
+			}
+			return btn;
 		};
 
 		auto labelStyle = [&]() -> Style {
@@ -444,24 +424,26 @@ private:
 
 		eTitleLabel =
 			ui.Label("titleLabel", "Aucun fichier chargé")
-			  .Style(labelStyle())
-			  .Grow(1.f)
-			  .AlignH(Align::Start);
+				.Style(labelStyle())
+				.Grow(1.f)
+				.AlignH(Align::Start)
+				.FontKey(res_key::FONT, 15.f);
 
-		auto topBar =
+		eTopBar =
 			ui.Row("topBar", 6.f, 8.f)
 				.H(kTopBarH)
+				.Grow(1.f)
 				.BgColor(pal::HEADER)
 				.BorderBottom(1).BorderColor(pal::BORDER)
 				.AlignChildrenV(Align::Center)
 				.Children(
-					makeIconBtn("btnOpen", icon_key::OPEN, " Ouvrir")
+					makeIconBtn("btnOpen", icon_key::OPEN, "", "Ouvrir un fichier média (Ctrl+O)")
 					.OnClick([this]{ _ShowOpenDialog(); }),
-					ui.Sep("topSep").W(1.f).H(20.f).BgColor(pal::BORDER),
+					ui.Sep("topSep").W(1.f).H(kTopBarH-16.f).BgColor(pal::BORDER),
 					eTitleLabel,
-					makeIconBtn("btnFullTop", icon_key::FULL)
+					makeIconBtn("btnFullTop", icon_key::FULL, "", "Basculer en mode plein écran")
 					.OnClick([this]{ _ToggleFullscreen(); }),
-					makeIconBtn("btnPanelTop", icon_key::PANEL)
+					makeIconBtn("btnPanelTop", icon_key::PANEL, "", "Basculer le panneau latéral")
 					.OnClick([this]{ _ToggleSidePanel(); })
 				);
 
@@ -471,12 +453,12 @@ private:
 			ui.Label("subtitleLabel", "")
 			  .BgColor({0,0,0,180})
 			  .TextColor({255,255,210,255})
-			  .FontKey(res_key::FONT, 16.f)
+			  .FontKey(res_key::FONT, 15.f)
 			  .Radius(SDL::FCorners(4.f))
 			  .PaddingH(14.f).PaddingV(6.f)
 			  .AlignH(Align::Center)
-			  .X(Value::Pw(0.5f, 0.f))
-			  .Y(Value::Ph(1.f, -54.f))
+			  .X(Value::Pw(50.f, 0.f))
+			  .Y(Value::Ph(100.f, -54.f))
 			  .Attach(AttachLayout::Absolute);
 		ui.SetVisible(eSubtitleLabel, false);
 
@@ -485,9 +467,9 @@ private:
 				[this](SDL::RendererRef r, SDL::FRect rect) {
 					_DrawVideoCanvas(r, rect);
 				})
-			  .Grow(1.f)
-			  .BgColor(pal::BG)
-			  .Child(eSubtitleLabel);
+				.Grow(1.f)
+				.BgColor(pal::BG)
+				.Child(eSubtitleLabel);
 
 		// ── Seek bar ──────────────────────────────────────────────────────────
 
@@ -514,7 +496,7 @@ private:
 			  .FontKey(res_key::FONT, 12.f)
 			  .PaddingH(8.f);
 
-		auto seekRow =
+		eSeekRow =
 			ui.Row("seekRow", 0.f, 4.f)
 			  .H(kSeekH + 8.f)
 			  .BgColor(pal::PANEL)
@@ -524,36 +506,34 @@ private:
 		// ── Control bar ───────────────────────────────────────────────────────
 
 		ePlayBtn =
-			ui.Button("btnPlay", "")
-			  .W(42.f).H(38.f)
-			  .BgColor(pal::ACCENT)
-			  .BgHover({90,150,230,255})
-			  .BgPress({50,110,190,255})
-			  .Radius(SDL::FCorners(8.f))
-			  .Icon(icon_key::PLAY, 4.f)
-			  .OnClick([this]{ player.TogglePlayPause(); _RefreshPlayBtn(); });
+			makeIconBtn("btnPlay", icon_key::PLAY, "", "Lecture / Pause")
+				.BgColor(pal::ACCENT)
+				.BgHover({90,150,230,255})
+				.BgPress({50,110,190,255})
+				.Radius(SDL::FCorners(8.f))
+				.OnClick([this]{ player.TogglePlayPause(); _RefreshPlayBtn(); });
 
 		eMuteBtn =
-			makeIconBtn("btnMute", icon_key::VOL)
-			  .H(32.f).W(32.f)
+			makeIconBtn("btnMute", icon_key::VOL, "", "Muet / Son activé")
 			  .OnClick([this]{ player.ToggleMute(); _RefreshMuteBtn(); });
 
 		eVolumeSlider =
 			ui.Slider("volSlider", 0.f, 1.f, 1.f, Orientation::Horizontal)
-			  .W(90.f).H(20.f)
-			  .WithStyle([](Style& s){
-				  s.bgColor = {30,30,46,255};
-				  s.track   = {40,40,58,255};
-				  s.fill    = {70,130,210,255};
-				  s.thumb   = {100,160,235,255};
-			  })
-			  .Radius(SDL::FCorners(3.f))
-			  .OnChange([this](float v) {
-				  player.SetVolume(v);
-				  _RefreshMuteBtn();
-				  if (eVolPctLabel != SDL::ECS::NullEntity)
-					  ui.SetText(eVolPctLabel, std::format("{:.0f}%", v * 100.f));
-			  });
+				.W(90.f).H(20.f)
+				.WithStyle([](Style& s){
+					s.bgColor = {30,30,46,255};
+					s.track   = {40,40,58,255};
+					s.fill    = {70,130,210,255};
+					s.thumb   = {100,160,235,255};
+				})
+				.Radius(SDL::FCorners(3.f))
+				.Tooltip("Volume")
+				.OnChange([this](float v) {
+					player.SetVolume(v);
+					_RefreshMuteBtn();
+					if (eVolPctLabel != SDL::ECS::NullEntity)
+						ui.SetText(eVolPctLabel, std::format("{:.0f}%", v * 100.f));
+				});
 
 		eVolPctLabel =
 			ui.Label("volPctLabel", "100%")
@@ -563,54 +543,55 @@ private:
 			  .W(32.f);
 
 		eLoopBtn =
-			makeIconBtn("btnLoop", icon_key::LOOP)
-			  .H(32.f).W(32.f)
+			makeIconBtn("btnLoop", icon_key::LOOP, "", "Mode boucle")
 			  .OnClick([this]{ player.SetLoop(!player.IsLooping()); _RefreshLoopBtn(); });
 
-		auto ctrlBar =
+		eCtrlBar =
 			ui.Row("ctrlBar", 6.f, 10.f)
 				.H(kCtrlH)
 				.BgColor(pal::HEADER)
 				.BorderTop(1).BorderColor(pal::BORDER)
 				.AlignChildrenV(Align::Center)
 				.Children(
-					makeIconBtn("btnPrev", icon_key::PREV).H(36.f).W(36.f)
-					.OnClick([this]{ player.SeekRelative(-10.0); }),
+					makeIconBtn("btnPrev", icon_key::PREV, "", "Reculer de 10 secondes")
+						.OnClick([this]{ player.SeekRelative(-10.0); }),
 					ePlayBtn,
-					makeIconBtn("btnStop", icon_key::STOP).H(36.f).W(36.f)
-					.OnClick([this]{ player.Stop(); _RefreshPlayBtn(); }),
-					makeIconBtn("btnNext", icon_key::NEXT).H(36.f).W(36.f)
-					.OnClick([this]{ player.SeekRelative(+10.0); }),
+					makeIconBtn("btnStop", icon_key::STOP, "", "Arrêter")
+						.OnClick([this]{ player.Stop(); _RefreshPlayBtn(); }),
+					makeIconBtn("btnNext", icon_key::NEXT, "", "Avancer de 10 secondes")
+						.OnClick([this]{ player.SeekRelative(+10.0); }),
 					// spacer via growing container
-					ui.Container("ctrlSpacer1").W(4.f).H(1.f).BgColor(pal::TRANSP),
+					ui.Container("ctrlSpacer1")
+						.W(4.f).H(1.f).BgColor(pal::TRANSP),
 					eMuteBtn,
 					eVolumeSlider,
 					eVolPctLabel,
 					// push remaining buttons to the right
-					ui.Container("ctrlSpacerR").Grow(1.f).BgColor(pal::TRANSP),
+					ui.Container("ctrlSpacerR")
+						.Grow(1.f).BgColor(pal::TRANSP),
 					eLoopBtn,
-					makeIconBtn("btnFullCtrl", icon_key::FULL).H(32.f).W(32.f)
-					.OnClick([this]{ _ToggleFullscreen(); })
+					makeIconBtn("btnFullCtrl", icon_key::FULL, "", "Plein écran")
+						.OnClick([this]{ _ToggleFullscreen(); })
 				);
 
 		// ── Status bar ────────────────────────────────────────────────────────
 
 		eStatusBar =
 			ui.Label("statusBar", "Ouvrez un fichier (Ctrl+O)")
-			  .H(kStatusH)
-			  .Grow(1.f)
-			  .BgColor({10,10,16,255})
-			  .TextColor({90,95,120,255})
-			  .FontKey(res_key::FONT, 11.f)
-			  .PaddingH(10.f)
-			  .AlignV(Align::Center);
+				.H(kStatusH)
+				.Grow(1.f)
+				.BgColor({10,10,16,255})
+				.TextColor({90,95,120,255})
+				.FontKey(res_key::FONT, 11.f)
+				.PaddingH(10.f)
+				.AlignV(Align::Center);
 
 		// ── Main column ───────────────────────────────────────────────────────
 
 		auto mainCol =
 			ui.Column("mainCol", 0.f, 0.f)
-			  .Grow(1.f)
-			  .Children(topBar, eVideoCanvas, seekRow, ctrlBar, eStatusBar);
+				.Grow(1.f)
+				.Children(eTopBar, eVideoCanvas, eSeekRow, eCtrlBar, eStatusBar);
 
 		// ── Side panel ────────────────────────────────────────────────────────
 
@@ -619,12 +600,12 @@ private:
 		// ── Root ──────────────────────────────────────────────────────────────
 
 		ui.Row("root", 0.f, 0.f)
-		  .W(Value::Ww(1.f))
-		  .H(Value::Wh(1.f))
-		  .BgColor(pal::BG)
-		  .AlignChildrenV(Align::Stretch)
-		  .Children(mainCol, eSidePanel)
-		  .AsRoot();
+			.W(Value::Ww(100.f))
+			.H(Value::Wh(100.f))
+			.BgColor(pal::BG)
+			.AlignChildrenV(Align::Stretch)
+			.Children(mainCol, eSidePanel)
+			.AsRoot();
 	}
 
 	void _BuildSidePanel() {
@@ -640,18 +621,19 @@ private:
 
 		eMetadataArea =
 			ui.TextArea("metadataArea", "(aucune métadonnée)")
-			  .Grow(1.f)
-			  .BgColor({18,18,30,255})
-			  .TextColor({175,178,200,255})
-			  .FontKey(res_key::FONT, 11.f)
-			  .PaddingH(8.f).PaddingV(6.f);
+				.Grow(1.f)
+				.BgColor({18,18,30,255})
+				.TextColor({175,178,200,255})
+				.FontKey(res_key::FONT, 11.f)
+				.PaddingH(8.f).PaddingV(6.f);
 
 		auto metaSection =
 			ui.Column("metaSection", 0.f, 0.f)
 				.H(Value::Auto(160.f))
 				.Children(
 					ui.Label("metaHdr", "MÉTADONNÉES")
-					.Style(sectionHdrStyle).H(20.f).PaddingH(10.f),
+						.FontKey(res_key::FONT, 11.f)
+						.Style(sectionHdrStyle).H(20.f).PaddingH(10.f),
 					eMetadataArea
 				);
 
@@ -659,15 +641,15 @@ private:
 
 		eAudioTrackList =
 			ui.ListBoxWidget("audioList", {"(aucune piste)"})
-			  .H(80.f)
-			  .BgColor({18,18,30,255})
-			  .TextColor({200,202,220,255})
-			  .FontKey(res_key::FONT, 11.f)
-			  .OnChange([this](float idx){ _OnAudioTrackSelected((int)idx); });
+				.H(80.f)
+				.BgColor({18,18,30,255})
+				.TextColor({200,202,220,255})
+				.FontKey(res_key::FONT, 11.f)
+				.OnChange([this](float idx){ _OnAudioTrackSelected((int)idx); });
 
 		eAudCountLabel =
 			ui.Label("audCountLbl", "0")
-			  .Style(sectionHdrStyle).W(Value::Auto());
+			  	.Style(sectionHdrStyle).W(Value::Auto());
 
 		auto audioSection =
 			ui.Column("audioSection", 0.f, 0.f)
@@ -676,7 +658,7 @@ private:
 					.AlignChildrenV(Align::Center)
 					.Children(
 						ui.Label("audHdrLbl","PISTES AUDIO")
-						.Style(sectionHdrStyle).Grow(1.f),
+							.Style(sectionHdrStyle).Grow(1.f),
 						eAudCountLabel
 					),
 					eAudioTrackList
@@ -686,15 +668,15 @@ private:
 
 		eSubTrackList =
 			ui.ListBoxWidget("subList", {"(désactivés)"})
-			  .H(80.f)
-			  .BgColor({18,18,30,255})
-			  .TextColor({200,202,220,255})
-			  .FontKey(res_key::FONT, 11.f)
-			  .OnChange([this](float idx){ _OnSubTrackSelected((int)idx); });
+				.H(80.f)
+				.BgColor({18,18,30,255})
+				.TextColor({200,202,220,255})
+				.FontKey(res_key::FONT, 11.f)
+				.OnChange([this](float idx){ _OnSubTrackSelected((int)idx); });
 
 		eSubCountLabel =
 			ui.Label("subCountLbl", "0")
-			  .Style(sectionHdrStyle).W(Value::Auto());
+			  	.Style(sectionHdrStyle).W(Value::Auto());
 
 		auto subSection =
 			ui.Column("subSection", 0.f, 0.f)
@@ -703,7 +685,7 @@ private:
 					.AlignChildrenV(Align::Center)
 					.Children(
 						ui.Label("subHdrLbl","SOUS-TITRES")
-						.Style(sectionHdrStyle).Grow(1.f),
+							.Style(sectionHdrStyle).Grow(1.f),
 						eSubCountLabel
 					),
 					eSubTrackList
@@ -713,17 +695,17 @@ private:
 
 		eInfoLabel =
 			ui.TextArea("infoLabel", "")
-			  .H(90.f)
-			  .BgColor({18,18,30,255})
-			  .TextColor({140,145,170,255})
-			  .FontKey(res_key::FONT, 10.f)
-			  .PaddingH(8.f).PaddingV(6.f);
+				.H(90.f)
+				.BgColor({18,18,30,255})
+				.TextColor({140,145,170,255})
+				.FontKey(res_key::FONT, 10.f)
+				.PaddingH(8.f).PaddingV(6.f);
 
 		auto infoSection =
 			ui.Column("infoSection", 0.f, 0.f)
 				.Children(
 					ui.Label("infoHdr","INFORMATIONS")
-					.Style(sectionHdrStyle).H(20.f).PaddingH(10.f),
+						.Style(sectionHdrStyle).H(20.f).PaddingH(10.f),
 					eInfoLabel
 				);
 
@@ -736,11 +718,11 @@ private:
 				.BorderLeft(1).BorderColor(pal::BORDER)
 				.Children(
 					metaSection,
-					ui.Sep("sp1").H(1.f).BgColor(pal::BORDER),
+					ui.Sep("sp1").BgColor(pal::BORDER),
 					audioSection,
-					ui.Sep("sp2").H(1.f).BgColor(pal::BORDER),
+					ui.Sep("sp2").BgColor(pal::BORDER),
 					subSection,
-					ui.Sep("sp3").H(1.f).BgColor(pal::BORDER),
+					ui.Sep("sp3").BgColor(pal::BORDER),
 					infoSection
 				);
 	}
@@ -927,19 +909,16 @@ private:
 		}
 
 		// Letterbox: keep aspect ratio
-		float tw = 0.f, th = 0.f;
-		SDL_GetTextureSize(tex, &tw, &th);
-		if (tw <= 0.f || th <= 0.f) return;
+		SDL::FPoint tsz = SDL::GetTextureSizeFloat(tex);
+		if (tsz.x <= 0.f || tsz.y <= 0.f) return;
 
-		float scale = std::min(rect.w / tw, rect.h / th);
-		float dw    = tw * scale;
-		float dh    = th * scale;
-		SDL_FRect dst = {
-			rect.x + (rect.w - dw) * 0.5f,
-			rect.y + (rect.h - dh) * 0.5f,
-			dw, dh
+		float scale = std::min(rect.w / tsz.x, rect.h / tsz.y);
+		SDL::FRect dst = {
+			rect.x + (rect.w - tsz.x * scale) * 0.5f,
+			rect.y + (rect.h - tsz.y * scale) * 0.5f,
+			tsz.x * scale, tsz.y * scale
 		};
-		SDL_RenderTexture(r, tex, nullptr, &dst);
+		r.RenderTexture(tex, std::nullopt, dst);
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -948,12 +927,34 @@ private:
 
 	void _ToggleSidePanel() {
 		showSidePanel = !showSidePanel;
-		ui.SetVisible(eSidePanel, showSidePanel);
+		if (!fullscreen) {
+			ui.SetVisible(eSidePanel, showSidePanel);
+		}
 	}
 
 	void _ToggleFullscreen() {
 		fullscreen = !fullscreen;
 		window.SetFullscreen(fullscreen);
+
+		// En plein écran immersif, on cache tous les éléments d'UI sauf le canvas vidéo
+		bool showUI = !fullscreen;
+		ui.SetVisible(eTopBar, showUI);
+		ui.SetVisible(eSeekRow, showUI);
+		ui.SetVisible(eCtrlBar, showUI);
+		ui.SetVisible(eStatusBar, showUI);
+
+		if (fullscreen) {
+			ui.SetVisible(eSidePanel, false);
+		} else {
+			// Restaure l'état précédent du panneau latéral en sortant du plein écran
+			ui.SetVisible(eSidePanel, showSidePanel);
+			
+			// Force l'affichage de la souris si elle était cachée
+			if (!cursorVisible) {
+				SDL_ShowCursor();
+				cursorVisible = true;
+			}
+		}
 	}
 };
 

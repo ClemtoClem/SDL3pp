@@ -201,6 +201,12 @@ inline const char* GetRevision() { return SDL_GetRevision(); }
 #define SDL3PP_ENABLE_TTF
 #endif
 
+// Check if SDL_net is available
+#if !defined(SDL3PP_DISABLE_NET) && !defined(SDL3PP_ENABLE_NET) &&              \
+	__has_include(<SDL3_net/SDL_net.h>)
+#define SDL3PP_ENABLE_NET
+#endif
+
 } // namespace SDL
 
 #endif /* SDL3PP_VERSION_H_ */

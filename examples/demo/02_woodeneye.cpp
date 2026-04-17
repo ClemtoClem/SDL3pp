@@ -342,9 +342,9 @@ struct Main
 	GameConfig config = {};
 	int menuSel = 0; ///< 0=map 1=players 2=enemies (keyboard nav)
 
-	// ── ECS world (recreated each game) ───────────────────────────────────────
+	// ── ECS ecs_context (recreated each game) ───────────────────────────────────────
 
-	SDL::ECS::World world;
+	SDL::ECS::Context ecs_context;
 
 	int numPlayers = 1;
 	SDL::ECS::EntityId playerIds[MAX_PLAYERS] = {};
@@ -371,7 +371,7 @@ struct Main
 
 	SDL::ResourceManager rm;
 	SDL::ResourcePool &uiPool{*rm.CreatePool("ui")};
-	SDL::ECS::World uiWorld;
+	SDL::ECS::Context uiWorld;
 	SDL::UI::System ui{uiWorld, renderer, SDL::MixerRef{}, uiPool};
 
 	// UI entity IDs for dynamic updates
@@ -764,8 +764,8 @@ struct Main
 
 	SDL::FMatrix4 _VPMatrix(int pi, int clipW, int clipH) const
 	{
-		const SDL::FVector3 &cam  = *world.Get<Pos3>(playerIds[pi]);
-		const Look          &look = *world.Get<Look>(playerIds[pi]);
+		const SDL::FVector3 &cam  = *ecs_context.Get<Pos3>(playerIds[pi]);
+		const Look          &look = *ecs_context.Get<Look>(playerIds[pi]);
 
 		// Forward direction from yaw/pitch (same convention as FireBullet)
 		const SDL::FVector3 fwd = {
@@ -916,7 +916,7 @@ struct Main
 
 		for (int pi = 0; pi < numPlayers; ++pi)
 		{
-			if (playerIds[pi] == SDL::ECS::NullEntity || !world.IsAlive(playerIds[pi]))
+			if (playerIds[pi] == SDL::ECS::NullEntity || !ecs_context.IsAlive(playerIds[pi]))
 				continue;
 
 			const int vpX = (pi % partH) * clipW_;
@@ -1023,10 +1023,10 @@ struct Main
 
 	void FireBullet(SDL::ECS::EntityId shooterId, float damage)
 	{
-		const auto *pPos = world.Get<Pos3>(shooterId);
-		const auto *pLook = world.Get<Look>(shooterId);
-		const auto *pCap = world.Get<Capsule>(shooterId);
-		const auto *pTeam = world.Get<EntityTeam>(shooterId);
+		const auto *pPos = ecs_context.Get<Pos3>(shooterId);
+		const auto *pLook = ecs_context.Get<Look>(shooterId);
+		const auto *pCap = ecs_context.Get<Capsule>(shooterId);
+		const auto *pTeam = ecs_context.Get<EntityTeam>(shooterId);
 		if (!pPos || !pLook || !pCap || !pTeam)
 			return;
 
@@ -1074,13 +1074,13 @@ struct Main
 			// Entity capsule hit (sphere test at mid-capsule)
 			auto TryHit = [&](SDL::ECS::EntityId eid)
 			{
-				if (eid == b.ownerId || !world.IsAlive(eid))
+				if (eid == b.ownerId || !ecs_context.IsAlive(eid))
 					return;
-				const auto *hp = world.Get<Health>(eid);
+				const auto *hp = ecs_context.Get<Health>(eid);
 				if (!hp || hp->hp <= 0.f)
 					return;
-				const auto &tp = *world.Get<Pos3>(eid);
-				const auto &tc = *world.Get<Capsule>(eid);
+				const auto &tp = *ecs_context.Get<Pos3>(eid);
+				const auto &tc = *ecs_context.Get<Capsule>(eid);
 				SDL::FVector3 mid = {tp.x, tp.y - tc.height * 0.5f, tp.z};
 				float r = tc.radius * 1.3f;
 				if ((newPos - mid).LengthSq() < r * r)
@@ -1112,7 +1112,7 @@ struct Main
 
 	void ApplyDamage(SDL::ECS::EntityId attacker, SDL::ECS::EntityId target, float dmg)
 	{
-		auto *hp = world.Get<Health>(target);
+		auto *hp = ecs_context.Get<Health>(target);
 		if (!hp || hp->hp <= 0.f)
 			return;
 		hp->hp -= dmg;
@@ -1120,15 +1120,15 @@ struct Main
 			return;
 		hp->hp = 0.f;
 
-		if (auto *sc = world.Get<Score>(attacker))
+		if (auto *sc = ecs_context.Get<Score>(attacker))
 			sc->points++;
 
-		const auto *team = world.Get<EntityTeam>(target);
+		const auto *team = ecs_context.Get<EntityTeam>(target);
 		if (team && team->team == Team::Enemy)
 		{
 			// Respawn enemy
-			*world.Get<Pos3>(target) = RandSpawnPos();
-			*world.Get<Vel3>(target) = {0, 0, 0};
+			*ecs_context.Get<Pos3>(target) = RandSpawnPos();
+			*ecs_context.Get<Vel3>(target) = {0, 0, 0};
 			hp->hp = kMaxHP;
 		}
 		else
@@ -1138,7 +1138,7 @@ struct Main
 			{
 				if (playerIds[i] == SDL::ECS::NullEntity)
 					continue;
-				const auto *ph = world.Get<Health>(playerIds[i]);
+				const auto *ph = ecs_context.Get<Health>(playerIds[i]);
 				if (ph && ph->hp > 0.f)
 				{
 					anyAlive = true;
@@ -1169,33 +1169,33 @@ struct Main
 
 	void SpawnPlayer(int slot)
 	{
-		SDL::ECS::EntityId id = world.CreateEntity();
+		SDL::ECS::EntityId id = ecs_context.CreateEntity();
 		playerIds[slot] = id;
 		float ang = (float)slot * (float)(std::numbers::pi * 0.5);
 		float dist = mapScale * 0.35f;
-		world.Add<Pos3>(id, {SDL::Cos(ang) * dist,
+		ecs_context.Add<Pos3>(id, {SDL::Cos(ang) * dist,
 							 kCapsuleHeight - mapScale + 0.01f,
 							 SDL::Sin(ang) * dist});
-		world.Add<Vel3>(id, {0, 0, 0});
-		world.Add<Look>(id, {ang + (float)std::numbers::pi, 0.f});
-		world.Add<Capsule>(id, {kCapsuleRadius, kCapsuleHeight});
-		world.Add<Health>(id, {kMaxHP, kMaxHP});
-		world.Add<EntityTeam>(id, {Team::Player});
-		world.Add<Score>(id, {0});
-		world.Add<PlayerInput>(id, {0, 0, 0});
+		ecs_context.Add<Vel3>(id, {0, 0, 0});
+		ecs_context.Add<Look>(id, {ang + (float)std::numbers::pi, 0.f});
+		ecs_context.Add<Capsule>(id, {kCapsuleRadius, kCapsuleHeight});
+		ecs_context.Add<Health>(id, {kMaxHP, kMaxHP});
+		ecs_context.Add<EntityTeam>(id, {Team::Player});
+		ecs_context.Add<Score>(id, {0});
+		ecs_context.Add<PlayerInput>(id, {0, 0, 0});
 	}
 
 	void SpawnEnemy()
 	{
-		SDL::ECS::EntityId id = world.CreateEntity();
+		SDL::ECS::EntityId id = ecs_context.CreateEntity();
 		enemyIds.push_back(id);
-		world.Add<Pos3>(id, RandSpawnPos());
-		world.Add<Vel3>(id, {0, 0, 0});
-		world.Add<Look>(id, {0.f, 0.f});
-		world.Add<Capsule>(id, {kCapsuleRadius, kCapsuleHeight});
-		world.Add<Health>(id, {kMaxHP, kMaxHP});
-		world.Add<EntityTeam>(id, {Team::Enemy});
-		world.Add<EnemyAI>(id, {0.f});
+		ecs_context.Add<Pos3>(id, RandSpawnPos());
+		ecs_context.Add<Vel3>(id, {0, 0, 0});
+		ecs_context.Add<Look>(id, {0.f, 0.f});
+		ecs_context.Add<Capsule>(id, {kCapsuleRadius, kCapsuleHeight});
+		ecs_context.Add<Health>(id, {kMaxHP, kMaxHP});
+		ecs_context.Add<EntityTeam>(id, {Team::Enemy});
+		ecs_context.Add<EnemyAI>(id, {0.f});
 	}
 
 	void GenerateTerrain()
@@ -1219,7 +1219,6 @@ struct Main
 
 	void StartGame()
 	{
-		world = SDL::ECS::World{};
 		enemyIds.clear();
 		terrain.clear();
 		bullets.clear();
@@ -1249,12 +1248,12 @@ struct Main
 	void UpdatePhysics(float dt)
 	{
 		const float bound = mapScale;
-		world.Each<Pos3, Vel3, Look, Capsule, PlayerInput>(
+		ecs_context.Each<Pos3, Vel3, Look, Capsule, PlayerInput>(
 			[dt, bound, this](SDL::ECS::EntityId eid,
 							  Pos3 &pos, Vel3 &vel, Look &look,
 							  Capsule &cap, PlayerInput &inp)
 			{
-				auto *hp = world.Get<Health>(eid);
+				auto *hp = ecs_context.Get<Health>(eid);
 				if (hp && hp->hp <= 0.f)
 					return;
 				const float rate = 6.f, drag = std::exp(-dt * rate), diff = 1.f - drag;
@@ -1302,10 +1301,10 @@ struct Main
 			{
 				if (playerIds[i] == SDL::ECS::NullEntity)
 					continue;
-				const auto *hp = world.Get<Health>(playerIds[i]);
+				const auto *hp = ecs_context.Get<Health>(playerIds[i]);
 				if (!hp || hp->hp <= 0.f)
 					continue;
-				const auto *p = world.Get<Pos3>(playerIds[i]);
+				const auto *p = ecs_context.Get<Pos3>(playerIds[i]);
 				if (!p)
 					continue;
 				float d = (*p - from).Length();
@@ -1318,14 +1317,14 @@ struct Main
 			return best;
 		};
 
-		world.Each<Pos3, Vel3, Look, Capsule, EnemyAI>(
+		ecs_context.Each<Pos3, Vel3, Look, Capsule, EnemyAI>(
 			[&, dt](SDL::ECS::EntityId eid, Pos3 &pos, Vel3 &vel, Look &look,
 					Capsule &cap, EnemyAI &ai)
 			{
 				SDL::ECS::EntityId tid = NearestPlayer(pos);
 				if (tid == SDL::ECS::NullEntity)
 					return;
-				const SDL::FVector3 &tgt = *world.Get<Pos3>(tid);
+				const SDL::FVector3 &tgt = *ecs_context.Get<Pos3>(tid);
 				SDL::FVector3 toTgt = tgt - pos;
 				float dist = toTgt.Length();
 				look.yaw = SDL::Atan2(-toTgt.x, -toTgt.z);
@@ -1427,8 +1426,8 @@ struct Main
 		const float cy = (float)clip.y + clip.h * 0.5f;
 		const float fov = 0.5f * SDL::Sqrt((float)(clip.w * clip.w + clip.h * clip.h));
 
-		const SDL::FVector3 &cam = *world.Get<Pos3>(playerIds[pi]);
-		const Look &look = *world.Get<Look>(playerIds[pi]);
+		const SDL::FVector3 &cam = *ecs_context.Get<Pos3>(playerIds[pi]);
+		const Look &look = *ecs_context.Get<Look>(playerIds[pi]);
 
 		// Floor and crates are rendered by the GPU pipeline (_DrawSceneGPU).
 		// Here we only draw 2D-projected overlays: wireframes, bullets, entities.
@@ -1476,11 +1475,11 @@ struct Main
 		// ── 5. Entities (wireframe capsule circles + world-space HP bars) ─────
 		auto DrawEntity = [&](SDL::ECS::EntityId eid, bool isPlayer_)
 		{
-			if (eid == playerIds[pi] || !world.IsAlive(eid))
+			if (eid == playerIds[pi] || !ecs_context.IsAlive(eid))
 				return;
-			const SDL::FVector3 &ep = *world.Get<Pos3>(eid);
-			const Capsule &ec = *world.Get<Capsule>(eid);
-			const Health *eh = world.Get<Health>(eid);
+			const SDL::FVector3 &ep = *ecs_context.Get<Pos3>(eid);
+			const Capsule &ec = *ecs_context.Get<Capsule>(eid);
+			const Health *eh = ecs_context.Get<Health>(eid);
 			renderer.SetDrawColor(isPlayer_
 									  ? SDL::Color{50, 100, 255, 255}
 									  : SDL::Color{230, 40, 40, 255});
@@ -1524,7 +1523,7 @@ struct Main
 
 		for (int pi = 0; pi < numPlayers; ++pi)
 		{
-			if (playerIds[pi] == SDL::ECS::NullEntity || !world.IsAlive(playerIds[pi]))
+			if (playerIds[pi] == SDL::ECS::NullEntity || !ecs_context.IsAlive(playerIds[pi]))
 				continue;
 			float clipX = ox + (float)(pi % partH) * sizeH;
 			float clipY = oy + (float)(pi / partH) * sizeV;
@@ -1540,7 +1539,7 @@ struct Main
 			renderer.RenderLine({cx - 9.f, cy}, {cx + 9.f, cy});
 
 			// ── Player HP bar (bottom-center of viewport) ───────────────────────
-			const Health *myHp = world.Get<Health>(playerIds[pi]);
+			const Health *myHp = ecs_context.Get<Health>(playerIds[pi]);
 			if (myHp)
 			{
 				float bw = sizeH * 0.38f, bh = 13.f;
@@ -1562,7 +1561,7 @@ struct Main
 
 			// ── Score + FPS (top-left of viewport) ──────────────────────────────
 			renderer.SetDrawColor({255, 255, 255, 255});
-			const Score *sc = world.Get<Score>(playerIds[pi]);
+			const Score *sc = ecs_context.Get<Score>(playerIds[pi]);
 			renderer.RenderDebugTextFormat({clipX + 4.f, clipY + 4.f},
 										   "P{} Score:{}", pi + 1, sc ? sc->points : 0);
 			if (pi == 0)
@@ -1600,7 +1599,7 @@ struct Main
 		// ── 2D overlays per viewport (wireframes, bullets, entities) ─────────
 		for (int i = 0; i < numPlayers; ++i)
 		{
-			if (playerIds[i] == SDL::ECS::NullEntity || !world.IsAlive(playerIds[i]))
+			if (playerIds[i] == SDL::ECS::NullEntity || !ecs_context.IsAlive(playerIds[i]))
 				continue;
 			SDL::Rect clip{(int)((i % partH) * sizeH), (int)((i / partH) * sizeV),
 						   (int)sizeH, (int)sizeV};
@@ -1738,7 +1737,7 @@ struct Main
 		{
 			for (int i = 0; i < numPlayers; ++i)
 			{
-				if (auto *inp = world.Get<PlayerInput>(playerIds[i]))
+				if (auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
 					if (inp->mouse == ev.mdevice.which)
 						inp->mouse = 0;
 			}
@@ -1747,7 +1746,7 @@ struct Main
 		{
 			for (int i = 0; i < numPlayers; ++i)
 			{
-				if (auto *inp = world.Get<PlayerInput>(playerIds[i]))
+				if (auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
 					if (inp->keyboard == ev.kdevice.which)
 						inp->keyboard = 0;
 			}
@@ -1758,7 +1757,7 @@ struct Main
 			int idx = WhoseMouse(id);
 			if (idx >= 0)
 			{
-				Look &look = *world.Get<Look>(playerIds[idx]);
+				Look &look = *ecs_context.Get<Look>(playerIds[idx]);
 				look.yaw -= ev.motion.xrel * kMouseSensitivity;
 				look.pitch = SDL::Clamp(look.pitch - ev.motion.yrel * kMouseSensitivity,
 										-(float)(std::numbers::pi * 0.45),
@@ -1768,7 +1767,7 @@ struct Main
 			{
 				for (int i = 0; i < numPlayers; ++i)
 				{
-					if (auto *inp = world.Get<PlayerInput>(playerIds[i]))
+					if (auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
 						if (inp->mouse == 0)
 						{
 							inp->mouse = id;
@@ -1797,7 +1796,7 @@ struct Main
 			int idx = WhoseKeyboard(id);
 			if (idx >= 0)
 			{
-				auto &inp = *world.Get<PlayerInput>(playerIds[idx]);
+				auto &inp = *ecs_context.Get<PlayerInput>(playerIds[idx]);
 				if (sym == SDL::KEYCODE_W)
 					inp.wasd |= 1;
 				if (sym == SDL::KEYCODE_A)
@@ -1813,7 +1812,7 @@ struct Main
 			{
 				for (int i = 0; i < numPlayers; ++i)
 				{
-					if (auto *inp = world.Get<PlayerInput>(playerIds[i]))
+					if (auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
 						if (inp->keyboard == 0)
 						{
 							inp->keyboard = id;
@@ -1827,7 +1826,7 @@ struct Main
 			int idx = WhoseKeyboard(ev.key.which);
 			if (idx >= 0)
 			{
-				auto &inp = *world.Get<PlayerInput>(playerIds[idx]);
+				auto &inp = *ecs_context.Get<PlayerInput>(playerIds[idx]);
 				SDL::Keycode sym = ev.key.key;
 				if (sym == SDL::KEYCODE_W)
 					inp.wasd &= ~1;
@@ -1919,7 +1918,7 @@ struct Main
 			}
 			else
 			{
-				const Score *sc = world.Get<Score>(playerIds[i]);
+				const Score *sc = ecs_context.Get<Score>(playerIds[i]);
 				ui.SetText(eid_goScore[i],
 						   std::format("Player {}: {} kill(s)", i + 1, sc ? sc->points : 0));
 				ui.SetVisible(eid_goScore[i], true);
@@ -2127,10 +2126,10 @@ struct Main
 			.W(SDL::UI::Value::Ww(100))
 			.H(SDL::UI::Value::Wh(100))
 			.Padding(0)
-			.WithStyle([](auto &s)
-					   {
-			s.borders = SDL::FBox(0.f);
-			s.bgColor = {0, 0, 0, 0}; })
+			.WithStyle([](auto &s) {
+				s.borders = SDL::FBox(0.f);
+				s.bgColor = {0, 0, 0, 0};
+			})
 			.Children(eid_menuPage, eid_goPage, eid_hudPage)
 			.AsRoot();
 
@@ -2145,7 +2144,7 @@ private:
 		{
 			if (playerIds[i] == SDL::ECS::NullEntity)
 				continue;
-			if (const auto *inp = world.Get<PlayerInput>(playerIds[i]))
+			if (const auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
 				if (inp->mouse == id)
 					return i;
 		}
@@ -2157,7 +2156,7 @@ private:
 		{
 			if (playerIds[i] == SDL::ECS::NullEntity)
 				continue;
-			if (const auto *inp = world.Get<PlayerInput>(playerIds[i]))
+			if (const auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
 				if (inp->keyboard == id)
 					return i;
 		}

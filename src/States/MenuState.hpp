@@ -23,17 +23,17 @@ namespace game {
 
 class MenuState : public IState {
 public:
-	void Enter(AppContext& ctx) override {
-		m_ctx = &ctx; m_time = 0.f;
+	void Enter(AppContext& ecs_context) override {
+		m_ctx = &ecs_context; m_time = 0.f;
 		LOG_INFO << "MenuState::Enter";
 
 		// Check whether a save file is available.
-		m_hasSave = !ctx.savePath.empty() &&
-					core::SaveManager(ctx.savePath).Exists();
+		m_hasSave = !ecs_context.savePath.empty() &&
+					core::SaveManager(ecs_context.savePath).Exists();
 
-		m_uiWorld = std::make_unique<SDL::ECS::World>();
+		m_uiWorld = std::make_unique<SDL::ECS::Context>();
 		m_ui      = std::make_unique<SDL::UI::System>(
-			*m_uiWorld, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
+			*m_uiWorld, ecs_context.renderer, SDL::MixerRef{nullptr}, *ecs_context.pool);
 		_BuildUI();
 	}
 
@@ -59,7 +59,7 @@ private:
 	AppContext* m_ctx     = nullptr;
 	float       m_time   = 0.f;
 	bool        m_hasSave = false;
-	std::unique_ptr<SDL::ECS::World>  m_uiWorld;
+	std::unique_ptr<SDL::ECS::Context>  m_uiWorld;
 	std::unique_ptr<SDL::UI::System>  m_ui;
 
 	void _BuildUI() {

@@ -7,13 +7,13 @@ namespace core {
 // ─────────────────────────────────────────────────────────────────────────────
 // Camera — 2D viewport tracking
 //
-// World coordinates: (0,0) = top-left of map, 1 unit = 1 tile
+// Context coordinates: (0,0) = top-left of map, 1 unit = 1 tile
 // Entity positions  : center of entity in world units
 // Screen coordinates: pixels, (0,0) = top-left of the canvas widget
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct Camera {
-	// World position of the viewport centre
+	// Context position of the viewport centre
 	float worldX = 0.f, worldY = 0.f;
 
 	// Canvas rect on screen (set by UI Canvas widget callback)

@@ -432,14 +432,14 @@ struct FMatrix4 {
 	/**
 	 * View matrix (right-handed LookAt).
 	 *
-	 * @param eye    Camera position in ECS::World space.
+	 * @param eye    Camera position in ECS::Context space.
 	 * @param center Point the camera looks toward.
-	 * @param up     ECS::World up direction (typically {0, 1, 0}).
+	 * @param up     ECS::Context up direction (typically {0, 1, 0}).
 	 */
 	[[nodiscard]] static FMatrix4 LookAt(const FVector3& eye,
 																		const FVector3& center,
 																		const FVector3& up) noexcept {
-		FVector3 f = (center - eye).Normalize(); // forward  (+Z in ECS::World → −Z in view)
+		FVector3 f = (center - eye).Normalize(); // forward  (+Z in ECS::Context → −Z in view)
 		FVector3 r = f.Cross(up).Normalize();    // right
 		FVector3 u = r.Cross(f);                 // re-orthogonalised up
 
@@ -841,7 +841,7 @@ struct FAABB {
 /**
  * Infinite plane: `normal · point + d = 0`.
  *
- * `normal` should be unit length for the signed distance to be in ECS::World units.
+ * `normal` should be unit length for the signed distance to be in ECS::Context units.
  */
 struct FPlane {
 	FVector3  normal{0.f, 1.f, 0.f};

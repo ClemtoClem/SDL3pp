@@ -15,6 +15,8 @@
  * | `Widget`         | WidgetType, name, enabled/visible, dirty flags           |
  * | `Style`          | Colors, bdColor, radius, font path, opacity, audio cues  |
  * | `LayoutProps`    | Value w/h/x/y, margins, padding, layout mode, grow, gap  |
+ * | `LayoutGridProps`| columns, rows, GridSizing, GridLines, line color/thickness |
+ * | `GridCell`       | col, row, colSpan, rowSpan (child position in InGrid)     |
  * | `Content`        | Text, placeholder, cursor (Input)                        |
  * | `SliderData`     | min/max/value + drag (Slider, Progress, horizontal SB)   |
  * | `ScrollBarData`  | contentSize, viewSize, offset + drag                     |
@@ -50,6 +52,42 @@
  *   Layout::InColumn  — children stacked vertically (default)
  *   Layout::InLine    — children placed horizontally (no wrap)
  *   Layout::Stack     — horizontal with line wrap
+ *   Layout::InGrid    — children placed on a configurable 2-D grid
+ *
+ * ## InGrid layout
+ *
+ * A Container with `Layout::InGrid` distributes its children across a grid of
+ * columns and rows.  Each child can carry a `GridCell` component (set via
+ * `.Cell(col, row)`) that pins it to a specific cell and optionally spans
+ * multiple columns/rows.  Children without a `GridCell` are auto-placed
+ * sequentially (left-to-right, top-to-bottom).
+ *
+ * | Component / setter         | Effect                                           |
+ * |----------------------------|--------------------------------------------------|
+ * | `LayoutGridProps::columns` | Number of columns (default 2).                   |
+ * | `LayoutGridProps::rows`    | Fixed row count; 0 = auto from children.         |
+ * | `GridSizing::Fixed`        | All tracks equal: container ÷ count.            |
+ * | `GridSizing::Content`      | Each track adapts to its widest/tallest child.   |
+ * | `GridLines::None/Rows/     | Separator lines between cells.                  |
+ * |  Columns/Both`             |                                                  |
+ *
+ * ```cpp
+ * // 3-column grid, content-sized rows, horizontal + vertical separators
+ * ui.Grid("cards", 3, 8.f, 8.f)
+ *   .W(Value::Pw(100))
+ *   .GridColSizing(GridSizing::Fixed)
+ *   .GridRowSizing(GridSizing::Content)
+ *   .GridLineStyle(GridLines::Both)
+ *   .GridLineColor({60, 65, 90, 200})
+ *   .Children(
+ *     // Auto-placed sequentially:
+ *     ui.Label("a", "Cell A"),
+ *     ui.Label("b", "Cell B"),
+ *     // Explicit placement with col-span:
+ *     ui.Button("wide", "Wide button").Cell(0, 1, 3, 1),
+ *   )
+ *   .AsRoot();
+ * ```
  *
  * ## Widgets available
  *
@@ -133,8 +171,8 @@
  * // uiPool.Add<SDL::TTF::Font>("font:assets/Roboto.ttf|15.0",
  * //     SDL::TTF::Font{ SDL::OpenFont("assets/Roboto.ttf", 15.f) });
  *
- * SDL::ECS::World    ECS::World;
- * SDL::System ui(ECS::World, renderer, uiPool);  // ← single pool for all assets
+ * SDL::ECS::Context    ECS::Context;
+ * SDL::System ui(ECS::Context, renderer, uiPool);  // ← single pool for all assets
  *
  * ui.Column("root").Pad(0).Gap(0)
  *   .Children(
@@ -215,7 +253,22 @@ namespace UI {
 	enum class Layout : Uint16 {
 		InLine,   ///< Children placed horizontally (no wrap).
 		InColumn, ///< Children stacked vertically.
-		Stack     ///< Like InLine but wraps when insufficient width.
+		Stack,    ///< Like InLine but wraps when insufficient width.
+		InGrid    ///< Children placed on a 2-D grid (see LayoutGridProps / GridCell).
+	};
+
+	/// @brief How column or row sizes are determined in a Layout::InGrid container.
+	enum class GridSizing : Uint8 {
+		Fixed,   ///< Uniform cells: available space divided equally by column/row count.
+		Content  ///< Adaptive cells: each column/row is sized to its widest/tallest child.
+	};
+
+	/// @brief Which separator lines are drawn inside a Layout::InGrid container.
+	enum class GridLines : Uint8 {
+		None,    ///< No visible separator lines.
+		Rows,    ///< Horizontal lines between rows only.
+		Columns, ///< Vertical lines between columns only.
+		Both     ///< Both horizontal and vertical lines.
 	};
 
 	enum class AttachLayout : Uint16 {
@@ -372,7 +425,7 @@ namespace UI {
 		Value operator+(float o) const noexcept { return {val, unit, offset + o}; }
 		Value operator-(float o) const noexcept { return {val, unit, offset - o}; }
 
-		[[nodiscard]] float Resolve(const LayoutContext &ctx) const noexcept {
+		[[nodiscard]] float Resolve(const LayoutContext &ecs_context) const noexcept {
 			float base = 0.f;
 			switch (unit) {
 				case Unit::Px:
@@ -381,42 +434,42 @@ namespace UI {
 					break;
 
 				case Unit::Ww:
-					base = (val / 100.f) * ctx.windowSize.x;
+					base = (val / 100.f) * ecs_context.windowSize.x;
 					break;
 				case Unit::Wh:
-					base = (val / 100.f) * ctx.windowSize.y;
+					base = (val / 100.f) * ecs_context.windowSize.y;
 					break;
 
 				case Unit::Rw:
-					base = (val / 100.f) * ctx.rootSize.x;
+					base = (val / 100.f) * ecs_context.rootSize.x;
 					break;
 				case Unit::Rh:
-					base = (val / 100.f) * ctx.rootSize.y;
+					base = (val / 100.f) * ecs_context.rootSize.y;
 					break;
 				case Unit::Rcw:
-					base = (val / 100.f) * (ctx.rootSize.x - ctx.rootPadding.GetH());
+					base = (val / 100.f) * (ecs_context.rootSize.x - ecs_context.rootPadding.GetH());
 					break;
 				case Unit::Rch:
-					base = (val / 100.f) * (ctx.rootSize.y - ctx.rootPadding.GetV());
+					base = (val / 100.f) * (ecs_context.rootSize.y - ecs_context.rootPadding.GetV());
 					break;
 				case Unit::Rfs:
-					base = (val / 100.0f) * ctx.rootFontSize;
+					base = (val / 100.0f) * ecs_context.rootFontSize;
 					break;
 
 				case Unit::Pw:
-					base = (val / 100.f) * ctx.parentSize.x;
+					base = (val / 100.f) * ecs_context.parentSize.x;
 					break;
 				case Unit::Ph:
-					base = (val / 100.f) * ctx.parentSize.y;
+					base = (val / 100.f) * ecs_context.parentSize.y;
 					break;
 				case Unit::Pcw:
-					base = (val / 100.f) * (ctx.parentSize.x - ctx.parentPadding.GetH());
+					base = (val / 100.f) * (ecs_context.parentSize.x - ecs_context.parentPadding.GetH());
 					break;
 				case Unit::Pch:
-					base = (val / 100.f) * (ctx.parentSize.y - ctx.parentPadding.GetV());
+					base = (val / 100.f) * (ecs_context.parentSize.y - ecs_context.parentPadding.GetV());
 					break;
 				case Unit::Pfs:
-					base = (val / 100.f) * ctx.parentFontSize;
+					base = (val / 100.f) * ecs_context.parentFontSize;
 					break;
 			}
 			return base + offset;
@@ -509,6 +562,10 @@ namespace UI {
 		Value absY          = Value::Px(0);
 		Value width         = Value::Auto();
 		Value height        = Value::Auto();
+		Value minWidth      = Value::Px(-1.f);  ///< Minimum width;  Px(-1) = no constraint.
+		Value minHeight     = Value::Px(-1.f);  ///< Minimum height; Px(-1) = no constraint.
+		Value maxWidth      = Value::Px(-1.f);  ///< Maximum width;  Px(-1) = no constraint.
+		Value maxHeight     = Value::Px(-1.f);  ///< Maximum height; Px(-1) = no constraint.
 
 		SDL::FBox margin    = {0.f, 0.f, 0.f, 0.f};
 		SDL::FBox padding   = {8.f, 6.f, 8.f, 6.f};
@@ -527,6 +584,41 @@ namespace UI {
 		/// Thickness (px) of the auto inline scrollbar drawn by _DrawContainer.
 		/// Applies to both axes.  Override via builder .ScrollbarThickness(n).
 		float sbThickness = 8.f;
+	};
+
+	/// @brief Grid layout configuration — attach to a Container with Layout::InGrid.
+	///
+	/// Add this component via the builder: `.GridProps(cols, rows, colSizing, rowSizing)`
+	/// or individually via `.GridCols(n)`, `.GridRows(n)`, `.GridColSizing(...)`, etc.
+	///
+	/// Column widths and row heights are recomputed every frame during the Measure pass
+	/// and stored in `colWidths` / `rowHeights` for use by the Place pass and renderer.
+	struct LayoutGridProps {
+		int        columns       = 2;                      ///< Number of columns (min 1).
+		int        rows          = 0;                      ///< Number of rows; 0 = auto-computed from children.
+		GridSizing colSizing     = GridSizing::Fixed;      ///< How column widths are determined.
+		GridSizing rowSizing     = GridSizing::Fixed;      ///< How row heights are determined.
+		GridLines  lines         = GridLines::None;        ///< Which separator lines are drawn.
+		SDL::Color lineColor     = {55, 60, 88, 160};     ///< Color of the separator lines.
+		float      lineThickness = 1.f;                   ///< Thickness in pixels of the separator lines.
+
+		// Computed each frame by _Measure; consumed by _Place and _DrawContainer.
+		std::vector<float> colWidths;   ///< Resolved pixel width of each column (filled by _Measure).
+		std::vector<float> rowHeights;  ///< Resolved pixel height of each row (filled by _Measure).
+	};
+
+	/// @brief Grid cell placement — attach to a child widget inside a Layout::InGrid container.
+	///
+	/// Specifies where the child sits in the parent grid and how many cells it spans.
+	/// If no GridCell component is present on a child, it is auto-placed sequentially
+	/// (left-to-right, top-to-bottom) filling columns first.
+	///
+	/// Set via the builder: `.Cell(col, row)` or `.Cell(col, row, colSpan, rowSpan)`.
+	struct GridCell {
+		int col     = 0;  ///< Column index (0-based).
+		int row     = 0;  ///< Row index (0-based).
+		int colSpan = 1;  ///< Number of columns occupied (min 1).
+		int rowSpan = 1;  ///< Number of rows occupied (min 1).
 	};
 
 	struct ComputedRect {
@@ -1067,7 +1159,7 @@ namespace UI {
 		/**
 		 * Construct the UI system.
 		 *
-		 * @param w    ECS World that owns all widget entities.
+		 * @param w    ECS Context that owns all widget entities.
 		 * @param r    Renderer used for all drawing.
 		 * @param m    Mixer used for audio.
 		 * @param pool ResourcePool that holds **all** UI assets — textures 
@@ -1082,8 +1174,8 @@ namespace UI {
 		 * SDL::UI::System ui(world, renderer, uiPool);
 		 * ```
 		 */
-		System(ECS::World &w, RendererRef r, MixerRef m, ResourcePool &pool)
-			: m_world(w), m_renderer(r), m_mixer(m), m_pool(pool)
+		System(ECS::Context &w, RendererRef r, MixerRef m, ResourcePool &pool)
+			: m_ctx(w), m_renderer(r), m_mixer(m), m_pool(pool)
 		{
 		}
 
@@ -1100,7 +1192,7 @@ namespace UI {
 		~System() {
 #if UI_HAS_TTF
 			// Step 1 — release all SDL::Text objects while the engine is still live.
-			m_world.Each<TextCache>([](ECS::EntityId, TextCache &tc) {
+			m_ctx.Each<TextCache>([](ECS::EntityId, TextCache &tc) {
 				tc.text = SDL::Text{};  // calls TTF_DestroyText safely
 			});
 			// Step 2 — engine is destroyed when m_engine optional goes out of scope.
@@ -1139,31 +1231,31 @@ namespace UI {
 
 		ECS::EntityId MakeLabel(const std::string &n, const std::string &t = "") { 
 			ECS::EntityId e = _Make(n, WidgetType::Label);
-			m_world.Get<Content>(e)->text = t;
-			auto &l = *m_world.Get<LayoutProps>(e);
+			m_ctx.Get<Content>(e)->text = t;
+			auto &l = *m_ctx.Get<LayoutProps>(e);
 			l.padding.top = l.padding.bottom = 2.f;
 			return e;
 		}
 		ECS::EntityId MakeButton(const std::string &n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Button);
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			m_world.Get<Content>(e)->text = t;
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<Content>(e)->text = t;
 			return e;
 		}
 		ECS::EntityId MakeToggle(const std::string &n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Toggle);
-			m_world.Get<Content>(e)->text = t;
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			m_world.Get<LayoutProps>(e)->height = Value::Px(28.f);
-			m_world.Add<ToggleData>(e);
+			m_ctx.Get<Content>(e)->text = t;
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<LayoutProps>(e)->height = Value::Px(28.f);
+			m_ctx.Add<ToggleData>(e);
 			return e;
 		}
 		ECS::EntityId MakeRadioButton(const std::string &n, const std::string &group, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::RadioButton);
-			m_world.Get<Content>(e)->text = t;
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			m_world.Get<LayoutProps>(e)->height = Value::Px(24.f);
-			m_world.Add<RadioData>(e, {group, false});
+			m_ctx.Get<Content>(e)->text = t;
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<LayoutProps>(e)->height = Value::Px(24.f);
+			m_ctx.Add<RadioData>(e, {group, false});
 			return e;
 		}
 		ECS::EntityId MakeSlider(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.f, 
@@ -1174,9 +1266,9 @@ namespace UI {
 			sd.max = mx;
 			sd.val = SDL::Clamp(v, mn, mx);
 			sd.orientation = o;
-			m_world.Add<SliderData>(e, sd);
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			auto &lp = *m_world.Get<LayoutProps>(e);
+			m_ctx.Add<SliderData>(e, sd);
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			if (o == Orientation::Horizontal)
 				lp.height = Value::Px(24.f);
 			else
@@ -1190,9 +1282,9 @@ namespace UI {
 			sd.contentSize = cs;
 			sd.viewSize = vs;
 			sd.orientation = o;
-			m_world.Add<ScrollBarData>(e, sd);
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			auto &lp = *m_world.Get<LayoutProps>(e);
+			m_ctx.Add<ScrollBarData>(e, sd);
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			if (o == Orientation::Vertical)
 				lp.width = Value::Px(10.f);
 			else
@@ -1201,22 +1293,22 @@ namespace UI {
 		}
 		ECS::EntityId MakeProgress(const std::string &n, float v = 0.f, float mx = 1.f) {
 			ECS::EntityId e = _Make(n, WidgetType::Progress);
-			m_world.Add<SliderData>(e, {0.f, mx, SDL::Clamp(v, 0.f, mx)});
-			m_world.Get<LayoutProps>(e)->height = Value::Px(18.f);
+			m_ctx.Add<SliderData>(e, {0.f, mx, SDL::Clamp(v, 0.f, mx)});
+			m_ctx.Get<LayoutProps>(e)->height = Value::Px(18.f);
 			return e;
 		}
 		ECS::EntityId MakeSeparator(const std::string &n = "sep") {
 			ECS::EntityId e = _Make(n, WidgetType::Separator);
-			auto &lp = *m_world.Get<LayoutProps>(e);
+			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			lp.height = Value::Px(1.f);
 			lp.margin.top = lp.margin.bottom = 6.f;
 			return e;
 		}
 		ECS::EntityId MakeInput(const std::string &n, const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Input);
-			m_world.Get<Content>(e)->placeholder = ph;
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			m_world.Get<LayoutProps>(e)->height = Value::Px(30.f);
+			m_ctx.Get<Content>(e)->placeholder = ph;
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
 			return e;
 		}
 		ECS::EntityId MakeKnob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f) {
@@ -1230,18 +1322,18 @@ namespace UI {
 			kd.drag = false;
 			kd.dragStartY = 0.f;
 			kd.dragStartVal = 0.f;
-			m_world.Add<KnobData>(e, kd);
+			m_ctx.Add<KnobData>(e, kd);
 			
-			auto *w = m_world.Get<Widget>(e);
+			auto *w = m_ctx.Get<Widget>(e);
 			if (w) w->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 
-			auto &lp = *m_world.Get<LayoutProps>(e);
+			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			lp.width = lp.height = Value::Px(56.f); // Taille par défaut sécurisée
 			return e;
 		}
 		ECS::EntityId MakeImage(const std::string &n, const std::string &key = "", ImageFit fit = ImageFit::Contain) {
 			ECS::EntityId e = _Make(n, WidgetType::Image);
-			m_world.Add<ImageData>(e, {key, fit});
+			m_ctx.Add<ImageData>(e, {key, fit});
 			return e;
 		}
 		ECS::EntityId MakeCanvas(const std::string &n,
@@ -1249,39 +1341,39 @@ namespace UI {
 			std::function<void(float)> cb_update = nullptr,
 			std::function<void(RendererRef, FRect)> cb_render = nullptr) {
 			ECS::EntityId e = _Make(n, WidgetType::Canvas);
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			m_world.Add<CanvasData>(e, {std::move(cb_event), std::move(cb_update), std::move(cb_render)});
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Add<CanvasData>(e, {std::move(cb_event), std::move(cb_update), std::move(cb_render)});
 			return e; 
 		}
 		ECS::EntityId MakeListBox(const std::string &n,
 								  const std::vector<std::string>& items = {}) {
 			ECS::EntityId e = _Make(n, WidgetType::ListBox);
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
 											  | BehaviorFlag::Selectable
 											  | BehaviorFlag::Focusable
 											  | BehaviorFlag::AutoScrollableY
 											  | BehaviorFlag::AutoScrollableX;
-			auto &lb = m_world.Add<ListBoxData>(e);
+			auto &lb = m_ctx.Add<ListBoxData>(e);
 			lb.items = items;
-			m_world.Get<LayoutProps>(e)->padding = {2.f, 2.f, 2.f, 2.f};
+			m_ctx.Get<LayoutProps>(e)->padding = {2.f, 2.f, 2.f, 2.f};
 			return e;
 		}
 		ECS::EntityId MakeGraph(const std::string &n) {
 			ECS::EntityId e = _Make(n, WidgetType::Graph);
-			m_world.Add<GraphData>(e);
-			m_world.Get<LayoutProps>(e)->padding = {0.f, 0.f, 0.f, 0.f};
+			m_ctx.Add<GraphData>(e);
+			m_ctx.Get<LayoutProps>(e)->padding = {0.f, 0.f, 0.f, 0.f};
 			return e;
 		}
 		ECS::EntityId MakeTextArea(const std::string &n, const std::string &text = "", const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::TextArea);
-			m_world.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			auto &ta = m_world.Add<TextAreaData>(e);
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			auto &ta = m_ctx.Add<TextAreaData>(e);
 			ta.text = text;
-			auto &lp = *m_world.Get<LayoutProps>(e);
+			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			lp.padding = {6.f, 6.f, 6.f, 6.f};
 			if (!ph.empty()) {
 				// Store placeholder in Content component
-				m_world.Get<Content>(e)->placeholder = ph;
+				m_ctx.Get<Content>(e)->placeholder = ph;
 			}
 			return e;
 		}
@@ -1314,6 +1406,10 @@ namespace UI {
 		inline Builder Card(const std::string &n, float gap = 8.f);
 		inline Builder SectionTitle(const std::string &text, SDL::Color color = {70, 130, 210, 255});
 		inline Builder ScrollView(const std::string &n, float gap = 4.f);
+		/// Grid container: children placed on a `columns × auto-rows` grid.
+		/// Use `.GridCols(n)`, `.GridRows(n)`, `.GridColSizing(...)` etc. on the returned Builder
+		/// to customise, and `.Cell(col, row)` on each child to set its grid position.
+		inline Builder Grid(const std::string &n = "grid", int columns = 2, float gap = 4.f, float pad = 8.f);
 
 		// ── Tree management ───────────────────────────────────────────────────────────
 
@@ -1321,38 +1417,38 @@ namespace UI {
 		[[nodiscard]] ECS::EntityId GetRootId() const { return m_root; }
 
 		void AppendChild(ECS::EntityId p, ECS::EntityId c) {
-			if (!m_world.IsAlive(p) || !m_world.IsAlive(c)) 
+			if (!m_ctx.IsAlive(p) || !m_ctx.IsAlive(c)) 
 				return;
-			m_world.Get<Children>(p)->Add(c);
-			m_world.Get<Parent>(c)->id = p;
+			m_ctx.Get<Children>(p)->Add(c);
+			m_ctx.Get<Parent>(c)->id = p;
 		}
 		void RemoveChild(ECS::EntityId p, ECS::EntityId c) {
-			if (!m_world.IsAlive(p))
+			if (!m_ctx.IsAlive(p))
 				return;
-			m_world.Get<Children>(p)->Remove(c);
-			if (m_world.IsAlive(c))
-				m_world.Get<Parent>(c)->id = ECS::NullEntity;
+			m_ctx.Get<Children>(p)->Remove(c);
+			if (m_ctx.IsAlive(c))
+				m_ctx.Get<Parent>(c)->id = ECS::NullEntity;
 		}
 
 		// ── Component accessors ───────────────────────────────────────────────────────
 
-		Style &GetStyle(ECS::EntityId e) { return *m_world.Get<Style>(e); }
-		LayoutProps &GetLayout(ECS::EntityId e) { return *m_world.Get<LayoutProps>(e); }
-		Content &GetContent(ECS::EntityId e) { return *m_world.Get<Content>(e); }
+		Style &GetStyle(ECS::EntityId e) { return *m_ctx.Get<Style>(e); }
+		LayoutProps &GetLayout(ECS::EntityId e) { return *m_ctx.Get<LayoutProps>(e); }
+		Content &GetContent(ECS::EntityId e) { return *m_ctx.Get<Content>(e); }
 
 		// ── Setters ───────────────────────────────────────────────────────────────────
 
 		void SetText(ECS::EntityId e, const std::string &t) {
-			if (auto *c = m_world.Get<Content>(e)) {
+			if (auto *c = m_ctx.Get<Content>(e)) {
 				c->text = t;
 				c->cursor = (int)t.size();
 			}
 		}
 
 		void SetValue(ECS::EntityId e, float v) {
-			if (auto *s = m_world.Get<SliderData>(e))
+			if (auto *s = m_ctx.Get<SliderData>(e))
 				s->val = SDL::Clamp(v, s->min, s->max);
-			if (auto *k = m_world.Get<KnobData>(e)) {
+			if (auto *k = m_ctx.Get<KnobData>(e)) {
 				k->val = SDL::Clamp(v, k->min, k->max);
 			}
 		}
@@ -1360,8 +1456,8 @@ namespace UI {
 		// ── ListBox accessors ─────────────────────────────────────────────────────────
 
 		void SetListBoxItems(ECS::EntityId e, std::vector<std::string> items) {
-			auto *lb = m_world.Get<ListBoxData>(e);
-			auto *lp = m_world.Get<LayoutProps>(e);
+			auto *lb = m_ctx.Get<ListBoxData>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (lb && lp) {
 				lb->items = std::move(items);
 				lp->scrollY = 0.f;
@@ -1370,76 +1466,76 @@ namespace UI {
 			}
 		}
 		[[nodiscard]] int GetListBoxSelection(ECS::EntityId e) const {
-			if (auto *lb = m_world.Get<ListBoxData>(e)) return lb->selectedIndex;
+			if (auto *lb = m_ctx.Get<ListBoxData>(e)) return lb->selectedIndex;
 			return -1;
 		}
 		void SetListBoxSelection(ECS::EntityId e, int idx) {
-			if (auto *lb = m_world.Get<ListBoxData>(e))
+			if (auto *lb = m_ctx.Get<ListBoxData>(e))
 				lb->selectedIndex = (idx >= 0 && idx < (int)lb->items.size()) ? idx : -1;
 		}
-		ListBoxData* GetListBoxData(ECS::EntityId e) { return m_world.Get<ListBoxData>(e); }
+		ListBoxData* GetListBoxData(ECS::EntityId e) { return m_ctx.Get<ListBoxData>(e); }
 
 		// ── Tooltip accessors ─────────────────────────────────────────────────────────
 
 		/// Attache (ou met à jour) un tooltip sur le widget @p e.
 		void SetTooltip(ECS::EntityId e, const std::string &text, float delay = 1.f) {
-			auto *td = m_world.Get<TooltipData>(e);
-			if (!td) td = &m_world.Add<TooltipData>(e);
+			auto *td = m_ctx.Get<TooltipData>(e);
+			if (!td) td = &m_ctx.Add<TooltipData>(e);
 			td->text  = text;
 			td->delay = delay;
 		}
 		/// Supprime le tooltip du widget @p e.
-		void RemoveTooltip(ECS::EntityId e) { m_world.Remove<TooltipData>(e); }
+		void RemoveTooltip(ECS::EntityId e) { m_ctx.Remove<TooltipData>(e); }
 
 		// ── Graph accessors ───────────────────────────────────────────────────────────
 
 		void SetGraphData(ECS::EntityId e, std::vector<float> data) {
-			if (auto *gd = m_world.Get<GraphData>(e)) gd->data = std::move(data);
+			if (auto *gd = m_ctx.Get<GraphData>(e)) gd->data = std::move(data);
 		}
 		void SetGraphRange(ECS::EntityId e, float minV, float maxV) {
-			if (auto *gd = m_world.Get<GraphData>(e)) { gd->minVal = minV; gd->maxVal = maxV; }
+			if (auto *gd = m_ctx.Get<GraphData>(e)) { gd->minVal = minV; gd->maxVal = maxV; }
 		}
 		void SetGraphXRange(ECS::EntityId e, float xMin, float xMax) {
-			if (auto *gd = m_world.Get<GraphData>(e)) { gd->xMin = xMin; gd->xMax = xMax; }
+			if (auto *gd = m_ctx.Get<GraphData>(e)) { gd->xMin = xMin; gd->xMax = xMax; }
 		}
-		GraphData* GetGraphData(ECS::EntityId e) { return m_world.Get<GraphData>(e); }
+		GraphData* GetGraphData(ECS::EntityId e) { return m_ctx.Get<GraphData>(e); }
 
 		void SetScrollOffset(ECS::EntityId e, float off) {
-			if (auto *sb = m_world.Get<ScrollBarData>(e)) {
+			if (auto *sb = m_ctx.Get<ScrollBarData>(e)) {
 				float mx = SDL::Max(0.f, sb->contentSize - sb->viewSize);
 				sb->offset = SDL::Clamp(off, 0.f, mx);
 			}
 		}
 
 		void SetChecked(ECS::EntityId e, bool b) {
-			if (auto *t = m_world.Get<ToggleData>(e)) {
+			if (auto *t = m_ctx.Get<ToggleData>(e)) {
 				t->checked = b;
 				t->animT = b ? 1.f : 0.f;
 			}
-			if (auto *r = m_world.Get<RadioData>(e))
+			if (auto *r = m_ctx.Get<RadioData>(e))
 				r->checked = b;
 		}
 
 		void SetEnabled(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Enable;
 				else w->behavior &= (~BehaviorFlag::Enable);
 			}
 		}
 
 		void SetVisible(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				bool wasVisible = Has(w->behavior, BehaviorFlag::Visible);
 				if (b && !wasVisible) {
 					w->behavior |= BehaviorFlag::Visible;
 					m_layoutDirty = true;
-					if (auto *s = m_world.Get<Style>(e); s && !s->showSound.empty()) {
+					if (auto *s = m_ctx.Get<Style>(e); s && !s->showSound.empty()) {
 						if (auto sh = _EnsureAudio(s->showSound)) _PlayAudio(sh);
 					}
 				} else if (!b && wasVisible) {
 					w->behavior &= (~BehaviorFlag::Visible);
 					m_layoutDirty = true;
-					if (auto *s = m_world.Get<Style>(e); s && !s->hideSound.empty()) {
+					if (auto *s = m_ctx.Get<Style>(e); s && !s->hideSound.empty()) {
 						if (auto sh = _EnsureAudio(s->hideSound)) _PlayAudio(sh);
 					}
 				}
@@ -1447,35 +1543,35 @@ namespace UI {
 		}
 
 		void SetHoverable(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Hoverable;
 				else w->behavior &= (~BehaviorFlag::Hoverable);
 			}
 		}
 
 		void SetSelectable(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Selectable;
 				else w->behavior &= (~BehaviorFlag::Selectable);
 			}
 		}
 
 		void SetFocusable(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Focusable;
 				else w->behavior &= (~BehaviorFlag::Focusable);
 			}
 		}
 
 		void SetScrollableX(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::ScrollableX;
 				else w->behavior &= (~BehaviorFlag::ScrollableX);
 			}
 		}
 
 		void SetScrollableY(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::ScrollableY;
 				else w->behavior &= (~BehaviorFlag::ScrollableY);
 			}
@@ -1488,7 +1584,7 @@ namespace UI {
 
 		/// Scrollbar automatique horizontal (visible seulement si le contenu déborde).
 		void SetAutoScrollableX(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::AutoScrollableX;
 				else w->behavior &= (~BehaviorFlag::AutoScrollableX);
 			}
@@ -1496,7 +1592,7 @@ namespace UI {
 
 		/// Scrollbar automatique vertical (visible seulement si le contenu déborde).
 		void SetAutoScrollableY(ECS::EntityId e, bool b) {
-			if (auto *w = m_world.Get<Widget>(e)) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::AutoScrollableY;
 				else w->behavior &= (~BehaviorFlag::AutoScrollableY);
 			}
@@ -1510,22 +1606,49 @@ namespace UI {
 
 		/// Épaisseur (px) des scrollbars inline dessinées dans le container.
 		void SetScrollbarThickness(ECS::EntityId e, float t) {
-			if (auto *lp = m_world.Get<LayoutProps>(e))
+			if (auto *lp = m_ctx.Get<LayoutProps>(e))
 				lp->sbThickness = SDL::Max(4.f, t);
 		}
 
+		// ── Grid layout helpers ───────────────────────────────────────────────────
+
+		/// Ensure a LayoutGridProps component exists on `e` and return a reference to it.
+		LayoutGridProps &EnsureGridProps(ECS::EntityId e) {
+			if (auto *gp = m_ctx.Get<LayoutGridProps>(e))
+				return *gp;
+			return m_ctx.Add<LayoutGridProps>(e);
+		}
+
+		void SetGridCols(ECS::EntityId e, int n) { EnsureGridProps(e).columns = SDL::Max(1, n); }
+		void SetGridRows(ECS::EntityId e, int n) { EnsureGridProps(e).rows    = SDL::Max(0, n); }
+		void SetGridColSizing(ECS::EntityId e, GridSizing s) { EnsureGridProps(e).colSizing = s; }
+		void SetGridRowSizing(ECS::EntityId e, GridSizing s) { EnsureGridProps(e).rowSizing = s; }
+		void SetGridLines(ECS::EntityId e, GridLines l)      { EnsureGridProps(e).lines     = l; }
+		void SetGridLineColor(ECS::EntityId e, SDL::Color c) { EnsureGridProps(e).lineColor = c; }
+		void SetGridLineThickness(ECS::EntityId e, float t)  { EnsureGridProps(e).lineThickness = SDL::Max(0.f, t); }
+
+		/// Ensure a GridCell component exists on `e` and set its position/span.
+		void SetGridCell(ECS::EntityId e, int col, int row, int colSpan = 1, int rowSpan = 1) {
+			GridCell *gc = m_ctx.Get<GridCell>(e);
+			if (!gc) gc = &m_ctx.Add<GridCell>(e);
+			gc->col     = SDL::Max(0, col);
+			gc->row     = SDL::Max(0, row);
+			gc->colSpan = SDL::Max(1, colSpan);
+			gc->rowSpan = SDL::Max(1, rowSpan);
+		}
+
 		void OnEventCanvas(ECS::EntityId e, std::function<void(SDL::Event&)> cb) {
-			if (auto *c = m_world.Get<CanvasData>(e))
+			if (auto *c = m_ctx.Get<CanvasData>(e))
 				c->eventCb = std::move(cb);
 		}
 
 		void OnUpdateCanvas(ECS::EntityId e, std::function<void(float)> cb) {
-			if (auto *c = m_world.Get<CanvasData>(e))
+			if (auto *c = m_ctx.Get<CanvasData>(e))
 				c->updateCb = std::move(cb);
 		}
 
 		void OnRenderCanvas(ECS::EntityId e, std::function<void(RendererRef, FRect)> cb) {
-			if (auto *c = m_world.Get<CanvasData>(e))
+			if (auto *c = m_ctx.Get<CanvasData>(e))
 				c->renderCb = std::move(cb);
 		}
 
@@ -1537,20 +1660,20 @@ namespace UI {
 		 * to remove the skin.
 		 */
 		void SetTilesetStyle(ECS::EntityId e, TilesetStyle ts) {
-			if (!m_world.IsAlive(e)) return;
-			m_world.Add<TilesetStyle>(e, std::move(ts));
+			if (!m_ctx.IsAlive(e)) return;
+			m_ctx.Add<TilesetStyle>(e, std::move(ts));
 		}
 
 		[[nodiscard]] TilesetStyle* GetTilesetStyle(ECS::EntityId e) {
-			return m_world.Get<TilesetStyle>(e);
+			return m_ctx.Get<TilesetStyle>(e);
 		}
 
 		void RemoveTilesetStyle(ECS::EntityId e) {
-			m_world.Remove<TilesetStyle>(e);
+			m_ctx.Remove<TilesetStyle>(e);
 		}
 
 		void SetImageKey(ECS::EntityId e, const std::string &key, ImageFit f = ImageFit::Contain) {
-			if (auto *d = m_world.Get<ImageData>(e)) {
+			if (auto *d = m_ctx.Get<ImageData>(e)) {
 				d->key = key;
 				d->fit = f;
 			}
@@ -1558,14 +1681,14 @@ namespace UI {
 
 		/// Return a reference to the IconData component, creating it if absent.
 		IconData &GetOrAddIconData(ECS::EntityId e) {
-			if (auto *ic = m_world.Get<IconData>(e)) return *ic;
-			return m_world.Add<IconData>(e);
+			if (auto *ic = m_ctx.Get<IconData>(e)) return *ic;
+			return m_ctx.Add<IconData>(e);
 		}
 
 		// ── TextArea accessors ────────────────────────────────────────────────────────
 
 		void SetTextAreaContent(ECS::EntityId e, const std::string &t) {
-			if (auto *ta = m_world.Get<TextAreaData>(e)) {
+			if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
 				ta->text = t;
 				ta->cursorPos = 0;
 				ta->ClearSelection();
@@ -1574,88 +1697,88 @@ namespace UI {
 		}
 		[[nodiscard]] const std::string &GetTextAreaContent(ECS::EntityId e) const {
 			static const std::string empty;
-			const auto *ta = m_world.Get<TextAreaData>(e);
+			const auto *ta = m_ctx.Get<TextAreaData>(e);
 			return ta ? ta->text : empty;
 		}
 		void SetTextAreaHighlightColor(ECS::EntityId e, SDL::Color c) {
-			if (auto *ta = m_world.Get<TextAreaData>(e)) ta->highlightColor = c;
+			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->highlightColor = c;
 		}
 		void SetTextAreaTabSize(ECS::EntityId e, int sz) {
-			if (auto *ta = m_world.Get<TextAreaData>(e)) ta->tabSize = SDL::Max(1, sz);
+			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->tabSize = SDL::Max(1, sz);
 		}
 		void AddTextAreaSpan(ECS::EntityId e, int start, int end, TextSpanStyle style) {
-			if (auto *ta = m_world.Get<TextAreaData>(e)) ta->AddSpan(start, end, style);
+			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->AddSpan(start, end, style);
 		}
 		void ClearTextAreaSpans(ECS::EntityId e) {
-			if (auto *ta = m_world.Get<TextAreaData>(e)) ta->ClearSpans();
+			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->ClearSpans();
 		}
 		[[nodiscard]] TextAreaData* GetTextAreaData(ECS::EntityId e) {
-			return m_world.Get<TextAreaData>(e);
+			return m_ctx.Get<TextAreaData>(e);
 		}
 
 		// ── Getters ───────────────────────────────────────────────────────────────────
 
 		[[nodiscard]] const std::string &GetText(ECS::EntityId e) const {
 			static const std::string empty;
-			const auto *c = m_world.Get<Content>(e);
+			const auto *c = m_ctx.Get<Content>(e);
 			return c ? c->text : empty;
 		}
 
 		[[nodiscard]] float GetValue(ECS::EntityId e) const {
-			const auto *s = m_world.Get<SliderData>(e);
+			const auto *s = m_ctx.Get<SliderData>(e);
 			return s ? s->val : 0.f;
 		}
 
 		[[nodiscard]] float GetScrollOffset(ECS::EntityId e) const {
-			const auto *sb = m_world.Get<ScrollBarData>(e);
+			const auto *sb = m_ctx.Get<ScrollBarData>(e);
 			return sb ? sb->offset : 0.f;
 		}
 
 		[[nodiscard]] bool IsChecked(ECS::EntityId e) const {
-			if (const auto *t = m_world.Get<ToggleData>(e))
+			if (const auto *t = m_ctx.Get<ToggleData>(e))
 				return t->checked;
-			if (const auto *r = m_world.Get<RadioData>(e))
+			if (const auto *r = m_ctx.Get<RadioData>(e))
 				return r->checked;
 			return false;
 		}
 
 		[[nodiscard]] bool IsEnabled(ECS::EntityId e) const {
-			const auto *w = m_world.Get<Widget>(e);
+			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Enable);
 		}
 
 		[[nodiscard]] bool IsVisible(ECS::EntityId e) const {
-			const auto *w = m_world.Get<Widget>(e);
+			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Visible);
 		}
 
 		[[nodiscard]] bool IsHoverable(ECS::EntityId e) const {
-			const auto *w = m_world.Get<Widget>(e);
+			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Hoverable);
 		}
 
 		[[nodiscard]] bool IsSelectable(ECS::EntityId e) const {
-			const auto *w = m_world.Get<Widget>(e);
+			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Selectable);
 		}
 
 		[[nodiscard]] bool IsFocusable(ECS::EntityId e) const {
-			const auto *w = m_world.Get<Widget>(e);
+			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Focusable);
 		}
 
 		[[nodiscard]] bool IsScrollableX(ECS::EntityId e) const {
-			const auto *w = m_world.Get<Widget>(e);
+			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::ScrollableX);
 		}
 
 		[[nodiscard]] bool IsScrollableY(ECS::EntityId e) const {
-			const auto *w = m_world.Get<Widget>(e);
+			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::ScrollableY);
 		}
 
 		[[nodiscard]] bool IsHovered(ECS::EntityId e) const {
-			const auto *s = m_world.Get<WidgetState>(e);
+			const auto *s = m_ctx.Get<WidgetState>(e);
 			return s && s->hovered;
 		}
 
@@ -1664,12 +1787,12 @@ namespace UI {
 		}
 		
 		[[nodiscard]] bool IsPressed(ECS::EntityId e) const {
-			const auto *s = m_world.Get<WidgetState>(e);
+			const auto *s = m_ctx.Get<WidgetState>(e);
 			return s && s->pressed;
 		}
 
 		[[nodiscard]] FRect GetScreenRect(ECS::EntityId e) const {
-			const auto *c = m_world.Get<ComputedRect>(e);
+			const auto *c = m_ctx.Get<ComputedRect>(e);
 			return c ? c->screen : FRect{};
 		}
 
@@ -1687,17 +1810,17 @@ namespace UI {
 
 		// ── Callback registration ─────────────────────────────────────────────────────
 
-		void OnClick(ECS::EntityId e, std::function<void()> cb) { m_world.Get<Callbacks>(e)->onClick = std::move(cb); }
-		void OnChange(ECS::EntityId e, std::function<void(float)> cb) { m_world.Get<Callbacks>(e)->onChange = std::move(cb); }
-		void OnTextChange(ECS::EntityId e, std::function<void(const std::string &)> cb) { m_world.Get<Callbacks>(e)->onTextChange = std::move(cb); }
-		void OnToggle(ECS::EntityId e, std::function<void(bool)> cb) { m_world.Get<Callbacks>(e)->onToggle = std::move(cb); }
-		void OnScroll(ECS::EntityId e, std::function<void(float)> cb) { m_world.Get<Callbacks>(e)->onScroll = std::move(cb); }
-		void OnHoverEnter(ECS::EntityId e, std::function<void()> cb) { m_world.Get<Callbacks>(e)->onHoverEnter = std::move(cb); }
-		void OnHoverLeave(ECS::EntityId e, std::function<void()> cb) { m_world.Get<Callbacks>(e)->onHoverLeave = std::move(cb); }
-		void OnFocusGain(ECS::EntityId e, std::function<void()> cb) { m_world.Get<Callbacks>(e)->onFocusGain = std::move(cb); }
-		void OnFocusLose(ECS::EntityId e, std::function<void()> cb) { m_world.Get<Callbacks>(e)->onFocusLose = std::move(cb); }
+		void OnClick(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onClick = std::move(cb); }
+		void OnChange(ECS::EntityId e, std::function<void(float)> cb) { m_ctx.Get<Callbacks>(e)->onChange = std::move(cb); }
+		void OnTextChange(ECS::EntityId e, std::function<void(const std::string &)> cb) { m_ctx.Get<Callbacks>(e)->onTextChange = std::move(cb); }
+		void OnToggle(ECS::EntityId e, std::function<void(bool)> cb) { m_ctx.Get<Callbacks>(e)->onToggle = std::move(cb); }
+		void OnScroll(ECS::EntityId e, std::function<void(float)> cb) { m_ctx.Get<Callbacks>(e)->onScroll = std::move(cb); }
+		void OnHoverEnter(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onHoverEnter = std::move(cb); }
+		void OnHoverLeave(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onHoverLeave = std::move(cb); }
+		void OnFocusGain(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onFocusGain = std::move(cb); }
+		void OnFocusLose(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onFocusLose = std::move(cb); }
 
-		[[nodiscard]] ECS::World &GetWorld() { return m_world; }
+		[[nodiscard]] ECS::Context &GetWorld() { return m_ctx; }
 
 		// ── Frame pipeline ────────────────────────────────────────────────────────────
 
@@ -1733,14 +1856,14 @@ namespace UI {
 					_HandleScroll(ev.wheel.x, ev.wheel.y);
 					break;
 				case SDL::EVENT_DROP_TEXT:
-					if (m_focused != ECS::NullEntity && m_world.IsAlive(m_focused)) {
-						auto *w = m_world.Get<Widget>(m_focused);
+					if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
+						auto *w = m_ctx.Get<Widget>(m_focused);
 						if (w && Has(w->behavior, BehaviorFlag::Enable)) {
 							auto processDrop = [&]<typename T>(T* data) {
 								if (data) _InsertText(data, std::string_view(ev.drop.data));
 							};
-							if (w->type == WidgetType::Input) processDrop(m_world.Get<Content>(m_focused));
-							else if (w->type == WidgetType::TextArea) processDrop(m_world.Get<TextAreaData>(m_focused));
+							if (w->type == WidgetType::Input) processDrop(m_ctx.Get<Content>(m_focused));
+							else if (w->type == WidgetType::TextArea) processDrop(m_ctx.Get<TextAreaData>(m_focused));
 						}
 					}
 					break;
@@ -1754,7 +1877,7 @@ namespace UI {
 			m_pool.Update();
 
 			m_dt = dt;
-			if (m_root == ECS::NullEntity || !m_world.IsAlive(m_root)) {
+			if (m_root == ECS::NullEntity || !m_ctx.IsAlive(m_root)) {
 				_ResetOneShots();
 				return;
 			}
@@ -1779,12 +1902,12 @@ namespace UI {
 		}
 
 	private:
-		ECS::World&   m_world;
+		ECS::Context& m_ctx;
 		RendererRef   m_renderer;
 		MixerRef      m_mixer;
 		ResourcePool& m_pool;
 #if UI_HAS_TTF
-		// Owned TTF text engine.  Declared *after* m_world/m_pool (references)
+		// Owned TTF text engine.  Declared *after* m_ctx/m_pool (references)
 		// so that its destruction order is controlled explicitly in ~System():
 		// all TextCache ECS components are cleared first, then this resets.
 		std::optional<SDL::RendererTextEngine> m_engine;
@@ -1885,9 +2008,9 @@ namespace UI {
 			auto* engine = _EnsureEngine();
 			if (!engine) return nullptr;
 
-			auto* cache = m_world.Get<TextCache>(e);
+			auto* cache = m_ctx.Get<TextCache>(e);
 			if (!cache) {
-				cache = &m_world.Add<TextCache>(e);
+				cache = &m_ctx.Add<TextCache>(e);
 			}
 
 			if (cache->text) {
@@ -1939,7 +2062,7 @@ namespace UI {
 
 		// ── Make widget ─────────────────────────────────────────────────────────────────────────────
 		ECS::EntityId _Make(const std::string &n, WidgetType k) {
-			ECS::EntityId e = m_world.CreateEntity();
+			ECS::EntityId e = m_ctx.CreateEntity();
 
 			// Compute the correct behavior flags for this widget type.
 			// All widgets start Enabled + Visible.  Interactive widgets additionally
@@ -1968,19 +2091,19 @@ namespace UI {
 					break;
 			}
 
-			m_world.Add<Widget>(e, {n, k, beh, DirtyFlag::All});
-			auto &style = m_world.Add<Style>(e);
-			m_world.Add<LayoutProps>(e);
-			m_world.Add<Content>(e);
-			m_world.Add<WidgetState>(e);
-			m_world.Add<Callbacks>(e);
-			m_world.Add<ComputedRect>(e);
-			m_world.Add<Children>(e);
-			m_world.Add<Parent>(e);
+			m_ctx.Add<Widget>(e, {n, k, beh, DirtyFlag::All});
+			auto &style = m_ctx.Add<Style>(e);
+			m_ctx.Add<LayoutProps>(e);
+			m_ctx.Add<Content>(e);
+			m_ctx.Add<WidgetState>(e);
+			m_ctx.Add<Callbacks>(e);
+			m_ctx.Add<ComputedRect>(e);
+			m_ctx.Add<Children>(e);
+			m_ctx.Add<Parent>(e);
 
 			// Containers get a scroll-drag state component for their inline scrollbars.
 			if (k == WidgetType::Container || k == WidgetType::ListBox)
-				m_world.Add<ContainerScrollState>(e);
+				m_ctx.Add<ContainerScrollState>(e);
 
 			if (!m_defaultFontPath.empty()) {
 				style.fontKey = m_defaultFontPath;
@@ -2192,10 +2315,10 @@ namespace UI {
 
 		// Helper pour fusionner les logiques de Clic et de Drag
 		void _ProcessTextClickOrDrag(ECS::EntityId e, bool isDrag) {
-			auto *w   = m_world.Get<Widget>(e);
-			auto *s   = m_world.Get<Style>(e);
-			auto *cr  = m_world.Get<ComputedRect>(e);
-			auto *lp  = m_world.Get<LayoutProps>(e);
+			auto *w   = m_ctx.Get<Widget>(e);
+			auto *s   = m_ctx.Get<Style>(e);
+			auto *cr  = m_ctx.Get<ComputedRect>(e);
+			auto *lp  = m_ctx.Get<LayoutProps>(e);
 			if (!w || !s || !cr || !lp) return;
 
 			float relX = m_mousePos.x - (cr->screen.x + lp->padding.left);
@@ -2209,18 +2332,18 @@ namespace UI {
 			};
 
 			if (w->type == WidgetType::TextArea) {
-				if (auto *ta = m_world.Get<TextAreaData>(e)) applyHit(ta, _TextAreaHitPos(ta, relX, relY, *s));
+				if (auto *ta = m_ctx.Get<TextAreaData>(e)) applyHit(ta, _TextAreaHitPos(ta, relX, relY, *s));
 			} else if (w->type == WidgetType::Input) {
-				if (auto *c = m_world.Get<Content>(e)) applyHit(c, _InputHitPos(c, relX, *s));
+				if (auto *c = m_ctx.Get<Content>(e)) applyHit(c, _InputHitPos(c, relX, *s));
 			}
 		}
 
 		// ── Layout ────────────────────────────────────────────────────────────────────
 
 		void _ProcessLayout() {
-			if (!m_world.IsAlive(m_root)) return; 
+			if (!m_ctx.IsAlive(m_root)) return; 
 
-			auto *rootLp = m_world.Get<LayoutProps>(m_root);
+			auto *rootLp = m_ctx.Get<LayoutProps>(m_root);
 			if (!rootLp) return;
 
 			// Calcul de la taille racine sans écraser la valeur d'origine (Value::Auto)
@@ -2244,7 +2367,7 @@ namespace UI {
 
 			_Measure(m_root, rc);
 
-			auto *rootCr = m_world.Get<ComputedRect>(m_root);
+			auto *rootCr = m_ctx.Get<ComputedRect>(m_root);
 			if (rootCr)
 				rootCr->screen = {0.f, 0.f, rootW, rootH};
 
@@ -2252,12 +2375,12 @@ namespace UI {
 			_UpdateClips(m_root, m_viewport);
 		}
 
-		FPoint _Measure(ECS::EntityId e, const LayoutContext &ctx) {
-			if (!m_world.IsAlive(e)) 
+		FPoint _Measure(ECS::EntityId e, const LayoutContext &ecs_context) {
+			if (!m_ctx.IsAlive(e)) 
 				return {};
-			auto *w  = m_world.Get<Widget>(e);
-			auto *lp = m_world.Get<LayoutProps>(e);
-			auto *cr = m_world.Get<ComputedRect>(e);
+			auto *w  = m_ctx.Get<Widget>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
 			if (!w || !lp || !cr)
 				return {};
 			if (!Has(w->behavior, BehaviorFlag::Visible)) {
@@ -2267,18 +2390,18 @@ namespace UI {
 
 			// Resolve explicit dimensions (Auto → 0 ici ; on élargit ci-dessous).
 			bool wa = lp->width.IsAuto(), ha = lp->height.IsAuto();
-			float fw = wa ? 0.f : lp->width.Resolve(ctx);
-			float fh = ha ? 0.f : lp->height.Resolve(ctx);
+			float fw = wa ? 0.f : lp->width.Resolve(ecs_context);
+			float fh = ha ? 0.f : lp->height.Resolve(ecs_context);
 
 			// Espace contenu brut disponible pour les enfants.
-			float cW = SDL::Max(0.f, (wa ? ctx.parentSize.x : fw) - lp->padding.left - lp->padding.right);
-			float cH = SDL::Max(0.f, (ha ? ctx.parentSize.y : fh) - lp->padding.top  - lp->padding.bottom);
+			float cW = SDL::Max(0.f, (wa ? ecs_context.parentSize.x : fw) - lp->padding.left - lp->padding.right);
+			float cH = SDL::Max(0.f, (ha ? ecs_context.parentSize.y : fh) - lp->padding.top  - lp->padding.bottom);
 
 			if (w->type == WidgetType::ListBox) {
-				if (auto *lb = m_world.Get<ListBoxData>(e)) {
+				if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
 					lp->contentH = (float)lb->items.size() * lb->itemHeight;
 					// Largeur max des items pour la scrollbar horizontale
-					if (auto *st = m_world.Get<Style>(e)) {
+					if (auto *st = m_ctx.Get<Style>(e)) {
 						float maxW = 0.f;
 						for (const auto &item : lb->items)
 							maxW = SDL::Max(maxW, _TW(item, *st));
@@ -2286,8 +2409,8 @@ namespace UI {
 					}
 				}
 			} else if (w->type == WidgetType::TextArea) {
-				auto *st = m_world.Get<Style>(e);
-				auto *ta = m_world.Get<TextAreaData>(e);
+				auto *st = m_ctx.Get<Style>(e);
+				auto *ta = m_ctx.Get<TextAreaData>(e);
 				if (st && ta) {
 					float lineH = _TH(*st) + 2.f;
 					lp->contentH = ta->LineCount() * lineH;
@@ -2316,17 +2439,17 @@ namespace UI {
 			FPoint intr = _IntrinsicSize(e);
 
 			// Contexte transmis aux enfants.
-			LayoutContext cc = _MakeChildCtx(ctx, {cW, cH}, *lp);
+			LayoutContext cc = _MakeChildCtx(ecs_context, {cW, cH}, *lp);
 
 			float chW = 0.f, chH = 0.f;
 			float curLineW = 0.f, curLineH = 0.f;
 			int vis = 0, lineVis = 0;
-			auto *ch = m_world.Get<Children>(e);
+			auto *ch = m_ctx.Get<Children>(e);
 			if (ch) {
 				for (ECS::EntityId cid : ch->ids) {
-					if (!m_world.IsAlive(cid)) continue; 
-					auto *cw  = m_world.Get<Widget>(cid);
-					auto *cl  = m_world.Get<LayoutProps>(cid);
+					if (!m_ctx.IsAlive(cid)) continue; 
+					auto *cw  = m_ctx.Get<Widget>(cid);
+					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					if (!cw || !cl || !Has(cw->behavior, BehaviorFlag::Visible)) continue;
 					
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
@@ -2363,6 +2486,89 @@ namespace UI {
 					chW = SDL::Max(chW, curLineW);
 					chH += curLineH;
 				}
+
+				// ── InGrid: post-loop track computation ──────────────────────────────
+				if (lp->layout == Layout::InGrid) {
+					auto *gp     = m_ctx.Get<LayoutGridProps>(e);
+					int numCols  = gp ? SDL::Max(1, gp->columns) : 2;
+					float gap    = lp->gap;
+
+					// Determine effective number of rows (explicit or auto from children)
+					int numRows  = gp ? gp->rows : 0;
+					if (numRows <= 0) {
+						int autoIdx = 0;
+						for (ECS::EntityId cid : ch->ids) {
+							if (!m_ctx.IsAlive(cid)) continue;
+							auto *cw2 = m_ctx.Get<Widget>(cid);
+							auto *cl  = m_ctx.Get<LayoutProps>(cid);
+							if (!cw2 || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+							if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
+							auto *gc  = m_ctx.Get<GridCell>(cid);
+							int r = gc ? gc->row : (autoIdx / numCols);
+							int rs = gc ? SDL::Max(1, gc->rowSpan) : 1;
+							numRows = SDL::Max(numRows, r + rs);
+							if (!gc) ++autoIdx;
+						}
+						numRows = SDL::Max(1, numRows);
+					}
+
+					GridSizing cSiz = gp ? gp->colSizing : GridSizing::Fixed;
+					GridSizing rSiz = gp ? gp->rowSizing : GridSizing::Fixed;
+					float baseCellW = SDL::Max(1.f, (cW - gap * (float)(numCols - 1)) / (float)numCols);
+					float baseCellH = (!ha && numRows > 0) ? SDL::Max(1.f, (cH - gap * (float)(numRows - 1)) / (float)numRows) : 0.f;
+
+					std::vector<float> colW(numCols, cSiz == GridSizing::Fixed ? baseCellW : 0.f);
+					std::vector<float> rowH(numRows, (rSiz == GridSizing::Fixed && baseCellH > 0.f) ? baseCellH : 0.f);
+
+					// Content-based sizing: derive track sizes from already-measured children
+					if (cSiz == GridSizing::Content || rSiz == GridSizing::Content || baseCellH == 0.f) {
+						int autoIdx = 0;
+						for (ECS::EntityId cid : ch->ids) {
+							if (!m_ctx.IsAlive(cid)) continue;
+							auto *cw2 = m_ctx.Get<Widget>(cid);
+							auto *cl  = m_ctx.Get<LayoutProps>(cid);
+							auto *gc  = m_ctx.Get<GridCell>(cid);
+							auto *ccr = m_ctx.Get<ComputedRect>(cid);
+							if (!cw2 || !cl || !ccr || !Has(cw2->behavior, BehaviorFlag::Visible)) { if (!gc) ++autoIdx; continue; }
+							if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
+
+							int c  = gc ? SDL::Clamp(gc->col, 0, numCols - 1) : ((autoIdx % numCols));
+							int r  = gc ? SDL::Clamp(gc->row, 0, numRows - 1) : ((autoIdx / numCols));
+							int cs = gc ? SDL::Max(1, gc->colSpan) : 1;
+							int rs = gc ? SDL::Max(1, gc->rowSpan) : 1;
+							if (!gc) ++autoIdx;
+
+							if (cSiz == GridSizing::Content) {
+								float childW = ccr->measured.x + cl->margin.left + cl->margin.right;
+								float perCol = SDL::Max(0.f, (childW - gap * (float)(cs - 1)) / (float)cs);
+								for (int ci = c; ci < SDL::Min(c + cs, numCols); ++ci)
+									colW[ci] = SDL::Max(colW[ci], perCol);
+							}
+							if (rSiz == GridSizing::Content || baseCellH == 0.f) {
+								float childH = ccr->measured.y + cl->margin.top + cl->margin.bottom;
+								float perRow = SDL::Max(0.f, (childH - gap * (float)(rs - 1)) / (float)rs);
+								for (int ri = r; ri < SDL::Min(r + rs, numRows); ++ri)
+									rowH[ri] = SDL::Max(rowH[ri], perRow);
+							}
+						}
+					}
+
+					// Store computed tracks for use in _Place and _DrawContainer
+					if (gp) {
+						gp->colWidths  = colW;
+						gp->rowHeights = rowH;
+					}
+
+					// Total grid content size
+					chW = 0.f;
+					for (int ci = 0; ci < numCols; ++ci)
+						chW += colW[ci] + (ci > 0 ? gap : 0.f);
+					chH = 0.f;
+					for (int ri = 0; ri < numRows; ++ri)
+						chH += rowH[ri] + (ri > 0 ? gap : 0.f);
+				}
+				// ── end InGrid ───────────────────────────────────────────────────────
+
 				// Ne pas écraser le contenu déjà calculé pour ListBox / TextArea
 				if (w->type != WidgetType::ListBox && w->type != WidgetType::TextArea) {
 					lp->contentW = chW;
@@ -2372,13 +2578,25 @@ namespace UI {
 
 			float bW = wa ? SDL::Max(intr.x, chW) + lp->padding.left + lp->padding.right : fw;
 			float bH = ha ? SDL::Max(intr.y, chH) + lp->padding.top  + lp->padding.bottom : fh;
+
+			// Apply min/max size constraints (Px(-1) = no constraint).
+			// Convention CSS : maxWidth appliqué d'abord, puis minWidth prime sur maxWidth.
+			float rMinW = lp->minWidth.Resolve(ecs_context);
+			float rMinH = lp->minHeight.Resolve(ecs_context);
+			float rMaxW = lp->maxWidth.Resolve(ecs_context);
+			float rMaxH = lp->maxHeight.Resolve(ecs_context);
+			if (rMaxW >= 0.f) bW = SDL::Min(bW, rMaxW);
+			if (rMaxH >= 0.f) bH = SDL::Min(bH, rMaxH);
+			if (rMinW >= 0.f) bW = SDL::Max(bW, rMinW);
+			if (rMinH >= 0.f) bH = SDL::Max(bH, rMinH);
+
 			cr->measured = {bW, bH};
 			return cr->measured;
 		}
 
 		[[nodiscard]] FPoint _IntrinsicSize(ECS::EntityId e) {
-			auto *w = m_world.Get<Widget>(e); 
-			auto *s = m_world.Get<Style>(e);
+			auto *w = m_ctx.Get<Widget>(e); 
+			auto *s = m_ctx.Get<Style>(e);
 			if (!w)
 				return {};
 			// Use a default style for metrics when none is set
@@ -2388,7 +2606,7 @@ namespace UI {
 			switch (w->type) { 
 			case WidgetType::Label:
 			case WidgetType::Button: {
-				auto *c = m_world.Get<Content>(e);
+				auto *c = m_ctx.Get<Content>(e);
 				if (!c || c->text.empty())
 					return {60.f, ch + 4.f};
 				return {_TW(c->text, st), ch + 4.f};
@@ -2421,12 +2639,12 @@ namespace UI {
 		}
 
 		void _Place(ECS::EntityId e) {
-			if (!m_world.IsAlive(e)) return; 
+			if (!m_ctx.IsAlive(e)) return; 
 
-			auto *w  = m_world.Get<Widget>(e);
-			auto *lp = m_world.Get<LayoutProps>(e);
-			auto *cr = m_world.Get<ComputedRect>(e);
-			auto *ch = m_world.Get<Children>(e);
+			auto *w  = m_ctx.Get<Widget>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
+			auto *ch = m_ctx.Get<Children>(e);
 			if (!w || !lp || !cr || !ch || ch->ids.empty())
 				return;
 
@@ -2449,10 +2667,10 @@ namespace UI {
 			// First pass: compute grow budget over flow children only.
 			// Placer les éléments Absolute/Fixed en priorité pour les sortir du flux
 			for (ECS::EntityId cid : ch->ids) {
-				if (!m_world.IsAlive(cid)) continue; 
-				auto *cw2 = m_world.Get<Widget>(cid);
-				auto *cl  = m_world.Get<LayoutProps>(cid);
-				auto *cc  = m_world.Get<ComputedRect>(cid);
+				if (!m_ctx.IsAlive(cid)) continue; 
+				auto *cw2 = m_ctx.Get<Widget>(cid);
+				auto *cl  = m_ctx.Get<LayoutProps>(cid);
+				auto *cc  = m_ctx.Get<ComputedRect>(cid);
 				if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
 
 				if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
@@ -2476,10 +2694,10 @@ namespace UI {
 				float tFixed = 0.f, tGrow = 0.f;
 				int vis = 0;
 				for (ECS::EntityId cid : ch->ids) {
-					if (!m_world.IsAlive(cid)) continue; 
-					auto *cw2 = m_world.Get<Widget>(cid);
-					auto *cl  = m_world.Get<LayoutProps>(cid);
-					auto *cc  = m_world.Get<ComputedRect>(cid);
+					if (!m_ctx.IsAlive(cid)) continue; 
+					auto *cw2 = m_ctx.Get<Widget>(cid);
+					auto *cl  = m_ctx.Get<LayoutProps>(cid);
+					auto *cc  = m_ctx.Get<ComputedRect>(cid);
 					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 					
@@ -2500,10 +2718,10 @@ namespace UI {
 
 				bool first = true;
 				for (ECS::EntityId cid : ch->ids) {
-					if (!m_world.IsAlive(cid)) continue; 
-					auto *cw2 = m_world.Get<Widget>(cid);
-					auto *cl  = m_world.Get<LayoutProps>(cid);
-					auto *cc  = m_world.Get<ComputedRect>(cid);
+					if (!m_ctx.IsAlive(cid)) continue; 
+					auto *cw2 = m_ctx.Get<Widget>(cid);
+					auto *cl  = m_ctx.Get<LayoutProps>(cid);
+					auto *cc  = m_ctx.Get<ComputedRect>(cid);
 					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
@@ -2554,10 +2772,10 @@ namespace UI {
 					// Chercher le nombre d'éléments qui tiennent sur cette ligne
 					while (j < ch->ids.size()) {
 						ECS::EntityId cid = ch->ids[j];
-						if (!m_world.IsAlive(cid)) { j++; continue; } 
-						auto *cw2 = m_world.Get<Widget>(cid);
-						auto *cl  = m_world.Get<LayoutProps>(cid);
-						auto *cc  = m_world.Get<ComputedRect>(cid);
+						if (!m_ctx.IsAlive(cid)) { j++; continue; } 
+						auto *cw2 = m_ctx.Get<Widget>(cid);
+						auto *cl  = m_ctx.Get<LayoutProps>(cid);
+						auto *cc  = m_ctx.Get<ComputedRect>(cid);
 						
 						if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible) || cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) { 
 							j++; continue; 
@@ -2586,10 +2804,10 @@ namespace UI {
 					bool firstInRow = true;
 					for (size_t k = i; k < j; ++k) {
 						ECS::EntityId cid = ch->ids[k]; 
-						if (!m_world.IsAlive(cid)) continue;
-						auto *cw2 = m_world.Get<Widget>(cid);
-						auto *cl  = m_world.Get<LayoutProps>(cid);
-						auto *cc  = m_world.Get<ComputedRect>(cid);
+						if (!m_ctx.IsAlive(cid)) continue;
+						auto *cw2 = m_ctx.Get<Widget>(cid);
+						auto *cl  = m_ctx.Get<LayoutProps>(cid);
+						auto *cc  = m_ctx.Get<ComputedRect>(cid);
 						
 						if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible) || cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
@@ -2618,6 +2836,101 @@ namespace UI {
 					cy += rowMaxH + lp->gap;
 					i = j;
 				}
+			} else if (lp->layout == Layout::InGrid) {
+				// ── InGrid placement ────────────────────────────────────────────────
+				auto *gp    = m_ctx.Get<LayoutGridProps>(e);
+				int numCols = gp ? SDL::Max(1, gp->columns) : 2;
+
+				// Rebuild row count (same logic as _Measure)
+				int numRows = gp ? gp->rows : 0;
+				if (numRows <= 0) {
+					int autoIdx = 0;
+					for (ECS::EntityId cid : ch->ids) {
+						if (!m_ctx.IsAlive(cid)) continue;
+						auto *cw2 = m_ctx.Get<Widget>(cid);
+						auto *cl  = m_ctx.Get<LayoutProps>(cid);
+						if (!cw2 || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+						if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
+						auto *gc  = m_ctx.Get<GridCell>(cid);
+						int r  = gc ? gc->row : (autoIdx / numCols);
+						int rs = gc ? SDL::Max(1, gc->rowSpan) : 1;
+						numRows = SDL::Max(numRows, r + rs);
+						if (!gc) ++autoIdx;
+					}
+					numRows = SDL::Max(1, numRows);
+				}
+
+				// Retrieve precomputed track sizes (fallback to uniform if not available)
+				float gap = lp->gap;
+				const std::vector<float> *colWidths  = (gp && (int)gp->colWidths.size()  == numCols) ? &gp->colWidths  : nullptr;
+				const std::vector<float> *rowHeights = (gp && (int)gp->rowHeights.size() == numRows) ? &gp->rowHeights : nullptr;
+
+				float uniformColW = SDL::Max(1.f, (cw - gap * (float)(numCols - 1)) / (float)numCols);
+				float uniformRowH = SDL::Max(1.f, (ch2 - gap * (float)(numRows - 1)) / (float)numRows);
+
+				// Pre-compute cumulative column X and row Y origins (relative to content origin)
+				std::vector<float> colX(numCols), rowY(numRows);
+				float accX = 0.f;
+				for (int ci = 0; ci < numCols; ++ci) {
+					colX[ci] = accX;
+					accX += (colWidths ? (*colWidths)[ci] : uniformColW) + gap;
+				}
+				float accY = 0.f;
+				for (int ri = 0; ri < numRows; ++ri) {
+					rowY[ri] = accY;
+					accY += (rowHeights ? (*rowHeights)[ri] : uniformRowH) + gap;
+				}
+
+				// Place each flow child at its grid cell
+				int autoIdx = 0;
+				for (ECS::EntityId cid : ch->ids) {
+					if (!m_ctx.IsAlive(cid)) continue;
+					auto *cw2 = m_ctx.Get<Widget>(cid);
+					auto *cl  = m_ctx.Get<LayoutProps>(cid);
+					auto *cc  = m_ctx.Get<ComputedRect>(cid);
+					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
+
+					auto *gc  = m_ctx.Get<GridCell>(cid);
+					int c  = gc ? SDL::Clamp(gc->col, 0, numCols - 1) : (autoIdx % numCols);
+					int r  = gc ? SDL::Clamp(gc->row, 0, numRows - 1) : (autoIdx / numCols);
+					int cs = gc ? SDL::Max(1, gc->colSpan) : 1;
+					int rs = gc ? SDL::Max(1, gc->rowSpan) : 1;
+					if (!gc) ++autoIdx;
+
+					// Compute span pixel dimensions
+					float cellW = 0.f;
+					for (int ci = c; ci < SDL::Min(c + cs, numCols); ++ci)
+						cellW += (colWidths ? (*colWidths)[ci] : uniformColW) + (ci > c ? gap : 0.f);
+					float cellH = 0.f;
+					for (int ri = r; ri < SDL::Min(r + rs, numRows); ++ri)
+						cellH += (rowHeights ? (*rowHeights)[ri] : uniformRowH) + (ri > r ? gap : 0.f);
+
+					// Child size: Stretch fills the cell, other alignments keep measured size
+					float childW = cc->measured.x, childH = cc->measured.y;
+					if (cl->alignSelfH == Align::Stretch)
+						childW = SDL::Max(0.f, cellW - cl->margin.left - cl->margin.right);
+					if (cl->alignSelfV == Align::Stretch)
+						childH = SDL::Max(0.f, cellH - cl->margin.top  - cl->margin.bottom);
+
+					float px = cx + colX[c] + cl->margin.left;
+					float py = cy + rowY[r] + cl->margin.top;
+
+					// Alignment inside cell (non-Stretch cases)
+					switch (cl->alignSelfH) {
+						case Align::Center: px = cx + colX[c] + (cellW - childW) * 0.5f; break;
+						case Align::End:    px = cx + colX[c] + cellW - childW - cl->margin.right; break;
+						default: break;
+					}
+					switch (cl->alignSelfV) {
+						case Align::Center: py = cy + rowY[r] + (cellH - childH) * 0.5f; break;
+						case Align::End:    py = cy + rowY[r] + cellH - childH - cl->margin.bottom; break;
+						default: break;
+					}
+
+					cc->screen = {px, py, childW, childH};
+					_Place(cid);
+				}
 			}
 
 			if (w->type == WidgetType::Container) {
@@ -2625,10 +2938,10 @@ namespace UI {
 				float maxContentY = 0.f;
 
 				for (ECS::EntityId cid : ch->ids) {
-					if (!m_world.IsAlive(cid)) continue;
-					auto *cw2 = m_world.Get<Widget>(cid);
-					auto *cc  = m_world.Get<ComputedRect>(cid);
-					auto *cl  = m_world.Get<LayoutProps>(cid);
+					if (!m_ctx.IsAlive(cid)) continue;
+					auto *cw2 = m_ctx.Get<Widget>(cid);
+					auto *cc  = m_ctx.Get<ComputedRect>(cid);
+					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					if (!cw2 || !cc || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Fixed) continue; // Fixed ne scrolle pas
 
@@ -2647,12 +2960,12 @@ namespace UI {
 		}
 
 		void _UpdateClips(ECS::EntityId e, FRect parentClip) {
-			if (!m_world.IsAlive(e)) return; 
+			if (!m_ctx.IsAlive(e)) return; 
 			
-			auto *w   = m_world.Get<Widget>(e);
-			auto *lp  = m_world.Get<LayoutProps>(e);
-			auto *s   = m_world.Get<Style>(e);
-			auto *cr  = m_world.Get<ComputedRect>(e);
+			auto *w   = m_ctx.Get<Widget>(e);
+			auto *lp  = m_ctx.Get<LayoutProps>(e);
+			auto *s   = m_ctx.Get<Style>(e);
+			auto *cr  = m_ctx.Get<ComputedRect>(e);
 			if (!w || !lp || !cr) return;
 
 			// 1. Calcul du clip de base du widget lui-même
@@ -2681,7 +2994,7 @@ namespace UI {
 				childClip = childClip.GetIntersection(parentClip);
 			}
 
-			auto *ch = m_world.Get<Children>(e);
+			auto *ch = m_ctx.Get<Children>(e);
 			if (ch) {
 				for (ECS::EntityId c : ch->ids) {
 					_UpdateClips(c, childClip);
@@ -2735,16 +3048,16 @@ namespace UI {
 			ECS::EntityId nh = _HitTest(m_root, m_mousePos);
 
 			// Reset all hover flags.
-			m_world.Each<WidgetState>([](ECS::EntityId, WidgetState &s) {
+			m_ctx.Each<WidgetState>([](ECS::EntityId, WidgetState &s) {
 				s.wasHovered = s.hovered;
 				s.hovered    = false;
 			});
 
 			// Only mark as hovered if the widget actually supports it.
-			if (nh != ECS::NullEntity && m_world.IsAlive(nh)) { 
-				auto *w = m_world.Get<Widget>(nh);
+			if (nh != ECS::NullEntity && m_ctx.IsAlive(nh)) { 
+				auto *w = m_ctx.Get<Widget>(nh);
 				if (w && Has(w->behavior, BehaviorFlag::Enable) && Has(w->behavior, BehaviorFlag::Hoverable)) {
-					m_world.Get<WidgetState>(nh)->hovered = true;
+					m_ctx.Get<WidgetState>(nh)->hovered = true;
 				} else {
 					nh = ECS::NullEntity;
 				}
@@ -2752,15 +3065,15 @@ namespace UI {
 
 			// Hover enter / leave callbacks + hover sound.
 			if (nh != m_hovered) {
-				if (m_hovered != ECS::NullEntity && m_world.IsAlive(m_hovered)) { 
-					auto *cb = m_world.Get<Callbacks>(m_hovered);
+				if (m_hovered != ECS::NullEntity && m_ctx.IsAlive(m_hovered)) { 
+					auto *cb = m_ctx.Get<Callbacks>(m_hovered);
 					if (cb && cb->onHoverLeave) cb->onHoverLeave();
 				}
-				if (nh != ECS::NullEntity && m_world.IsAlive(nh)) { 
-					auto *cb = m_world.Get<Callbacks>(nh);
+				if (nh != ECS::NullEntity && m_ctx.IsAlive(nh)) { 
+					auto *cb = m_ctx.Get<Callbacks>(nh);
 					if (cb && cb->onHoverEnter) cb->onHoverEnter();
 					
-					auto *s = m_world.Get<Style>(nh);
+					auto *s = m_ctx.Get<Style>(nh);
 					if (s && !s->hoverSound.empty())
 						if (auto sh = _EnsureAudio(s->hoverSound))
 							_PlayAudio(sh);
@@ -2776,32 +3089,32 @@ namespace UI {
 					if (m_hovered == ECS::NullEntity)
 						_SetFocus(ECS::NullEntity);
 
-					if (m_hovered != ECS::NullEntity && m_world.IsAlive(m_hovered)) { 
-						auto *pw = m_world.Get<Widget>(m_hovered);
+					if (m_hovered != ECS::NullEntity && m_ctx.IsAlive(m_hovered)) { 
+						auto *pw = m_ctx.Get<Widget>(m_hovered);
 						if (pw && Has(pw->behavior, BehaviorFlag::Enable) && Has(pw->behavior, BehaviorFlag::Selectable)) {
 							m_pressed = m_hovered;
-							if (auto *st = m_world.Get<WidgetState>(m_pressed)) st->pressed = true;
+							if (auto *st = m_ctx.Get<WidgetState>(m_pressed)) st->pressed = true;
 
 							bool wantFocus = Has(pw->behavior, BehaviorFlag::Focusable);
 							_SetFocus(wantFocus ? m_pressed : ECS::NullEntity);
 
 							// Begin drag for interactive controls. 
 							if (pw->type == WidgetType::Slider) {
-								if (auto *sd = m_world.Get<SliderData>(m_pressed)) {
+								if (auto *sd = m_ctx.Get<SliderData>(m_pressed)) {
 									sd->drag        = true;
 									sd->dragStartPos = (sd->orientation == Orientation::Horizontal)
 														 ? m_mousePos.x : m_mousePos.y;
 									sd->dragStartVal = sd->val;
 								}
 							} else if (pw->type == WidgetType::ScrollBar) {
-								if (auto *sb = m_world.Get<ScrollBarData>(m_pressed)) {
+								if (auto *sb = m_ctx.Get<ScrollBarData>(m_pressed)) {
 									sb->drag        = true;
 									sb->dragStartPos = (sb->orientation == Orientation::Vertical)
 														 ? m_mousePos.y : m_mousePos.x;
 									sb->dragStartOff = sb->offset;
 								}
 							} else if (pw->type == WidgetType::Knob) {
-								if (auto *kd = m_world.Get<KnobData>(m_pressed)) {
+								if (auto *kd = m_ctx.Get<KnobData>(m_pressed)) {
 									kd->drag         = true;
 									kd->dragStartY   = m_mousePos.y;
 									kd->dragStartVal = kd->val;
@@ -2815,20 +3128,20 @@ namespace UI {
 			}
 
 			// ── Drag ──────────────────────────────────────────────────────────────
-			if (m_mouseDown && m_pressed != ECS::NullEntity && m_world.IsAlive(m_pressed)) { 
+			if (m_mouseDown && m_pressed != ECS::NullEntity && m_ctx.IsAlive(m_pressed)) { 
 				// TextArea drag-selection and Input drag-cursor-move can continue even if the mouse goes out of the widget bounds, so we check them before the hit-test of the current mouse position.
 				{
-					auto *pw2 = m_world.Get<Widget>(m_pressed);
+					auto *pw2 = m_ctx.Get<Widget>(m_pressed);
 					if (pw2 && (pw2->type == WidgetType::TextArea || pw2->type == WidgetType::Input)) {
 						_ProcessTextClickOrDrag(m_pressed, true); // true = c'est un drag
 					}
 				}
-				auto *pw = m_world.Get<Widget>(m_pressed);
+				auto *pw = m_ctx.Get<Widget>(m_pressed);
 				if (pw) {
 					if (pw->type == WidgetType::Slider) {
-						if (auto *sd = m_world.Get<SliderData>(m_pressed); sd && sd->drag) {
-							auto *cr = m_world.Get<ComputedRect>(m_pressed);
-							auto *lp = m_world.Get<LayoutProps>(m_pressed);
+						if (auto *sd = m_ctx.Get<SliderData>(m_pressed); sd && sd->drag) {
+							auto *cr = m_ctx.Get<ComputedRect>(m_pressed);
+							auto *lp = m_ctx.Get<LayoutProps>(m_pressed);
 							if (cr && lp) {
 								bool h = (sd->orientation == Orientation::Horizontal);
 								float tl = h
@@ -2842,14 +3155,14 @@ namespace UI {
 										sd->min, sd->max);
 									if (nv != sd->val) {
 										sd->val = nv;
-										auto *cb = m_world.Get<Callbacks>(m_pressed);
+										auto *cb = m_ctx.Get<Callbacks>(m_pressed);
 										if (cb && cb->onChange) cb->onChange(nv);
 									}
 								}
 							}
 						}
 					} else if (pw->type == WidgetType::ScrollBar) {
-						if (auto *sb = m_world.Get<ScrollBarData>(m_pressed); sb && sb->drag) {
+						if (auto *sb = m_ctx.Get<ScrollBarData>(m_pressed); sb && sb->drag) {
 							bool v    = (sb->orientation == Orientation::Vertical);
 							float cur = v ? m_mousePos.y : m_mousePos.x;
 							float dx  = cur - sb->dragStartPos;
@@ -2860,20 +3173,20 @@ namespace UI {
 							float noff = SDL::Clamp(sb->dragStartOff + doff, 0.f, maxO);
 							if (noff != sb->offset) {
 								sb->offset = noff;
-								auto *cb = m_world.Get<Callbacks>(m_pressed);
+								auto *cb = m_ctx.Get<Callbacks>(m_pressed);
 								if (cb && cb->onScroll) cb->onScroll(noff);
 								if (cb && cb->onChange) cb->onChange(noff);
 							}
 						}
 					} else if (pw->type == WidgetType::Knob) {
-						if (auto *kd = m_world.Get<KnobData>(m_pressed); kd && kd->drag) {
+						if (auto *kd = m_ctx.Get<KnobData>(m_pressed); kd && kd->drag) {
 							float range = kd->max - kd->min;
 							if (range <= 0.f) range = 1.f;
 							float dragDeltaNorm = (kd->dragStartY - m_mousePos.y) * 0.005f;
 							float nv = SDL::Clamp(kd->dragStartVal + dragDeltaNorm * range, kd->min, kd->max);
 							if (nv != kd->val) {
 								kd->val = nv;
-								auto *cb = m_world.Get<Callbacks>(m_pressed);
+								auto *cb = m_ctx.Get<Callbacks>(m_pressed);
 								if (cb && cb->onChange) cb->onChange(nv);
 							}
 						}
@@ -2886,22 +3199,22 @@ namespace UI {
 				// Relâcher les drags de scrollbars inline.
 				_EndContainerScrollDrags();
 
-				if (m_pressed != ECS::NullEntity && m_world.IsAlive(m_pressed)) { 
-					if (auto *st = m_world.Get<WidgetState>(m_pressed))
+				if (m_pressed != ECS::NullEntity && m_ctx.IsAlive(m_pressed)) { 
+					if (auto *st = m_ctx.Get<WidgetState>(m_pressed))
 						st->pressed = false;
 					if (m_pressed == m_hovered) {
-						auto *pw = m_world.Get<Widget>(m_pressed);
+						auto *pw = m_ctx.Get<Widget>(m_pressed);
 						if (pw && Has(pw->behavior, BehaviorFlag::Enable)
 							   && Has(pw->behavior, BehaviorFlag::Selectable))
 							_OnClick(m_pressed, *pw);
 					}
-					if (auto *sd = m_world.Get<SliderData>(m_pressed))    sd->drag = false;
-					if (auto *sb = m_world.Get<ScrollBarData>(m_pressed)) sb->drag = false;
-					if (auto *kd = m_world.Get<KnobData>(m_pressed))      kd->drag = false;
-					if (auto *ta = m_world.Get<TextAreaData>(m_pressed))  ta->selectDragging = false;
+					if (auto *sd = m_ctx.Get<SliderData>(m_pressed))    sd->drag = false;
+					if (auto *sb = m_ctx.Get<ScrollBarData>(m_pressed)) sb->drag = false;
+					if (auto *kd = m_ctx.Get<KnobData>(m_pressed))      kd->drag = false;
+					if (auto *ta = m_ctx.Get<TextAreaData>(m_pressed))  ta->selectDragging = false;
 					m_pressed = ECS::NullEntity;
 				}
-				if (auto *c = m_world.Get<Content>(m_pressed)) {
+				if (auto *c = m_ctx.Get<Content>(m_pressed)) {
 					c->selectDragging = false;
 				}
 			}
@@ -2913,10 +3226,10 @@ namespace UI {
 		/// scrollX/Y en fonction du déplacement de la souris (si drag en cours).
 		void _UpdateContainerScrollDrags() {
 			if (!m_mouseDown) return;
-			m_world.Each<ContainerScrollState>([this](ECS::EntityId e, ContainerScrollState &css) {
-				auto *lp = m_world.Get<LayoutProps>(e);
-				auto *cr = m_world.Get<ComputedRect>(e);
-				auto *w  = m_world.Get<Widget>(e);
+			m_ctx.Each<ContainerScrollState>([this](ECS::EntityId e, ContainerScrollState &css) {
+				auto *lp = m_ctx.Get<LayoutProps>(e);
+				auto *cr = m_ctx.Get<ComputedRect>(e);
+				auto *w  = m_ctx.Get<Widget>(e);
 				if (!lp || !cr || !w) return;
 
 				const float innerW = cr->screen.w - lp->padding.left - lp->padding.right;
@@ -2937,7 +3250,7 @@ namespace UI {
 						? SDL::Clamp(css.dragStartOffY + dx / travel * maxOff, 0.f, maxOff)
 						: 0.f;
 					lp->scrollY = newOff;
-					auto *cb = m_world.Get<Callbacks>(e);
+					auto *cb = m_ctx.Get<Callbacks>(e);
 					if (cb && cb->onScroll) cb->onScroll(newOff);
 				}
 				if (css.dragX && showX && lp->contentW > viewW) {
@@ -2951,7 +3264,7 @@ namespace UI {
 						? SDL::Clamp(css.dragStartOff + dx / travel * maxOff, 0.f, maxOff)
 						: 0.f;
 					lp->scrollX = newOff;
-					auto *cb = m_world.Get<Callbacks>(e);
+					auto *cb = m_ctx.Get<Callbacks>(e);
 					if (cb && cb->onScroll) cb->onScroll(newOff);
 				}
 			});
@@ -2961,9 +3274,9 @@ namespace UI {
 		/// si oui, initialise le drag et retourne true (l'événement est consommé).
 		bool _TryBeginContainerScrollDrag() {
 			bool consumed = false;
-			m_world.Each<ContainerScrollState>([this, &consumed](ECS::EntityId e, ContainerScrollState &css) {
+			m_ctx.Each<ContainerScrollState>([this, &consumed](ECS::EntityId e, ContainerScrollState &css) {
 				if (consumed) return;
-				auto *lp = m_world.Get<LayoutProps>(e);
+				auto *lp = m_ctx.Get<LayoutProps>(e);
 				if (!lp) return;
 
 				if (css.thumbY.w > 0.f && css.thumbY.h > 0.f && _Contains(css.thumbY, m_mousePos)) {
@@ -2985,21 +3298,21 @@ namespace UI {
 
 		/// Relâche tous les drags de scrollbars inline.
 		void _EndContainerScrollDrags() {
-			m_world.Each<ContainerScrollState>([](ECS::EntityId, ContainerScrollState &css) {
+			m_ctx.Each<ContainerScrollState>([](ECS::EntityId, ContainerScrollState &css) {
 				css.dragX = false;
 				css.dragY = false;
 			});
 		}
 
 		void _OnClick(ECS::EntityId e, const Widget &w) {
-			auto *s = m_world.Get<Style>(e); 
+			auto *s = m_ctx.Get<Style>(e); 
 			if (s && !s->clickSound.empty())
 				if (auto sh = _EnsureAudio(s->clickSound))
 					_PlayAudio(sh);
-			auto *cb = m_world.Get<Callbacks>(e);
+			auto *cb = m_ctx.Get<Callbacks>(e);
 			switch (w.type) {
 				case WidgetType::Toggle:
-					if (auto *t = m_world.Get<ToggleData>(e)) {
+					if (auto *t = m_ctx.Get<ToggleData>(e)) {
 						t->checked = !t->checked;
 						if (cb && cb->onToggle)
 							cb->onToggle(t->checked);
@@ -3008,8 +3321,8 @@ namespace UI {
 					}
 					break;
 				case WidgetType::RadioButton:
-					if (auto *r = m_world.Get<RadioData>(e); r && !r->checked) {
-						m_world.Each<RadioData>([&](ECS::EntityId eid, RadioData &rd) { if(rd.group==r->group) rd.checked=(eid==e); });
+					if (auto *r = m_ctx.Get<RadioData>(e); r && !r->checked) {
+						m_ctx.Each<RadioData>([&](ECS::EntityId eid, RadioData &rd) { if(rd.group==r->group) rd.checked=(eid==e); });
 						if (cb && cb->onToggle)
 							cb->onToggle(true);
 						if (cb && cb->onClick)
@@ -3017,9 +3330,9 @@ namespace UI {
 					}
 					break;
 				case WidgetType::ListBox: {
-					if (auto *lb = m_world.Get<ListBoxData>(e)) {
-						auto *cr2 = m_world.Get<ComputedRect>(e);
-						auto *lp2 = m_world.Get<LayoutProps>(e);
+					if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
+						auto *cr2 = m_ctx.Get<ComputedRect>(e);
+						auto *lp2 = m_ctx.Get<LayoutProps>(e);
 						if (cr2 && lp2) {
 							float iy  = cr2->screen.y + lp2->padding.top;
 							int   idx = (int)((m_mousePos.y - iy + lp2->scrollY) / lb->itemHeight);
@@ -3042,33 +3355,33 @@ namespace UI {
 		void _SetFocus(ECS::EntityId nf) {
 			if (nf == m_focused)
 				return;
-			if (m_focused != ECS::NullEntity && m_world.IsAlive(m_focused)) { 
-				if (auto *st = m_world.Get<WidgetState>(m_focused))
+			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) { 
+				if (auto *st = m_ctx.Get<WidgetState>(m_focused))
 					st->focused = false;
-				auto *cb = m_world.Get<Callbacks>(m_focused);
+				auto *cb = m_ctx.Get<Callbacks>(m_focused);
 				if (cb && cb->onFocusLose)
 					cb->onFocusLose();
 			}
 			m_focused = nf; 
-			if (m_focused != ECS::NullEntity && m_world.IsAlive(m_focused)) {
-				if (auto *st = m_world.Get<WidgetState>(m_focused))
+			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
+				if (auto *st = m_ctx.Get<WidgetState>(m_focused))
 					st->focused = true;
-				auto *cb = m_world.Get<Callbacks>(m_focused);
+				auto *cb = m_ctx.Get<Callbacks>(m_focused);
 				if (cb && cb->onFocusGain)
 					cb->onFocusGain();
 			}
 		}
 
 		[[nodiscard]] ECS::EntityId _HitTest(ECS::EntityId e, FPoint p) const {
-			if (!m_world.IsAlive(e)) 
+			if (!m_ctx.IsAlive(e)) 
 				return ECS::NullEntity;
-			auto *w = m_world.Get<Widget>(e);
-			auto *cr = m_world.Get<ComputedRect>(e);
+			auto *w = m_ctx.Get<Widget>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
 			if (!w || !cr || !Has(w->behavior, BehaviorFlag::Visible))
 				return ECS::NullEntity;
 			if (!_Contains(cr->clip, p))
 				return ECS::NullEntity;
-			auto *ch = m_world.Get<Children>(e);
+			auto *ch = m_ctx.Get<Children>(e);
 			if (ch)
 				for (int i = (int)ch->ids.size() - 1; i >= 0; --i) {
 					ECS::EntityId h = _HitTest(ch->ids[i], p);
@@ -3082,35 +3395,35 @@ namespace UI {
 		}
 
 		void _HandleTextInput(const char *txt) {
-			if (m_focused == ECS::NullEntity || !m_world.IsAlive(m_focused)) return; 
-			auto *w = m_world.Get<Widget>(m_focused);
+			if (m_focused == ECS::NullEntity || !m_ctx.IsAlive(m_focused)) return; 
+			auto *w = m_ctx.Get<Widget>(m_focused);
 			if (!w || !Has(w->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) return;
 
 			auto processInput = [&]<typename T>(T* data) {
 				if (data) {
 					_InsertText(data, std::string_view(txt));
-					if (auto *cb = m_world.Get<Callbacks>(m_focused); cb && cb->onTextChange) 
+					if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onTextChange) 
 						cb->onTextChange(data->text);
 				}
 			};
 
-			if (w->type == WidgetType::Input) processInput(m_world.Get<Content>(m_focused));
-			else if (w->type == WidgetType::TextArea) processInput(m_world.Get<TextAreaData>(m_focused));
+			if (w->type == WidgetType::Input) processInput(m_ctx.Get<Content>(m_focused));
+			else if (w->type == WidgetType::TextArea) processInput(m_ctx.Get<TextAreaData>(m_focused));
 		}
 
 		void _HandleKeyDownInput(SDL::Keycode k, SDL::Keymod mod) {
-			auto *c = m_world.Get<Content>(m_focused);
+			auto *c = m_ctx.Get<Content>(m_focused);
 			if (!c) return;
 			
 			if (k == SDL::KEYCODE_ESCAPE) { _SetFocus(ECS::NullEntity); return; }
 
 			// Laisse le Helper s'occuper de tout
-			_HandleCommonTextKeys(c, k, mod, m_world.Get<Callbacks>(m_focused));
+			_HandleCommonTextKeys(c, k, mod, m_ctx.Get<Callbacks>(m_focused));
 		}
 
 		void _HandleKeyDownTextArea(SDL::Keycode k, SDL::Keymod mod) {
-			auto *ta = m_world.Get<TextAreaData>(m_focused);
-			auto *cb = m_world.Get<Callbacks>(m_focused);
+			auto *ta = m_ctx.Get<TextAreaData>(m_focused);
+			auto *cb = m_ctx.Get<Callbacks>(m_focused);
 			if (!ta) return;
 			
 			if (k == SDL::KEYCODE_ESCAPE) { _SetFocus(ECS::NullEntity); return; }
@@ -3171,7 +3484,7 @@ namespace UI {
 				}
 
 				case SDL::KEYCODE_PAGEUP: {
-					if (auto *s2 = m_world.Get<Style>(m_focused)) {
+					if (auto *s2 = m_ctx.Get<Style>(m_focused)) {
 						float lineH = _TH(*s2) + 2.f;
 						int linesPerPage = SDL::Max(1, (int)(_TextAreaViewH() / lineH));
 						int line = SDL::Max(0, ta->LineOf(ta->cursorPos) - linesPerPage);
@@ -3180,7 +3493,7 @@ namespace UI {
 					return;
 				}
 				case SDL::KEYCODE_PAGEDOWN: {
-					if (auto *s2 = m_world.Get<Style>(m_focused)) {
+					if (auto *s2 = m_ctx.Get<Style>(m_focused)) {
 						float lineH = _TH(*s2) + 2.f;
 						int linesPerPage = SDL::Max(1, (int)(_TextAreaViewH() / lineH));
 						int line = SDL::Min(ta->LineCount() - 1, ta->LineOf(ta->cursorPos) + linesPerPage);
@@ -3200,9 +3513,9 @@ namespace UI {
 
 		/// View height of the focused TextArea (0 if not a TextArea).
 		[[nodiscard]] float _TextAreaViewH() const noexcept {
-			if (m_focused == ECS::NullEntity || !m_world.IsAlive(m_focused)) return 0.f; 
-			auto *cr = m_world.Get<ComputedRect>(m_focused);
-			auto *lp = m_world.Get<LayoutProps>(m_focused);
+			if (m_focused == ECS::NullEntity || !m_ctx.IsAlive(m_focused)) return 0.f; 
+			auto *cr = m_ctx.Get<ComputedRect>(m_focused);
+			auto *lp = m_ctx.Get<LayoutProps>(m_focused);
 			if (!cr || !lp) return 0.f;
 			return SDL::Max(0.f, cr->screen.h - lp->padding.top - lp->padding.bottom);
 		}
@@ -3285,8 +3598,8 @@ namespace UI {
 		}
 
 		void _HandleKeyDown(SDL::Keycode k, SDL::Keymod mod) {
-			if (m_focused != ECS::NullEntity && m_world.IsAlive(m_focused)) { 
-				auto *fw = m_world.Get<Widget>(m_focused);
+			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) { 
+				auto *fw = m_ctx.Get<Widget>(m_focused);
 				if (fw) {
 					if (fw->type == WidgetType::TextArea) {
 						if (Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
@@ -3312,13 +3625,13 @@ namespace UI {
 				_CycleFocus(shiftPressed);
 				return;
 			}
-			if (m_focused == ECS::NullEntity || !m_world.IsAlive(m_focused)) return; 
+			if (m_focused == ECS::NullEntity || !m_ctx.IsAlive(m_focused)) return; 
 
-			auto *w = m_world.Get<Widget>(m_focused);
+			auto *w = m_ctx.Get<Widget>(m_focused);
 			if (!w || w->type != WidgetType::Input || !Has(w->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) return;
 
-			auto *c = m_world.Get<Content>(m_focused);
-			auto *cb = m_world.Get<Callbacks>(m_focused);
+			auto *c = m_ctx.Get<Content>(m_focused);
+			auto *cb = m_ctx.Get<Callbacks>(m_focused);
 			if (!c) return;
 
 			switch (k) { 
@@ -3357,15 +3670,15 @@ namespace UI {
 
 		void _HandleScroll(float dx, float dy) {
 			ECS::EntityId e = _HitTest(m_root, m_mousePos); 
-			while (e != ECS::NullEntity && m_world.IsAlive(e)) {
-				auto *w  = m_world.Get<Widget>(e);
-				auto *lp = m_world.Get<LayoutProps>(e);
+			while (e != ECS::NullEntity && m_ctx.IsAlive(e)) {
+				auto *w  = m_ctx.Get<Widget>(e);
+				auto *lp = m_ctx.Get<LayoutProps>(e);
 
 				// ListBox has its own internal scroll.
 				if (w && w->type == WidgetType::ListBox) {
-					if (auto *lb = m_world.Get<ListBoxData>(e)) {
-						auto *cr2 = m_world.Get<ComputedRect>(e);
-						auto *lp2 = m_world.Get<LayoutProps>(e);
+					if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
+						auto *cr2 = m_ctx.Get<ComputedRect>(e);
+						auto *lp2 = m_ctx.Get<LayoutProps>(e);
 						if (cr2 && lp2 && dy != 0.f) {
 							float viewH  = cr2->screen.h - lp2->padding.top - lp2->padding.bottom;
 							float total  = (float)lb->items.size() * lb->itemHeight;
@@ -3377,9 +3690,9 @@ namespace UI {
 				}
 				// TextArea has its own internal scroll.
 				if (w && w->type == WidgetType::TextArea) {
-					if (auto *ta = m_world.Get<TextAreaData>(e)) {
-						auto *s2 = m_world.Get<Style>(e);
-						auto *cr = m_world.Get<ComputedRect>(e);
+					if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
+						auto *s2 = m_ctx.Get<Style>(e);
+						auto *cr = m_ctx.Get<ComputedRect>(e);
 						if (s2 && cr && dy != 0.f) {
 							float lineH  = _TH(*s2) + 2.f;
 							float viewH  = cr->screen.h - (lp ? lp->padding.top + lp->padding.bottom : 0.f);
@@ -3396,7 +3709,7 @@ namespace UI {
 				bool scrollableH = Has(w->behavior, BehaviorFlag::ScrollableX | BehaviorFlag::AutoScrollableX);
 
 				if (scrollableV || scrollableH) {
-					auto *cr = m_world.Get<ComputedRect>(e);
+					auto *cr = m_ctx.Get<ComputedRect>(e);
 					const float innerW = cr ? (cr->screen.w - lp->padding.left - lp->padding.right) : 0.f;
 					const float innerH = cr ? (cr->screen.h - lp->padding.top  - lp->padding.bottom) : 0.f;
 
@@ -3418,14 +3731,14 @@ namespace UI {
 					}
 
 					if (lastScrollX != lp->scrollX || lastScrollY != lp->scrollY) {
-						auto *s = m_world.Get<Style>(e);
+						auto *s = m_ctx.Get<Style>(e);
 						if (s && !s->scrollSound.empty())
 							if (auto sh = _EnsureAudio(s->scrollSound))
 								_PlayAudio(sh);
 					}
 					return;
 				}
-				auto *par = m_world.Get<Parent>(e);
+				auto *par = m_ctx.Get<Parent>(e);
 				e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
 			}
 		}
@@ -3435,7 +3748,7 @@ namespace UI {
 			// clip rect contains the mouse cursor OR that currently holds focus.
 			// This allows the game canvas to receive keyboard events even when
 			// the mouse is elsewhere (e.g. paused panels on top).
-			m_world.Each<CanvasData, Widget, ComputedRect>(
+			m_ctx.Each<CanvasData, Widget, ComputedRect>(
 				[&](ECS::EntityId e, CanvasData& cd, Widget& w, ComputedRect& cr) {
 					if (!Has(w.behavior, BehaviorFlag::Visible | BehaviorFlag::Enable)) return;
 					if (!cd.eventCb) return;
@@ -3446,25 +3759,25 @@ namespace UI {
 				});
 		}
 
-		bool IsEffectivelyVisible(ECS::EntityId e, ECS::World& world) {
+		bool IsEffectivelyVisible(ECS::EntityId e, ECS::Context& ecs_context) {
 			while (e != ECS::NullEntity) { 
-				auto* w = world.Get<Widget>(e);
+				auto* w = ecs_context.Get<Widget>(e);
 				if (!w || !Has(w->behavior, BehaviorFlag::Visible)) return false;
 				
-				auto* p = world.Get<Parent>(e);
+				auto* p = ecs_context.Get<Parent>(e);
 				e = p ? p->id : ECS::NullEntity;
 			}
 			return true;
 		}
 
 		void _CollectFocusables(ECS::EntityId e, std::vector<ECS::EntityId> &out) const {
-			auto *w = m_world.Get<Widget>(e);
+			auto *w = m_ctx.Get<Widget>(e);
 			if (!w || !Has(w->behavior, BehaviorFlag::Visible | BehaviorFlag::Enable)) return;
 
 			if (Has(w->behavior, BehaviorFlag::Focusable))
 				out.push_back(e);
 
-			if (auto *ch = m_world.Get<Children>(e)) {
+			if (auto *ch = m_ctx.Get<Children>(e)) {
 				for (ECS::EntityId c : ch->ids)
 					_CollectFocusables(c, out);
 			}
@@ -3496,7 +3809,7 @@ namespace UI {
 		void _ProcessCanvasUpdate(float dt) {
 			// Call updateCb for every visible, enabled Canvas widget.
 			// Layout hasn't run yet this frame, so avoid depending on ComputedRect here.
-			m_world.Each<CanvasData, Widget>([dt](ECS::EntityId, CanvasData& cd, Widget& w) {
+			m_ctx.Each<CanvasData, Widget>([dt](ECS::EntityId, CanvasData& cd, Widget& w) {
 				if (!Has(w.behavior, BehaviorFlag::Visible | BehaviorFlag::Enable)) return;
 				if (cd.updateCb) cd.updateCb(dt);
 			});
@@ -3508,24 +3821,24 @@ namespace UI {
 			if (dt <= 0.f)
 				return;
 				
-			m_world.Each<ToggleData>([dt](ECS::EntityId, ToggleData &t) { 
+			m_ctx.Each<ToggleData>([dt](ECS::EntityId, ToggleData &t) { 
 				float target = t.checked ? 1.f : 0.f;
 				t.animT += (target - t.animT) * SDL::Min(1.f, dt * 12.f); 
 				t.animT = SDL::Clamp(t.animT, 0.f, 1.f);
 			});
 			
-			if (m_focused != ECS::NullEntity && m_world.IsAlive(m_focused)) {
-				if (auto *c = m_world.Get<Content>(m_focused)) {
+			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
+				if (auto *c = m_ctx.Get<Content>(m_focused)) {
 					c->blinkTimer += dt;
 					if (c->blinkTimer > 1.f) c->blinkTimer -= 1.f;
 				} 
-				if (auto *ta = m_world.Get<TextAreaData>(m_focused)) {
+				if (auto *ta = m_ctx.Get<TextAreaData>(m_focused)) {
 					ta->blinkTimer += dt;
 					if (ta->blinkTimer > 1.f) ta->blinkTimer -= 1.f;
 					// Keep cursor visible after scroll
-					auto *cr2 = m_world.Get<ComputedRect>(m_focused);
-					auto *lp2 = m_world.Get<LayoutProps>(m_focused);
-					auto *s2  = m_world.Get<Style>(m_focused);
+					auto *cr2 = m_ctx.Get<ComputedRect>(m_focused);
+					auto *lp2 = m_ctx.Get<LayoutProps>(m_focused);
+					auto *s2  = m_ctx.Get<Style>(m_focused);
 					_TextAreaScrollToCursor(ta, cr2, lp2, s2);
 				}
 			}
@@ -3540,11 +3853,11 @@ namespace UI {
 				m_tooltipTimer   = 0.f;
 				m_tooltipVisible = false;
 			}
-			if (m_tooltipTarget == ECS::NullEntity || !m_world.IsAlive(m_tooltipTarget)) {
+			if (m_tooltipTarget == ECS::NullEntity || !m_ctx.IsAlive(m_tooltipTarget)) {
 				m_tooltipVisible = false;
 				return;
 			}
-			auto *td = m_world.Get<TooltipData>(m_tooltipTarget);
+			auto *td = m_ctx.Get<TooltipData>(m_tooltipTarget);
 			if (!td || td->text.empty()) {
 				m_tooltipVisible = false;
 				return;
@@ -3555,20 +3868,20 @@ namespace UI {
 
 		void _DrawTooltip() {
 			if (!m_tooltipVisible || m_tooltipTarget == ECS::NullEntity) return;
-			auto *td = m_world.Get<TooltipData>(m_tooltipTarget);
+			auto *td = m_ctx.Get<TooltipData>(m_tooltipTarget);
 			if (!td || td->text.empty()) return;
 
 			// Couleurs et police depuis le widget survolé
-			auto *hs = m_world.Get<Style>(m_tooltipTarget);
+			auto *hs = m_ctx.Get<Style>(m_tooltipTarget);
 			static const Style kDef{};
 			const Style &s = hs ? *hs : kDef;
 
 			// Entité dédiée au cache de texte TTF (ne participe pas au layout)
-			if (m_tooltipEntity == ECS::NullEntity || !m_world.IsAlive(m_tooltipEntity)) {
-				m_tooltipEntity = m_world.CreateEntity();
-				m_world.Add<Style>(m_tooltipEntity);
+			if (m_tooltipEntity == ECS::NullEntity || !m_ctx.IsAlive(m_tooltipEntity)) {
+				m_tooltipEntity = m_ctx.CreateEntity();
+				m_ctx.Add<Style>(m_tooltipEntity);
 			}
-			auto &ts = *m_world.Get<Style>(m_tooltipEntity);
+			auto &ts = *m_ctx.Get<Style>(m_tooltipEntity);
 			ts.fontKey       = s.fontKey;
 			ts.fontSize      = s.fontSize;
 			ts.usedDebugFont = s.usedDebugFont;
@@ -3604,9 +3917,9 @@ namespace UI {
 		}
 
 		void _RenderNode(ECS::EntityId e) {
-		   if (!m_world.IsAlive(e)) return; 
-			auto *w  = m_world.Get<Widget>(e);
-			auto *cr = m_world.Get<ComputedRect>(e);
+		   if (!m_ctx.IsAlive(e)) return; 
+			auto *w  = m_ctx.Get<Widget>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
 			if (!w || !cr) return;
 
 			if (!Has(w->behavior, BehaviorFlag::Visible)) return;
@@ -3616,7 +3929,7 @@ namespace UI {
 			m_renderer.SetClipRect(FRectToRect(cr->outer_clip));
 			_DrawWidget(e);
 			
-			auto *ch = m_world.Get<Children>(e);
+			auto *ch = m_ctx.Get<Children>(e);
 			if (ch) {
 				for (ECS::EntityId c : ch->ids) {
 					_RenderNode(c);
@@ -3704,10 +4017,10 @@ namespace UI {
 		// ── Per-type draw ─────────────────────────────────────────────────────────
 
 		void _DrawWidget(ECS::EntityId e) {
-			auto *w = m_world.Get<Widget>(e);
-			auto *s = m_world.Get<Style>(e);
-			auto *st = m_world.Get<WidgetState>(e);
-			auto *cr = m_world.Get<ComputedRect>(e);
+			auto *w = m_ctx.Get<Widget>(e);
+			auto *s = m_ctx.Get<Style>(e);
+			auto *st = m_ctx.Get<WidgetState>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
 			if (!w || !s || !st || !cr) return;
 			const FRect &r = cr->screen;
 
@@ -3715,7 +4028,7 @@ namespace UI {
 			// When present, the tileset is drawn first.  For Canvas widgets the game
 			// content is rendered on top afterwards; for all other widget types the
 			// tileset is the only background and we skip the normal draw entirely.
-			auto *ts = m_world.Get<TilesetStyle>(e);
+			auto *ts = m_ctx.Get<TilesetStyle>(e);
 			if (ts && !ts->textureKey.empty()) {
 				auto tex = _EnsureTexture(ts->textureKey); 
 				if (tex) {
@@ -3842,8 +4155,8 @@ namespace UI {
 		}
 
 		void _DrawInlineScrollbars(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
-			auto *lp  = m_world.Get<LayoutProps>(e);
-			auto *css = m_world.Get<ContainerScrollState>(e);
+			auto *lp  = m_ctx.Get<LayoutProps>(e);
+			auto *css = m_ctx.Get<ContainerScrollState>(e);
 			if (!lp || !css) return;
 
 			const float innerW = r.w - lp->padding.left - lp->padding.right;
@@ -3917,7 +4230,7 @@ namespace UI {
 		}
 		
 		void _DrawContainer(ECS::EntityId e, const FRect &r, const Style &s,
-							const WidgetState &st, const Widget &w) { 
+							const WidgetState &st, const Widget &w) {
 			// ── Background & border ───────────────────────────────────────────────
 			SDL::Color bgColor = st.pressed ? s.bgPressed
 							   : st.hovered ? s.bgHovered
@@ -3925,13 +4238,57 @@ namespace UI {
 			_FillRR(r, bgColor, s.radius, s.opacity);
 			_StrokeRR(r, st.hovered ? s.bdHovered : s.bdColor, s.borders, s.radius, s.opacity);
 
+			// ── InGrid separator lines ────────────────────────────────────────────
+			auto *lp = m_ctx.Get<LayoutProps>(e);
+			auto *gp = m_ctx.Get<LayoutGridProps>(e);
+			if (lp && gp && lp->layout == Layout::InGrid && gp->lines != GridLines::None
+				&& gp->lineThickness > 0.f && !gp->colWidths.empty() && !gp->rowHeights.empty()) {
+
+				SDL::Color lc = gp->lineColor;
+				lc.a = SDL::Clamp8((int)((float)lc.a * s.opacity));
+				m_renderer.SetDrawColor(lc);
+
+				float ox = r.x + lp->padding.left  - lp->scrollX;
+				float oy = r.y + lp->padding.top   - lp->scrollY;
+				float gap = lp->gap;
+				float lt  = gp->lineThickness;
+				float contentW = 0.f;
+				for (float cw : gp->colWidths) contentW += cw;
+				contentW += gap * (float)((int)gp->colWidths.size() - 1);
+				float contentH = 0.f;
+				for (float h : gp->rowHeights) contentH += h;
+				contentH += gap * (float)((int)gp->rowHeights.size() - 1);
+
+				// Vertical lines (between columns)
+				if (gp->lines == GridLines::Columns || gp->lines == GridLines::Both) {
+					float x = ox;
+					for (int ci = 0; ci + 1 < (int)gp->colWidths.size(); ++ci) {
+						x += gp->colWidths[ci];
+						float lx = x + (gap - lt) * 0.5f;
+						m_renderer.RenderFillRect(FRect{lx, oy, lt, contentH});
+						x += gap;
+					}
+				}
+
+				// Horizontal lines (between rows)
+				if (gp->lines == GridLines::Rows || gp->lines == GridLines::Both) {
+					float y = oy;
+					for (int ri = 0; ri + 1 < (int)gp->rowHeights.size(); ++ri) {
+						y += gp->rowHeights[ri];
+						float ly = y + (gap - lt) * 0.5f;
+						m_renderer.RenderFillRect(FRect{ox, ly, contentW, lt});
+						y += gap;
+					}
+				}
+			}
+
 			// ── Inline scrollbars ─────────────────────────────────────────────────
 			_DrawInlineScrollbars(e, r, s, w);
 		}
 		
 		void _DrawLabel(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
-			auto *c = m_world.Get<Content>(e);
-			auto *lp = m_world.Get<LayoutProps>(e);
+			auto *c = m_ctx.Get<Content>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!c)
 				return;
 			SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabled : st.hovered ? s.textHovered
@@ -3951,8 +4308,8 @@ namespace UI {
 			_FillRR(r, bgColor, s.radius, s.opacity);
 			_StrokeRR(r, bdColor, s.borders, s.radius, s.opacity);
 
-			auto *c  = m_world.Get<Content>(e);
-			auto *ic = m_world.Get<IconData>(e);
+			auto *c  = m_ctx.Get<Content>(e);
+			auto *ic = m_ctx.Get<IconData>(e);
 
 			// ── Icon ─────────────────────────────────────────────────────────
 			float textX = 0.f;  // set when icon is drawn and text follows it
@@ -3997,9 +4354,9 @@ namespace UI {
 		}
 
 		void _DrawToggle(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) { 
-			auto *t = m_world.Get<ToggleData>(e);
-			auto *c = m_world.Get<Content>(e);
-			auto *w = m_world.Get<Widget>(e);
+			auto *t = m_ctx.Get<ToggleData>(e);
+			auto *c = m_ctx.Get<Content>(e);
+			auto *w = m_ctx.Get<Widget>(e);
 			if (!t)
 				return;
 			constexpr float TW = 44.f, TH = 22.f;
@@ -4017,9 +4374,9 @@ namespace UI {
 		}
 
 		void _DrawRadio(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) { 
-			auto *rd = m_world.Get<RadioData>(e);
-			auto *c = m_world.Get<Content>(e);
-			auto *w = m_world.Get<Widget>(e);
+			auto *rd = m_ctx.Get<RadioData>(e);
+			auto *c = m_ctx.Get<Content>(e);
+			auto *w = m_ctx.Get<Widget>(e);
 			if (!rd)
 				return;
 			const float OR = 9.f;
@@ -4049,8 +4406,8 @@ namespace UI {
 		}
 
 		void _DrawSlider(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
-			auto *sd = m_world.Get<SliderData>(e);
-			auto *lp = m_world.Get<LayoutProps>(e);
+			auto *sd = m_ctx.Get<SliderData>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!sd || !lp) return;
 			const float TH = 4.f, TR = 8.f;
 			float norm = (sd->max > sd->min) ? (sd->val - sd->min) / (sd->max - sd->min) : 0.f;
@@ -4081,7 +4438,7 @@ namespace UI {
 		}
 
 		void _DrawScrollBar(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) { 
-			auto *sb = m_world.Get<ScrollBarData>(e);
+			auto *sb = m_ctx.Get<ScrollBarData>(e);
 			if (!sb)
 				return;
 			_FillRR(r, s.track, s.radius, s.opacity);
@@ -4100,8 +4457,8 @@ namespace UI {
 		}
 
 		void _DrawProgress(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) { 
-			auto *sd = m_world.Get<SliderData>(e);
-			auto *lp = m_world.Get<LayoutProps>(e);
+			auto *sd = m_ctx.Get<SliderData>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!sd || !lp) return;
 			float tx = r.x + lp->padding.left, tw = r.x + r.w - lp->padding.right - tx, norm = (sd->max > sd->min) ? (sd->val - sd->min) / (sd->max - sd->min) : 0.f;
 			FRect tr_ = {tx, r.y + (r.h - 8.f) * 0.5f, tw, 8.f};
@@ -4116,8 +4473,8 @@ namespace UI {
 		}
 		
 		void _DrawInput(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
-			auto *c = m_world.Get<Content>(e);
-			auto *lp = m_world.Get<LayoutProps>(e);
+			auto *c = m_ctx.Get<Content>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!c || !lp) return;
 			
 			bool foc = (m_focused == e);
@@ -4164,9 +4521,9 @@ namespace UI {
 
 		// ── TextArea ────────────────────────────────────────────────────────
 		void _DrawTextArea(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
-			auto *ta  = m_world.Get<TextAreaData>(e);
-			auto *lp  = m_world.Get<LayoutProps>(e);
-			auto *cnt = m_world.Get<Content>(e);
+			auto *ta  = m_ctx.Get<TextAreaData>(e);
+			auto *lp  = m_ctx.Get<LayoutProps>(e);
+			auto *cnt = m_ctx.Get<Content>(e);
 			if (!ta || !lp) return;
 
 			const bool foc     = (m_focused == e);
@@ -4333,7 +4690,7 @@ namespace UI {
 		}
 
 		void _DrawKnob(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
-			auto *kd = m_world.Get<KnobData>(e);
+			auto *kd = m_ctx.Get<KnobData>(e);
 			if (!kd) return;
 
 			// Sécurité : Si le widget est trop petit, on ne dessine rien pour éviter le crash
@@ -4397,7 +4754,7 @@ namespace UI {
 		}
 
 		void _DrawImage(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) { 
-			auto *d = m_world.Get<ImageData>(e);
+			auto *d = m_ctx.Get<ImageData>(e);
 			if (!d || d->key.empty()) {
 				_FillRR(r, s.bgColor, s.radius, s.opacity);
 				_StrokeRR(r, s.bdColor, s.borders, s.radius, s.opacity);
@@ -4447,7 +4804,7 @@ namespace UI {
 		}
 		
 		void _DrawCanvas(ECS::EntityId e, const FRect &r) { 
-			auto *cd = m_world.Get<CanvasData>(e);
+			auto *cd = m_ctx.Get<CanvasData>(e);
 			if (!cd || !cd->renderCb) return;
 
 			// The renderCb typically sets its own SDL viewport/scissor.
@@ -4469,8 +4826,8 @@ namespace UI {
 		// ── ListBox draw ──────────────────────────────────────────────       
 		void _DrawListBox(ECS::EntityId e, const FRect &r, const Style &s,
 						  const WidgetState &st, const Widget &w) {
-			auto *lb  = m_world.Get<ListBoxData>(e);
-			auto *lp  = m_world.Get<LayoutProps>(e);
+			auto *lb  = m_ctx.Get<ListBoxData>(e);
+			auto *lp  = m_ctx.Get<LayoutProps>(e);
 			if (!lb || !lp) return;
 
 			// Background + focused/hovered border
@@ -4550,7 +4907,7 @@ namespace UI {
 		// ── Graph draw ────────────────────────────────────────────────
 		void _DrawGraph(ECS::EntityId e, const FRect &r, const Style &s,
 						const WidgetState &st) { 
-			auto *gd = m_world.Get<GraphData>(e);
+			auto *gd = m_ctx.Get<GraphData>(e);
 			if (!gd) return;
 
 			_FillRR(r, s.bgColor, s.radius, s.opacity);
@@ -4722,10 +5079,10 @@ namespace UI {
 
 		// ── ListBox keyboard handler ──────────────────────────────────
 		void _HandleKeyDownListBox(SDL::Keycode k) {
-			auto *lb  = m_world.Get<ListBoxData>(m_focused); 
-			auto *cb  = m_world.Get<Callbacks>(m_focused);
-			auto *cr  = m_world.Get<ComputedRect>(m_focused);
-			auto *lp  = m_world.Get<LayoutProps>(m_focused);
+			auto *lb  = m_ctx.Get<ListBoxData>(m_focused); 
+			auto *cb  = m_ctx.Get<Callbacks>(m_focused);
+			auto *cr  = m_ctx.Get<ComputedRect>(m_focused);
+			auto *lp  = m_ctx.Get<LayoutProps>(m_focused);
 			if (!lb || lb->items.empty()) return;
 
 			int prev = lb->selectedIndex;
@@ -4980,6 +5337,14 @@ namespace UI {
 			sys.GetLayout(id).height = v;
 			return *this;
 		}
+		Builder &MinW(float px) { sys.GetLayout(id).minWidth  = Value::Px(px); return *this; }
+		Builder &MinW(Value  v) { sys.GetLayout(id).minWidth  = v;             return *this; }
+		Builder &MinH(float px) { sys.GetLayout(id).minHeight = Value::Px(px); return *this; }
+		Builder &MinH(Value  v) { sys.GetLayout(id).minHeight = v;             return *this; }
+		Builder &MaxW(float px) { sys.GetLayout(id).maxWidth  = Value::Px(px); return *this; }
+		Builder &MaxW(Value  v) { sys.GetLayout(id).maxWidth  = v;             return *this; }
+		Builder &MaxH(float px) { sys.GetLayout(id).maxHeight = Value::Px(px); return *this; }
+		Builder &MaxH(Value  v) { sys.GetLayout(id).maxHeight = v;             return *this; }
 		Builder &Grow(float g) {
 			sys.GetLayout(id).grow = g;
 			return *this;
@@ -5184,6 +5549,37 @@ namespace UI {
 			return *this;
 		}
 
+		// ── Grid layout (container) ───────────────────────────────────────────────
+
+		/// Number of columns in a Layout::InGrid container.
+		Builder &GridCols(int n) { sys.SetGridCols(id, n); return *this; }
+		/// Fixed number of rows (0 = auto-computed from children).
+		Builder &GridRows(int n) { sys.SetGridRows(id, n); return *this; }
+		/// Column sizing mode (Fixed = equal width, Content = fit content).
+		Builder &GridColSizing(GridSizing s) { sys.SetGridColSizing(id, s); return *this; }
+		/// Row sizing mode (Fixed = equal height, Content = fit content).
+		Builder &GridRowSizing(GridSizing s) { sys.SetGridRowSizing(id, s); return *this; }
+		/// Shorthand to set both column and row sizing at once.
+		Builder &GridSizingMode(GridSizing cs, GridSizing rs) {
+			sys.SetGridColSizing(id, cs);
+			sys.SetGridRowSizing(id, rs);
+			return *this;
+		}
+		/// Which separator lines to draw between cells.
+		Builder &GridLineStyle(GridLines l) { sys.SetGridLines(id, l); return *this; }
+		/// Color of the separator lines.
+		Builder &GridLineColor(SDL::Color c) { sys.SetGridLineColor(id, c); return *this; }
+		/// Thickness in pixels of the separator lines.
+		Builder &GridLineThickness(float t) { sys.SetGridLineThickness(id, t); return *this; }
+
+		// ── Grid cell (child) ─────────────────────────────────────────────────────
+
+		/// Place this widget at the given grid cell.  colSpan/rowSpan default to 1.
+		Builder &Cell(int col, int row, int colSpan = 1, int rowSpan = 1) {
+			sys.SetGridCell(id, col, row, colSpan, rowSpan);
+			return *this;
+		}
+
 		Builder &SetText(const std::string &t) {
 			sys.SetText(id, t);
 			return *this;
@@ -5294,14 +5690,42 @@ namespace UI {
 		}
 
 		// Children
-		Builder &Child(ECS::EntityId c) { 
+		Builder &Child(ECS::EntityId c) {
 			sys.AppendChild(id, c);
+			return *this;
+		}
+		/// Append a child and pin it to a grid cell (shorthand for child.Cell(...)).
+		/// Only meaningful when this container uses Layout::InGrid.
+		Builder &Child(ECS::EntityId c, int col, int row, int colSpan = 1, int rowSpan = 1) {
+			sys.SetGridCell(c, col, row, colSpan, rowSpan);
+			sys.AppendChild(id, c);
+			return *this;
+		}
+		/// Append a child Builder and pin it to a grid cell.
+		Builder &Child(Builder c, int col, int row, int colSpan = 1, int rowSpan = 1) {
+			sys.SetGridCell(c.id, col, row, colSpan, rowSpan);
+			sys.AppendChild(id, c.id);
 			return *this;
 		}
 		template <typename... Cs>
 			requires(std::convertible_to<Cs, ECS::EntityId> && ...)
 		Builder &Children(Cs &&...cs) {
 			(sys.AppendChild(id, static_cast<ECS::EntityId>(std::forward<Cs>(cs))), ...);
+			return *this;
+		}
+
+		Builder &AttachTo(ECS::EntityId parent) {
+			sys.AppendChild(parent, id);
+			return *this;
+		}
+		Builder &AttachTo(ECS::EntityId parent, int col, int row, int colSpan = 1, int rowSpan = 1) {
+			sys.SetGridCell(id, col, row, colSpan, rowSpan);
+			sys.AppendChild(parent, id);
+			return *this;
+		}
+		Builder &AttachTo(Builder parent, int col, int row, int colSpan = 1, int rowSpan = 1) {
+			sys.SetGridCell(id, col, row, colSpan, rowSpan);
+			sys.AppendChild(parent.id, id);
 			return *this;
 		}
 
@@ -5362,6 +5786,13 @@ namespace UI {
 		auto b = Column(n, gap, 0.f);
 		// AutoScrollableY : la scrollbar verticale n'apparaît que si le contenu déborde.
 		b.AutoScrollableY().Padding(0);
+		return b;
+	}
+
+	inline Builder System::Grid(const std::string &n, int columns, float gap, float pad) {
+		auto b = Container(n);
+		b.Layout(Layout::InGrid).Gap(gap).Padding(pad);
+		b.GridCols(columns);
 		return b;
 	}
 

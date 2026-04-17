@@ -108,8 +108,8 @@ struct Main {
 	// ── UI ────────────────────────────────────────────────────────────────────
 	SDL::ResourceManager rm;
 	SDL::ResourcePool&   pool{ *rm.CreatePool("ui") };
-	SDL::ECS::World      world;
-	SDL::UI::System      ui{ world, renderer, SDL::MixerRef{nullptr}, pool };
+	SDL::ECS::Context      ecs_context;
+	SDL::UI::System      ui{ ecs_context, renderer, SDL::MixerRef{nullptr}, pool };
 
 	SDL::FrameTimer timer{ 60.f };
 

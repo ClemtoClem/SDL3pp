@@ -95,10 +95,10 @@ struct Main {
 	SDL::Window      window  {MakeWindow()};
 	SDL::RendererRef renderer{window.GetRenderer()};
 
-	// ── ECS ECS::World + scene graph ────────────────────────────────────────────────
+	// ── ECS ECS::Context + scene graph ────────────────────────────────────────────────
 
-	SDL::ECS::World world;
-	SDL::ECS::SceneGraph scene{world, renderer};
+	SDL::ECS::Context ecs_context;
+	SDL::ECS::SceneGraph scene{ecs_context, renderer};
 
 	// ── Crate texture (shared by all sprites) ─────────────────────────────────
 
@@ -152,13 +152,13 @@ struct Main {
 			auto ref = scene.CreateNode("root_crate");
 			rootId = ref.Release();  // Keep the entity alive beyond this scope.
 
-			world.Add<SDL::ECS::Transform2D>(rootId, {{cx, cy}, 90.f, {1.f, 1.f}});
-			world.Add<SDL::ECS::Sprite>(rootId, {
+			ecs_context.Add<SDL::ECS::Transform2D>(rootId, {{cx, cy}, 90.f, {1.f, 1.f}});
+			ecs_context.Add<SDL::ECS::Sprite>(rootId, {
 				.texture = crateTexture,
 				.tint    = {255, 220, 180, 255},
 				.zOrder  = 0
 			});
-			world.Add<Spinner>(rootId, {kRootRotSpeed});
+			ecs_context.Add<Spinner>(rootId, {kRootRotSpeed});
 		}
 
 		// ── Four orbiting crates + their moon ─────────────────────────────────
@@ -179,17 +179,17 @@ struct Main {
 
 				// Initial position along the orbit circle.
 				const float rad = SDL::DegToRad(startAngles[i]);
-				world.Add<SDL::ECS::Transform2D>(orbitId[i], { {SDL::Cos(rad) * kOrbitRadius,
+				ecs_context.Add<SDL::ECS::Transform2D>(orbitId[i], { {SDL::Cos(rad) * kOrbitRadius,
 					 SDL::Sin(rad) * kOrbitRadius},
 					0.f, {0.6f, 0.6f}
 				});
-				world.Add<SDL::ECS::Sprite>(orbitId[i], {
+				ecs_context.Add<SDL::ECS::Sprite>(orbitId[i], {
 					.texture = crateTexture,
 					.tint    = orbitTints[i],
 					.zOrder  = 1
 				});
-				world.Add<Spinner>(orbitId[i], {kOrbitRotSpeed * (i % 2 == 0 ? 1.f : -1.f)});
-				world.Add<Orbiter>(orbitId[i], {
+				ecs_context.Add<Spinner>(orbitId[i], {kOrbitRotSpeed * (i % 2 == 0 ? 1.f : -1.f)});
+				ecs_context.Add<Orbiter>(orbitId[i], {
 					.radius       = kOrbitRadius,
 					.angularSpeed = kOrbitRotSpeed,
 					.currentAngle = startAngles[i]
@@ -201,15 +201,15 @@ struct Main {
 				auto ref = scene.CreateNode(std::format("moon_{}", i), orbitId[i]);
 				moonId[i] = ref.Release();
 
-				world.Add<SDL::ECS::Transform2D>(moonId[i], { {kMoonRadius, 0.f}, 0.f, {0.3f, 0.3f}
+				ecs_context.Add<SDL::ECS::Transform2D>(moonId[i], { {kMoonRadius, 0.f}, 0.f, {0.3f, 0.3f}
 				});
-				world.Add<SDL::ECS::Sprite>(moonId[i], {
+				ecs_context.Add<SDL::ECS::Sprite>(moonId[i], {
 					.texture = crateTexture,
 					.tint    = {200, 200, 200, 200},
 					.zOrder  = 2
 				});
-				world.Add<Spinner>(moonId[i], {kMoonRotSpeed});
-				world.Add<Orbiter>(moonId[i], {
+				ecs_context.Add<Spinner>(moonId[i], {kMoonRotSpeed});
+				ecs_context.Add<Orbiter>(moonId[i], {
 					.radius       = kMoonRadius,
 					.angularSpeed = kMoonRotSpeed * 1.5f,
 					.currentAngle = 0.f
@@ -232,8 +232,8 @@ struct Main {
 	// ── Destructor: release persistent entity IDs ──────────────────────────────
 
 	~Main() {
-		// The ECS::World destructor frees everything; we just need to not double-free.
-		// No explicit cleanup needed here – ECS::World's storage owns everything.
+		// The ECS::Context destructor frees everything; we just need to not double-free.
+		// No explicit cleanup needed here – ECS::Context's storage owns everything.
 	}
 
 	// ── Event handling ────────────────────────────────────────────────────────
@@ -296,12 +296,12 @@ struct Main {
 		}
 
 		// ── Animate: Spinners ─────────────────────────────────────────────────
-		world.Each<SDL::ECS::Transform2D, Spinner>([dt](SDL::ECS::EntityId, SDL::ECS::Transform2D& t, Spinner& s) {
+		ecs_context.Each<SDL::ECS::Transform2D, Spinner>([dt](SDL::ECS::EntityId, SDL::ECS::Transform2D& t, Spinner& s) {
 			t.rotation += s.degreesPerSecond * dt;
 		});
 
 		// ── Animate: Orbiters (update local position to orbit parent) ─────────
-		world.Each<SDL::ECS::Transform2D, Orbiter>([dt](SDL::ECS::EntityId, SDL::ECS::Transform2D& t, Orbiter& o) {
+		ecs_context.Each<SDL::ECS::Transform2D, Orbiter>([dt](SDL::ECS::EntityId, SDL::ECS::Transform2D& t, Orbiter& o) {
 			o.currentAngle += o.angularSpeed * dt;
 			const float rad = SDL::DegToRad(o.currentAngle);
 			t.position = {SDL::Cos(rad) * o.radius, SDL::Sin(rad) * o.radius};
@@ -315,7 +315,7 @@ struct Main {
 
 		scene.Render();
 
-		if (m_debugDraw) SDL::ECS::DebugDrawTransforms2D(world, renderer);
+		if (m_debugDraw) SDL::ECS::DebugDrawTransforms2D(ecs_context, renderer);
 
 		// ── HUD ───────────────────────────────────────────────────────────────
 		DrawHud();
@@ -329,7 +329,7 @@ struct Main {
 		renderer.SetDrawColor({200, 200, 200, 255});
 
 		renderer.RenderDebugTextFormat({8.f, 8.f},
-			"Entities : {}", world.EntityCount());
+			"Entities : {}", ecs_context.EntityCount());
 		renderer.RenderDebugTextFormat({8.f, 20.f},
 			"Zoom     : {:.2f}x", m_camZoom);
 		renderer.RenderDebugTextFormat({8.f, 32.f},

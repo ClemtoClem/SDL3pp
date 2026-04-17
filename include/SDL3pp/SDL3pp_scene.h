@@ -28,20 +28,20 @@
  * ## Builder DSL
  *
  * ```cpp
- * SDL::SceneBuilder scene(world, renderer);
+ * SDL::SceneBuilder scene(m_ctx, renderer);
  *
- * auto root = scene.Node2D("World");
+ * auto root = scene.Node2D("Context");
  *
  * auto player = scene.Sprite2D("Player", playerTex)
  *     .Position({400, 300})
  *     .Scale({2, 2})
  *     .ZOrder(10)
  *     .Group("actors")
- *     .OnReady([](SDL::EntityId id, SDL::World& w) {
+ *     .OnReady([](SDL::EntityId id, SDL::Context& w) {
  *         SDL::Log("Player ready!");
  *     })
- *     .OnUpdate([](SDL::EntityId id, SDL::World& w, float dt) {
- *         auto& t = *w.Get<SDL::Transform2D>(id);
+ *     .OnUpdate([](SDL::EntityId id, SDL::Context& w, float dt) {
+ *         auto& t = *ctx.Get<SDL::Transform2D>(id);
  *         t.position.x += 100.f * dt;
  *     })
  *     .AttachTo(root);
@@ -103,7 +103,7 @@ struct Transform2D {
 };
 
 /**
- * World-space transform computed by `PropagateTransforms2D()`.
+ * Context-space transform computed by `PropagateTransforms2D()`.
  * Do not modify directly.
  */
 struct GlobalTransform2D {
@@ -218,9 +218,9 @@ struct AnimatedSprite {
  * All three are optional (default = nullptr).
  */
 struct SceneScript {
-	using UpdateFn = std::function<void(EntityId, World&, float)>;  ///< (id, World, dt)
-	using ReadyFn  = std::function<void(EntityId, World&)>;         ///< called once on first frame
-	using InputFn  = std::function<void(EntityId, World&, const SDL::Event&)>;
+	using UpdateFn = std::function<void(EntityId, Context&, float)>;  ///< (id, Context, dt)
+	using ReadyFn  = std::function<void(EntityId, Context&)>;         ///< called once on first frame
+	using InputFn  = std::function<void(EntityId, Context&, const SDL::Event&)>;
 
 	UpdateFn onUpdate;
 	ReadyFn  onReady;
@@ -290,20 +290,20 @@ struct SceneGroup {
  * Propagate local Transform2Ds through the hierarchy, computing GlobalTransform2Ds.
  * Call once per frame before rendering.
  */
-inline void PropagateTransforms2D(World& world) {
+inline void PropagateTransforms2D(Context& ecs_context) {
 	auto dfs = [&](auto& self, EntityId e, const GlobalTransform2D& parentGlobal) -> void {
-		if (!world.IsAlive(e)) return;
-		const Transform2D* local = world.Get<Transform2D>(e);
+		if (!ecs_context.IsAlive(e)) return;
+		const Transform2D* local = ecs_context.Get<Transform2D>(e);
 		if (!local) return;
 		const GlobalTransform2D global = parentGlobal.Combine(*local);
-		world.Add<GlobalTransform2D>(e, global);
-		if (const SceneChildren* ch = world.Get<SceneChildren>(e))
+		ecs_context.Add<GlobalTransform2D>(e, global);
+		if (const SceneChildren* ch = ecs_context.Get<SceneChildren>(e))
 			for (EntityId child : ch->ids) self(self, child, global);
 	};
 
 	const GlobalTransform2D identity{};
-	world.Each<Transform2D>([&](EntityId e, Transform2D&) {
-		const SceneParent* par = world.Get<SceneParent>(e);
+	ecs_context.Each<Transform2D>([&](EntityId e, Transform2D&) {
+		const SceneParent* par = ecs_context.Get<SceneParent>(e);
 		if (!par || par->id == NullEntity) dfs(dfs, e, identity);
 	});
 }
@@ -315,33 +315,33 @@ inline void PropagateTransforms2D(World& world) {
 /**
  * @brief Run all `SceneScript` callbacks.
  *
- * Call `ScriptSystem::Run(world, dt)` once per frame (before rendering).
+ * Call `ScriptSystem::Run(m_ctx, dt)` once per frame (before rendering).
  * For input handling, use the overload that takes an `SDL::Event`.
  */
 struct ScriptSystem {
-	static void Run(World& world, float dt) {
-		world.Each<SceneScript>([&](EntityId id, SceneScript& s) {
+	static void Run(Context& ecs_context, float dt) {
+		ecs_context.Each<SceneScript>([&](EntityId id, SceneScript& s) {
 			if (s.onReady && !s.readyCalled) {
 				s.readyCalled = true;
-				s.onReady(id, world);
+				s.onReady(id, ecs_context);
 			}
-			if (s.onUpdate) s.onUpdate(id, world, dt);
+			if (s.onUpdate) s.onUpdate(id, ecs_context, dt);
 		});
 
 		// Advance tweens and remove finished ones.
-		world.Each<SceneTween>([&](EntityId, SceneTween& tw) {
+		ecs_context.Each<SceneTween>([&](EntityId, SceneTween& tw) {
 			tw.Update(dt);
 		});
 
 		// Advance animated sprites.
-		world.Each<AnimatedSprite>([dt](EntityId, AnimatedSprite& as) {
+		ecs_context.Each<AnimatedSprite>([dt](EntityId, AnimatedSprite& as) {
 			as.Update(dt);
 		});
 	}
 
-	static void DispatchInput(World& world, const SDL::Event& ev) {
-		world.Each<SceneScript>([&](EntityId id, SceneScript& s) {
-			if (s.onInput) s.onInput(id, world, ev);
+	static void DispatchInput(Context& ecs_context, const SDL::Event& ev) {
+		ecs_context.Each<SceneScript>([&](EntityId id, SceneScript& s) {
+			if (s.onInput) s.onInput(id, ecs_context, ev);
 		});
 	}
 };
@@ -397,9 +397,9 @@ private:
  * Render all entities with `Sprite + GlobalTransform2D`.
  * Applies camera offset and zoom.  Sprites sorted by zOrder.
  */
-inline void RenderScene(World& world, RendererRef renderer) {
+inline void RenderScene(Context& ecs_context, RendererRef renderer) {
 	SceneCamera camera;
-	if (auto* s = world.ConstStorage<SceneCamera>())
+	if (auto* s = ecs_context.ConstStorage<SceneCamera>())
 		if (!s->View().empty()) camera = s->View()[0];
 
 	if (camera.viewportW == 0 || camera.viewportH == 0) {
@@ -414,18 +414,18 @@ inline void RenderScene(World& world, RendererRef renderer) {
 
 	std::vector<SpriteItem> sprites;
 	std::vector<AnimItem>   anims;
-	sprites.reserve(world.Storage<Sprite>().Size());
-	anims  .reserve(world.Storage<AnimatedSprite>().Size());
+	sprites.reserve(ecs_context.Storage<Sprite>().Size());
+	anims  .reserve(ecs_context.Storage<AnimatedSprite>().Size());
 
-	world.Each<Sprite, GlobalTransform2D>([&](EntityId e, Sprite& spr, GlobalTransform2D& gt) {
-		const Visible* vis = world.Get<Visible>(e);
+	ecs_context.Each<Sprite, GlobalTransform2D>([&](EntityId e, Sprite& spr, GlobalTransform2D& gt) {
+		const Visible* vis = ecs_context.Get<Visible>(e);
 		if (vis && !vis->value) return;
 		if (!spr.texture) return;
 		sprites.push_back({&spr, &gt, static_cast<float>(spr.zOrder)});
 	});
 
-	world.Each<AnimatedSprite, GlobalTransform2D>([&](EntityId e, AnimatedSprite& as, GlobalTransform2D& gt) {
-		const Visible* vis = world.Get<Visible>(e);
+	ecs_context.Each<AnimatedSprite, GlobalTransform2D>([&](EntityId e, AnimatedSprite& as, GlobalTransform2D& gt) {
+		const Visible* vis = ecs_context.Get<Visible>(e);
 		if (vis && !vis->value) return;
 		if (!as.texture) return;
 		anims.push_back({&as, &gt, static_cast<float>(as.zOrder)});
@@ -513,12 +513,12 @@ class SceneBuilder;
  */
 template<typename Derived>
 struct SceneNodeBuilder {
-	World&        world;
+	Context&      ecs_context;
 	SceneBuilder& scene;
 	EntityId      id;
 
-	SceneNodeBuilder(World& w, SceneBuilder& sc, EntityId e)
-		: world(w), scene(sc), id(e) {}
+	SceneNodeBuilder(Context& ctx, SceneBuilder& sc, EntityId e)
+		: ecs_context(ctx), scene(sc), id(e) {}
 
 	operator EntityId() const noexcept { return id; }
 	[[nodiscard]] EntityId Id() const noexcept { return id; }
@@ -538,28 +538,28 @@ struct SceneNodeBuilder {
 	// ── Visibility ────────────────────────────────────────────────────────────
 
 	Derived& Hide() {
-		if (auto* v = world.Get<Visible>(id)) v->value = false;
-		else world.Add<Visible>(id, {false});
+		if (auto* v = ecs_context.Get<Visible>(id)) v->value = false;
+		else ecs_context.Add<Visible>(id, {false});
 		return _self();
 	}
 
 	Derived& Show() {
-		if (auto* v = world.Get<Visible>(id)) v->value = true;
-		else world.Add<Visible>(id, {true});
+		if (auto* v = ecs_context.Get<Visible>(id)) v->value = true;
+		else ecs_context.Add<Visible>(id, {true});
 		return _self();
 	}
 
 	Derived& SetVisible(bool vis) {
-		if (auto* v = world.Get<Visible>(id)) v->value = vis;
-		else world.Add<Visible>(id, {vis});
+		if (auto* v = ecs_context.Get<Visible>(id)) v->value = vis;
+		else ecs_context.Add<Visible>(id, {vis});
 		return _self();
 	}
 
 	// ── Tag / name ────────────────────────────────────────────────────────────
 
 	Derived& Name(const std::string& n) {
-		if (auto* t = world.Get<Tag>(id)) t->name = n;
-		else world.Add<Tag>(id, {n});
+		if (auto* t = ecs_context.Get<Tag>(id)) t->name = n;
+		else ecs_context.Add<Tag>(id, {n});
 		return _self();
 	}
 
@@ -567,26 +567,26 @@ struct SceneNodeBuilder {
 
 	/// Add this node to a named group.
 	Derived& Group(const std::string& g) {
-		if (!world.Has<SceneGroup>(id)) world.Add<SceneGroup>(id);
-		world.Get<SceneGroup>(id)->Add(g);
+		if (!ecs_context.Has<SceneGroup>(id)) ecs_context.Add<SceneGroup>(id);
+		ecs_context.Get<SceneGroup>(id)->Add(g);
 		return _self();
 	}
 
 	// ── Scripts (per-node callbacks) ──────────────────────────────────────────
 
-	/// Called every frame: `fn(id, world, dt)`.
+	/// Called every frame: `fn(id, m_ctx, dt)`.
 	Derived& OnUpdate(SceneScript::UpdateFn fn) {
 		_Script().onUpdate = std::move(fn);
 		return _self();
 	}
 
-	/// Called once on the first frame: `fn(id, world)`.
+	/// Called once on the first frame: `fn(id, m_ctx)`.
 	Derived& OnReady(SceneScript::ReadyFn fn) {
 		_Script().onReady = std::move(fn);
 		return _self();
 	}
 
-	/// Called for each SDL event: `fn(id, world, event)`.
+	/// Called for each SDL event: `fn(id, m_ctx, event)`.
 	Derived& OnInput(SceneScript::InputFn fn) {
 		_Script().onInput = std::move(fn);
 		return _self();
@@ -599,7 +599,7 @@ struct SceneNodeBuilder {
 					 SceneTween::Ease ease = SceneTween::Ease::Out,
 					 std::function<void()> onDone = nullptr) {
 		float from = target ? *target : 0.f;
-		world.Add<SceneTween>(id, {target, from, to, duration, 0.f, false, ease,
+		ecs_context.Add<SceneTween>(id, {target, from, to, duration, 0.f, false, ease,
 								   std::move(onDone)});
 		return _self();
 	}
@@ -614,13 +614,13 @@ struct SceneNodeBuilder {
 
 protected:
 	Transform2D& _Transform2D() {
-		if (!world.Has<Transform2D>(id)) world.Add<Transform2D>(id);
-		return *world.Get<Transform2D>(id);
+		if (!ecs_context.Has<Transform2D>(id)) ecs_context.Add<Transform2D>(id);
+		return *ecs_context.Get<Transform2D>(id);
 	}
 
 	SceneScript& _Script() {
-		if (!world.Has<SceneScript>(id)) world.Add<SceneScript>(id);
-		return *world.Get<SceneScript>(id);
+		if (!ecs_context.Has<SceneScript>(id)) ecs_context.Add<SceneScript>(id);
+		return *ecs_context.Get<SceneScript>(id);
 	}
 
 	Derived& _self() noexcept { return static_cast<Derived&>(*this); }
@@ -644,27 +644,27 @@ struct Sprite2DBuilder : SceneNodeBuilder<Sprite2DBuilder> {
 	using SceneNodeBuilder::SceneNodeBuilder;
 
 	Sprite2DBuilder& ZOrder(int z) {
-		if (auto* sp = world.Get<Sprite>(id)) sp->zOrder = z;
+		if (auto* sp = ecs_context.Get<Sprite>(id)) sp->zOrder = z;
 		return *this;
 	}
 
 	Sprite2DBuilder& Tint(Color c) {
-		if (auto* sp = world.Get<Sprite>(id)) sp->tint = c;
+		if (auto* sp = ecs_context.Get<Sprite>(id)) sp->tint = c;
 		return *this;
 	}
 
 	Sprite2DBuilder& Alpha(float a) {
-		if (auto* sp = world.Get<Sprite>(id)) sp->alpha = a;
+		if (auto* sp = ecs_context.Get<Sprite>(id)) sp->alpha = a;
 		return *this;
 	}
 
 	Sprite2DBuilder& SrcRect(FRect r) {
-		if (auto* sp = world.Get<Sprite>(id)) sp->srcRect = r;
+		if (auto* sp = ecs_context.Get<Sprite>(id)) sp->srcRect = r;
 		return *this;
 	}
 
 	Sprite2DBuilder& Pivot(FPoint p) {
-		if (auto* sp = world.Get<Sprite>(id)) sp->pivot = p;
+		if (auto* sp = ecs_context.Get<Sprite>(id)) sp->pivot = p;
 		return *this;
 	}
 };
@@ -676,19 +676,19 @@ struct AnimSprite2DBuilder : SceneNodeBuilder<AnimSprite2DBuilder> {
 	using SceneNodeBuilder::SceneNodeBuilder;
 
 	AnimSprite2DBuilder& AddFrame(FRect srcRect) {
-		if (auto* as = world.Get<AnimatedSprite>(id)) as->frames.push_back(srcRect);
+		if (auto* as = ecs_context.Get<AnimatedSprite>(id)) as->frames.push_back(srcRect);
 		return *this;
 	}
 
 	AnimSprite2DBuilder& AddFrames(std::initializer_list<FRect> rects) {
-		if (auto* as = world.Get<AnimatedSprite>(id))
+		if (auto* as = ecs_context.Get<AnimatedSprite>(id))
 			for (const FRect& r : rects) as->frames.push_back(r);
 		return *this;
 	}
 
 	/// Build frames from a horizontal sprite-sheet strip.
 	AnimSprite2DBuilder& Spritesheet(int frameW, int frameH, int count, int row = 0) {
-		if (auto* as = world.Get<AnimatedSprite>(id)) {
+		if (auto* as = ecs_context.Get<AnimatedSprite>(id)) {
 			as->frames.clear();
 			for (int i = 0; i < count; ++i)
 				as->frames.push_back({static_cast<float>(i * frameW),
@@ -700,27 +700,27 @@ struct AnimSprite2DBuilder : SceneNodeBuilder<AnimSprite2DBuilder> {
 	}
 
 	AnimSprite2DBuilder& FPS(float fps) {
-		if (auto* as = world.Get<AnimatedSprite>(id)) as->fps = fps;
+		if (auto* as = ecs_context.Get<AnimatedSprite>(id)) as->fps = fps;
 		return *this;
 	}
 
 	AnimSprite2DBuilder& Loop(bool l = true) {
-		if (auto* as = world.Get<AnimatedSprite>(id)) as->loop = l;
+		if (auto* as = ecs_context.Get<AnimatedSprite>(id)) as->loop = l;
 		return *this;
 	}
 
 	AnimSprite2DBuilder& Play(bool p = true) {
-		if (auto* as = world.Get<AnimatedSprite>(id)) as->playing = p;
+		if (auto* as = ecs_context.Get<AnimatedSprite>(id)) as->playing = p;
 		return *this;
 	}
 
 	AnimSprite2DBuilder& ZOrder(int z) {
-		if (auto* as = world.Get<AnimatedSprite>(id)) as->zOrder = z;
+		if (auto* as = ecs_context.Get<AnimatedSprite>(id)) as->zOrder = z;
 		return *this;
 	}
 
 	AnimSprite2DBuilder& Tint(Color c) {
-		if (auto* as = world.Get<AnimatedSprite>(id)) as->tint = c;
+		if (auto* as = ecs_context.Get<AnimatedSprite>(id)) as->tint = c;
 		return *this;
 	}
 };
@@ -732,22 +732,22 @@ struct Camera2DBuilder : SceneNodeBuilder<Camera2DBuilder> {
 	using SceneNodeBuilder::SceneNodeBuilder;
 
 	Camera2DBuilder& Zoom(float z) {
-		if (auto* c = world.Get<SceneCamera>(id)) c->zoom = z;
+		if (auto* c = ecs_context.Get<SceneCamera>(id)) c->zoom = z;
 		return *this;
 	}
 
 	Camera2DBuilder& Offset(FPoint o) {
-		if (auto* c = world.Get<SceneCamera>(id)) c->offset = o;
+		if (auto* c = ecs_context.Get<SceneCamera>(id)) c->offset = o;
 		return *this;
 	}
 
 	/// Make the camera follow `target`'s GlobalTransform2D each frame.
 	Camera2DBuilder& Follow(EntityId target) {
-		OnUpdate([target](EntityId id, World& w, float) {
-			if (!w.IsAlive(target)) return;
-			const auto* gt = w.Get<GlobalTransform2D>(target);
+		OnUpdate([target](EntityId id, Context& ctx, float) {
+			if (!ctx.IsAlive(target)) return;
+			const auto* gt = ctx.Get<GlobalTransform2D>(target);
 			if (!gt) return;
-			if (auto* cam = w.Get<SceneCamera>(id))
+			if (auto* cam = ctx.Get<SceneCamera>(id))
 				cam->offset = gt->position;
 		});
 		return *this;
@@ -760,82 +760,82 @@ struct Camera2DBuilder : SceneNodeBuilder<Camera2DBuilder> {
 
 class SceneGraph {
 public:
-	explicit SceneGraph(World& world, RendererRef renderer)
-		: m_world(world), m_renderer(renderer) {}
+	explicit SceneGraph(Context& ctx, RendererRef renderer)
+		: m_ctx(ctx), m_renderer(renderer) {}
 
 	EntityRef CreateNode(const std::string& name   = {},
-						 EntityId           parentId = NullEntity) {
-		EntityRef ref = m_world.Spawn();
+						 EntityId parentId = NullEntity) {
+		EntityRef ref = m_ctx.Spawn();
 		const EntityId id = ref.Id();
-		m_world.Add<Transform2D>(id);
-		m_world.Add<GlobalTransform2D>(id);
-		m_world.Add<Visible>(id, {true});
-		if (!name.empty()) m_world.Add<Tag>(id, {name});
+		m_ctx.Add<Transform2D>(id);
+		m_ctx.Add<GlobalTransform2D>(id);
+		m_ctx.Add<Visible>(id, {true});
+		if (!name.empty()) m_ctx.Add<Tag>(id, {name});
 
-		if (parentId != NullEntity && m_world.IsAlive(parentId)) {
-			m_world.Add<SceneParent>(id, {parentId});
+		if (parentId != NullEntity && m_ctx.IsAlive(parentId)) {
+			m_ctx.Add<SceneParent>(id, {parentId});
 			_GetOrAddChildren(parentId).Add(id);
 		}
 		return ref;
 	}
 
 	void DestroyNode(EntityId e) {
-		if (!m_world.IsAlive(e)) return;
-		if (const SceneParent* par = m_world.Get<SceneParent>(e))
+		if (!m_ctx.IsAlive(e)) return;
+		if (const SceneParent* par = m_ctx.Get<SceneParent>(e))
 			if (par->id != NullEntity)
-				if (auto* ch = m_world.Get<SceneChildren>(par->id)) ch->Remove(e);
-		if (const SceneChildren* ch = m_world.Get<SceneChildren>(e)) {
+				if (auto* ch = m_ctx.Get<SceneChildren>(par->id)) ch->Remove(e);
+		if (const SceneChildren* ch = m_ctx.Get<SceneChildren>(e)) {
 			auto childIds = ch->ids;
 			for (EntityId c : childIds) DestroyNode(c);
 		}
-		m_world.DestroyEntity(e);
+		m_ctx.DestroyEntity(e);
 	}
 
 	void SetParent(EntityId e, EntityId newParent) {
-		if (const SceneParent* old = m_world.Get<SceneParent>(e))
+		if (const SceneParent* old = m_ctx.Get<SceneParent>(e))
 			if (old->id != NullEntity)
-				if (auto* ch = m_world.Get<SceneChildren>(old->id)) ch->Remove(e);
+				if (auto* ch = m_ctx.Get<SceneChildren>(old->id)) ch->Remove(e);
 
-		if (newParent != NullEntity && m_world.IsAlive(newParent)) {
-			m_world.Add<SceneParent>(e, {newParent});
+		if (newParent != NullEntity && m_ctx.IsAlive(newParent)) {
+			m_ctx.Add<SceneParent>(e, {newParent});
 			_GetOrAddChildren(newParent).Add(e);
 		} else {
-			m_world.Remove<SceneParent>(e);
+			m_ctx.Remove<SceneParent>(e);
 		}
 	}
 
 	void Update(float dt = 0.f) {
-		ScriptSystem::Run(m_world, dt);
-		PropagateTransforms2D(m_world);
+		ScriptSystem::Run(m_ctx, dt);
+		PropagateTransforms2D(m_ctx);
 	}
 
 	void DispatchInput(const SDL::Event& ev) {
-		ScriptSystem::DispatchInput(m_world, ev);
+		ScriptSystem::DispatchInput(m_ctx, ev);
 	}
 
 	void Render() {
-		RenderScene(m_world, m_renderer);
+		RenderScene(m_ctx, m_renderer);
 	}
 
 	void SetCamera(const SceneCamera& cam) {
-		if (m_cameraEntity == NullEntity || !m_world.IsAlive(m_cameraEntity))
-			m_cameraEntity = m_world.CreateEntity();
-		m_world.Add<SceneCamera>(m_cameraEntity, cam);
+		if (m_cameraEntity == NullEntity || !m_ctx.IsAlive(m_cameraEntity))
+			m_cameraEntity = m_ctx.CreateEntity();
+		m_ctx.Add<SceneCamera>(m_cameraEntity, cam);
 	}
 
 	[[nodiscard]] SceneCamera GetCamera() const {
 		if (m_cameraEntity != NullEntity)
-			if (const SceneCamera* c = m_world.Get<SceneCamera>(m_cameraEntity))
+			if (const SceneCamera* c = m_ctx.Get<SceneCamera>(m_cameraEntity))
 				return *c;
 		return {};
 	}
 
-	[[nodiscard]] World&       GetWorld()    const noexcept { return m_world; }
+	[[nodiscard]] Context&       GetWorld()    const noexcept { return m_ctx; }
 	[[nodiscard]] RendererRef  GetRenderer() const noexcept { return m_renderer; }
 
 	[[nodiscard]] EntityId FindByName(const std::string& name) const {
 		EntityId result = NullEntity;
-		const_cast<World&>(m_world).Each<Tag>([&](EntityId e, const Tag& tag) {
+		const_cast<Context&>(m_ctx).Each<Tag>([&](EntityId e, const Tag& tag) {
 			if (tag.name == name) result = e;
 		});
 		return result;
@@ -844,20 +844,20 @@ public:
 	/// Find all entities belonging to `group`.
 	[[nodiscard]] std::vector<EntityId> FindGroup(const std::string& group) const {
 		std::vector<EntityId> out;
-		const_cast<World&>(m_world).Each<SceneGroup>([&](EntityId e, const SceneGroup& g) {
+		const_cast<Context&>(m_ctx).Each<SceneGroup>([&](EntityId e, const SceneGroup& g) {
 			if (g.Has(group)) out.push_back(e);
 		});
 		return out;
 	}
 
 private:
-	World&      m_world;
+	Context&    m_ctx;
 	RendererRef m_renderer;
 	EntityId    m_cameraEntity = NullEntity;
 
 	SceneChildren& _GetOrAddChildren(EntityId e) {
-		if (!m_world.Has<SceneChildren>(e)) m_world.Add<SceneChildren>(e);
-		return *m_world.Get<SceneChildren>(e);
+		if (!m_ctx.Has<SceneChildren>(e)) m_ctx.Add<SceneChildren>(e);
+		return *m_ctx.Get<SceneChildren>(e);
 	}
 };
 
@@ -873,7 +873,7 @@ private:
  * `Sprite2DBuilder`, etc.).  Each builder converts implicitly to `EntityId`.
  *
  * ```cpp
- * SDL::SceneBuilder scene(world, renderer);
+ * SDL::SceneBuilder scene(m_ctx, renderer);
  *
  * auto root  = scene.Node2D("Root");
  * auto hero  = scene.Sprite2D("Hero", heroTex)
@@ -893,22 +893,22 @@ private:
  */
 class SceneBuilder {
 public:
-	SceneBuilder(World& world, RendererRef renderer)
-		: m_graph(world, renderer), m_world(world), m_renderer(renderer) {}
+	SceneBuilder(Context& ctx, RendererRef renderer)
+		: m_graph(ctx, renderer), m_ctx(ctx), m_renderer(renderer) {}
 
 	// ── Node factories ────────────────────────────────────────────────────────
 
 	/// Plain transform node.
 	Node2DBuilder Node2D(const std::string& name = {}) {
 		EntityId id = _Spawn(name);
-		return Node2DBuilder{m_world, *this, id};
+		return Node2DBuilder{m_ctx, *this, id};
 	}
 
 	/// Static sprite node.
 	Sprite2DBuilder Sprite2D(const std::string& name, TextureRef tex = {}) {
 		EntityId id = _Spawn(name);
-		m_world.Add<Sprite>(id, {tex});
-		return Sprite2DBuilder{m_world, *this, id};
+		m_ctx.Add<Sprite>(id, {tex});
+		return Sprite2DBuilder{m_ctx, *this, id};
 	}
 
 	/// Animated sprite .
@@ -916,15 +916,15 @@ public:
 		EntityId id = _Spawn(name);
 		AnimatedSprite as;
 		as.texture = tex;
-		m_world.Add<AnimatedSprite>(id, std::move(as));
-		return AnimSprite2DBuilder{m_world, *this, id};
+		m_ctx.Add<AnimatedSprite>(id, std::move(as));
+		return AnimSprite2DBuilder{m_ctx, *this, id};
 	}
 
 	/// Camera node.
 	Camera2DBuilder Camera2D(const std::string& name = "Camera2D") {
 		EntityId id = _Spawn(name);
-		m_world.Add<SceneCamera>(id);
-		return Camera2DBuilder{m_world, *this, id};
+		m_ctx.Add<SceneCamera>(id);
+		return Camera2DBuilder{m_ctx, *this, id};
 	}
 
 	// ── Root management ───────────────────────────────────────────────────────
@@ -940,7 +940,7 @@ public:
 	void Emit(const std::string& node, const std::string& signal) { m_bus.Emit(node, signal); }
 
 	void Emit(EntityId e, const std::string& signal) {
-		const Tag* t = m_world.Get<Tag>(e);
+		const Tag* t = m_ctx.Get<Tag>(e);
 		if (t) m_bus.Emit(t->name, signal);
 	}
 
@@ -950,18 +950,18 @@ public:
 
 	/// Advance scripts, tweens, animations, then propagate transforms.
 	void Update(float dt = 0.f) {
-		ScriptSystem::Run(m_world, dt);
-		PropagateTransforms2D(m_world);
+		ScriptSystem::Run(m_ctx, dt);
+		PropagateTransforms2D(m_ctx);
 	}
 
 	/// Forward an SDL event to all `SceneScript::onInput` handlers.
 	void DispatchInput(const SDL::Event& ev) {
-		ScriptSystem::DispatchInput(m_world, ev);
+		ScriptSystem::DispatchInput(m_ctx, ev);
 	}
 
 	/// Render all visible sprites (static + animated).
 	void Render() {
-		RenderScene(m_world, m_renderer);
+		RenderScene(m_ctx, m_renderer);
 	}
 
 	// ── Hierarchy helpers (called by builder AttachTo / AddChild) ─────────────
@@ -982,23 +982,23 @@ public:
 
 	void DestroyNode(EntityId e) { m_graph.DestroyNode(e); }
 
-	[[nodiscard]] World&      GetWorld()    noexcept { return m_world; }
+	[[nodiscard]] Context&      GetWorld()    noexcept { return m_ctx; }
 	[[nodiscard]] RendererRef GetRenderer() noexcept { return m_renderer; }
 	[[nodiscard]] SceneGraph& GetGraph()    noexcept { return m_graph; }
 
 private:
 	SceneGraph  m_graph;
-	World&      m_world;
+	Context&      m_ctx;
 	RendererRef m_renderer;
 	EntityId    m_root = NullEntity;
 	SignalBus   m_bus;
 
 	EntityId _Spawn(const std::string& name) {
-		EntityId id = m_world.CreateEntity();
-		m_world.Add<Transform2D>(id);
-		m_world.Add<GlobalTransform2D>(id);
-		m_world.Add<Visible>(id, {true});
-		if (!name.empty()) m_world.Add<Tag>(id, {name});
+		EntityId id = m_ctx.CreateEntity();
+		m_ctx.Add<Transform2D>(id);
+		m_ctx.Add<GlobalTransform2D>(id);
+		m_ctx.Add<Visible>(id, {true});
+		if (!name.empty()) m_ctx.Add<Tag>(id, {name});
 		return id;
 	}
 };
@@ -1024,11 +1024,11 @@ Derived& SceneNodeBuilder<Derived>::AddChild(EntityId child) {
 // =============================================================================
 
 /**
- * Draw a crosshair at each entity's world position (transform debugging).
+ * Draw a crosshair at each entity's m_ctx position (transform debugging).
  */
-inline void DebugDrawTransforms2D(World& world, RendererRef renderer, float size = 8.f) {
+inline void DebugDrawTransforms2D(Context& ecs_context, RendererRef renderer, float size = 8.f) {
 	renderer.SetDrawColor({255, 0, 255, 200});
-	world.Each<GlobalTransform2D>([&](EntityId, GlobalTransform2D& gt) {
+	ecs_context.Each<GlobalTransform2D>([&](EntityId, GlobalTransform2D& gt) {
 		renderer.RenderLine({gt.position.x - size, gt.position.y}, {gt.position.x + size, gt.position.y});
 		renderer.RenderLine({gt.position.x, gt.position.y - size}, {gt.position.x, gt.position.y + size});
 	});
@@ -1037,10 +1037,10 @@ inline void DebugDrawTransforms2D(World& world, RendererRef renderer, float size
 /**
  * Draw FAABB bounding boxes around all sprites (collision debugging).
  */
-inline void DebugDrawSpriteBounds(World& world, RendererRef renderer,
+inline void DebugDrawSpriteBounds(Context& ecs_context, RendererRef renderer,
 								   SDL::Color color = {0, 255, 255, 120}) {
 	renderer.SetDrawColor(color);
-	world.Each<Sprite, GlobalTransform2D>([&](EntityId, Sprite& sp, GlobalTransform2D& gt) {
+	ecs_context.Each<Sprite, GlobalTransform2D>([&](EntityId, Sprite& sp, GlobalTransform2D& gt) {
 		SDL::Point texSz = sp.texture.GetSize();
 		float w = sp.srcRect.w > 0 ? sp.srcRect.w : static_cast<float>(texSz.x);
 		float h = sp.srcRect.h > 0 ? sp.srcRect.h : static_cast<float>(texSz.y);

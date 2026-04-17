@@ -54,9 +54,9 @@ namespace key {
 
 struct Main {
 	static constexpr SDL::Point kWinSz     = {1280, 720};
-	static constexpr int        kPageCount = 5;
+	static constexpr int        kPageCount = 6;
 	static constexpr const char* kPageNames[kPageCount] = {
-		"Basics", "Controls", "Input & Scroll", "Image & Canvas", "Text & Lists"
+		"Basics", "Controls", "Input & Scroll", "Image & Canvas", "Text & Lists", "Grid"
 	};
 
 	// ── SDL::AppResult callbacks ──────────────────────────────────────────────────
@@ -100,8 +100,8 @@ struct Main {
 	SDL::ResourceManager rm;
 	SDL::ResourcePool&   uiPool{ *rm.CreatePool("ui") };
 
-	SDL::ECS::World  world;
-	SDL::UI::System  ui{ world, renderer, mixer, uiPool };
+	SDL::ECS::Context  ecs_context;
+	SDL::UI::System  ui{ ecs_context, renderer, mixer, uiPool };
 
 	// ── Tabs ──────────────────────────────────────────────────────────────────────
 
@@ -197,7 +197,7 @@ struct Main {
 		ui.SetText(lblProgress, std::format("{:.0f}%", m_animProgress * 100.f));
 
 		// Animated sine graph (line)
-		if (world.IsAlive(graphLine)) {
+		if (ecs_context.IsAlive(graphLine)) {
 			constexpr int N = 128;
 			std::vector<float> data(N);
 			for (int i = 0; i < N; ++i) {
@@ -209,7 +209,7 @@ struct Main {
 		}
 
 		// Animated bar graph (spectrum)
-		if (world.IsAlive(graphBar)) {
+		if (ecs_context.IsAlive(graphBar)) {
 			constexpr int N = 32;
 			std::vector<float> bars(N);
 			for (int i = 0; i < N; ++i) {
@@ -224,11 +224,11 @@ struct Main {
 		ui.SetText(lblPoolInfo,
 			std::format("Pool \"{}\"  {} entries  {:.0f}% loaded",
 				uiPool.GetName(), uiPool.Size(), uiPool.LoadingProgress() * 100.f));
-		ui.SetText(lblEcsCount, std::format("ECS entities: {}", world.EntityCount()));
+		ui.SetText(lblEcsCount, std::format("ECS entities: {}", ecs_context.EntityCount()));
 
 		{
 			std::string hov = "(none)", foc = "(none)";
-			world.Each<SDL::UI::Widget, SDL::UI::WidgetState>(
+			ecs_context.Each<SDL::UI::Widget, SDL::UI::WidgetState>(
 				[&](SDL::ECS::EntityId, SDL::UI::Widget& w, SDL::UI::WidgetState& s) {
 					if (s.hovered) hov = w.name;
 					if (s.focused) foc = w.name;
@@ -308,6 +308,7 @@ struct Main {
 		pages[2] = _BuildInputScrollPage();
 		pages[3] = _BuildImageCanvasPage();
 		pages[4] = _BuildTextListsPage();
+		pages[5] = _BuildGridPage();
 
 		for (int i = 0; i < kPageCount; ++i) {
 			content.Child(pages[i]);
@@ -794,7 +795,7 @@ struct Main {
 			});
 
 		// Pre-colour the first word of each bullet in a different colour
-		if (auto* td = world.Get<SDL::UI::TextAreaData>(ta.Id())) {
+		if (auto* td = ecs_context.Get<SDL::UI::TextAreaData>(ta.Id())) {
 			auto addSpan = [&](int start, int end, SDL::Color col){
 				td->spans.push_back({start, end, {false, false, col}});
 			};
@@ -912,6 +913,137 @@ struct Main {
 			_RightCol("tl_r").Children(cardGl, cardGb)
 		);
 		page.Child(cols);
+		return page;
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════════
+	// Page 6 — Grid: Layout::InGrid avec positionnement et spanning de cellules
+	// ══════════════════════════════════════════════════════════════════════════════
+
+	SDL::ECS::EntityId _BuildGridPage() {
+		using namespace SDL::UI;
+		auto page = _Page("page_grid");
+
+		// ── Section 1 : grille fixe 4 colonnes, auto-placement ───────────────────
+		{
+			auto card = ui.Card("card_auto_grid");
+			card.Child(ui.SectionTitle("Grille 4 colonnes — placement automatique"));
+
+			// GridSizing::Fixed : colonnes/lignes de taille égale (conteneur / count).
+			// GridLines::Both   : lignes de séparation horizontales + verticales.
+			auto grid = ui.Grid("auto_grid", /*columns=*/4, /*gap=*/6.f, /*pad=*/6.f)
+				.W(Value::Pcw(100))
+				.GridColSizing(GridSizing::Fixed)
+				.GridRowSizing(GridSizing::Content)
+				.GridLineStyle(GridLines::Both)
+				.GridLineColor({60, 65, 95, 180})
+				.GridLineThickness(1.f)
+				.Tooltip("4 colonnes — les 12 widgets sont placés automatiquement\nleft-to-right, top-to-bottom");
+
+			const SDL::Color cellColors[] = {
+				pal::ACCENT, pal::TEAL, pal::GREEN, pal::ORANGE,
+				pal::PURPLE, pal::RED,  pal::WHITE, pal::GREY,
+			};
+			for (int i = 0; i < 12; ++i) {
+				SDL::Color col = cellColors[i % 8];
+				grid.Child(
+					ui.Label(std::format("auto_{}", i), std::format("#{}", i))
+						.Padding(10).TextColor(col)
+						.AlignH(Align::Center)
+						.WithStyle([](Style &s){ s.bgColor = {25,26,38,255}; s.radius = {3,3,3,3}; })
+				);
+			}
+			card.Child(grid);
+			page.Child(card);
+		}
+
+		// ── Section 2 : placement explicite + spanning ───────────────────────────
+		{
+			auto card = ui.Card("card_span_grid");
+			card.Child(ui.SectionTitle("Grille 4×3 — placement explicite et colspan/rowspan"));
+
+			// GridSizing::Content : chaque colonne/ligne s'adapte à son contenu.
+			auto grid = ui.Grid("span_grid", /*columns=*/4, /*gap=*/8.f, /*pad=*/8.f)
+				.W(Value::Pcw(100))
+				.GridColSizing(GridSizing::Content)
+				.GridRowSizing(GridSizing::Content)
+				.GridLineStyle(GridLines::Both)
+				.GridLineColor({55, 60, 90, 160})
+				.Tooltip("Placement explicite via .Cell(col, row, colSpan, rowSpan)");
+
+			// Ligne 0 : 3 cellules simples + 1 cellule span col=2
+			grid.Child(ui.Button("b00", "Col 0,0").Padding(8), 0, 0);
+			grid.Child(ui.Button("b10", "Col 1,0").Padding(8), 1, 0);
+			// Span horizontal : occupe les colonnes 2 et 3 sur la ligne 0
+			grid.Child(
+				ui.Label("span_h", "Span col 2-3 (colSpan=2)")
+					.Padding(8).AlignH(Align::Center).TextColor(pal::ACCENT)
+					.WithStyle([](Style &s){ s.bgColor = {30,50,90,200}; s.radius = {4,4,4,4}; }),
+				/*col=*/2, /*row=*/0, /*colSpan=*/2, /*rowSpan=*/1
+			);
+
+			// Ligne 1 : 4 cellules simples
+			for (int c = 0; c < 4; ++c) {
+				grid.Child(
+					ui.Label(std::format("l1_{}", c), std::format("L1 C{}", c))
+						.Padding(8).AlignH(Align::Center)
+						.WithStyle([](Style &s){ s.bgColor = {28,30,44,255}; }),
+					c, 1
+				);
+			}
+
+			// Ligne 2 : cellule normale + span vertical (rowSpan=2 sur lignes 2-3)
+			grid.Child(ui.Toggle("tog_20", "Toggle").Padding(8), 0, 2);
+			grid.Child(ui.Label("l21", "Cell 1,2").Padding(8).AlignH(Align::Center), 1, 2);
+			// Span vertical : occupe les lignes 2 et 3, colonne 2
+			grid.Child(
+				ui.Label("span_v", "Span\nrows 2-3\n(rowSpan=2)")
+					.Padding(8).AlignH(Align::Center).TextColor(pal::GREEN)
+					.WithStyle([](Style &s){ s.bgColor = {20,55,35,210}; s.radius = {4,4,4,4}; }),
+				/*col=*/2, /*row=*/2, /*colSpan=*/1, /*rowSpan=*/2
+			);
+			grid.Child(ui.Label("l22", "Cell 3,2").Padding(8).AlignH(Align::Center), 3, 2);
+
+			// Ligne 3 : 2 cellules + span vertical déjà occupé en col 2
+			grid.Child(ui.Label("l30", "Cell 0,3").Padding(8).AlignH(Align::Center), 0, 3);
+			grid.Child(ui.Label("l31", "Cell 1,3").Padding(8).AlignH(Align::Center), 1, 3);
+			grid.Child(ui.Label("l33", "Cell 3,3").Padding(8).AlignH(Align::Center), 3, 3);
+
+			card.Child(grid);
+			page.Child(card);
+		}
+
+		// ── Section 3 : grille fixe, taille égale, lignes uniquement en lignes ──
+		{
+			auto card = ui.Card("card_row_lines");
+			card.Child(ui.SectionTitle("Grille 3 colonnes — GridLines::Rows, taille Fixed"));
+
+			auto grid = ui.Grid("row_lines_grid", /*columns=*/3, /*gap=*/6.f, /*pad=*/6.f)
+				.W(Value::Pcw(100))
+				.GridSizingMode(GridSizing::Fixed, GridSizing::Fixed)
+				.GridLineStyle(GridLines::Rows)
+				.GridLineColor({90, 95, 130, 200})
+				.GridLineThickness(2.f);
+
+			const char* labels[] = {
+				"Nom",     "Valeur",  "Unité",
+				"Largeur", "320",     "px",
+				"Hauteur", "180",     "px",
+				"FPS",     "60",      "Hz",
+				"Opacité", "100",     "%",
+			};
+			for (int i = 0; i < 15; ++i) {
+				SDL::Color tc = (i < 3) ? pal::ACCENT : pal::WHITE;
+				grid.Child(
+					ui.Label(std::format("rl_{}", i), labels[i])
+						.Padding(6).TextColor(tc)
+						.WithStyle([i](Style &s){ if (i < 3) s.bgColor = {22,28,48,255}; })
+				);
+			}
+			card.Child(grid);
+			page.Child(card);
+		}
+
 		return page;
 	}
 

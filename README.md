@@ -32,12 +32,14 @@ On top of these thin wrappers the library also provides several high-level syste
 | SDL3 | 3.x |
 | SDL3\_image *(optional)* | 3.x |
 | SDL3\_mixer *(optional)* | 3.x |
+| SDL3\_net *(optional)* | 3.x |
 | SDL3\_ttf *(optional)* | 3.x |
 
 Optional satellite libraries are enabled by defining the corresponding macro before the main include:
 
 ```cpp
 #define SDL3PP_ENABLE_MIXER
+#define SDL3PP_ENABLE_NET
 #define SDL3PP_ENABLE_TTF
 #include <SDL3pp/SDL3pp.h>
 ```
@@ -206,7 +208,7 @@ struct Main {
 |---|---|
 | `SDL3pp_ecs.h` | Sparse-set Entity Component System with O(1) add/get/remove, archetype queries and a system registry |
 | `SDL3pp_scene.h` | 2D scene graph built on the ECS: `Transform2D` propagation, `Sprite` z-ordering, `SceneCamera`, tweens, signals |
-| `SDL3pp_ui.h` | Retained-mode UI framework backed by the ECS: full layout engine (Flexbox-inspired), widgets (Button, Label, Slider, Toggle, Input, TextArea, Canvas, …) and a responsive value system (`Px`, `Pw`, `Ph`, `Auto`, …) |
+| `SDL3pp_ui.h` | Retained-mode UI framework backed by the ECS: full layout engine (Flexbox-inspired + 2-D grid), widgets (Button, Label, Slider, Toggle, Input, TextArea, Canvas, …), a responsive value system (`Px`, `Pw`, `Ph`, `Auto`, …) and per-widget `minWidth` / `maxWidth` / `minHeight` / `maxHeight` constraints |
 | `SDL3pp_resources.h` | Async resource pool with ref-counting (`ResourceHandle<T>`), background loading and optional progress tracking |
 | `SDL3pp_math3D.h` | 3D math: vectors, matrices, quaternions, frustums |
 | `SDL3pp_surfaceFilters.h` | CPU-side image filters (blur, sharpen, colour matrix, …) |
@@ -239,7 +241,7 @@ struct Main {
 | `10_geometry.cpp` | `RenderGeometry` — custom vertex / colour / UV geometry |
 | `11_color_mods.cpp` | `SetColorMod` / `SetAlphaMod` — per-texture colour and alpha modulation |
 | `12_scene_graph.cpp` | ECS + scene graph: parent–child hierarchy, `Transform2D` propagation, orbiting sprites, `SceneCamera` zoom/pan |
-| `13_ui.cpp` | Retained-mode UI: buttons, sliders, labels, layout engine |
+| `13_ui.cpp` | Retained-mode UI — 6-page showcase: basics (Label, Button, Toggle, Radio), controls (Slider, Knob, Progress), input & scroll, image & canvas, text & lists, **grid layout** (`Layout::InGrid`, auto-placement, col/row spanning, `GridSizing`, `GridLines`) |
 | `14_viewport.cpp` | `SetViewport` — split-screen viewport rendering |
 | `15_cliprect.cpp` | `SetClipRect` — scissor rectangle |
 | `17_read_pixels.cpp` | `ReadPixels` — reading back rendered pixel data |
@@ -299,13 +301,10 @@ struct Main {
 |---|---|
 | `01_snake.cpp` | Full Snake game built with only the core renderer and the callback main loop |
 | `02_woodeneye.cpp` | First-person shooter demo: GPU-accelerated software-style raycaster, textured floor and crates, physical bullet simulation, Sutherland–Hodgman near-plane clipping, painter's-algorithm depth sort, ECS, scene graph, SDL3\_ttf HUD, SDL3\_mixer audio, retained-mode UI (menu / game-over / HUD) |
-
-#### `examples/demo_plus/` — Advanced UI demos
-
-| File | What it demonstrates |
-|---|---|
-| `01_text.cpp` | `RenderDebugText`-based interactive text canvas |
-| `02_hexedit.cpp` | Full hex editor built with `SDL3pp_ui.h`: toolbar, scrollable hex/ASCII canvas, `TextArea` with rich-text spans (bold / italic / colour), file-open dialog, drag-and-drop |
+| `03_tile_editor.cpp` | Tile & map editor: smart tilesets (auto-tile / neighbour-aware), multi-layer editing (Pencil, Brush, Fill, Erase, Select), object layers (Rect, Ellipse, Polygon, Tile), pan/zoom canvas, Undo/Redo, XML import/export via `SDL3pp_dataScripts`, orthogonal / isometric / hexagonal maps, file dialogs |
+| `04_text.cpp` | Interactive text canvas using `RenderDebugText` |
+| `05_hexedit.cpp` | Full hex editor built with `SDL3pp_ui.h`: toolbar, scrollable hex/ASCII canvas rendered via `Canvas` widget, `TextArea` with rich-text spans (bold / italic / colour), file-open dialog, drag-and-drop |
+| `06_video_player.cpp` | VLC-like video player using FFmpeg: MP4 / MKV / AVI / WebM / MP3 / FLAC playback via streaming texture, multi-track audio & subtitle selection, seek bar, volume control, loop mode, subtitle overlay, metadata viewer, stream info panel, collapsible side panel, immersive fullscreen |
 
 #### `examples/` — Standalone examples
 
@@ -357,13 +356,16 @@ Au-delà des enveloppes légères, la bibliothèque propose plusieurs systèmes 
 | SDL3 | 3.x |
 | SDL3\_image *(optionnel)* | 3.x |
 | SDL3\_mixer *(optionnel)* | 3.x |
+| SDL3\_net *(optionnel)* | 3.x |
 | SDL3\_ttf *(optionnel)* | 3.x |
 
 Les bibliothèques satellite optionnelles sont activées en définissant la macro correspondante avant l'inclusion principale :
 
 ```cpp
 #define SDL3PP_ENABLE_MIXER
+#define SDL3PP_ENABLE_NET
 #define SDL3PP_ENABLE_TTF
+#define SDL3PP_ENABLE_NET
 #include <SDL3pp/SDL3pp.h>
 ```
 
@@ -531,7 +533,7 @@ struct Main {
 |---|---|
 | `SDL3pp_ecs.h` | Système entité-composant (ECS) à ensemble creux avec ajout/accès/suppression en O(1), requêtes par archétype et registre de systèmes |
 | `SDL3pp_scene.h` | Graphe de scène 2D construit sur l'ECS : propagation de `Transform2D`, tri en Z des `Sprite`, `SceneCamera`, tweens, signaux |
-| `SDL3pp_ui.h` | Framework d'interface en mode retenu adossé à l'ECS : moteur de mise en page complet (inspiré de Flexbox), widgets (Button, Label, Slider, Toggle, Input, TextArea, Canvas, …) et système de valeurs réactives (`Px`, `Pw`, `Ph`, `Auto`, …) |
+| `SDL3pp_ui.h` | Framework d'interface en mode retenu adossé à l'ECS : moteur de mise en page complet (inspiré de Flexbox + grille 2D `Layout::InGrid`), widgets (Button, Label, Slider, Toggle, Input, TextArea, Canvas, …), système de valeurs réactives (`Px`, `Pw`, `Ph`, `Auto`, …) et contraintes de taille par widget (`minWidth` / `maxWidth` / `minHeight` / `maxHeight`) |
 | `SDL3pp_resources.h` | Pool de ressources asynchrone avec comptage de références (`ResourceHandle<T>`), chargement en arrière-plan et suivi optionnel de la progression |
 | `SDL3pp_math3D.h` | Mathématiques 3D : vecteurs, matrices, quaternions, frustums |
 | `SDL3pp_surfaceFilters.h` | Filtres d'image côté CPU (flou, netteté, matrice de couleur, …) |
@@ -564,7 +566,7 @@ struct Main {
 | `10_geometry.cpp` | `RenderGeometry` — géométrie personnalisée avec sommets, couleurs et UV |
 | `11_color_mods.cpp` | `SetColorMod` / `SetAlphaMod` — modulation couleur et alpha par texture |
 | `12_scene_graph.cpp` | ECS + graphe de scène : hiérarchie parent–enfant, propagation de `Transform2D`, sprites en orbite, zoom/panoramique `SceneCamera` |
-| `13_ui.cpp` | Interface en mode retenu : boutons, curseurs, étiquettes, moteur de mise en page |
+| `13_ui.cpp` | Interface en mode retenu — vitrine en 6 pages : bases (Label, Button, Toggle, Radio), contrôles (Slider, Knob, Progress), saisie et défilement, image et canevas, texte et listes, **mise en page en grille** (`Layout::InGrid`, placement automatique, fusion de colonnes/lignes, `GridSizing`, `GridLines`) |
 | `14_viewport.cpp` | `SetViewport` — rendu multi-fenêtres |
 | `15_cliprect.cpp` | `SetClipRect` — rectangle de découpe (scissor) |
 | `17_read_pixels.cpp` | `ReadPixels` — relecture des données pixel rendues |
@@ -624,13 +626,10 @@ struct Main {
 |---|---|
 | `01_snake.cpp` | Jeu Snake complet utilisant uniquement le renderer cœur et la boucle principale par rappels |
 | `02_woodeneye.cpp` | Démo de jeu de tir à la première personne : raycaster dans le style logiciel accéléré par GPU, sol et caisses texturés, simulation physique des projectiles, découpe near-plane Sutherland–Hodgman, tri de profondeur par algorithme du peintre, ECS, graphe de scène, HUD SDL3\_ttf, audio SDL3\_mixer, interface en mode retenu (menu / game-over / HUD) |
-
-#### `examples/demo_plus/` — Démonstrations UI avancées
-
-| Fichier | Ce qu'il démontre |
-|---|---|
-| `01_text.cpp` | Canevas de texte interactif basé sur `RenderDebugText` |
-| `02_hexedit.cpp` | Éditeur hexadécimal complet construit avec `SDL3pp_ui.h` : barre d'outils, canevas hex/ASCII défilant, `TextArea` avec texte riche (gras / italique / couleur), boîte de dialogue d'ouverture de fichier, glisser-déposer |
+| `03_tile_editor.cpp` | Éditeur de tuiles et de cartes : tilesets intelligents (auto-tuile / placement sensible aux voisins), édition multi-couches (Crayon, Brosse, Remplissage, Gomme, Sélection), couches d'objets (Rect, Ellipse, Polygone, Tile), panoramique/zoom, Annuler/Rétablir, import/export XML via `SDL3pp_dataScripts`, cartes orthogonales / isométriques / hexagonales, boîtes de dialogue fichiers |
+| `04_text.cpp` | Canevas de texte interactif basé sur `RenderDebugText` |
+| `05_hexedit.cpp` | Éditeur hexadécimal complet construit avec `SDL3pp_ui.h` : barre d'outils, canevas hex/ASCII défilant rendu via widget `Canvas`, `TextArea` avec texte riche (gras / italique / couleur), boîte de dialogue d'ouverture de fichier, glisser-déposer |
+| `06_video_player.cpp` | Lecteur vidéo de type VLC via FFmpeg : lecture MP4 / MKV / AVI / WebM / MP3 / FLAC par texture de flux, sélection de pistes audio et sous-titres, barre de défilement temporel, contrôle du volume, mode boucle, superposition de sous-titres, visionneuse de métadonnées, panneau d'informations sur les flux, panneau latéral repliable, plein écran immersif |
 
 #### `examples/` — Exemples autonomes
 

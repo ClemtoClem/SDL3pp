@@ -77,7 +77,7 @@ struct LogContext {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct LogEntry {
-	LogContext  ctx;
+	LogContext  ecs_context;
 	std::string message;
 	std::string timestamp;
 };
@@ -222,7 +222,7 @@ private:
 class ILogSink {
 public:
 	virtual ~ILogSink() = default;
-	virtual void Write(const LogContext& ctx, const std::string& msg) = 0;
+	virtual void Write(const LogContext& ecs_context, const std::string& msg) = 0;
 	virtual void Flush() {}
 };
 
@@ -232,7 +232,7 @@ public:
 	virtual void AddSink(std::shared_ptr<ILogSink> sink)                      = 0;
 	virtual bool IsEnabled(LogLevel lv, LogCategory cat = LogCategory::App)
 															   const noexcept = 0;
-	virtual void Dispatch(const LogContext& ctx, const std::string& msg)      = 0;
+	virtual void Dispatch(const LogContext& ecs_context, const std::string& msg)      = 0;
 };
 
 } // namespace core

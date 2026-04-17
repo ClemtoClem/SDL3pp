@@ -12,7 +12,7 @@ namespace game {
 
 namespace Systems {
 
-using World = SDL::ECS::World;
+using Context = SDL::ECS::Context;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -23,9 +23,9 @@ inline float dist2(float ax, float ay, float bx, float by) noexcept {
 	return dx*dx + dy*dy;
 }
 
-// Convert a box in source-frame pixels to world-unit bounds centred on (cx, cy).
+// Convert a box in source-frame pixels to ecs_context-unit bounds centred on (cx, cy).
 // boxTileSize = source frame size (e.g. 64 px per tile in the sprite sheet)
-// worldScale  = 1 world unit = worldScale source pixels
+// ecs_contextScale  = 1 ecs_context unit = ecs_contextScale source pixels
 inline SDL::FBox BoxToWorld(const SDL::FRect& b, float cx, float cy, int boxTileSize) noexcept {
 	float half  = boxTileSize * 0.5f;
 	float left  = cx + (b.x - half) / boxTileSize;
@@ -39,8 +39,8 @@ inline SDL::FBox BoxToWorld(const SDL::FRect& b, float cx, float cy, int boxTile
 // PlayerInput — reads keyboard and sets velocity for the player entity
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void PlayerInput(World& world, std::span<const bool> keys) {
-	world.Each<PlayerTag, Transform, Velocity, DirectionComp, SpeedComp, SpriteAnim>(
+inline void PlayerInput(Context& ecs_context, std::span<const bool> keys) {
+	ecs_context.Each<PlayerTag, Transform, Velocity, DirectionComp, SpeedComp, SpriteAnim>(
 		[&](SDL::ECS::EntityId, PlayerTag&, Transform&,
 			Velocity& vel, DirectionComp& dir, SpeedComp& spd, SpriteAnim& anim) {
 
@@ -67,8 +67,8 @@ inline void PlayerInput(World& world, std::span<const bool> keys) {
 // Collision — resolve tile collisions; update CollisionResult facing
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void Collision(World& world, const core::MapData& map) {
-	world.Each<Transform, Velocity, DirectionComp, CollisionBoxes>(
+inline void Collision(Context& ecs_context, const core::MapData& map) {
+	ecs_context.Each<Transform, Velocity, DirectionComp, CollisionBoxes>(
 		[&](SDL::ECS::EntityId, Transform& t, Velocity& vel,
 			DirectionComp& dir, CollisionBoxes& boxes) {
 
@@ -103,8 +103,8 @@ inline void Collision(World& world, const core::MapData& map) {
 // FacingCollision — resolve which tile is directly in front of each entity
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void FacingCollision(World& world, const core::MapData& map) {
-	world.Each<Transform, DirectionComp, CollisionResult>(
+inline void FacingCollision(Context& ecs_context, const core::MapData& map) {
+	ecs_context.Each<Transform, DirectionComp, CollisionResult>(
 		[&](SDL::ECS::EntityId, Transform& t, DirectionComp& dir, CollisionResult& res) {
 		float fx = t.x, fy = t.y;
 		switch (dir.dir) {
@@ -121,8 +121,8 @@ inline void FacingCollision(World& world, const core::MapData& map) {
 // Animation — advance sprite frame
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void Animation(World& world) {
-	world.Each<SpriteAnim, DirectionComp>(
+inline void Animation(Context& ecs_context) {
+	ecs_context.Each<SpriteAnim, DirectionComp>(
 		[&](SDL::ECS::EntityId, SpriteAnim& anim, DirectionComp& dir) {
 		if (!anim.moving) {
 			anim.currentCol = anim.firstIsStand ? 0 : 1;
@@ -144,15 +144,15 @@ inline void Animation(World& world) {
 // MobAI — state machine for non-player entities
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void MobAISystem(World& world, float dt) {
+inline void MobAISystem(Context& ecs_context, float dt) {
 	// Find player position
 	float playerX = -1.f, playerY = -1.f;
 	SDL::ECS::EntityId playerId = SDL::ECS::NullEntity;
-	world.Each<PlayerTag, Transform>([&](SDL::ECS::EntityId eid, PlayerTag&, Transform& pt) {
+	ecs_context.Each<PlayerTag, Transform>([&](SDL::ECS::EntityId eid, PlayerTag&, Transform& pt) {
 		playerX = pt.x; playerY = pt.y; playerId = eid;
 	});
 
-	world.Each<MobAI, Transform, Velocity, DirectionComp, SpriteAnim>(
+	ecs_context.Each<MobAI, Transform, Velocity, DirectionComp, SpriteAnim>(
 		[&](SDL::ECS::EntityId, MobAI& ai, Transform& t,
 			Velocity& vel, DirectionComp& dir, SpriteAnim& anim) {
 
@@ -224,10 +224,10 @@ inline void MobAISystem(World& world, float dt) {
 				}
 				if (ai.attackCooldown <= 0.f) {
 					// Deal damage to player
-					if (world.IsAlive(playerId)) {
-						if (auto* ph = world.Get<HealthComp>(playerId)) {
+					if (ecs_context.IsAlive(playerId)) {
+						if (auto* ph = ecs_context.Get<HealthComp>(playerId)) {
 							if (!ph->sick && ph->invincibleTimer <= 0.f) {
-								ph->hp = std::max(0.f, ph->hp - 5.f);
+								ph->hp = SDL::Max(0.f, ph->hp - 5.f);
 								ph->invincibleTimer = 0.5f;
 							}
 						}
@@ -245,8 +245,8 @@ inline void MobAISystem(World& world, float dt) {
 // Health — regen / damage over time, invincibility timer
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void Health(World& world, float dt) {
-	world.Each<HealthComp>([&](SDL::ECS::EntityId, HealthComp& h) {
+inline void Health(Context& ecs_context, float dt) {
+	ecs_context.Each<HealthComp>([&](SDL::ECS::EntityId, HealthComp& h) {
 		if (!h.enabled) return;
 		h.invincibleTimer = std::max(0.f, h.invincibleTimer - dt);
 		if (h.sick)
@@ -260,8 +260,8 @@ inline void Health(World& world, float dt) {
 // AutoWalkSystem — move entities on autonomous paths (NPCs)
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void AutoWalkSystem(World& world) {
-	world.Each<AutoWalk, Transform, Velocity, DirectionComp, SpriteAnim>(
+inline void AutoWalkSystem(Context& ecs_context) {
+	ecs_context.Each<AutoWalk, Transform, Velocity, DirectionComp, SpriteAnim>(
 		[&](SDL::ECS::EntityId, AutoWalk& aw, Transform& t,
 			Velocity& vel, DirectionComp& dir, SpriteAnim& anim) {
 		if (!aw.active) { vel.vx = vel.vy = 0.f; return; }
@@ -283,9 +283,9 @@ inline void AutoWalkSystem(World& world) {
 // CameraFollow — move camera to track player
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void CameraFollow(World& world, core::Camera& cam,
+inline void CameraFollow(Context& ecs_context, core::Camera& cam,
 						  int mapW, int mapH, float lerp = 0.12f) {
-	world.Each<PlayerTag, Transform>([&](SDL::ECS::EntityId, PlayerTag&, Transform& t) {
+	ecs_context.Each<PlayerTag, Transform>([&](SDL::ECS::EntityId, PlayerTag&, Transform& t) {
 		cam.Follow(t.x, t.y, mapW, mapH, lerp);
 	});
 }
@@ -294,17 +294,17 @@ inline void CameraFollow(World& world, core::Camera& cam,
 // RunAll — convenience: run every system in order for one game tick
 // ─────────────────────────────────────────────────────────────────────────────
 
-inline void RunAll(World& world, const core::MapData& map,
+inline void RunAll(Context& ecs_context, const core::MapData& map,
 				   core::Camera& cam, float dt) {
 	std::span<const bool> keys = SDL::GetKeyboardState();
-	PlayerInput(world, keys);
-	AutoWalkSystem(world);
-	Collision(world, map);
-	FacingCollision(world, map);
-	Animation(world);
-	MobAISystem(world, dt);
-	Health(world, dt);
-	CameraFollow(world, cam, map.width, map.height);
+	PlayerInput(ecs_context, keys);
+	AutoWalkSystem(ecs_context);
+	Collision(ecs_context, map);
+	FacingCollision(ecs_context, map);
+	Animation(ecs_context);
+	MobAISystem(ecs_context, dt);
+	Health(ecs_context, dt);
+	CameraFollow(ecs_context, cam, map.width, map.height);
 }
 
 } // namespace Systems
