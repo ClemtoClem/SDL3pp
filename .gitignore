@@ -1,7 +1,7 @@
 /.claude
 /.vscode
-/Game
-/SDL3pp_v1.zip
 /build
-/logs
 /docs
+/logs
+/Game
+/Doxyfile
