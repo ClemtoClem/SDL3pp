@@ -1,6 +1,6 @@
 # SDL3pp
 
-> **C++20 RAII wrappers for SDL3, SDL3\_image, SDL3\_mixer and SDL3\_ttf**
+> **C++23 RAII wrappers for SDL3, SDL3\_image, SDL3\_mixer and SDL3\_ttf**
 
 ---
 
@@ -12,12 +12,12 @@
 
 ### Overview
 
-**SDL3pp** is a modern C++20 header-only wrapper library that brings idiomatic C++ to the SDL3 ecosystem. It wraps the SDL3 C API — as well as the SDL3\_image, SDL3\_mixer and SDL3\_ttf satellite libraries — into safe, expressive, zero-overhead abstractions built on:
+**SDL3pp** is a modern C++23 header-only wrapper library that brings idiomatic C++ to the SDL3 ecosystem. It wraps the SDL3 C API — as well as the SDL3\_image, SDL3\_mixer and SDL3\_ttf satellite libraries — into safe, expressive, zero-overhead abstractions built on:
 
 - **RAII** — all SDL resources are owned by move-only C++ objects; destructors release them automatically
 - **Move semantics** — resources can be transferred but never accidentally copied
 - **Non-owning references** — `Ref<T>` gives you a safe, non-owning view without extra allocation
-- **C++20 concepts** — template constraints catch misuse at compile time
+- **C++23 concepts** — template constraints catch misuse at compile time
 - **Namespaced API** — everything lives under the `SDL::` namespace (sub-namespaces for satellite libs)
 
 On top of these thin wrappers the library also provides several high-level systems — an ECS, a 2D scene graph, a retained-mode UI framework, async resource loading and 3D math — so you can write a full game or interactive application without leaving the SDL3pp API.
@@ -28,7 +28,7 @@ On top of these thin wrappers the library also provides several high-level syste
 
 | Requirement | Version |
 |---|---|
-| C++ standard | C++20 or later |
+| C++ standard | C++23 or later |
 | SDL3 | 3.x |
 | SDL3\_image *(optional)* | 3.x |
 | SDL3\_mixer *(optional)* | 3.x |
@@ -190,6 +190,7 @@ struct Main {
 | `SDL3pp_image.h` | SDL3\_image | Load PNG, JPEG, BMP, WebP and other image formats into `Surface` or `Texture` |
 | `SDL3pp_mixer.h` | SDL3\_mixer | Multi-channel audio mixer: music tracks, sound chunks, effects |
 | `SDL3pp_ttf.h` | SDL3\_ttf | TrueType / OpenType font rendering to `Surface` or `Texture`; text engines |
+| `SDL3pp_net.h` | SDL3\_net | Features for managing network and Internet connections |
 
 #### Memory management
 
@@ -336,12 +337,12 @@ struct Main {
 
 ### Vue d'ensemble
 
-**SDL3pp** est une bibliothèque C++20 d'en-têtes modernisant l'écosystème SDL3. Elle encapsule l'API C de SDL3 — ainsi que les bibliothèques satellite SDL3\_image, SDL3\_mixer et SDL3\_ttf — dans des abstractions sûres, expressives et sans surcoût, fondées sur :
+**SDL3pp** est une bibliothèque C++23 d'en-têtes modernisant l'écosystème SDL3. Elle encapsule l'API C de SDL3 — ainsi que les bibliothèques satellite SDL3\_image, SDL3\_mixer et SDL3\_ttf — dans des abstractions sûres, expressives et sans surcoût, fondées sur :
 
 - **RAII** — toutes les ressources SDL sont détenues par des objets C++ à propriété unique ; leurs destructeurs les libèrent automatiquement
 - **Sémantique de déplacement** — les ressources peuvent être transférées mais jamais copiées accidentellement
 - **Références non-propriétaires** — `Ref<T>` offre une vue sûre sans allocation supplémentaire
-- **Concepts C++20** — les contraintes de gabarits détectent les mauvais usages à la compilation
+- **Concepts C++23** — les contraintes de gabarits détectent les mauvais usages à la compilation
 - **API cloisonnée** — tout réside dans l'espace de noms `SDL::` (sous-espaces de noms pour les bibliothèques satellite)
 
 Au-delà des enveloppes légères, la bibliothèque propose plusieurs systèmes de haut niveau — un ECS, un graphe de scène 2D, un framework d'interface utilisateur en mode retenu, le chargement asynchrone de ressources et des mathématiques 3D — permettant d'écrire un jeu ou une application interactive complète sans quitter l'API SDL3pp.
@@ -352,7 +353,7 @@ Au-delà des enveloppes légères, la bibliothèque propose plusieurs systèmes 
 
 | Prérequis | Version |
 |---|---|
-| Standard C++ | C++20 ou supérieur |
+| Standard C++ | C++23 ou supérieur |
 | SDL3 | 3.x |
 | SDL3\_image *(optionnel)* | 3.x |
 | SDL3\_mixer *(optionnel)* | 3.x |
@@ -515,6 +516,7 @@ struct Main {
 | `SDL3pp_image.h` | SDL3\_image | Chargement de PNG, JPEG, BMP, WebP et autres formats vers `Surface` ou `Texture` |
 | `SDL3pp_mixer.h` | SDL3\_mixer | Mixeur audio multi-canaux : pistes musicales, morceaux sonores, effets |
 | `SDL3pp_ttf.h` | SDL3\_ttf | Rendu de polices TrueType / OpenType vers `Surface` ou `Texture` ; moteurs de texte |
+| `SDL3pp_net.h` | SDL3\_net | Fonctionnalités permettant de gérer les connexions réseau et Internet |
 
 #### Gestion de la mémoire
 

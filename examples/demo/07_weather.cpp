@@ -342,7 +342,7 @@ struct Main {
 
     static SDL::Window MakeWindow() {
         return SDL::CreateWindowAndRenderer(
-            "SDL3pp — Weather Forecast",
+            "SDL3pp - Weather Forecast",
             kWinSz, SDL_WINDOW_RESIZABLE, nullptr);
     }
 
@@ -523,7 +523,7 @@ struct Main {
             .PaddingH(24.f).PaddingV(16.f);
 
         // Big weather icon
-        id_cwIcon = ui.ImageWidget("cw_icon", "weather_sun", SDL::ImageFit::Contain)
+        id_cwIcon = ui.ImageWidget("cw_icon", "weather_sun", SDL::UI::ImageFit::Contain)
             .W(96.f).H(96.f);
         curCard.Child(id_cwIcon);
 
@@ -588,7 +588,7 @@ struct Main {
             card.Child(id_dayLabel[i]);
 
             id_dayIcon[i] = ui.ImageWidget("day_icon_" + idx, "weather_sun",
-                                           SDL::ImageFit::Contain)
+                                           SDL::UI::ImageFit::Contain)
                 .W(40.f).H(40.f);
             card.Child(id_dayIcon[i]);
 
