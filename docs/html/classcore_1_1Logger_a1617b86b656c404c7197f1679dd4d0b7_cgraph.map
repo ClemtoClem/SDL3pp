@@ -1,0 +1,7 @@
+<map id="core::Logger::Dispatch" name="core::Logger::Dispatch">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,35,172,60"/>
+<area shape="rect" id="Node000002" href="$namespacecore.html#abbc003c092a1f882d4cad6580cbaf2a5" title="Thread&#45;safe timestamp with millisecond precision." alt="" coords="220,5,375,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="172,33,206,28,207,33,172,38"/>
+<area shape="rect" id="Node000003" href="$classcore_1_1LogRingBuffer.html#a66651c011cec12ae49eaf3829046b5c5" title=" " alt="" coords="223,55,372,95"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="172,56,209,61,208,66,172,61"/>
+</map>

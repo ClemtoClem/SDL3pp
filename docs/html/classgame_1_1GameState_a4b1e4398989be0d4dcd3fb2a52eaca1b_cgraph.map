@@ -1,0 +1,25 @@
+<map id="game::GameState::Enter" name="game::GameState::Enter">
+<area shape="rect" id="Node000001" title="Called once when the state becomes active. ecs_context outlives the state." alt="" coords="5,105,188,131"/>
+<area shape="rect" id="Node000002" href="$classcore_1_1SaveManager.html#a161a4844c95c079d2fc7a4f215e79598" title=" " alt="" coords="246,80,433,105"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="188,106,232,101,233,106,188,111"/>
+<area shape="rect" id="Node000003" href="$classgame_1_1GameState.html#a4441e8a57726f4a071efdc5778a6a34c" title=" " alt="" coords="236,129,443,155"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="188,124,223,128,222,133,188,130"/>
+<area shape="rect" id="Node000004" href="$namespacecore.html#a28feb087829191e3ccba9f0ce2c6bf41" title=" " alt="" coords="541,104,659,129"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="443,129,527,121,528,126,443,135"/>
+<area shape="rect" id="Node000011" href="$structcore_1_1Camera.html#a40820e7bfa407c080424282ad73a2f76" title=" " alt="" coords="491,153,709,179"/>
+<area shape="poly" id="edge12_Node000003_Node000011" title=" " alt="" coords="443,149,477,152,477,157,443,154"/>
+<area shape="rect" id="Node000005" href="$namespacecore.html#a83ad8293ff82464d6ef59a9fa8751826" title=" " alt="" coords="780,29,927,55"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="638,101,757,63,785,56,787,61,758,69,639,106"/>
+<area shape="rect" id="Node000008" href="$namespacecore_1_1detail.html#a7ff51a3904fdcf6f5492f183058f6ba6" title=" " alt="" coords="757,79,949,104"/>
+<area shape="poly" id="edge9_Node000004_Node000008" title=" " alt="" coords="659,108,743,100,744,105,659,114"/>
+<area shape="rect" id="Node000009" href="$namespacecore.html#a66c2cabc6bd8a0e26592f5e6f4602096" title=" " alt="" coords="777,128,929,153"/>
+<area shape="poly" id="edge10_Node000004_Node000009" title=" " alt="" coords="659,120,764,130,763,135,659,125"/>
+<area shape="rect" id="Node000010" href="$namespacecore.html#ae4b3a09671787efe8cd48afbfaa30f0f" title=" " alt="" coords="782,177,925,203"/>
+<area shape="poly" id="edge11_Node000004_Node000010" title=" " alt="" coords="659,124,710,138,735,150,758,162,785,171,783,176,756,167,732,155,708,143,658,129"/>
+<area shape="rect" id="Node000006" href="$namespacecore_1_1detail.html#ae1ba7be0fa1612a5ab8eb1a14419f46c" title=" " alt="" coords="997,29,1191,55"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="927,39,983,39,983,45,927,45"/>
+<area shape="rect" id="Node000007" href="$namespacecore_1_1detail.html#a9be234731b8dd286a9bcb9ba2ede2945" title=" " alt="" coords="1239,29,1420,55"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="1191,48,1225,48,1225,54,1191,54"/>
+<area shape="poly" id="edge7_Node000007_Node000006" title=" " alt="" coords="1238,36,1205,36,1205,30,1238,31"/>
+<area shape="poly" id="edge8_Node000007_Node000007" title=" " alt="" coords="1291,31,1283,21,1287,11,1303,5,1329,3,1362,7,1375,16,1372,20,1360,11,1329,8,1304,10,1291,15,1288,20,1295,27"/>
+</map>

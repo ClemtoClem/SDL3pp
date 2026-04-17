@@ -1,0 +1,18 @@
+<map id="src/Core/SaveManager.hpp" name="src/Core/SaveManager.hpp">
+<area shape="rect" id="Node000001" title="Binary save/load for Polyadventure player progression." alt="" coords="197,5,391,31"/>
+<area shape="rect" id="Node000002" href="$GameState_8hpp.html" title=" " alt="" coords="5,152,196,177"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="265,40,205,81,115,154,112,150,202,77,262,36"/>
+<area shape="rect" id="Node000004" href="$IState_8hpp.html" title=" " alt="" coords="216,79,372,104"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="297,44,297,79,291,79,291,44"/>
+<area shape="rect" id="Node000005" href="$MenuState_8hpp.html" title=" " alt="" coords="497,152,685,177"/>
+<area shape="poly" id="edge10_Node000001_Node000005" title=" " alt="" coords="331,34,569,150,567,154,329,39"/>
+<area shape="rect" id="Node000003" href="$main_8cpp.html" title=" " alt="" coords="251,225,356,251"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="147,179,271,223,270,228,145,184"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="251,111,133,154,131,149,249,106"/>
+<area shape="poly" id="edge9_Node000004_Node000003" title=" " alt="" coords="278,117,263,146,260,161,262,177,276,203,293,224,289,227,271,206,257,178,255,161,258,144,273,114"/>
+<area shape="poly" id="edge5_Node000004_Node000005" title=" " alt="" coords="356,105,544,149,543,154,354,110"/>
+<area shape="rect" id="Node000006" href="$PrefaceState_8hpp.html" title=" " alt="" coords="272,152,473,177"/>
+<area shape="poly" id="edge7_Node000004_Node000006" title=" " alt="" coords="319,111,362,150,358,154,315,115"/>
+<area shape="poly" id="edge6_Node000005_Node000003" title=" " alt="" coords="533,183,351,228,349,223,531,178"/>
+<area shape="poly" id="edge8_Node000006_Node000003" title=" " alt="" coords="354,189,316,227,313,223,350,185"/>
+</map>

@@ -1,0 +1,30 @@
+<map id="game::Systems::RunAll" name="game::Systems::RunAll">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,179,179,204"/>
+<area shape="rect" id="Node000002" href="$namespacegame_1_1Systems.html#a9bc0736f8380d16c3f32a7dda952fe2f" title=" " alt="" coords="249,5,447,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="99,177,146,110,182,72,225,40,238,33,241,38,228,44,186,76,150,114,103,180"/>
+<area shape="rect" id="Node000003" href="$namespacegame_1_1Systems.html#a3cc1d36817f994480dd333ca35ca5f0b" title=" " alt="" coords="227,55,469,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="104,177,154,133,189,109,226,89,245,81,247,86,228,94,191,114,158,137,108,181"/>
+<area shape="rect" id="Node000004" href="$namespacegame_1_1Systems.html#ae3eb2e34dd633e3658d96e3008cf4ec5" title=" " alt="" coords="236,104,460,129"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="122,176,226,138,259,130,261,135,227,143,123,181"/>
+<area shape="rect" id="Node000006" href="$namespacegame_1_1Systems.html#a1d7254fd7827253bc1e319fac5566171" title=" " alt="" coords="255,153,441,179"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="178,180,241,174,241,179,179,185"/>
+<area shape="rect" id="Node000010" href="$namespacegame_1_1Systems.html#ab329a92e3e66460d91f346fc8d08e0fe" title=" " alt="" coords="234,203,462,228"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="179,197,221,201,220,206,178,202"/>
+<area shape="rect" id="Node000011" href="$namespacegame_1_1Systems.html#a7f21c9a4daf4aa498f0852757dec032c" title=" " alt="" coords="261,252,435,277"/>
+<area shape="poly" id="edge11_Node000001_Node000011" title=" " alt="" coords="126,201,227,237,266,246,264,252,226,242,124,207"/>
+<area shape="rect" id="Node000012" href="$namespacegame_1_1Systems.html#ad0755248d9ee352ff40fe1d9a6c1256e" title=" " alt="" coords="237,301,459,327"/>
+<area shape="poly" id="edge12_Node000001_Node000012" title=" " alt="" coords="109,202,159,244,192,267,228,286,251,295,249,300,226,291,189,272,155,248,105,206"/>
+<area shape="rect" id="Node000014" href="$namespacegame_1_1Systems.html#afede3b60b3f6abaf4634a0b7295837ea" title=" " alt="" coords="245,351,451,376"/>
+<area shape="poly" id="edge14_Node000001_Node000014" title=" " alt="" coords="103,203,150,268,186,305,228,336,244,344,242,348,225,340,183,309,146,271,99,206"/>
+<area shape="rect" id="Node000005" href="$structcore_1_1Camera.html#a7f13a68325b48919cf6923f91c7327e5" title="Smoothly follow a target, clamped so the viewport never shows beyond map edges." alt="" coords="541,55,700,80"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="418,101,536,80,537,85,419,107"/>
+<area shape="rect" id="Node000007" href="$namespacegame_1_1Systems.html#a911b4b23909cf923ac3eb7defd06a249" title=" " alt="" coords="517,104,724,129"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="418,151,536,129,537,135,419,156"/>
+<area shape="rect" id="Node000008" href="$structcore_1_1MapData.html#a8c8fe02e05d4bd0c4d1c3cf64e04bbaa" title=" " alt="" coords="519,203,723,228"/>
+<area shape="poly" id="edge7_Node000006_Node000008" title=" " alt="" coords="419,176,537,197,536,203,418,181"/>
+<area shape="rect" id="Node000009" href="$namespacecore.html#aac10d368f868b6fd5fcf417fa63af897" title=" " alt="" coords="558,153,683,179"/>
+<area shape="poly" id="edge8_Node000006_Node000009" title=" " alt="" coords="441,163,544,163,544,169,441,169"/>
+<area shape="poly" id="edge10_Node000010_Node000008" title=" " alt="" coords="462,213,505,213,505,218,462,218"/>
+<area shape="rect" id="Node000013" href="$namespacegame_1_1Systems.html#a83b0afa369252649aa6a52da6ea638de" title=" " alt="" coords="539,301,702,327"/>
+<area shape="poly" id="edge13_Node000012_Node000013" title=" " alt="" coords="459,311,525,311,525,317,459,317"/>
+</map>

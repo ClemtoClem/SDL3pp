@@ -1,0 +1,5 @@
+<map id="core::Camera::ScreenY" name="core::Camera::ScreenY">
+<area shape="rect" id="Node000001" title=" " alt="" coords="249,5,419,31"/>
+<area shape="rect" id="Node000002" href="$structcore_1_1Camera.html#a58072e0e68a3ecc994aa033ecccb4a5d" title="Returns true if a tile at (tx, ty) is inside (or near) the viewport." alt="" coords="5,5,201,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="235,21,201,21,201,15,235,15"/>
+</map>

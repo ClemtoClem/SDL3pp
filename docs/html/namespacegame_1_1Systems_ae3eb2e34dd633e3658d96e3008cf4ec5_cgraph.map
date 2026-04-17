@@ -1,0 +1,5 @@
+<map id="game::Systems::CameraFollow" name="game::Systems::CameraFollow">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,229,31"/>
+<area shape="rect" id="Node000002" href="$structcore_1_1Camera.html#a7f13a68325b48919cf6923f91c7327e5" title="Smoothly follow a target, clamped so the viewport never shows beyond map edges." alt="" coords="277,5,436,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="229,15,264,15,264,21,229,21"/>
+</map>

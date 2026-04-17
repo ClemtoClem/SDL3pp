@@ -1,0 +1,7 @@
+<map id="core::ILogSink" name="core::ILogSink">
+<area shape="rect" id="Node000001" title=" " alt="" coords="91,5,205,31"/>
+<area shape="rect" id="Node000002" href="$classcore_1_1ConsoleSink.html" title=" " alt="" coords="5,79,144,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="128,42,88,80,85,77,124,38"/>
+<area shape="rect" id="Node000003" href="$classcore_1_1FileSink.html" title=" " alt="" coords="168,79,277,104"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="172,38,212,77,209,80,168,42"/>
+</map>

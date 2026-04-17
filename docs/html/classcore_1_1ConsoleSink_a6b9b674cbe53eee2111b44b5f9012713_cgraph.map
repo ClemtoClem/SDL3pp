@@ -1,0 +1,13 @@
+<map id="core::ConsoleSink::Write" name="core::ConsoleSink::Write">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,97,152,137"/>
+<area shape="rect" id="Node000002" href="$namespacecore.html#abbc003c092a1f882d4cad6580cbaf2a5" title="Thread&#45;safe timestamp with millisecond precision." alt="" coords="219,5,373,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="105,94,148,66,199,40,219,32,221,37,201,44,151,71,108,99"/>
+<area shape="rect" id="Node000003" href="$namespacecore.html#a4d1cb3703f26ffeac6fc49e8d8f0a3c4" title=" " alt="" coords="205,55,387,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="151,98,225,81,227,86,153,103"/>
+<area shape="rect" id="Node000004" href="$namespacecore.html#ae394b8fe69754e01fa12a3b97f93c9fe" title=" " alt="" coords="200,104,392,129"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="152,114,186,114,186,119,152,119"/>
+<area shape="rect" id="Node000005" href="$namespacecore.html#a3535bdad0048c70ee96e3c452f66d183" title=" " alt="" coords="217,153,375,179"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="153,131,227,148,225,153,151,136"/>
+<area shape="rect" id="Node000006" href="$namespacecore.html#a583acd9b5379d8d206fbe19c5b4ece0b" title=" " alt="" coords="212,203,380,228"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="109,135,152,162,201,188,225,196,223,201,199,192,149,166,106,139"/>
+</map>

@@ -1,0 +1,7 @@
+<map id="core::detail::BridgeSection" name="core::detail::BridgeSection">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,29,199,55"/>
+<area shape="rect" id="Node000002" href="$namespacecore_1_1detail.html#a9be234731b8dd286a9bcb9ba2ede2945" title=" " alt="" coords="247,29,428,55"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="199,48,233,48,233,54,199,54"/>
+<area shape="poly" id="edge2_Node000002_Node000001" title=" " alt="" coords="246,36,213,36,213,30,246,31"/>
+<area shape="poly" id="edge3_Node000002_Node000002" title=" " alt="" coords="299,31,291,21,295,11,311,5,337,3,370,7,383,16,380,20,368,11,337,8,312,10,299,15,296,20,303,27"/>
+</map>

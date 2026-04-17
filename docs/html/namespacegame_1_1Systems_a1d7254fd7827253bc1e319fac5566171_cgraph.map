@@ -1,0 +1,9 @@
+<map id="game::Systems::Collision" name="game::Systems::Collision">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,55,192,80"/>
+<area shape="rect" id="Node000002" href="$namespacegame_1_1Systems.html#a911b4b23909cf923ac3eb7defd06a249" title=" " alt="" coords="240,5,447,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="162,52,265,31,267,36,163,57"/>
+<area shape="rect" id="Node000003" href="$structcore_1_1MapData.html#a8c8fe02e05d4bd0c4d1c3cf64e04bbaa" title=" " alt="" coords="241,55,445,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="192,65,228,65,228,70,192,70"/>
+<area shape="rect" id="Node000004" href="$namespacecore.html#aac10d368f868b6fd5fcf417fa63af897" title=" " alt="" coords="281,104,406,129"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="163,77,268,99,267,104,162,83"/>
+</map>

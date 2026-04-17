@@ -1,0 +1,41 @@
+<map id="src/Logger/Logger.hpp" name="src/Logger/Logger.hpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="465,5,629,31"/>
+<area shape="rect" id="Node000002" href="$ConsoleSink_8hpp.html" title=" " alt="" coords="379,79,509,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="532,33,474,73,471,68,529,28"/>
+<area shape="rect" id="Node000003" href="$LogUtils_8hpp.html" title=" " alt="" coords="487,152,590,177"/>
+<area shape="poly" id="edge20_Node000001_Node000003" title=" " alt="" coords="549,31,543,138,537,138,543,31"/>
+<area shape="rect" id="Node000017" href="$FileSink_8hpp.html" title=" " alt="" coords="600,79,701,104"/>
+<area shape="poly" id="edge16_Node000001_Node000017" title=" " alt="" coords="565,28,624,68,621,73,562,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="461,102,514,141,511,146,458,106"/>
+<area shape="rect" id="Node000016" title=" " alt="" coords="383,152,463,177"/>
+<area shape="poly" id="edge15_Node000002_Node000016" title=" " alt="" coords="443,105,433,140,427,138,438,104"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="5,225,61,251"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="487,178,475,180,364,193,276,201,188,210,76,228,75,223,187,204,276,195,364,188,474,175,487,173"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="85,225,152,251"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="487,178,475,180,322,202,166,228,165,223,321,197,474,175,487,173"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="176,225,243,251"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="488,179,257,228,255,223,487,174"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="267,225,330,251"/>
+<area shape="poly" id="edge6_Node000003_Node000007" title=" " alt="" coords="501,180,344,226,343,221,499,175"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="355,225,429,251"/>
+<area shape="poly" id="edge7_Node000003_Node000008" title=" " alt="" coords="516,180,429,222,427,217,514,175"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="453,225,531,251"/>
+<area shape="poly" id="edge8_Node000003_Node000009" title=" " alt="" coords="533,179,509,215,505,212,529,176"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="555,225,619,251"/>
+<area shape="poly" id="edge9_Node000003_Node000010" title=" " alt="" coords="549,176,574,213,569,216,544,179"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="643,225,767,251"/>
+<area shape="poly" id="edge10_Node000003_Node000011" title=" " alt="" coords="566,175,667,217,665,222,564,180"/>
+<area shape="rect" id="Node000012" title=" " alt="" coords="792,225,867,251"/>
+<area shape="poly" id="edge11_Node000003_Node000012" title=" " alt="" coords="586,175,779,222,778,227,585,180"/>
+<area shape="rect" id="Node000013" title=" " alt="" coords="891,225,949,251"/>
+<area shape="poly" id="edge12_Node000003_Node000013" title=" " alt="" coords="590,172,603,175,739,196,877,223,876,228,738,202,602,180,590,178"/>
+<area shape="rect" id="Node000014" title=" " alt="" coords="974,225,1071,251"/>
+<area shape="poly" id="edge13_Node000003_Node000014" title=" " alt="" coords="591,173,603,175,780,198,961,223,960,228,779,204,602,180,590,178"/>
+<area shape="rect" id="Node000015" title=" " alt="" coords="1095,225,1158,251"/>
+<area shape="poly" id="edge14_Node000003_Node000015" title=" " alt="" coords="591,173,603,175,736,189,841,195,947,203,1082,223,1081,228,947,209,841,201,736,194,602,180,590,178"/>
+<area shape="poly" id="edge17_Node000017_Node000003" title=" " alt="" coords="634,106,570,147,567,142,631,102"/>
+<area shape="rect" id="Node000018" title=" " alt="" coords="615,152,705,177"/>
+<area shape="poly" id="edge18_Node000017_Node000018" title=" " alt="" coords="655,104,659,138,654,139,650,105"/>
+<area shape="rect" id="Node000019" title=" " alt="" coords="730,152,803,177"/>
+<area shape="poly" id="edge19_Node000017_Node000019" title=" " alt="" coords="671,102,737,142,735,147,668,106"/>
+</map>

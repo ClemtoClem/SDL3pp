@@ -51,7 +51,7 @@ define print_yellow
 endef
 
 # ── Targets ─────────────────────────────────────────────────
-.PHONY: main all clean shaders examples
+.PHONY: main all clean shaders examples docs doc-open
 
 main: shaders $(APP_TARGET)
 all: main examples
@@ -137,6 +137,35 @@ $(SHADER_BINDIR)/%.spv: $(SHADER_SRCDIR)/%
 # ── Clean ──────────────────────────────────────────────────
 clean:
 	rm -rf $(BUILDDIR)
+
+# ── Documentation ──────────────────────────────────────────
+docs:
+	@if [ ! -f Doxyfile ]; then \
+		$(call print_green,"Creating default Doxygen configuration..."); \
+		doxygen -g; \
+		sed -i 's|^PROJECT_NAME.*|PROJECT_NAME = "$(PROJECT_NAME)"|' Doxyfile; \
+		sed -i 's|^INPUT .*|INPUT = $(SRCDIR) README.md|' Doxyfile; \
+		sed -i 's|^RECURSIVE .*|RECURSIVE = YES|' Doxyfile; \
+		sed -i 's|^OUTPUT_DIRECTORY .*|OUTPUT_DIRECTORY = docs|' Doxyfile; \
+		sed -i 's|^GENERATE_LATEX .*|GENERATE_LATEX = NO|' Doxyfile; \
+		sed -i 's|^EXTRACT_ALL .*|EXTRACT_ALL = YES|' Doxyfile; \
+		sed -i 's|^USE_MDFILE_AS_MAINPAGE .*|USE_MDFILE_AS_MAINPAGE = README.md|' Doxyfile; \
+		sed -i 's|^EXTENSION_MAPPING .*|EXTENSION_MAPPING = md=markdown|' Doxyfile; \
+		sed -i 's|^MARKDOWN_SUPPORT .*|MARKDOWN_SUPPORT = YES|' Doxyfile; \
+		sed -i 's|^HAVE_DOT .*|HAVE_DOT = YES|' Doxyfile; \
+		sed -i 's|^CALL_GRAPH .*|CALL_GRAPH = YES|' Doxyfile; \
+		sed -i 's|^CALLER_GRAPH .*|CALLER_GRAPH = YES|' Doxyfile; \
+		sed -i 's|^CLASS_DIAGRAMS .*|CLASS_DIAGRAMS = YES|' Doxyfile; \
+		sed -i 's|^DOT_GRAPH_MAX_NODES .*|DOT_GRAPH_MAX_NODES = 100|' Doxyfile; \
+		sed -i 's|^GENERATE_TREEVIEW .*|GENERATE_TREEVIEW = YES|' Doxyfile; \
+	fi
+	$(call print_green,"Generating documentation with Doxygen...")
+	@doxygen Doxyfile
+	$(call print_green,"Documentation generated in ./docs/html")
+
+doc-open:
+	@xdg-open docs/html/index.html || open docs/html/index.html || echo "Ouvrez docs/html/index.html manuellement"
+
 
 # ── Dependencies ───────────────────────────────────────────
 # On inclut maintenant les dépendances du projet principal ET des exemples

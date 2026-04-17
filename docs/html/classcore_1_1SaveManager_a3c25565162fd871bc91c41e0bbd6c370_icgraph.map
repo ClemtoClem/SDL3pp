@@ -1,0 +1,5 @@
+<map id="core::SaveManager::Exists" name="core::SaveManager::Exists">
+<area shape="rect" id="Node000001" title="Returns true if a valid save file already exists on disk." alt="" coords="232,5,387,45"/>
+<area shape="rect" id="Node000002" href="$classgame_1_1MenuState.html#a4d7c7ef561a6ce72bfbfa53b7f33ec04" title="Called once when the state becomes active. ecs_context outlives the state." alt="" coords="5,13,184,38"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="218,28,184,28,184,23,218,23"/>
+</map>

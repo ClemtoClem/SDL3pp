@@ -1,0 +1,15 @@
+<map id="game::EntityBuilder::BuildFromSpawn" name="game::EntityBuilder::BuildFromSpawn">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,133,156,173"/>
+<area shape="rect" id="Node000002" href="$classgame_1_1EntityBuilder.html#ab533ac71dc9c6347dc08649952ce8480" title=" " alt="" coords="204,133,355,173"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="156,151,190,151,190,156,156,156"/>
+<area shape="rect" id="Node000003" href="$classcore_1_1ScriptValue.html#a52772f47ab306900a90ead16b6bac9c6" title=" " alt="" coords="415,5,553,45"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="300,131,345,94,401,55,413,49,416,53,404,60,349,98,304,135"/>
+<area shape="rect" id="Node000004" href="$classcore_1_1ScriptValue.html#a37ec8b6edc832b1933a29feed5fffe5d" title=" " alt="" coords="415,69,553,109"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="343,131,405,111,407,116,345,136"/>
+<area shape="rect" id="Node000005" href="$classcore_1_1ScriptValue.html#a36e222d7357492571fd9a09bb7fe4b8d" title=" " alt="" coords="415,133,553,173"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="355,151,401,151,401,156,355,156"/>
+<area shape="rect" id="Node000006" href="$classcore_1_1ScriptValue.html#a26833816d0b22671174bd161aa52727b" title=" " alt="" coords="415,197,553,237"/>
+<area shape="poly" id="edge5_Node000002_Node000006" title=" " alt="" coords="345,171,407,191,405,196,343,176"/>
+<area shape="rect" id="Node000007" href="$classcore_1_1ScriptValue.html#a9a225070cd76ddcec83e92f0970c72e2" title="Navigate a sub&#45;key when this value is a section." alt="" coords="403,262,565,287"/>
+<area shape="poly" id="edge6_Node000002_Node000007" title=" " alt="" coords="303,172,348,210,404,247,421,255,419,260,401,252,344,214,300,176"/>
+</map>
