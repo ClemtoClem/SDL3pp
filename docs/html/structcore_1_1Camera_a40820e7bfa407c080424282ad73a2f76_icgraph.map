@@ -1,9 +1,0 @@
-<map id="core::Camera::SetDispTileSize" name="core::Camera::SetDispTileSize">
-<area shape="rect" id="Node000001" title=" " alt="" coords="515,31,733,56"/>
-<area shape="rect" id="Node000002" href="$classgame_1_1GameState.html#ad26f19e8957fe52753a36731cc3db1b6" title="Process one SDL event. Return false to request immediate quit." alt="" coords="236,5,467,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="501,35,466,31,467,26,501,29"/>
-<area shape="rect" id="Node000003" href="$classgame_1_1GameState.html#a4441e8a57726f4a071efdc5778a6a34c" title=" " alt="" coords="248,55,455,80"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="501,57,455,61,455,56,501,51"/>
-<area shape="rect" id="Node000004" href="$classgame_1_1GameState.html#a4b1e4398989be0d4dcd3fb2a52eaca1b" title="Called once when the state becomes active. ecs_context outlives the state." alt="" coords="5,55,188,80"/>
-<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="234,70,188,70,188,65,234,65"/>
-</map>

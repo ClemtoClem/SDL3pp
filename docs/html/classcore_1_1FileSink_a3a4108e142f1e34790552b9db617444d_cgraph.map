@@ -1,9 +1,0 @@
-<map id="core::FileSink::Write" name="core::FileSink::Write">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,55,157,80"/>
-<area shape="rect" id="Node000002" href="$namespacecore.html#abbc003c092a1f882d4cad6580cbaf2a5" title="Thread&#45;safe timestamp with millisecond precision." alt="" coords="224,5,379,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="138,52,230,31,231,36,139,57"/>
-<area shape="rect" id="Node000003" href="$namespacecore.html#ae394b8fe69754e01fa12a3b97f93c9fe" title=" " alt="" coords="205,55,397,80"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="157,65,192,65,192,70,157,70"/>
-<area shape="rect" id="Node000004" href="$namespacecore.html#a583acd9b5379d8d206fbe19c5b4ece0b" title=" " alt="" coords="217,104,385,129"/>
-<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="139,77,231,98,230,104,138,83"/>
-</map>

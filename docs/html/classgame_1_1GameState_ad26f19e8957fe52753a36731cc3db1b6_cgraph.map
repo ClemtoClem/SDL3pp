@@ -1,5 +1,0 @@
-<map id="game::GameState::HandleEvent" name="game::GameState::HandleEvent">
-<area shape="rect" id="Node000001" title="Process one SDL event. Return false to request immediate quit." alt="" coords="5,5,236,31"/>
-<area shape="rect" id="Node000002" href="$structcore_1_1Camera.html#a40820e7bfa407c080424282ad73a2f76" title=" " alt="" coords="284,5,503,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="236,15,271,15,271,21,236,21"/>
-</map>

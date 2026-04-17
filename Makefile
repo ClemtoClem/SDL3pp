@@ -139,12 +139,18 @@ clean:
 	rm -rf $(BUILDDIR)
 
 # ── Documentation ──────────────────────────────────────────
+docs-clean:
+	rm Doxyfile
+
 docs:
 	@if [ ! -f Doxyfile ]; then \
 		$(call print_green,"Creating default Doxygen configuration..."); \
 		doxygen -g; \
-		sed -i 's|^PROJECT_NAME.*|PROJECT_NAME = "$(PROJECT_NAME)"|' Doxyfile; \
-		sed -i 's|^INPUT .*|INPUT = $(SRCDIR) README.md|' Doxyfile; \
+		sed -i 's|^PROJECT_NAME.*|PROJECT_NAME = "$(LIB_NAME)"|' Doxyfile; \
+		sed -i 's|^INPUT .*|INPUT = $(INCDIR) examples README.md|' Doxyfile; \
+		sed -i 's|^PREDEFINED .*|PREDEFINED = SDL3PP_DOC|' Doxyfile; \
+		sed -i 's|^EXAMPLE_PATH .*|EXAMPLE_PATH = examples|' Doxyfile; \
+		sed -i 's|^EXAMPLE_RECURSIVE .*|EXAMPLE_RECURSIVE = YES|' Doxyfile; \
 		sed -i 's|^RECURSIVE .*|RECURSIVE = YES|' Doxyfile; \
 		sed -i 's|^OUTPUT_DIRECTORY .*|OUTPUT_DIRECTORY = docs|' Doxyfile; \
 		sed -i 's|^GENERATE_LATEX .*|GENERATE_LATEX = NO|' Doxyfile; \
@@ -158,6 +164,8 @@ docs:
 		sed -i 's|^CLASS_DIAGRAMS .*|CLASS_DIAGRAMS = YES|' Doxyfile; \
 		sed -i 's|^DOT_GRAPH_MAX_NODES .*|DOT_GRAPH_MAX_NODES = 100|' Doxyfile; \
 		sed -i 's|^GENERATE_TREEVIEW .*|GENERATE_TREEVIEW = YES|' Doxyfile; \
+		sed -i 's|^EXTRACT_STATIC .*|EXTRACT_STATIC = NO|' Doxyfile; \
+		sed -i 's|^EXTRACT_LOCAL_CLASSES .*|EXTRACT_LOCAL_CLASSES = NO|' Doxyfile; \
 	fi
 	$(call print_green,"Generating documentation with Doxygen...")
 	@doxygen Doxyfile
@@ -165,7 +173,6 @@ docs:
 
 doc-open:
 	@xdg-open docs/html/index.html || open docs/html/index.html || echo "Ouvrez docs/html/index.html manuellement"
-
 
 # ── Dependencies ───────────────────────────────────────────
 # On inclut maintenant les dépendances du projet principal ET des exemples

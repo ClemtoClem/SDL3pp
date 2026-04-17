@@ -1,6 +1,6 @@
 # SDL3pp
 
-> **C++23 RAII wrappers for SDL3, SDL3\_image, SDL3\_mixer and SDL3\_ttf**
+> **C++23 RAII wrappers for SDL3, SDL3\_image, SDL3\_mixer, SDL3\_ttf and SDL3\_net**
 
 ---
 

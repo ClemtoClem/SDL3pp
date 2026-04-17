@@ -1,6 +1,11 @@
 #ifndef SDL3PP_ASSERT_H_
 #define SDL3PP_ASSERT_H_
 
+/**
+ * @file SDL3pp_assert.h
+ * @brief A helpful assertion macro!
+ */
+
 #include <SDL3/SDL_assert.h>
 #include "SDL3pp_callbackWrapper.h"
 #include "SDL3pp_strings.h"

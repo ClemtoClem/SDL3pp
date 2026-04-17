@@ -1,7 +1,0 @@
-<map id="core::Camera::IsTileVisible" name="core::Camera::IsTileVisible">
-<area shape="rect" id="Node000001" title="Returns true if a tile at (tx, ty) is inside (or near) the viewport." alt="" coords="5,31,201,56"/>
-<area shape="rect" id="Node000002" href="$structcore_1_1Camera.html#a45b31da914562e46dc0c97b59f9b0b2f" title="Convert a world&#45;space point to screen pixels (absolute, in window space)." alt="" coords="249,5,420,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="201,30,235,26,236,31,202,35"/>
-<area shape="rect" id="Node000003" href="$structcore_1_1Camera.html#a75220b646ce40e5c8bafd6dbe2b5e149" title=" " alt="" coords="250,55,419,80"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="202,51,237,55,236,60,201,56"/>
-</map>

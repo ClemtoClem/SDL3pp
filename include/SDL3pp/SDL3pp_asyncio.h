@@ -1,6 +1,11 @@
 #ifndef SDL3PP_ASYNCIO_H_
 #define SDL3PP_ASYNCIO_H_
 
+/**
+ * @file SDL3pp_asyncio.h
+ * @brief SDL offers a way to perform I/O asynchronously.
+ */
+
 #include <SDL3/SDL_asyncio.h>
 #include "SDL3pp_log.h"
 #include "SDL3pp_stdinc.h"

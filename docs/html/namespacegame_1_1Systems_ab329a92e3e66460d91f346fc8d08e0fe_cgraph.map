@@ -1,5 +1,0 @@
-<map id="game::Systems::FacingCollision" name="game::Systems::FacingCollision">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,233,31"/>
-<area shape="rect" id="Node000002" href="$structcore_1_1MapData.html#a8c8fe02e05d4bd0c4d1c3cf64e04bbaa" title=" " alt="" coords="281,5,485,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="233,15,267,15,267,21,233,21"/>
-</map>
