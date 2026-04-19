@@ -3036,6 +3036,221 @@ namespace SDL
 	}
 
 	// ========================================================================= //
+	//  BinaryDataDocument                                                        //
+	// ========================================================================= //
+
+	/**
+	 * @brief Binary document — compact little-endian binary format.
+	 *
+	 * File layout:
+	 *   magic[4]  = {'D','S','B',0x01}
+	 *   root node (always OBJECT)
+	 *
+	 * Node layout:
+	 *   uint8  type  (DataNodeType)
+	 *   payload:
+	 *     NONE:    nothing
+	 *     BOOLEAN: uint8  (0 or 1)
+	 *     S8/U8:   uint8
+	 *     S16/U16: uint16 LE
+	 *     S32/U32: uint32 LE
+	 *     S64/U64: uint64 LE
+	 *     F32:     uint32 LE (IEEE-754 bit pattern)
+	 *     F64:     uint64 LE (IEEE-754 bit pattern)
+	 *     STRING:  uint32 len + len bytes
+	 *     ARRAY:   uint32 count + count*node
+	 *     OBJECT:  uint32 count + (uint32 keyLen + keyBytes + node)*count
+	 */
+	class BinaryDataDocument final : public DataDocument
+	{
+	public:
+		BinaryDataDocument() = default;
+		[[nodiscard]] std::string encode() const override;
+
+	protected:
+		std::optional<DataParseError> decodeImpl(std::istream &is) override;
+		[[nodiscard]] std::string stringifyNode(std::shared_ptr<DataNode> node) const override
+		{
+			std::string buf;
+			_encodeNode(buf, node);
+			return buf;
+		}
+
+	private:
+		// ---- Encoding helpers ----
+		static void _u8(std::string &b, uint8_t v) { b += static_cast<char>(v); }
+		static void _u16(std::string &b, uint16_t v) { _u8(b, v & 0xFF); _u8(b, v >> 8); }
+		static void _u32(std::string &b, uint32_t v) { _u16(b, static_cast<uint16_t>(v & 0xFFFF)); _u16(b, static_cast<uint16_t>(v >> 16)); }
+		static void _u64(std::string &b, uint64_t v) { _u32(b, static_cast<uint32_t>(v)); _u32(b, static_cast<uint32_t>(v >> 32)); }
+		static void _str(std::string &b, const std::string &s) { _u32(b, static_cast<uint32_t>(s.size())); b += s; }
+		static void _f32(std::string &b, float  v) { uint32_t u; SDL::Memcpy(&u, &v, 4); _u32(b, u); }
+		static void _f64(std::string &b, double v) { uint64_t u; SDL::Memcpy(&u, &v, 8); _u64(b, u); }
+
+		void _encodeNode(std::string &buf, const std::shared_ptr<DataNode> &node) const;
+
+		// ---- Decoding helpers ----
+		static bool _ru8(std::istream &is, uint8_t  &v)
+		{
+			int c = is.get();
+			if (c == std::char_traits<char>::eof()) return false;
+			v = static_cast<uint8_t>(c);
+			return true;
+		}
+		static bool _ru16(std::istream &is, uint16_t &v)
+		{
+			uint8_t a, b;
+			if (!_ru8(is, a) || !_ru8(is, b)) return false;
+			v = static_cast<uint16_t>(a | (static_cast<uint16_t>(b) << 8));
+			return true;
+		}
+		static bool _ru32(std::istream &is, uint32_t &v)
+		{
+			uint16_t lo, hi;
+			if (!_ru16(is, lo) || !_ru16(is, hi)) return false;
+			v = lo | (static_cast<uint32_t>(hi) << 16);
+			return true;
+		}
+		static bool _ru64(std::istream &is, uint64_t &v)
+		{
+			uint32_t lo, hi;
+			if (!_ru32(is, lo) || !_ru32(is, hi)) return false;
+			v = lo | (static_cast<uint64_t>(hi) << 32);
+			return true;
+		}
+		static bool _rstr(std::istream &is, std::string &s)
+		{
+			uint32_t len;
+			if (!_ru32(is, len)) return false;
+			s.resize(len);
+			if (len > 0 && !is.read(s.data(), static_cast<std::streamsize>(len))) return false;
+			return true;
+		}
+		static bool _rf32(std::istream &is, float  &v) { uint32_t u; if (!_ru32(is, u)) return false; SDL::Memcpy(&v, &u, 4); return true; }
+		static bool _rf64(std::istream &is, double &v) { uint64_t u; if (!_ru64(is, u)) return false; SDL::Memcpy(&v, &u, 8); return true; }
+
+		std::shared_ptr<DataNode> _readNode(std::istream &is) const;
+	};
+
+	inline void BinaryDataDocument::_encodeNode(std::string &buf,
+	                                              const std::shared_ptr<DataNode> &node) const
+	{
+		if (!node) { _u8(buf, static_cast<uint8_t>(DataNodeType::NONE)); return; }
+		_u8(buf, static_cast<uint8_t>(node->getType()));
+		switch (node->getType())
+		{
+		case DataNodeType::NONE:    break;
+		case DataNodeType::BOOLEAN: _u8(buf, std::dynamic_pointer_cast<BoolDataNode>(node)->getValue() ? 1 : 0); break;
+		case DataNodeType::S8:      _u8(buf, static_cast<uint8_t>(std::dynamic_pointer_cast<S8DataNode>(node)->getValue())); break;
+		case DataNodeType::U8:      _u8(buf, std::dynamic_pointer_cast<U8DataNode>(node)->getValue()); break;
+		case DataNodeType::S16:     _u16(buf, static_cast<uint16_t>(std::dynamic_pointer_cast<S16DataNode>(node)->getValue())); break;
+		case DataNodeType::U16:     _u16(buf, std::dynamic_pointer_cast<U16DataNode>(node)->getValue()); break;
+		case DataNodeType::S32:     _u32(buf, static_cast<uint32_t>(std::dynamic_pointer_cast<S32DataNode>(node)->getValue())); break;
+		case DataNodeType::U32:     _u32(buf, std::dynamic_pointer_cast<U32DataNode>(node)->getValue()); break;
+		case DataNodeType::S64:     _u64(buf, static_cast<uint64_t>(std::dynamic_pointer_cast<S64DataNode>(node)->getValue())); break;
+		case DataNodeType::U64:     _u64(buf, std::dynamic_pointer_cast<U64DataNode>(node)->getValue()); break;
+		case DataNodeType::F32:     _f32(buf, std::dynamic_pointer_cast<F32DataNode>(node)->getValue()); break;
+		case DataNodeType::F64:     _f64(buf, std::dynamic_pointer_cast<F64DataNode>(node)->getValue()); break;
+		case DataNodeType::STRING:  _str(buf, std::dynamic_pointer_cast<StringDataNode>(node)->getValue()); break;
+		case DataNodeType::ARRAY:
+		{
+			auto arr = std::dynamic_pointer_cast<ArrayDataNode>(node);
+			_u32(buf, static_cast<uint32_t>(arr->getSize()));
+			for (const auto &child : arr->getValues()) _encodeNode(buf, child);
+			break;
+		}
+		case DataNodeType::OBJECT:
+		{
+			auto obj = std::dynamic_pointer_cast<ObjectDataNode>(node);
+			_u32(buf, static_cast<uint32_t>(obj->getValues().size()));
+			for (const auto &pair : obj->getValues())
+			{
+				_str(buf, pair.first);
+				_encodeNode(buf, pair.second);
+			}
+			break;
+		}
+		}
+	}
+
+	inline std::string BinaryDataDocument::encode() const
+	{
+		if (!getRoot()) return {};
+		std::string buf;
+		buf += 'D'; buf += 'S'; buf += 'B'; buf += '\x01';
+		_encodeNode(buf, getRoot());
+		return buf;
+	}
+
+	inline std::shared_ptr<DataNode> BinaryDataDocument::_readNode(std::istream &is) const
+	{
+		uint8_t typeVal;
+		if (!_ru8(is, typeVal)) return nullptr;
+		auto type = static_cast<DataNodeType>(typeVal);
+		switch (type)
+		{
+		case DataNodeType::NONE: return NoneDataNode::Make();
+		case DataNodeType::BOOLEAN: { uint8_t v; if (!_ru8(is, v)) return nullptr; return BoolDataNode::Make(v != 0); }
+		case DataNodeType::S8:      { uint8_t v; if (!_ru8(is, v)) return nullptr; return S8DataNode::Make(static_cast<int8_t>(v)); }
+		case DataNodeType::U8:      { uint8_t v; if (!_ru8(is, v)) return nullptr; return U8DataNode::Make(v); }
+		case DataNodeType::S16:     { uint16_t v; if (!_ru16(is, v)) return nullptr; return S16DataNode::Make(static_cast<int16_t>(v)); }
+		case DataNodeType::U16:     { uint16_t v; if (!_ru16(is, v)) return nullptr; return U16DataNode::Make(v); }
+		case DataNodeType::S32:     { uint32_t v; if (!_ru32(is, v)) return nullptr; return S32DataNode::Make(static_cast<int32_t>(v)); }
+		case DataNodeType::U32:     { uint32_t v; if (!_ru32(is, v)) return nullptr; return U32DataNode::Make(v); }
+		case DataNodeType::S64:     { uint64_t v; if (!_ru64(is, v)) return nullptr; return S64DataNode::Make(static_cast<int64_t>(v)); }
+		case DataNodeType::U64:     { uint64_t v; if (!_ru64(is, v)) return nullptr; return U64DataNode::Make(v); }
+		case DataNodeType::F32:     { float  v; if (!_rf32(is, v)) return nullptr; return F32DataNode::Make(v); }
+		case DataNodeType::F64:     { double v; if (!_rf64(is, v)) return nullptr; return F64DataNode::Make(v); }
+		case DataNodeType::STRING:  { std::string s; if (!_rstr(is, s)) return nullptr; return StringDataNode::Make(std::move(s)); }
+		case DataNodeType::ARRAY:
+		{
+			uint32_t count; if (!_ru32(is, count)) return nullptr;
+			auto arr = ArrayDataNode::Make();
+			for (uint32_t i = 0; i < count; ++i)
+			{
+				auto child = _readNode(is);
+				if (!child) return nullptr;
+				arr->add(std::move(child));
+			}
+			return arr;
+		}
+		case DataNodeType::OBJECT:
+		{
+			uint32_t count; if (!_ru32(is, count)) return nullptr;
+			auto obj = ObjectDataNode::Make();
+			for (uint32_t i = 0; i < count; ++i)
+			{
+				std::string key; if (!_rstr(is, key)) return nullptr;
+				auto child = _readNode(is);
+				if (!child) return nullptr;
+				obj->set(key, std::move(child));
+			}
+			return obj;
+		}
+		default: return nullptr;
+		}
+	}
+
+	inline std::optional<DataParseError> BinaryDataDocument::decodeImpl(std::istream &is)
+	{
+		char magic[4]{};
+		if (!is.read(magic, 4) || magic[0] != 'D' || magic[1] != 'S' ||
+		    magic[2] != 'B' || magic[3] != '\x01')
+			return DataParseError{"Binary: invalid magic bytes"};
+		try
+		{
+			auto node = _readNode(is);
+			if (!node || node->getType() != DataNodeType::OBJECT)
+				return DataParseError{"Binary: root must be OBJECT"};
+			setRoot(std::dynamic_pointer_cast<ObjectDataNode>(node));
+			return std::nullopt;
+		}
+		catch (const std::exception &e)
+		{
+			return DataParseError{std::string("Binary: ") + e.what()};
+		}
+	}
+
+	// ========================================================================= //
 	//  Auto-enregistrement de tous les formats intégrés                         //
 	// ========================================================================= //
 
@@ -3057,6 +3272,8 @@ namespace SDL
 							 { return std::make_shared<TOMLDataDocument>(); });
 			f.registerFormat("csv", {".csv", ".tsv"}, []
 							 { return std::make_shared<CSVDataDocument>(); });
+			f.registerFormat("binary", {".bin", ".dat"}, []
+							 { return std::make_shared<BinaryDataDocument>(); });
 			return true;
 		}
 

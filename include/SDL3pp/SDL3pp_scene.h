@@ -830,7 +830,7 @@ public:
 		return {};
 	}
 
-	[[nodiscard]] Context&       GetWorld()    const noexcept { return m_ctx; }
+	[[nodiscard]] Context&       GetECSContext()    const noexcept { return m_ctx; }
 	[[nodiscard]] RendererRef  GetRenderer() const noexcept { return m_renderer; }
 
 	[[nodiscard]] EntityId FindByName(const std::string& name) const {
@@ -982,7 +982,7 @@ public:
 
 	void DestroyNode(EntityId e) { m_graph.DestroyNode(e); }
 
-	[[nodiscard]] Context&      GetWorld()    noexcept { return m_ctx; }
+	[[nodiscard]] Context&      GetECSContext()    noexcept { return m_ctx; }
 	[[nodiscard]] RendererRef GetRenderer() noexcept { return m_renderer; }
 	[[nodiscard]] SceneGraph& GetGraph()    noexcept { return m_graph; }
 

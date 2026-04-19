@@ -18,19 +18,19 @@
  * ## Usage
  *
  * ```cpp
- * SDL::ECS::Context ecs_context;
+ * SDL::ECS::Context ctx;
  *
  * // Define plain-data components
  * struct Position { float x, y; };
  * struct Velocity { float vx, vy; };
  *
  * // Create entities
- * auto e1 = ecs_context.CreateEntity();
- * ecs_context.Add<Position>(e1, {100.f, 200.f});
- * ecs_context.Add<Velocity>(e1, {1.f, -1.f});
+ * auto e1 = ctx.CreateEntity();
+ * ctx.Add<Position>(e1, {100.f, 200.f});
+ * ctx.Add<Velocity>(e1, {1.f, -1.f});
  *
  * // Query – iterate all entities with both Position AND Velocity
- * ecs_context.Each<Position, Velocity>([](SDL::ECS::EntityId e,
+ * ctx.Each<Position, Velocity>([](SDL::ECS::EntityId e,
  *                                    Position& pos,
  *                                    Velocity& vel) {
  *     pos.x += vel.vx;
@@ -38,15 +38,15 @@
  * });
  *
  * // Register and run systems
- * ecs_context.AddSystem([](SDL::ECS::Context& ctx) {
+ * ctx.AddSystem([](SDL::ECS::Context& ctx) {
  *     ctx.Each<Position, Velocity>([](SDL::ECS::EntityId, Position& p, Velocity& v) {
  *         p.x += v.vx; p.y += v.vy;
  *     });
  * });
- * ecs_context.RunSystems();
+ * ctx.RunSystems();
  *
  * // Destroy an entity (removes ALL its components automatically)
- * ecs_context.DestroyEntity(e1);
+ * ctx.DestroyEntity(e1);
  * ```
  *
  * ## C++20 RAII
@@ -56,7 +56,7 @@
  *
  * ```cpp
  * {
- *     auto ref = ecs_context.Spawn();  // returns EntityRef
+ *     auto ref = ctx.Spawn();  // returns EntityRef
  *     ref.Add<Position>({0, 0});
  * }  // entity destroyed here
  * ```
@@ -230,7 +230,7 @@ class Context;
  * to pass the entity ID explicitly:
  *
  * ```cpp
- * auto crate = ecs_context.Spawn();
+ * auto crate = ctx.Spawn();
  * crate.Add<Position>({320.f, 240.f})
  *      .Add<Velocity>({0.f, 0.f})
  *      .Add<ECS::Sprite>({texture});
@@ -239,7 +239,7 @@ class Context;
 class EntityRef {
 public:
 	EntityRef() = default;
-	EntityRef(Context& Context, EntityId id) : m_World(&Context), m_id(id) {}
+	EntityRef(Context& ctx, EntityId id) : m_ctx(&ctx), m_id(id) {}
 
 	~EntityRef() { Destroy(); }
 
@@ -247,17 +247,17 @@ public:
 	EntityRef& operator=(const EntityRef&) = delete;
 
 	EntityRef(EntityRef&& other) noexcept
-		: m_World(other.m_World), m_id(other.m_id) {
-		other.m_World = nullptr;
+		: m_ctx(other.m_ctx), m_id(other.m_id) {
+		other.m_ctx = nullptr;
 		other.m_id    = NullEntity;
 	}
 
 	EntityRef& operator=(EntityRef&& other) noexcept {
 		if (this != &other) {
 			Destroy();
-			m_World       = other.m_World;
+			m_ctx       = other.m_ctx;
 			m_id          = other.m_id;
-			other.m_World = nullptr;
+			other.m_ctx = nullptr;
 			other.m_id    = NullEntity;
 		}
 		return *this;
@@ -266,7 +266,7 @@ public:
 	// ── Entity identity ────────────────────────────────────────────────────────
 
 	[[nodiscard]] EntityId Id()      const noexcept { return m_id; }
-	[[nodiscard]] bool     IsValid() const noexcept { return m_World && m_id != NullEntity; }
+	[[nodiscard]] bool     IsValid() const noexcept { return m_ctx && m_id != NullEntity; }
 	explicit operator bool()         const noexcept { return IsValid(); }
 
 	// ── Component helpers (defined after Context) ────────────────────────────────
@@ -281,14 +281,14 @@ public:
 	/// Give up ownership – entity survives past this handle's lifetime.
 	EntityId Release() noexcept {
 		EntityId id = m_id;
-		m_World = nullptr;
-		m_id    = NullEntity;
+		m_ctx = nullptr;
+		m_id  = NullEntity;
 		return id;
 	}
 
 private:
-	Context*   m_World = nullptr;
-	EntityId m_id    = NullEntity;
+	Context* m_ctx = nullptr;
+	EntityId m_id  = NullEntity;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -404,7 +404,7 @@ public:
 	 * Iterate every entity that has component T.
 	 *
 	 * ```cpp
-	 * ecs_context.Each<Position>([](EntityId e, Position& p) { ... });
+	 * ctx.Each<Position>([](EntityId e, Position& p) { ... });
 	 * ```
 	 */
 	template<Component T, class Fn>
@@ -422,7 +422,7 @@ public:
 	 * Iterate every entity that has ALL listed component types.
 	 *
 	 * ```cpp
-	 * ecs_context.Each<Position, Velocity>([](EntityId e, Position& p, Velocity& v) { ... });
+	 * ctx.Each<Position, Velocity>([](EntityId e, Position& p, Velocity& v) { ... });
 	 * ```
 	 *
 	 * Iteration order follows the dense array of the first component type.
@@ -512,32 +512,32 @@ private:
 template<Component T>
 EntityRef& EntityRef::Add(T value) {
 	assert(IsValid());
-	m_World->Add<T>(m_id, std::move(value));
+	m_ctx->Add<T>(m_id, std::move(value));
 	return *this;
 }
 
 template<Component T>
 T* EntityRef::Get() {
 	assert(IsValid());
-	return m_World->Get<T>(m_id);
+	return m_ctx->Get<T>(m_id);
 }
 
 template<Component T>
 bool EntityRef::Has() const {
-	return IsValid() && m_World->Has<T>(m_id);
+	return IsValid() && m_ctx->Has<T>(m_id);
 }
 
 template<Component T>
 EntityRef& EntityRef::Remove() {
 	assert(IsValid());
-	m_World->Remove<T>(m_id);
+	m_ctx->Remove<T>(m_id);
 	return *this;
 }
 
 inline void EntityRef::Destroy() {
-	if (m_World && m_id != NullEntity) {
-		m_World->DestroyEntity(m_id);
-		m_World = nullptr;
+	if (m_ctx && m_id != NullEntity) {
+		m_ctx->DestroyEntity(m_id);
+		m_ctx = nullptr;
 		m_id    = NullEntity;
 	}
 }

@@ -523,7 +523,7 @@ struct Main {
 		hdr.Child(
 			ui.Label(idBase + "_title",
 					 std::format("Oscillateur {}", idx + 1))
-			  .TextColor(accent).FontSize(12.f).Grow(1)
+			  .TextColor(accent).FontSize(12.f).Grow(100.f)
 		);
 
 		auto tog = ui.Toggle(idBase + "_tog", "")
@@ -548,7 +548,7 @@ struct Main {
 		for (int s = 0; s < kNumShapes; ++s) {
 			bool active = (osc.shape == static_cast<OscShape>(s));
 			auto btn = ui.Button(std::format("{}sh{}", idBase, s), kShapeLabels[s])
-				.H(22.f).Grow(1).FontSize(10.f)
+				.H(22.f).Grow(100.f).FontSize(10.f)
 				.Radius(SDL::FCorners(3.f))
 				.BorderColor(pal::BORDER)
 				.BgColor (active ? kShapeColor[s]  : SDL::Color{28, 32, 48, 255})
@@ -597,7 +597,7 @@ struct Main {
 	// ── Right panel ───────────────────────────────────────────────────────────
 	SDL::ECS::EntityId _BuildRight() {
 		auto col = ui.Column("right", 8.f, 0.f)
-			.Grow(1)
+			.Grow(100.f)
 			.PaddingH(10.f).PaddingV(8.f)
 			.BgColor(pal::BG)
 			.WithStyle([](auto& s){
@@ -626,7 +626,7 @@ struct Main {
 			.TextColor(pal::WHITE).FontSize(12.f).W(100.f).Id();
 
 		auto sld = ui.Slider("sld_master", 0.f, 1.f, m_master)
-			.Grow(1).H(16.f).FillColor(pal::ACCENT)
+			.Grow(100.f).H(16.f).FillColor(pal::ACCENT)
 			.OnChange([this](float v){
 				m_master = v;
 				ui.SetText(m_lblMaster, std::format("Volume: {:.0f}%", v * 100.f));
@@ -642,7 +642,7 @@ struct Main {
 		card.Child(ui.SectionTitle("Forme d'onde — signal composite"));
 
 		auto graph = ui.GradedGraph("graphWave")
-			.Grow(1)
+			.Grow(100.f)
 			.H(SDL::UI::Value::Pch(30.f));
 		m_graphWave = graph.Id();
 		card.Child(graph);
@@ -664,7 +664,7 @@ struct Main {
 		card.Child(ui.SectionTitle("Spectre FFT (Hanning, 4096 pts)"));
 
 		auto graph = ui.GradedGraph("graphSpec")
-			.Grow(1)
+			.Grow(100.f)
 			.H(SDL::UI::Value::Pch(30.f));
 		m_graphSpec = graph.Id();
 		card.Child(graph);
@@ -689,7 +689,7 @@ struct Main {
 		m_lblRMS = ui.Label("lbl_rms", "RMS  -80.0 dB")
 			.TextColor(pal::WHITE).FontSize(11.f).W(120.f).Id();
 		m_progRMS = ui.Progress("prog_rms", 0.f, 1.f)
-			.Grow(1).H(10.f).FillColor(pal::GREEN).Id();
+			.Grow(100.f).H(10.f).FillColor(pal::GREEN).Id();
 		auto rmsRow = ui.Row("rms_row", 8.f, 0.f)
 			.Style(SDL::UI::Theme::Transparent())
 			.W(SDL::UI::Value::Pw(70.f))
@@ -700,7 +700,7 @@ struct Main {
 		m_lblPeak = ui.Label("lbl_peak", "Peak -80.0 dB")
 			.TextColor(pal::WHITE).FontSize(11.f).W(120.f).Id();
 		m_progPeak = ui.Progress("prog_peak", 0.f, 1.f)
-			.Grow(1).H(10.f).FillColor(pal::RED).Id();
+			.Grow(100.f).H(10.f).FillColor(pal::RED).Id();
 		auto peakRow = ui.Row("peak_row", 8.f, 0.f)
 			.Style(SDL::UI::Theme::Transparent())
 			.W(SDL::UI::Value::Pw(70.f))

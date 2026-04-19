@@ -1176,7 +1176,7 @@ struct Main {
 						 std::function<void()> cb) -> SDL::ECS::EntityId {
 			auto b = ui.Button(id).W(32).H(32).Padding(0.f)
 				.Icon(key, 5.f).IconOpacity(0.65f, 1.f, 0.9f)
-				.ClickSoundKey(res_key::CLICK)
+				.ClickSound(res_key::CLICK)
 				.Tooltip(tip, 0.6f).OnClick(std::move(cb));
 			return flat(b).Id();
 		};
@@ -1205,7 +1205,7 @@ struct Main {
 			auto b = ui.Button(std::format("btn_tool{}", i)).W(32).H(32).Padding(0.f)
 				.Icon(kTools[i].icon, 5.f).IconOpacity(1.f)
 				.Tooltip(kTools[i].tip, 0.6f)
-				.ClickSoundKey(res_key::CLICK)
+				.ClickSound(res_key::CLICK)
 				.OnClick([this, t]{ _SetTool(t); });
 			toolBtns[i] = flat(b).Id();
 		}
@@ -1215,7 +1215,7 @@ struct Main {
 			auto b = ui.Button("btn_grid").W(32).H(32).Padding(0.f)
 				.Icon(icon_key::GRID, 5.f).IconOpacity(1.f)
 				.Tooltip("Grid (G)", 0.6f)
-				.ClickSoundKey(res_key::CLICK)
+				.ClickSound(res_key::CLICK)
 				.OnClick([this]{ state.showGrid = !state.showGrid; _RefreshGridBtn(); });
 			eGridBtn = flat(b).Id();
 		}
@@ -1248,7 +1248,7 @@ struct Main {
 		);
 
 		// Spacer + title
-		bar.Child(ui.Container("spacer_bar").Grow(1)
+		bar.Child(ui.Container("spacer_bar").Grow(100.f)
 			.WithStyle([](auto& s){
 				s.bgColor = SDL::Color(0,0,0,0);
 				s.borders = SDL::FBox(0.f);
@@ -1267,7 +1267,7 @@ struct Main {
 
 	SDL::ECS::EntityId _BuildMainContent() {
 		auto content = ui.Row("main_content", 0.f, 0.f)
-			.Grow(1)
+			.Grow(100.f)
 			.WithStyle([](auto& s){
 				s.borders = SDL::FBox(0.f);
 				s.radius  = SDL::FCorners(0.f);
@@ -1300,7 +1300,7 @@ struct Main {
 
 		// Scrollable list of layer rows
 		auto sv = ui.ScrollView("layer_sv", 0.f)
-			.Grow(1).Padding(0.f).ScrollableY();
+			.Grow(100.f).Padding(0.f).ScrollableY();
 		eLayerContent = ui.Column("layer_list", 0.f, 0.f)
 			.WithStyle([](auto& s){
 				s.bgColor = SDL::Color(0,0,0,0);
@@ -1332,7 +1332,7 @@ struct Main {
 			slot.btnVis = ui.Button(std::format("ls_vis{}", i))
 				.W(20).H(20).Padding(0.f)
 				.Icon(icon_key::VISIBILITY, 3.f)
-				.ClickSoundKey(res_key::CLICK)
+				.ClickSound(res_key::CLICK)
 				.Tooltip("Toggle Layer Visibility", 0.6f)
 				.BgColor({0,0,0,0}).BgHover({42,54,78,180}).BgPress({42,54,78,220})
 				.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
@@ -1340,7 +1340,7 @@ struct Main {
 				.Id();
 
 			slot.lblName = ui.Label(std::format("ls_name{}", i), "Layer")
-				.Grow(1).TextColor(pal::WHITE)
+				.Grow(100.f).TextColor(pal::WHITE)
 				.PaddingH(4).PaddingV(0)
 				.OnClick([this, i]{ _SelectLayer(i); });
 
@@ -1349,7 +1349,7 @@ struct Main {
 				.W(20).H(20).Padding(0.f)
 				.Icon(icon_key::LOCK, 3.f)
 				.BgColor({0,0,0,0}).BgHover({42,54,78,180}).BgPress({42,54,78,220})
-				.ClickSoundKey(res_key::CLICK)
+				.ClickSound(res_key::CLICK)
 				.Tooltip("Lock Layer", 0.6f)
 				.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
 				.OnClick([this, i]{ _ToggleLayerLock(i); })
@@ -1368,7 +1368,7 @@ struct Main {
 				.Icon(key, 4.f)
 				.IconTint({255,255,255,255}, tint, tint)
 				.BgColor({0,0,0,0}).BgHover({42,54,78,200}).BgPress(pal::ACCENT)
-				.ClickSoundKey(res_key::CLICK)
+				.ClickSound(res_key::CLICK)
 				.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
 				.Tooltip(tip, 0.6f)
 				.OnClick(std::move(cb)).Id();
@@ -1396,7 +1396,7 @@ struct Main {
 			[this](SDL::Event& ev){ _OnMapEvent(ev); },
 			nullptr,
 			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderMap(r, rect); }
-		).Grow(1).Padding(0.f).Id();
+		).Grow(100.f).Padding(0.f).Id();
 		return eMapCanvas;
 	}
 
@@ -1423,7 +1423,7 @@ struct Main {
 			[this](SDL::Event& ev){ _OnTilesetEvent(ev); },
 			nullptr,
 			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderTileset(r, rect); }
-		).Grow(1).Padding(0.f).Id();
+		).Grow(100.f).Padding(0.f).Id();
 		panel.Child(eTilesetCanvas);
 
 		// Tile info
@@ -1440,7 +1440,7 @@ struct Main {
 					ui.Button("btn_ts_prev").W(26).H(26)
 						.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
 						.Icon(icon_key::LEFT, 5.f)
-						.ClickSoundKey(res_key::CLICK)
+						.ClickSound(res_key::CLICK)
 						.Tooltip("Previous Tileset", 0.6f)
 						.WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
 						.OnClick([this]{
@@ -1449,17 +1449,17 @@ struct Main {
 					ui.Button("btn_ts_next").W(26).H(26)
 						.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
 						.Icon(icon_key::RIGHT, 5.f)
-						.ClickSoundKey(res_key::CLICK)
+						.ClickSound(res_key::CLICK)
 						.Tooltip("Next Tileset", 0.6f)
 						.WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
 						.OnClick([this]{
 							if (state.activeTileset < (int)map.tilesets.size()-1)
 								++state.activeTileset;
 						}),
-					ui.Button("btn_ts_smart", "Smart").Grow(1).H(26)
+					ui.Button("btn_ts_smart", "Smart").Grow(100.f).H(26)
 						.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-						.FontKey(res_key::FONT).FontSize(11)
-						.ClickSoundKey(res_key::CLICK)
+						.Font(res_key::FONT, 11.f)
+						.ClickSound(res_key::CLICK)
 						.Tooltip("Toggle Smart Tileset", 0.6f)
 						.WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
 						.OnClick([this]{
@@ -1475,8 +1475,8 @@ struct Main {
 			.W(SDL::UI::Value::Pw(100.f)).H(26)
 			.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
 			.WithStyle([](auto& s){ s.radius=SDL::FCorners(0.f); })
-			.FontKey(res_key::FONT).FontSize(11)
-			.ClickSoundKey(res_key::CLICK)
+			.Font(res_key::FONT, 11.f)
+			.ClickSound(res_key::CLICK)
 			.OnClick([this]{ _ImportTileset(); }));
 
 		// Brush size row
@@ -1486,7 +1486,7 @@ struct Main {
 				.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
 				.Children(
 					ui.Label("lbl_brush_sz", "Brush:").W(44).TextColor(pal::GREY),
-					ui.Slider("sld_brush", 1.f, 9.f, float(state.brushSize)).Grow(1)
+					ui.Slider("sld_brush", 1.f, 9.f, float(state.brushSize)).Grow(100.f)
 						.FillColor(pal::ACCENT)
 						.OnChange([this](float v){
 							int b = 1 + 2 * (int)((v - 1.f) / 2.f + 0.5f);

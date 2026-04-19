@@ -23,23 +23,23 @@ namespace game {
 
 class MenuState : public IState {
 public:
-	void Enter(AppContext& ecs_context) override {
-		m_ctx = &ecs_context; m_time = 0.f;
+	void Enter(AppContext& ctx) override {
+		m_ctx = &ctx; m_time = 0.f;
 		LOG_INFO << "MenuState::Enter";
 
 		// Check whether a save file is available.
-		m_hasSave = !ecs_context.savePath.empty() &&
-					core::SaveManager(ecs_context.savePath).Exists();
+		m_hasSave = !ctx.savePath.empty() &&
+					core::SaveManager(ctx.savePath).Exists();
 
-		m_uiWorld = std::make_unique<SDL::ECS::Context>();
+		m_ecs_ctx = std::make_unique<SDL::ECS::Context>();
 		m_ui      = std::make_unique<SDL::UI::System>(
-			*m_uiWorld, ecs_context.renderer, SDL::MixerRef{nullptr}, *ecs_context.pool);
+			*m_ecs_ctx, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
 		_BuildUI();
 	}
 
 	void Leave() override {
 		m_ui.reset();
-		m_uiWorld.reset();
+		m_ecs_ctx.reset();
 		LOG_INFO << "MenuState::Leave";
 	}
 
@@ -59,8 +59,8 @@ private:
 	AppContext* m_ctx     = nullptr;
 	float       m_time   = 0.f;
 	bool        m_hasSave = false;
-	std::unique_ptr<SDL::ECS::Context>  m_uiWorld;
-	std::unique_ptr<SDL::UI::System>  m_ui;
+	std::unique_ptr<SDL::ECS::Context> m_ecs_ctx;
+	std::unique_ptr<SDL::UI::System>   m_ui;
 
 	void _BuildUI() {
 		using namespace SDL::UI;
@@ -120,7 +120,7 @@ private:
 			.Align(Align::Center, Align::Center)
 			.BgColor({0,0,0,0})
 			.MarginV(18.f)
-			.Children(bNew, bCont, m_ui->Sep(), bOpts, bQuit);
+			.Children(bNew, bCont, m_ui->Separator(), bOpts, bQuit);
 
 		// ── Root ──────────────────────────────────────────────────────────────
 		m_ui->Column("root", 0.f, 0.f)

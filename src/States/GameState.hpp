@@ -31,7 +31,7 @@ namespace game {
 //     Root → entitiesGroup → entity nodes
 //     SignalBus for mob-died / teleport / player-spawned
 //
-//   m_uiWorld  ← separate ECS::Context  (UI only)
+//   m_ecs_ctx  ← separate ECS::Context  (UI only)
 //   m_ui       ← SDL::UI::System
 //     HUD row (health bar, polypoints, map name)
 //     Canvas widget  ← game world rendered here
@@ -68,13 +68,13 @@ public:
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════
-	void Enter(AppContext& ecs_context) override {
-		m_ctx = &ecs_context;
+	void Enter(AppContext& ctx) override {
+		m_ctx = &ctx;
 		LOG_GAME(core::LogLevel::Info) << "GameState::Enter";
 
 		// ── Read config ────────────────────────────────────────────────────
-		auto& cfg = *ecs_context.config;
-		m_assetsBase      = ecs_context.assetsBasePath;
+		auto& cfg = *ctx.config;
+		m_assetsBase      = ctx.assetsBasePath;
 		m_dispTileSize    = cfg.count("dispTileSize")    ? cfg["dispTileSize"].AsInt(64) : 64;
 		m_tilesetName     = cfg.count("tilesetImgName")  ? cfg["tilesetImgName"].AsString("tileset1.png") : "tileset1.png";
 		m_tilesetTileSize = cfg.count("tileSize")        ? cfg["tileSize"].AsInt(16) : 16;
@@ -82,8 +82,8 @@ public:
 		m_infoEntities    = cfg.count("infoEntities")    ? cfg["infoEntities"].AsSection()  : nullptr;
 
 		// ── Load save if one exists ────────────────────────────────────────
-		if (!ecs_context.savePath.empty()) {
-			core::SaveManager sm(ecs_context.savePath);
+		if (!ctx.savePath.empty()) {
+			core::SaveManager sm(ctx.savePath);
 			if (sm.Load(m_pendingSave)) {
 				m_hasPendingSave = true;
 				m_firstMapName   = m_pendingSave.mapName;
@@ -93,7 +93,7 @@ public:
 		}
 
 		// ── Scene graph (uses m_gameWorld) ─────────────────────────────────
-		m_scene = std::make_unique<SDL::ECS::SceneBuilder>(m_gameWorld, ecs_context.renderer);
+		m_scene = std::make_unique<SDL::ECS::SceneBuilder>(m_gameWorld, ctx.renderer);
 		m_sceneRoot      = m_scene->Node2D("Root").id;
 		m_entitiesGroup  = m_scene->Node2D("Entities").AttachTo(m_sceneRoot).id;
 		m_scene->SetRoot(m_sceneRoot);
@@ -103,12 +103,12 @@ public:
 		m_gameWorld.Add<SDL::ECS::SceneCamera>(m_sceneCamEnt, {});
 
 		// ── Tileset texture ────────────────────────────────────────────────
-		_LoadTileset(ecs_context);
+		_LoadTileset(ctx);
 
 		// ── UI (separate world) ────────────────────────────────────────────
-		m_uiWorld = std::make_unique<SDL::ECS::Context>();
+		m_ecs_ctx = std::make_unique<SDL::ECS::Context>();
 		m_ui      = std::make_unique<SDL::UI::System>(
-			*m_uiWorld, ecs_context.renderer, SDL::MixerRef{nullptr}, *ecs_context.pool);
+			*m_ecs_ctx, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
 		_BuildUI();
 
 		// ── Signal bus ─────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ public:
 	}
 
 	void Leave() override {
-		m_ui.reset(); m_uiWorld.reset();
+		m_ui.reset(); m_ecs_ctx.reset();
 		m_scene.reset();
 		m_gameWorld = {};
 		LOG_GAME(core::LogLevel::Info) << "GameState::Leave";
@@ -236,7 +236,7 @@ private:
 	int             m_tilesetCols = 1;
 
 	// ── UI (separate ECS world) ───────────────────────────────────────────────
-	std::unique_ptr<SDL::ECS::Context>  m_uiWorld;
+	std::unique_ptr<SDL::ECS::Context>  m_ecs_ctx;
 	std::unique_ptr<SDL::UI::System>  m_ui;
 	SDL::ECS::EntityId  m_pausePanel = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId  m_msgPanel   = SDL::ECS::NullEntity;
@@ -291,7 +291,7 @@ private:
 			.Children(m_lblHealth, m_healthBar);
 
 		// ── Points + map name ─────────────────────────────────────────────────
-		m_lblPoints  = m_ui->Label("pts",  "0 pts").TextColor(kYellow).FontSize(14.f).Grow(1.f);
+		m_lblPoints  = m_ui->Label("pts",  "0 pts").TextColor(kYellow).FontSize(14.f).Grow(100.f);
 		m_lblMapName = m_ui->Label("map",  "---").TextColor({160,165,200,200}).FontSize(12.f);
 
 		// ── HUD row ───────────────────────────────────────────────────────────
@@ -304,7 +304,7 @@ private:
 		// ── Game canvas (grows to fill remaining space) ───────────────────────
 		auto canvas = m_ui->CanvasWidget("game", nullptr, nullptr,
 			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderGame(r, rect); })
-			.Grow(1.f);
+			.Grow(100.f);
 
 		// ── Root ──────────────────────────────────────────────────────────────
 		auto root = m_ui->Column("root", 0.f, 0.f)
@@ -371,7 +371,7 @@ private:
 		auto pauseInner = m_ui->Column("pauseInner", 4.f, 0.f)
 			.BgColor({0,0,0,0})
 			.AutoScrollable(false, false)
-			.Children(pauseTitle, bResume, bSave, m_ui->Sep(), bMenu);
+			.Children(pauseTitle, bResume, bSave, m_ui->Separator(), bMenu);
 		m_ui->AppendChild(m_pausePanel, pauseInner);
 		m_ui->AppendChild(root, m_pausePanel);
 
@@ -543,7 +543,7 @@ private:
 				std::format("HP: {:.0f}/{:.0f}", h.hp, h.maxHp));
 
 			// Update progress bar: val + max via uiWorld's SliderData
-			if (auto* sd = m_uiWorld->Get<SDL::UI::SliderData>(m_healthBar)) {
+			if (auto* sd = m_ecs_ctx->Get<SDL::UI::SliderData>(m_healthBar)) {
 				sd->max = h.maxHp;
 				sd->val = SDL::Clamp(h.hp, 0.f, h.maxHp);
 			}
@@ -716,16 +716,16 @@ private:
 		m_ui->SetVisible(m_pausePanel, m_paused);
 	}
 
-	void _LoadTileset(AppContext& ecs_context) {
+	void _LoadTileset(AppContext& ctx) {
 		const std::string key  = "tileset_main";
 		const std::string path = m_assetsBase + "/textures/" + m_tilesetName;
-		if (auto h = ecs_context.pool->Get<SDL::Texture>(key)) {
+		if (auto h = ctx.pool->Get<SDL::Texture>(key)) {
 			m_tilesetTex = *h.get();
 		} else {
 			try {
-				SDL::Texture t(ecs_context.renderer, path);
-				ecs_context.pool->Add<SDL::Texture>(key, std::move(t));
-				if (auto h2 = ecs_context.pool->Get<SDL::Texture>(key)) m_tilesetTex = *h2.get();
+				SDL::Texture t(ctx.renderer, path);
+				ctx.pool->Add<SDL::Texture>(key, std::move(t));
+				if (auto h2 = ctx.pool->Get<SDL::Texture>(key)) m_tilesetTex = *h2.get();
 			} catch (const std::exception& e) {
 				LOG_RESOURCE(core::LogLevel::Error) << "Tileset: " << e.what();
 			}

@@ -1,8 +1,8 @@
-#ifndef SDL3PP_VIDEOFILE_H_
-#define SDL3PP_VIDEOFILE_H_
+#ifndef SDL3PP_MEDIA_H_
+#define SDL3PP_MEDIA_H_
 
 /**
- * @file SDL3pp_videoFile.h
+ * @file SDL3pp_media.h
  * @brief FFmpeg-backed media file loader, player and editor for SDL3pp.
  *
  * ## Features
@@ -10,7 +10,7 @@
  *  - Enumerate and select video / audio / subtitle tracks
  *  - Decode with software fallback (libavcodec)
  *  - Real-time audio output through SDL3 audio streams (libswresample resampling)
- *  - Video frames uploaded to SDL_Texture via RGBA conversion (libswscale)
+ *  - Media frames uploaded to SDL_Texture via RGBA conversion (libswscale)
  *  - Subtitle extraction and display (SRT/WebVTT text, ASS/SSA)
  *  - Read and write container-level and stream-level metadata (libavutil)
  *  - Resource management through SDL::ResourcePool
@@ -24,14 +24,14 @@
  *
  * ## Quick start
  * ```cpp
- * SDL::Video::VideoPlayer player;
+ * SDL::Media::MediaPlayer player;
  * player.Init(renderer);
  * player.Load("video.mp4");
  * player.Play();
  *
  * // In update loop:
  * player.Update(dt);
- * if (SDL::TextureRef tex = player.GetVideoTexture())
+ * if (SDL::TextureRef tex = player.GetMediaTexture())
  *     renderer.RenderTexture(tex, std::nullopt, dstRect);
  *
  * // Subtitle overlay:
@@ -73,7 +73,7 @@ extern "C" {
 #include "SDL3pp_log.h"
 
 namespace SDL {
-namespace Video {
+namespace Media {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enums
@@ -81,7 +81,7 @@ namespace Video {
 
 /// Kind of elementary stream inside a container.
 enum class TrackType {
-	Video,
+	Media,
 	Audio,
 	Subtitle,
 	Data,
@@ -128,7 +128,7 @@ struct StreamInfo {
 	bool         isDefault   = false;
 	bool         isForced    = false;
 
-	// ── Video ────────────────────────────────────────────────────────────────
+	// ── Media ────────────────────────────────────────────────────────────────
 	int          width       = 0;
 	int          height      = 0;
 	double       frameRate   = 0.0;
@@ -192,10 +192,10 @@ struct SubtitleEvent {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoFrame  –  one decoded video frame (RGBA pixels, ready to upload)
+// MediaFrame  –  one decoded video frame (RGBA pixels, ready to upload)
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct VideoFrame {
+struct MediaFrame {
 	std::vector<uint8_t> data;
 	int                  width    = 0;
 	int                  height   = 0;
@@ -245,7 +245,7 @@ using SwrPtr      = std::unique_ptr<SwrContext,      SwrDeleter>;
 // ── Thread-safe bounded frame queue ──────────────────────────────────────────
 
 /**
- * A bounded, thread-safe FIFO queue used to pass decoded VideoFrames from the
+ * A bounded, thread-safe FIFO queue used to pass decoded MediaFrames from the
  * decode thread to the main (rendering) thread.
  *
  * @tparam T    Element type (must be movable).
@@ -390,7 +390,7 @@ public:
 		_CloseDecoder(m_subtitleDec);
 		m_fmt.reset();
 		m_streams.clear();
-		m_activeVideo    = -1;
+		m_activeMedia    = -1;
 		m_activeAudio    = -1;
 		m_activeSubtitle = -1;
 		m_eof            = false;
@@ -426,21 +426,21 @@ public:
 
 	// ── Track selection ───────────────────────────────────────────────────────
 
-	bool SelectVideoTrack   (int idx) { return _OpenDecoder(m_videoDec,    idx, AVMEDIA_TYPE_VIDEO);    }
+	bool SelectMediaTrack   (int idx) { return _OpenDecoder(m_videoDec,    idx, AVMEDIA_TYPE_VIDEO);    }
 	bool SelectAudioTrack   (int idx) { return _OpenDecoder(m_audioDec,    idx, AVMEDIA_TYPE_AUDIO);    }
 	bool SelectSubtitleTrack(int idx) { return _OpenDecoder(m_subtitleDec, idx, AVMEDIA_TYPE_SUBTITLE); }
 
-	void DeselectVideoTrack   () { _CloseDecoder(m_videoDec);    m_activeVideo    = -1; }
+	void DeselectMediaTrack   () { _CloseDecoder(m_videoDec);    m_activeMedia    = -1; }
 	void DeselectAudioTrack   () { _CloseDecoder(m_audioDec);    m_activeAudio    = -1; }
 	void DeselectSubtitleTrack() { _CloseDecoder(m_subtitleDec); m_activeSubtitle = -1; }
 
 	void DeselectAllTracks() {
-		DeselectVideoTrack();
+		DeselectMediaTrack();
 		DeselectAudioTrack();
 		DeselectSubtitleTrack();
 	}
 
-	int GetActiveVideoTrack   () const noexcept { return m_activeVideo;    }
+	int GetActiveMediaTrack   () const noexcept { return m_activeMedia;    }
 	int GetActiveAudioTrack   () const noexcept { return m_activeAudio;    }
 	int GetActiveSubtitleTrack() const noexcept { return m_activeSubtitle; }
 
@@ -453,14 +453,14 @@ public:
 	}
 
 	/// Swap the active video track at runtime.
-	bool SwitchVideoTrack(int newStreamIndex) {
+	bool SwitchMediaTrack(int newStreamIndex) {
 		_CloseDecoder(m_videoDec);
-		return SelectVideoTrack(newStreamIndex);
+		return SelectMediaTrack(newStreamIndex);
 	}
 
-	// ── Raw decoder access (for the VideoPlayer decode loop) ──────────────────
+	// ── Raw decoder access (for the MediaPlayer decode loop) ──────────────────
 
-	AVCodecContext*  GetVideoCodecCtx   () const noexcept { return m_videoDec.ctx.get();    }
+	AVCodecContext*  GetMediaCodecCtx   () const noexcept { return m_videoDec.ctx.get();    }
 	AVCodecContext*  GetAudioCodecCtx   () const noexcept { return m_audioDec.ctx.get();    }
 	AVCodecContext*  GetSubtitleCodecCtx() const noexcept { return m_subtitleDec.ctx.get(); }
 	AVFormatContext* GetFormatCtx       () const noexcept { return m_fmt.get();             }
@@ -561,7 +561,7 @@ private:
 	detail::FmtCtxPtr        m_fmt;
 	std::vector<StreamInfo>  m_streams;
 	DecoderCtx               m_videoDec, m_audioDec, m_subtitleDec;
-	int                      m_activeVideo    = -1;
+	int                      m_activeMedia    = -1;
 	int                      m_activeAudio    = -1;
 	int                      m_activeSubtitle = -1;
 	bool                     m_eof            = false;
@@ -603,7 +603,7 @@ private:
 		// Type-specific fields
 		switch (cp->codec_type) {
 		case AVMEDIA_TYPE_VIDEO:
-			si.type      = TrackType::Video;
+			si.type      = TrackType::Media;
 			si.width     = cp->width;
 			si.height    = cp->height;
 			if (st->r_frame_rate.den > 0) si.frameRate = av_q2d(st->r_frame_rate);
@@ -665,7 +665,7 @@ private:
 		dc.ctx.reset(ctx);
 		dc.streamIndex = streamIdx;
 
-		if (expected == AVMEDIA_TYPE_VIDEO)    m_activeVideo    = streamIdx;
+		if (expected == AVMEDIA_TYPE_VIDEO)    m_activeMedia    = streamIdx;
 		if (expected == AVMEDIA_TYPE_AUDIO)    m_activeAudio    = streamIdx;
 		if (expected == AVMEDIA_TYPE_SUBTITLE) m_activeSubtitle = streamIdx;
 		return true;
@@ -684,7 +684,7 @@ private:
 
 	static AVMediaType _ToAVMediaType(TrackType t) {
 		switch (t) {
-		case TrackType::Video:      return AVMEDIA_TYPE_VIDEO;
+		case TrackType::Media:      return AVMEDIA_TYPE_VIDEO;
 		case TrackType::Audio:      return AVMEDIA_TYPE_AUDIO;
 		case TrackType::Subtitle:   return AVMEDIA_TYPE_SUBTITLE;
 		case TrackType::Data:       return AVMEDIA_TYPE_DATA;
@@ -810,7 +810,7 @@ inline std::vector<SubtitleEvent> MediaFile::ExtractSubtitles(int streamIndex) {
 }
 
 // =============================================================================
-// VideoPlayer  –  high-level async player with A/V sync
+// MediaPlayer  –  high-level async player with A/V sync
 // =============================================================================
 
 /**
@@ -830,12 +830,12 @@ inline std::vector<SubtitleEvent> MediaFile::ExtractSubtitles(int streamIndex) {
  * 4. Fires `OnFrame` / `OnSubtitle` / `OnStateChange` callbacks.
  * 5. Handles looping or EOF state transitions.
  *
- * ## Video texture
- * `GetVideoTexture()` returns an `SDL::TextureRef` backed by `TEXTUREACCESS_STREAMING`,
+ * ## Media texture
+ * `GetMediaTexture()` returns an `SDL::TextureRef` backed by `TEXTUREACCESS_STREAMING`,
  * updated in-place by `Update()`.  Render it every frame; the ref is stable
  * for the lifetime of the loaded file.
  */
-class VideoPlayer {
+class MediaPlayer {
 public:
 	// ── Callback types ────────────────────────────────────────────────────────
 
@@ -850,12 +850,12 @@ public:
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────
 
-	VideoPlayer()  = default;
-	~VideoPlayer() { Shutdown(); }
-	VideoPlayer(const VideoPlayer&)            = delete;
-	VideoPlayer& operator=(const VideoPlayer&) = delete;
-	VideoPlayer(VideoPlayer&&)                 = delete;
-	VideoPlayer& operator=(VideoPlayer&&)      = delete;
+	MediaPlayer()  = default;
+	~MediaPlayer() { Shutdown(); }
+	MediaPlayer(const MediaPlayer&)            = delete;
+	MediaPlayer& operator=(const MediaPlayer&) = delete;
+	MediaPlayer(MediaPlayer&&)                 = delete;
+	MediaPlayer& operator=(MediaPlayer&&)      = delete;
 
 	/**
 	 * Initialise the player.
@@ -899,10 +899,10 @@ public:
 		}
 
 		// Auto-select best streams
-		int vi = m_file.GetBestStream(TrackType::Video);
+		int vi = m_file.GetBestStream(TrackType::Media);
 		int ai = m_file.GetBestStream(TrackType::Audio);
 		int si = m_file.GetBestStream(TrackType::Subtitle);
-		if (vi >= 0) m_file.SelectVideoTrack(vi);
+		if (vi >= 0) m_file.SelectMediaTrack(vi);
 		if (ai >= 0) m_file.SelectAudioTrack(ai);
 		if (si >= 0) m_file.SelectSubtitleTrack(si);
 
@@ -910,7 +910,7 @@ public:
 		if (si >= 0) {
 			m_subtitles = m_file.ExtractSubtitles(si);
 			// Restore decoders after extraction (seek is done internally)
-			if (vi >= 0) m_file.SelectVideoTrack(vi);
+			if (vi >= 0) m_file.SelectMediaTrack(vi);
 			if (ai >= 0) m_file.SelectAudioTrack(ai);
 			if (si >= 0) m_file.SelectSubtitleTrack(si);
 			m_file.Seek(0.0);
@@ -918,7 +918,7 @@ public:
 
 		// Create the streaming video texture
 		if (vi >= 0) {
-			auto* vctx = m_file.GetVideoCodecCtx();
+			auto* vctx = m_file.GetMediaCodecCtx();
 			if (vctx && m_renderer) {
 				m_videoTex = SDL::Texture(m_renderer,
 					SDL::PIXELFORMAT_RGBA32,
@@ -1055,19 +1055,19 @@ public:
 
 	// ── Track management ──────────────────────────────────────────────────────
 
-	std::vector<StreamInfo> GetVideoTracks   () const { return m_file.GetStreamsByType(TrackType::Video);    }
+	std::vector<StreamInfo> GetMediaTracks   () const { return m_file.GetStreamsByType(TrackType::Media);    }
 	std::vector<StreamInfo> GetAudioTracks   () const { return m_file.GetStreamsByType(TrackType::Audio);    }
 	std::vector<StreamInfo> GetSubtitleTracks() const { return m_file.GetStreamsByType(TrackType::Subtitle); }
 
 	const std::vector<StreamInfo>& GetAllStreams() const { return m_file.GetAllStreams(); }
 
-	bool SetVideoTrack(int streamIndex) {
+	bool SetMediaTrack(int streamIndex) {
 		bool wasPlaying = (m_state == PlaybackState::Playing);
 		if (wasPlaying) _StopDecode();
-		bool ok = m_file.SwitchVideoTrack(streamIndex);
+		bool ok = m_file.SwitchMediaTrack(streamIndex);
 		_DestroyTexture();
 		if (ok) {
-			auto* vctx = m_file.GetVideoCodecCtx();
+			auto* vctx = m_file.GetMediaCodecCtx();
 			if (vctx && m_renderer) {
 				m_videoTex = SDL::Texture(m_renderer,
 					SDL::PIXELFORMAT_RGBA32,
@@ -1118,8 +1118,8 @@ public:
 	const std::string& GetLastError() const noexcept { return m_lastError;        }
 
 	/// Returns info about the active video stream (or default if none).
-	StreamInfo GetActiveVideoInfo() const {
-		int vi = m_file.GetActiveVideoTrack();
+	StreamInfo GetActiveMediaInfo() const {
+		int vi = m_file.GetActiveMediaTrack();
 		if (vi >= 0 && vi < m_file.GetStreamCount()) return m_file.GetStreamInfo(vi);
 		return {};
 	}
@@ -1131,7 +1131,7 @@ public:
 		info.state       = m_state;
 		info.filePath    = m_file.GetPath();
 		info.lastError   = m_lastError;
-		if (int vi = m_file.GetActiveVideoTrack(); vi >= 0) {
+		if (int vi = m_file.GetActiveMediaTrack(); vi >= 0) {
 			auto& s = m_file.GetStreamInfo(vi);
 			info.width = s.width; info.height = s.height; info.fps = s.frameRate;
 		}
@@ -1145,7 +1145,7 @@ public:
 	// ── Rendering ─────────────────────────────────────────────────────────────
 
 	/// Returns the streaming texture updated by Update().  May be nullptr.
-	SDL::TextureRef GetVideoTexture() const noexcept { return m_videoTex; }
+	SDL::TextureRef GetMediaTexture() const noexcept { return m_videoTex; }
 
 	/**
 	 * Advance playback; upload the next due video frame to the texture.
@@ -1167,7 +1167,7 @@ public:
 
 		// Pop and upload due video frames
 		bool newFrame = false;
-		VideoFrame frame;
+		MediaFrame frame;
 		while (m_videoFrameQ.Peek(frame)) {
 			if (frame.pts <= clock + 1.0 / 30.0) {
 				if (m_videoFrameQ.TryPop(frame)) {
@@ -1215,7 +1215,7 @@ private:
 	SDL::Texture m_videoTex;
 
 	// Frame queue: decode thread → main thread
-	detail::FrameQueue<VideoFrame, 32> m_videoFrameQ;
+	detail::FrameQueue<MediaFrame, 32> m_videoFrameQ;
 
 	// ── Audio ─────────────────────────────────────────────────────────────────
 
@@ -1305,7 +1305,7 @@ private:
 
 		if (!m_audioStream) {
 			SDL::LogError(SDL::LOG_CATEGORY_APPLICATION,
-						  "VideoPlayer: OpenAudioDeviceStream failed: %s",
+						  "MediaPlayer: OpenAudioDeviceStream failed: %s",
 						  SDL::GetError());
 			return;
 		}
@@ -1322,7 +1322,7 @@ private:
 
 	// ── Frame upload ──────────────────────────────────────────────────────────
 
-	void _UploadFrame(const VideoFrame& f) {
+	void _UploadFrame(const MediaFrame& f) {
 		if (!m_videoTex || f.data.empty()) return;
 		m_videoTex.Update(std::nullopt, f.data.data(), f.linesize);
 	}
@@ -1365,9 +1365,9 @@ private:
 	// ── Decode loop (runs in background thread) ───────────────────────────────
 
 	void _DecodeLoop() {
-		auto* vctx = m_file.GetVideoCodecCtx();
+		auto* vctx = m_file.GetMediaCodecCtx();
 		auto* actx = m_file.GetAudioCodecCtx();
-		int   vi   = m_file.GetActiveVideoTrack();
+		int   vi   = m_file.GetActiveMediaTrack();
 		int   ai   = m_file.GetActiveAudioTrack();
 
 		// ── Build SWR context for audio resampling ────────────────────────────
@@ -1393,7 +1393,7 @@ private:
 				if (avcodec_send_packet(vctx, pkt) >= 0) {
 					while (!m_decodeStop.load() &&
 						   avcodec_receive_frame(vctx, frame) == 0) {
-						_ProcessVideoFrame(vctx, frame);
+						_ProcessMediaFrame(vctx, frame);
 						av_frame_unref(frame);
 					}
 				}
@@ -1413,7 +1413,7 @@ private:
 		if (vctx && !m_decodeStop.load()) {
 			avcodec_send_packet(vctx, nullptr);
 			while (avcodec_receive_frame(vctx, frame) == 0) {
-				_ProcessVideoFrame(vctx, frame);
+				_ProcessMediaFrame(vctx, frame);
 				av_frame_unref(frame);
 			}
 		}
@@ -1423,7 +1423,7 @@ private:
 		m_decodeFinished.store(true);
 	}
 
-	void _ProcessVideoFrame(AVCodecContext* vctx, AVFrame* frame) {
+	void _ProcessMediaFrame(AVCodecContext* vctx, AVFrame* frame) {
 		int w = frame->width, h = frame->height;
 		if (w <= 0 || h <= 0) return;
 
@@ -1439,14 +1439,14 @@ private:
 		}
 		if (!m_swsCtx) return;
 
-		VideoFrame vf;
+		MediaFrame vf;
 		vf.width    = w;
 		vf.height   = h;
 		vf.linesize = w * 4;
 		vf.data.resize((size_t)(h * vf.linesize));
 
 		// Compute PTS in seconds
-		AVStream* st = m_file.GetFormatCtx()->streams[m_file.GetActiveVideoTrack()];
+		AVStream* st = m_file.GetFormatCtx()->streams[m_file.GetActiveMediaTrack()];
 		vf.pts = (frame->best_effort_timestamp != AV_NOPTS_VALUE)
 			? (double)frame->best_effort_timestamp * av_q2d(st->time_base)
 			: (double)frame->pts * av_q2d(st->time_base);
@@ -1491,7 +1491,7 @@ private:
  * Synchronously open a media file and store the `MediaFile` object in a pool.
  *
  * ```cpp
- * auto handle = SDL::Video::LoadMediaFile(pool, "intro", "assets/intro.mp4");
+ * auto handle = SDL::Media::LoadMediaFile(pool, "intro", "assets/intro.mp4");
  * if (handle) { auto& mf = *handle; ... }
  * ```
  */
@@ -1501,7 +1501,7 @@ inline ResourceHandle<MediaFile> LoadMediaFile(
 	MediaFile mf;
 	if (!mf.Open(path)) {
 		SDL::LogError(SDL::LOG_CATEGORY_APPLICATION,
-					  "Video::LoadMediaFile: cannot open '%s': %s",
+					  "Media::LoadMediaFile: cannot open '%s': %s",
 					  path.c_str(), mf.GetLastError().c_str());
 		return {};
 	}
@@ -1509,7 +1509,7 @@ inline ResourceHandle<MediaFile> LoadMediaFile(
 	return pool.Get<MediaFile>(key);
 }
 
-} // namespace Video
+} // namespace Media
 } // namespace SDL
 
-#endif // SDL3PP_VIDEOFILE_H_
+#endif // SDL3PP_MEDIA_H_

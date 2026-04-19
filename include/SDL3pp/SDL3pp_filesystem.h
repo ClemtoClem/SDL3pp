@@ -494,8 +494,8 @@ using EnumerateDirectoryCB =
  * @since This function is available since SDL 3.2.0.
  */
 inline void EnumerateDirectory(StringParam path,
-															 EnumerateDirectoryCallback callback,
-															 void* userdata) {
+								EnumerateDirectoryCallback callback,
+								void* userdata) {
 	CheckError(SDL_EnumerateDirectory(path, callback, userdata));
 }
 
@@ -713,6 +713,152 @@ inline OwnArray<char*> GlobDirectory(StringParam path,
 inline Path GetCurrentDirectory() { return Path{SDL_GetCurrentDirectory()}; }
 
 /// @}
+
+
+/**
+ * @defgroup CategoryFilesystem Filesystem Utils
+ */
+
+inline std::string JoinPath(std::string_view dir, std::string_view file) {
+	std::string res(dir);
+	if (!res.empty() && res.back() != '/' && res.back() != '\\') {
+		res += '/';
+	}
+	res += file;
+	return res;
+}
+
+/**
+ * @brief Checks whether a given path exists and whether it is a directory.
+ * Uses SDL::GetPathInfo to retrieve metadata.
+ */
+inline bool DirectoryExists(std::string_view path) {
+	try {
+		SDL::PathInfo info = SDL::GetPathInfo(path);
+		// On vérifie si l'état est valide et si le type correspond à un répertoire
+		return (info && info.type == SDL::PATHTYPE_DIRECTORY);
+	} catch (...) {
+		// Si GetPathInfo lève une erreur (ex: le chemin n'existe pas)
+		return false;
+	}
+}
+
+/**
+ * @brief Searches for a directory by name in an entire directory tree.
+ * Uses SDL::EnumerateDirectory recursively.
+ * * @param rootPath The starting directory for the search.
+ * @param targetName The name of the directory being searched for.
+ * @return std::optional<SDL::Path> The full path if found, otherwise std::nullopt.
+ */
+inline std::optional<SDL::Path> FindDirectoryRecursive(const SDL::Path& rootPath, std::string_view targetName) {
+	std::optional<SDL::Path> foundPath = std::nullopt;
+
+	try {
+		SDL::EnumerateDirectory(rootPath, [&](const char* dirname, const char* fname) {
+			// Création du chemin complet grâce à la surcharge de l'opérateur '/' de SDL::Path
+			SDL::Path currentPath { JoinPath(dirname, fname) };
+			
+			try {
+				SDL::PathInfo info = SDL::GetPathInfo(currentPath);
+				if (info.type == SDL::PATHTYPE_DIRECTORY) {
+					// Si le nom du répertoire correspond à ce qu'on cherche
+					if (std::string(fname) == targetName) {
+						foundPath.emplace(std::move(currentPath));
+						return SDL::ENUM_SUCCESS; // Arrête l'énumération pour ce niveau
+					} else {
+						// Sinon on cherche récursivement dans ce sous-répertoire
+						auto subResult = FindDirectoryRecursive(currentPath, targetName);
+						if (subResult) {
+							foundPath.emplace(std::move(*subResult));
+							return SDL::ENUM_SUCCESS; // Remonte et arrête l'énumération
+						}
+					}
+				}
+			} catch(...) {
+				// Ignorer les erreurs d'accès sur certains fichiers/dossiers
+			}
+			
+			return SDL::ENUM_CONTINUE; // Continue de chercher
+		});
+	} catch(...) {
+		// Erreur lors de l'énumération du répertoire racine (ex: permissions manquantes)
+	}
+
+	return foundPath;
+}
+
+/**
+ * @brief Recursively deletes a directory and all its contents.
+ * Note: SDL::RemovePath only deletes empty files or directories.
+ * This function fills that gap.
+ */
+inline bool RemoveDirectoryRecursive(std::string_view path) {
+	if (!DirectoryExists(path)) return false;
+
+	bool success = true;
+	try {
+		SDL::EnumerateDirectory(path, [&](const char* dirname, const char* fname) {
+			std::string fullPath = JoinPath(dirname, fname);
+			try {
+				SDL::PathInfo info = SDL::GetPathInfo(fullPath);
+				if (info.type == SDL::PATHTYPE_DIRECTORY) {
+					if (!RemoveDirectoryRecursive(fullPath)) {
+						success = false;
+					}
+				} else {
+					SDL::RemovePath(fullPath);
+				}
+			} catch(...) {
+				success = false;
+			}
+			return SDL::ENUM_CONTINUE;
+		});
+		
+		if (success) {
+			SDL::RemovePath(path);
+		}
+	} catch (...) {
+		return false;
+	}
+	return success;
+}
+
+/**
+ * @brief Lists all subdirectories of a given directory (non-recursive).
+ */
+inline std::vector<std::string> ListSubDirectories(std::string_view path) {
+	std::vector<std::string> dirs;
+	try {
+		SDL::EnumerateDirectory(path, [&](const char* dirname, const char* fname) {
+			std::string fullPath = JoinPath(dirname, fname);
+			try {
+				if (SDL::GetPathInfo(fullPath).type == SDL::PATHTYPE_DIRECTORY) {
+					dirs.push_back(fullPath);
+				}
+			} catch(...) {}
+			return SDL::ENUM_CONTINUE;
+		});
+	} catch(...) {}
+	return dirs;
+}
+
+/**
+ * @brief A utility function to create a directory if it does not already exist.
+ * Based on SDL::CreateDirectory, which already handles the creation of missing parent directories.
+ */
+inline bool EnsureDirectoryExists(std::string_view path) {
+	if (DirectoryExists(path)) {
+		return true;
+	}
+	try {
+		SDL::CreateDirectory(path);
+		return true;
+	} catch (...) {
+		return false;
+	}
+}
+
+///@}
 
 } // namespace SDL
 

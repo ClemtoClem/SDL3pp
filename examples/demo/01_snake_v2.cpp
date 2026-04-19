@@ -243,7 +243,7 @@ struct Main {
 		auto mkBtn = [&](const std::string& name, const std::string& label, const SDL::UI::Style& style, std::function<void()> onClick) -> SDL::UI::Builder {
 			return ui.Button(name, label).W(200).H(45)
 				.Style(style).OnClick(onClick)
-				.FontKey("default_font").FontSize(16.f);
+				.Font("default_font", 16.f);
 		};
         
         ui.Label("Title", "SNAKE ECS").FontSize(40).TextColor({50, 200, 100, 255}).MarginBottom(20).AttachTo(uiMenu);
@@ -261,25 +261,25 @@ struct Main {
 
         auto rowSpeed = ui.Row("RSpeed").W(SDL::UI::Value::Pw(100)).AttachTo(uiSettings);
         auto lblSpd = ui.Label("LblSpd", std::format("Vitesse : {} ms", config.speed_ms)).W(150).AttachTo(rowSpeed);
-        ui.Slider("SldSpd", 50.f, 400.f, (float)config.speed_ms).Grow(1)
+        ui.Slider("SldSpd", 50.f, 400.f, (float)config.speed_ms).Grow(100.f)
             .OnChange([this, lblSpd](float v){ config.speed_ms = (int)v; ui.SetText(lblSpd, std::format("Vitesse : {} ms", config.speed_ms)); })
             .AttachTo(rowSpeed);
 
         auto rowW = ui.Row("RW").W(SDL::UI::Value::Pw(100)).AttachTo(uiSettings);
         auto lblW = ui.Label("LblW", std::format("Largeur : {}", config.grid_w)).W(150).AttachTo(rowW);
-        ui.Slider("SldW", 10.f, 60.f, (float)config.grid_w).Grow(1)
+        ui.Slider("SldW", 10.f, 60.f, (float)config.grid_w).Grow(100.f)
             .OnChange([this, lblW](float v){ config.grid_w = (int)v; ui.SetText(lblW, std::format("Largeur : {}", config.grid_w)); })
             .AttachTo(rowW);
 
         auto rowH = ui.Row("RH").W(SDL::UI::Value::Pw(100)).AttachTo(uiSettings);
         auto lblH = ui.Label("LblH", std::format("Hauteur : {}", config.grid_h)).W(150).AttachTo(rowH);
-        ui.Slider("SldH", 10.f, 60.f, (float)config.grid_h).Grow(1)
+        ui.Slider("SldH", 10.f, 60.f, (float)config.grid_h).Grow(100.f)
             .OnChange([this, lblH](float v){ config.grid_h = (int)v; ui.SetText(lblH, std::format("Hauteur : {}", config.grid_h)); })
             .AttachTo(rowH);
 
         auto rowD = ui.Row("RD").W(SDL::UI::Value::Pw(100)).AttachTo(uiSettings);
         auto lblD = ui.Label("LblD", std::format("Niveau tous les : {}", config.difficulty)).W(150).AttachTo(rowD);
-        ui.Slider("SldD", 10.f, 200.f, (float)config.difficulty).Grow(1)
+        ui.Slider("SldD", 10.f, 200.f, (float)config.difficulty).Grow(100.f)
             .OnChange([this, lblD](float v){ config.difficulty = (int)v; ui.SetText(lblD, std::format("Niveau tous les : {}", config.difficulty)); })
             .AttachTo(rowD);
 

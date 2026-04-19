@@ -472,7 +472,7 @@ struct Main {
 			});
 		card.Children(m_lblGain, sldGain);
 
-		card.Child(ui.Sep("sep_gain"));
+		card.Child(ui.Separator("sep_gain"));
 
 		// ── Freq Min ─────────────────────────────────────────────────────────
 		m_lblFMin = ui.Label("lbl_fmin", std::format("Freq min: {:.0f} Hz", m_freqMin))
@@ -500,7 +500,7 @@ struct Main {
 			});
 		card.Children(m_lblFMax, sldFMax);
 
-		card.Child(ui.Sep("sep_freq"));
+		card.Child(ui.Separator("sep_freq"));
 
 		// ── Sample size ───────────────────────────────────────────────────────
 		card.Child(ui.Label("lbl_sz_hdr", "Sample size:").TextColor(pal::GREY).FontSize(12.f));
@@ -513,7 +513,7 @@ struct Main {
 				auto btn = ui.Button(std::format("btn_sz{}", i),
 									 std::to_string(kSampleSizes[i]))
 					.H(26.f)
-					.Grow(1)
+					.Grow(100.f)
 					.FontSize(12.f)
 					.Radius(SDL::FCorners(3.f))
 					.BgColor (active ? pal::ACCENT  : SDL::Color{28, 32, 48, 255})
@@ -528,7 +528,7 @@ struct Main {
 			card.Child(row);
 		}
 
-		card.Child(ui.Sep("sep_sz"));
+		card.Child(ui.Separator("sep_sz"));
 
 		// ── Sample rate ───────────────────────────────────────────────────────
 		card.Child(ui.Label("lbl_ra_hdr", "Sample rate (Hz):").TextColor(pal::GREY).FontSize(12.f));
@@ -543,7 +543,7 @@ struct Main {
 					: std::to_string(kSampleRates[i]);
 				auto btn = ui.Button(std::format("btn_ra{}", i), lbl)
 					.H(26.f)
-					.Grow(1)
+					.Grow(100.f)
 					.FontSize(12.f)
 					.Radius(SDL::FCorners(3.f))
 					.BgColor (active ? pal::ORANGE : SDL::Color{28, 32, 48, 255})
@@ -558,7 +558,7 @@ struct Main {
 			card.Child(row);
 		}
 
-		card.Child(ui.Sep("sep_ra"));
+		card.Child(ui.Separator("sep_ra"));
 
 		// ── Window function ───────────────────────────────────────────────────
 		card.Child(ui.Label("lbl_win_hdr", "Fenêtre spectrale:").TextColor(pal::GREY).FontSize(12.f));
@@ -574,7 +574,7 @@ struct Main {
 				bool active = (kWindows[i].type == m_windowType);
 				auto btn = ui.Button(std::format("btn_win{}", i), kWindows[i].label)
 					.H(26.f)
-					.Grow(1)
+					.Grow(100.f)
 					.FontSize(12.f)
 					.Radius(SDL::FCorners(3.f))
 					.BgColor (active ? kActBg  : SDL::Color{ 28,  32,  48, 255})
@@ -604,7 +604,7 @@ struct Main {
 	// ── Right panel ───────────────────────────────────────────────────────────
 	SDL::ECS::EntityId _BuildRight() {
 		auto col = ui.Column("right", 10.f, 0.f)
-			.Grow(1)
+			.Grow(100.f)
 			.Padding(10.f)
 			.BgColor(pal::BG)
 			.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(0.f); });
@@ -618,7 +618,7 @@ struct Main {
 		card.Child(ui.SectionTitle("Waveform"));
 
 		auto graph = ui.GradedGraph("graphWave")
-			.Grow(1)
+			.Grow(100.f)
 			.H(SDL::UI::Value::Pch(50.f)-50.0f);
 		m_graphWave = graph.Id();
 		card.Child(graph);
@@ -647,7 +647,7 @@ struct Main {
 		card.Child(ui.SectionTitle("Frequency spectrum"));
 
 		auto graph = ui.GradedGraph("graphSpec")
-			.Grow(1)
+			.Grow(100.f)
 			.H(SDL::UI::Value::Pch(50.f)-50.0f);
 		m_graphSpec = graph.Id();
 		card.Child(graph);

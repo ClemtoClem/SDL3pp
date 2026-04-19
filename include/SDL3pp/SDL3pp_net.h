@@ -1561,12 +1561,16 @@ struct MessageFramer {
 
 	/**
 	 * @brief Send @p data as a framed message on @p sock.
+	 *
+	 * This is a static utility — it does not use any per-framer state and can
+	 * be called without a framer instance when only sending is needed.
+	 *
 	 * @param sock  Destination stream socket (must be connected).
 	 * @param data  Pointer to payload bytes.
 	 * @param len   Payload length in bytes.
 	 * @return `true` on success, `false` on write error (check `SDL_GetError()`).
 	 */
-	bool Send(StreamSocketRef sock, const void* data, int len);
+	static bool Send(StreamSocketRef sock, const void* data, int len);
 
 	/**
 	 * @brief Read available bytes from @p sock into the internal buffer.
@@ -1595,7 +1599,7 @@ struct MessageFramer {
 	bool Receive(std::vector<Uint8>& out);
 };
 
-inline bool MessageFramer::Send(StreamSocketRef sock, const void* data, int len)
+inline bool MessageFramer::Send(StreamSocketRef sock, const void* data, int len) // static
 {
 	// Write 4-byte LE length prefix
 	Uint8 hdr[4] = {

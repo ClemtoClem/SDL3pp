@@ -1,10 +1,10 @@
 /**
  * @file 06_video_player.cpp
- * @brief SDL3pp VLC-like Video Player
+ * @brief SDL3pp VLC-like Media Player
  *
  * Features:
  * - Open any format supported by FFmpeg (MP4, MKV, AVI, WebM, MP3, FLAC…)
- * - Video rendering via SDL streaming texture
+ * - Media rendering via SDL streaming texture
  * - Multi-track audio / subtitle selection
  * - Seek bar (click / drag to seek)
  * - Volume control with mute toggle
@@ -33,7 +33,7 @@
 #include <SDL3pp/SDL3pp.h>
 #include <SDL3pp/SDL3pp_main.h>
 #include <SDL3pp/SDL3pp_ui.h>
-#include <SDL3pp/SDL3pp_videoFile.h>
+#include <SDL3pp/SDL3pp_media.h>
 
 #include <algorithm>
 #include <array>
@@ -122,7 +122,7 @@ struct Main {
 
 	static SDL::Window MakeWindow() {
 		return SDL::CreateWindowAndRenderer(
-			"SDL3pp - Video Player " VIDEO_PLAYER_VERSION,
+			"SDL3pp - Media Player " VIDEO_PLAYER_VERSION,
 			kWinSz, SDL::WINDOW_RESIZABLE, nullptr);
 	}
 
@@ -135,18 +135,18 @@ struct Main {
 	SDL::ResourceManager resources;
 	SDL::ResourcePool&   pool_ui { *resources.CreatePool(pool_key::UI) };
 
-	SDL::ECS::Context  ecs_context;
-	SDL::UI::System  ui { ecs_context, renderer, mixer, pool_ui };
-	SDL::FrameTimer  frameTimer { 60.f };
+	SDL::ECS::Context ecs_context;
+	SDL::UI::System   ui { ecs_context, renderer, mixer, pool_ui };
+	SDL::FrameTimer   frameTimer { 60.f };
 
-	// ── Video player ──────────────────────────────────────────────────────────
+	// ── Media player ──────────────────────────────────────────────────────────
 
-	SDL::Video::VideoPlayer player;
+	SDL::Media::MediaPlayer player;
 
 	// ── UI entity IDs ─────────────────────────────────────────────────────────
 
 	SDL::ECS::EntityId eTopBar         = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId eVideoCanvas    = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eMediaCanvas    = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eSeekRow        = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eCtrlBar        = SDL::ECS::NullEntity;
 	
@@ -186,7 +186,7 @@ struct Main {
 			if (arg == "--verbose") SDL::SetLogPriorities(SDL::LOG_PRIORITY_VERBOSE);
 			if (arg == "--debug")   SDL::SetLogPriorities(SDL::LOG_PRIORITY_DEBUG);
 		}
-		SDL::SetAppMetadata("SDL3pp Video Player", VIDEO_PLAYER_VERSION,
+		SDL::SetAppMetadata("SDL3pp Media Player", VIDEO_PLAYER_VERSION,
 							"com.example.video_player");
 		SDL::Init(SDL::INIT_VIDEO | SDL::INIT_AUDIO);
 		SDL::TTF::Init();
@@ -231,7 +231,7 @@ struct Main {
 		// Double clic sur la vidéo = mode plein écran immersif
 		if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN) {
 			if (ev.button.button == SDL_BUTTON_LEFT && ev.button.clicks >= 2) {
-				if (ui.IsHovered(eVideoCanvas)) {
+				if (ui.IsHovered(eMediaCanvas)) {
 					_ToggleFullscreen();
 					return SDL::APP_CONTINUE;
 				}
@@ -316,7 +316,7 @@ struct Main {
 
 		// ── Status bar ────────────────────────────────────────────────────────
 		{
-			using PS = SDL::Video::PlaybackState;
+			using PS = SDL::Media::PlaybackState;
 			auto info = player.GetPlaybackInfo();
 			switch (info.state) {
 			case PS::Playing:
@@ -391,7 +391,7 @@ private:
 								const std::string& tooltip = "") -> Builder {
 			Builder btn = ui.Button(name, label)
 				.W(label.empty() ? Value::Px(42.f) : Value::Auto())
-				.H(38.f)
+				.H(42.f)
 				.BgColor(pal::NEUTRAL)
 				.BgHover({45,45,65,255})
 				.BgPress({25,25,40,255})
@@ -399,7 +399,7 @@ private:
 				.BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
 				.Radius(SDL::FCorners(6.f))
 				.TextColor(pal::WHITE)
-				.FontKey(res_key::FONT, 13.f)
+				.Font(res_key::FONT, 13.f)
 				.PaddingH(label.empty() ? 4.f : 8.f);
 			if (!iconK.empty()) {
 				btn.Icon(iconK, 4.f)
@@ -425,21 +425,21 @@ private:
 		eTitleLabel =
 			ui.Label("titleLabel", "Aucun fichier chargé")
 				.Style(labelStyle())
-				.Grow(1.f)
+				.GrowW(100.f)
 				.AlignH(Align::Start)
-				.FontKey(res_key::FONT, 15.f);
+				.Font(res_key::FONT, 15.f);
 
 		eTopBar =
 			ui.Row("topBar", 6.f, 8.f)
 				.H(kTopBarH)
-				.Grow(1.f)
+				.GrowW(100.f)
 				.BgColor(pal::HEADER)
 				.BorderBottom(1).BorderColor(pal::BORDER)
 				.AlignChildrenV(Align::Center)
 				.Children(
 					makeIconBtn("btnOpen", icon_key::OPEN, "", "Ouvrir un fichier média (Ctrl+O)")
 					.OnClick([this]{ _ShowOpenDialog(); }),
-					ui.Sep("topSep").W(1.f).H(kTopBarH-16.f).BgColor(pal::BORDER),
+					ui.Separator("topSep").W(1.f).H(kTopBarH-16.f).BgColor(pal::BORDER),
 					eTitleLabel,
 					makeIconBtn("btnFullTop", icon_key::FULL, "", "Basculer en mode plein écran")
 					.OnClick([this]{ _ToggleFullscreen(); }),
@@ -447,13 +447,13 @@ private:
 					.OnClick([this]{ _ToggleSidePanel(); })
 				);
 
-		// ── Video canvas + subtitle overlay ───────────────────────────────────
+		// ── Media canvas + subtitle overlay ───────────────────────────────────
 
 		eSubtitleLabel =
 			ui.Label("subtitleLabel", "")
 			  .BgColor({0,0,0,180})
 			  .TextColor({255,255,210,255})
-			  .FontKey(res_key::FONT, 15.f)
+			  .Font(res_key::FONT, 15.f)
 			  .Radius(SDL::FCorners(4.f))
 			  .PaddingH(14.f).PaddingV(6.f)
 			  .AlignH(Align::Center)
@@ -462,12 +462,12 @@ private:
 			  .Attach(AttachLayout::Absolute);
 		ui.SetVisible(eSubtitleLabel, false);
 
-		eVideoCanvas =
+		eMediaCanvas =
 			ui.CanvasWidget("videoCanvas", nullptr, nullptr,
 				[this](SDL::RendererRef r, SDL::FRect rect) {
-					_DrawVideoCanvas(r, rect);
+					_DrawMediaCanvas(r, rect);
 				})
-				.Grow(1.f)
+				.Grow(100.f)
 				.BgColor(pal::BG)
 				.Child(eSubtitleLabel);
 
@@ -475,25 +475,25 @@ private:
 
 		eSeekSlider =
 			ui.Slider("seekSlider", 0.f, 1.f, 0.f, Orientation::Horizontal)
-			  .Grow(1.f)
-			  .H(kSeekH)
-			  .BgColor({30,30,46,255})
-			  .WithStyle([](Style& s){
-				  s.track = {40,40,58,255};
-				  s.fill  = {70,130,210,255};
-				  s.thumb = {100,160,235,255};
-			  })
-			  .Radius(SDL::FCorners(4.f))
-			  .OnChange([this](float v) {
-				  double dur = player.GetDuration();
-				  if (dur > 0.0) player.Seek((double)v * dur);
-			  });
+				.GrowW(100.f)
+				.H(kSeekH)
+				.BgColor({30,30,46,255})
+				.WithStyle([](Style& s){
+					s.track = {40,40,58,255};
+					s.fill  = {70,130,210,255};
+					s.thumb = {100,160,235,255};
+				})
+				.Radius(SDL::FCorners(4.f))
+				.OnChange([this](float v) {
+					double dur = player.GetDuration();
+					if (dur > 0.0) player.Seek((double)v * dur);
+				});
 
 		eTimeLabel =
 			ui.Label("timeLabel", "--:-- / --:--")
 			  .BgColor(pal::TRANSP)
 			  .TextColor({160,165,185,255})
-			  .FontKey(res_key::FONT, 12.f)
+			  .Font(res_key::FONT, 12.f)
 			  .PaddingH(8.f);
 
 		eSeekRow =
@@ -539,7 +539,7 @@ private:
 			ui.Label("volPctLabel", "100%")
 			  .BgColor(pal::TRANSP)
 			  .TextColor(pal::GREY)
-			  .FontKey(res_key::FONT, 11.f)
+			  .Font(res_key::FONT, 11.f)
 			  .W(32.f);
 
 		eLoopBtn =
@@ -568,7 +568,7 @@ private:
 					eVolPctLabel,
 					// push remaining buttons to the right
 					ui.Container("ctrlSpacerR")
-						.Grow(1.f).BgColor(pal::TRANSP),
+						.GrowW(100.f).BgColor(pal::TRANSP),
 					eLoopBtn,
 					makeIconBtn("btnFullCtrl", icon_key::FULL, "", "Plein écran")
 						.OnClick([this]{ _ToggleFullscreen(); })
@@ -579,10 +579,10 @@ private:
 		eStatusBar =
 			ui.Label("statusBar", "Ouvrez un fichier (Ctrl+O)")
 				.H(kStatusH)
-				.Grow(1.f)
+				.GrowW(100.f)
 				.BgColor({10,10,16,255})
 				.TextColor({90,95,120,255})
-				.FontKey(res_key::FONT, 11.f)
+				.Font(res_key::FONT, 11.f)
 				.PaddingH(10.f)
 				.AlignV(Align::Center);
 
@@ -590,8 +590,8 @@ private:
 
 		auto mainCol =
 			ui.Column("mainCol", 0.f, 0.f)
-				.Grow(1.f)
-				.Children(eTopBar, eVideoCanvas, eSeekRow, eCtrlBar, eStatusBar);
+				.Grow(100.f)
+				.Children(eTopBar, eMediaCanvas, eSeekRow, eCtrlBar, eStatusBar);
 
 		// ── Side panel ────────────────────────────────────────────────────────
 
@@ -621,10 +621,10 @@ private:
 
 		eMetadataArea =
 			ui.TextArea("metadataArea", "(aucune métadonnée)")
-				.Grow(1.f)
+				.GrowH(100.f)
 				.BgColor({18,18,30,255})
 				.TextColor({175,178,200,255})
-				.FontKey(res_key::FONT, 11.f)
+				.Font(res_key::FONT, 11.f)
 				.PaddingH(8.f).PaddingV(6.f);
 
 		auto metaSection =
@@ -632,7 +632,7 @@ private:
 				.H(Value::Auto(160.f))
 				.Children(
 					ui.Label("metaHdr", "MÉTADONNÉES")
-						.FontKey(res_key::FONT, 11.f)
+						.Font(res_key::FONT, 11.f)
 						.Style(sectionHdrStyle).H(20.f).PaddingH(10.f),
 					eMetadataArea
 				);
@@ -644,7 +644,7 @@ private:
 				.H(80.f)
 				.BgColor({18,18,30,255})
 				.TextColor({200,202,220,255})
-				.FontKey(res_key::FONT, 11.f)
+				.Font(res_key::FONT, 11.f)
 				.OnChange([this](float idx){ _OnAudioTrackSelected((int)idx); });
 
 		eAudCountLabel =
@@ -658,7 +658,7 @@ private:
 					.AlignChildrenV(Align::Center)
 					.Children(
 						ui.Label("audHdrLbl","PISTES AUDIO")
-							.Style(sectionHdrStyle).Grow(1.f),
+							.Style(sectionHdrStyle).GrowW(100.f),
 						eAudCountLabel
 					),
 					eAudioTrackList
@@ -671,7 +671,7 @@ private:
 				.H(80.f)
 				.BgColor({18,18,30,255})
 				.TextColor({200,202,220,255})
-				.FontKey(res_key::FONT, 11.f)
+				.Font(res_key::FONT, 11.f)
 				.OnChange([this](float idx){ _OnSubTrackSelected((int)idx); });
 
 		eSubCountLabel =
@@ -685,7 +685,7 @@ private:
 					.AlignChildrenV(Align::Center)
 					.Children(
 						ui.Label("subHdrLbl","SOUS-TITRES")
-							.Style(sectionHdrStyle).Grow(1.f),
+							.Style(sectionHdrStyle).GrowW(100.f),
 						eSubCountLabel
 					),
 					eSubTrackList
@@ -698,7 +698,7 @@ private:
 				.H(90.f)
 				.BgColor({18,18,30,255})
 				.TextColor({140,145,170,255})
-				.FontKey(res_key::FONT, 10.f)
+				.Font(res_key::FONT, 10.f)
 				.PaddingH(8.f).PaddingV(6.f);
 
 		auto infoSection =
@@ -718,11 +718,11 @@ private:
 				.BorderLeft(1).BorderColor(pal::BORDER)
 				.Children(
 					metaSection,
-					ui.Sep("sp1").BgColor(pal::BORDER),
+					ui.Separator("sp1").BgColor(pal::BORDER),
 					audioSection,
-					ui.Sep("sp2").BgColor(pal::BORDER),
+					ui.Separator("sp2").BgColor(pal::BORDER),
 					subSection,
-					ui.Sep("sp3").BgColor(pal::BORDER),
+					ui.Separator("sp3").BgColor(pal::BORDER),
 					infoSection
 				);
 	}
@@ -750,10 +750,10 @@ private:
 
 		// Update window title
 		const std::string filename = path.substr(path.rfind('/') + 1);
-		window.SetTitle("SDL3pp Video Player – " + filename);
+		window.SetTitle("SDL3pp Media Player – " + filename);
 
 		// Title label
-		SDL::Video::Metadata meta = player.GetMetadata();
+		SDL::Media::Metadata meta = player.GetMetadata();
 		std::string title = meta.Title();
 		if (title.empty()) title = filename;
 		ui.SetText(eTitleLabel, title);
@@ -772,7 +772,7 @@ private:
 	// ─────────────────────────────────────────────────────────────────────────
 
 	void _RefreshPlayBtn() {
-		bool playing = (player.GetState() == SDL::Video::PlaybackState::Playing);
+		bool playing = (player.GetState() == SDL::Media::PlaybackState::Playing);
 		ui.SetImageKey(ePlayBtn,
 			playing ? icon_key::PAUSE : icon_key::PLAY,
 			SDL::UI::ImageFit::Contain);
@@ -798,7 +798,7 @@ private:
 		_RefreshMuteBtn();
 	}
 
-	void _RefreshMetadata(const SDL::Video::Metadata& meta) {
+	void _RefreshMetadata(const SDL::Media::Metadata& meta) {
 		std::string text;
 		const std::array<std::pair<const char*, std::string>, 7> common {{
 			{"Titre",       meta.Title()  },
@@ -888,15 +888,15 @@ private:
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Video canvas rendering
+	// Media canvas rendering
 	// ─────────────────────────────────────────────────────────────────────────
 
-	void _DrawVideoCanvas(SDL::RendererRef r, SDL::FRect rect) {
+	void _DrawMediaCanvas(SDL::RendererRef r, SDL::FRect rect) {
 		// Fill background
 		r.SetDrawColor(pal::BG);
 		r.RenderFillRect(rect);
 
-		SDL::TextureRef tex = player.GetVideoTexture();
+		SDL::TextureRef tex = player.GetMediaTexture();
 		if (!tex) {
 			// Placeholder when no video is loaded
 			SDL::FRect ph = {

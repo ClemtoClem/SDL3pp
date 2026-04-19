@@ -451,10 +451,10 @@ struct Main {
             .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BorderColor(pal::BORDER);
 
         hdr.Child(ui.Label("app_title", "Weather Forecast")
-            .TextColor(pal::ACCENT).Grow(0).PaddingV(0));
+            .TextColor(pal::ACCENT).PaddingV(0));
 
         id_searchInput = ui.Input("search_input", "Search city…")
-            .Grow(1).H(36.f)
+            .W(SDL::UI::Value::Grow(100.f)).H(36.f)
             .WithStyle([](auto& s){ s.radius = SDL::FCorners(6.f); })
             .OnClick([this]{ /* focus handled by UI system */ });
         hdr.Child(id_searchInput);
@@ -466,7 +466,7 @@ struct Main {
         hdr.Child(id_searchBtn);
 
         id_statusLabel = ui.Label("status_lbl", "")
-            .TextColor(pal::GREY).Grow(0).PaddingV(0);
+            .TextColor(pal::GREY).PaddingV(0);
         hdr.Child(id_statusLabel);
 
         return hdr;
@@ -474,14 +474,16 @@ struct Main {
 
     SDL::ECS::EntityId _BuildBody() {
         auto body = ui.Row("body", 12.f, 0.f)
-            .Grow(1)
+            .W(SDL::UI::Value::Grow(100.f))
+            .H(SDL::UI::Value::Grow(100.f))
             .PaddingH(16.f).PaddingV(12.f)
             .BgColor(pal::BG)
             .Borders(SDL::FBox(0.f));
 
         // Left sidebar: city suggestions
         auto sidebar = ui.Column("sidebar", 6.f, 0.f)
-            .W(220.f).Grow(0)
+            .W(220.f)
+            .H(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::PANEL)
             .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
             .Radius(SDL::FCorners(8.f))
@@ -491,7 +493,7 @@ struct Main {
             .TextColor(pal::GREY).PaddingV(2.f));
 
         id_cityList = ui.ListBoxWidget("city_list", {})
-            .Grow(1).W(SDL::UI::Value::Pw(100.f))
+            .H(SDL::UI::Value::Grow(100.f)).W(SDL::UI::Value::Pw(100.f))
             .BgColor(pal::PANEL)
             .Borders(SDL::FBox(0.f))
             .OnClick([this]{ _OnCitySelected(); });
@@ -508,7 +510,7 @@ struct Main {
 
     SDL::ECS::EntityId _BuildMainPanel() {
         auto panel = ui.Column("main_panel", 16.f, 0.f)
-            .Grow(1)
+            .W(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::PANEL)
             .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
             .Radius(SDL::FCorners(8.f))
@@ -529,18 +531,18 @@ struct Main {
 
         // City + temperature column
         auto cwLeft = ui.Column("cw_left", 4.f, 0.f)
-            .Grow(1).BgColor({0,0,0,0}).Borders(SDL::FBox(0.f));
+            .H(SDL::UI::Value::Grow(100.f)).BgColor({0,0,0,0}).Borders(SDL::FBox(0.f));
 
         id_cwCity = ui.Label("cw_city", "—")
-            .TextColor(pal::WHITE).FontKey("font", 20.f);
+            .TextColor(pal::WHITE).Font("font", 20.f);
         cwLeft.Child(id_cwCity);
 
         id_cwTemp = ui.Label("cw_temp", "—")
-            .TextColor(pal::ACCENT).FontKey("font", 42.f);
+            .TextColor(pal::ACCENT).Font("font", 42.f);
         cwLeft.Child(id_cwTemp);
 
         id_cwDesc = ui.Label("cw_desc", "")
-            .TextColor(pal::GREY).FontKey("font", 15.f);
+            .TextColor(pal::GREY).Font("font", 15.f);
         cwLeft.Child(id_cwDesc);
 
         curCard.Child(cwLeft);
@@ -567,16 +569,17 @@ struct Main {
 
         // ── 7-day forecast row ────────────────────────────────────────────────
         panel.Child(ui.Label("forecast_title", "7-Day Forecast")
-            .TextColor(pal::GREY).FontKey("font", 13.f));
+            .TextColor(pal::GREY).Font("font", 13.f));
 
-        auto forecastRow = ui.Row("forecast_row", 10.f, 0.f)
-            .W(SDL::UI::Value::Pw(100.f)).H(150.f)
+        auto forecastRow = ui.Stack("forecast_row", 10.f, 0.f)
+            .W(SDL::UI::Value::Pw(100.f))
             .BgColor({0,0,0,0}).Borders(SDL::FBox(0.f));
 
         for (int i = 0; i < kDays; ++i) {
             std::string idx = std::to_string(i);
             auto card = ui.Column("day_card_" + idx, 4.f, 0.f)
-                .Grow(1).H(SDL::UI::Value::Pw(100.f))
+                .W(150.f)
+                .H(150.f)
                 .BgColor(pal::CARD)
                 .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
                 .Radius(SDL::FCorners(8.f))
@@ -584,7 +587,7 @@ struct Main {
                 .AlignChildrenH(SDL::UI::Align::Center);
 
             id_dayLabel[i] = ui.Label("day_label_" + idx, "—")
-                .TextColor(pal::GREY).FontKey("font", 12.f);
+                .TextColor(pal::GREY).Font("font", 12.f);
             card.Child(id_dayLabel[i]);
 
             id_dayIcon[i] = ui.ImageWidget("day_icon_" + idx, "weather_sun",
@@ -593,11 +596,11 @@ struct Main {
             card.Child(id_dayIcon[i]);
 
             id_dayMax[i] = ui.Label("day_max_" + idx, "—")
-                .TextColor(pal::WARM).FontKey("font", 13.f);
+                .TextColor(pal::WARM).Font("font", 13.f);
             card.Child(id_dayMax[i]);
 
             id_dayMin[i] = ui.Label("day_min_" + idx, "—")
-                .TextColor(pal::COLD).FontKey("font", 12.f);
+                .TextColor(pal::COLD).Font("font", 12.f);
             card.Child(id_dayMin[i]);
 
             id_dayPanel[i] = card;

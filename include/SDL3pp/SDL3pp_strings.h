@@ -152,8 +152,7 @@ struct StringResult : OwnArray<char> {
 
 	/// Constructs from string view
 	StringResult(std::string_view other)
-		: OwnArray(other.empty() ? nullptr
-														 : SDL_strndup(other.data(), other.size())) {
+		: OwnArray(other.empty() ? nullptr : SDL_strndup(other.data(), other.size())) {
 	}
 
 	/// Dtor

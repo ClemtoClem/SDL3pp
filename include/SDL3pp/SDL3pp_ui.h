@@ -46,6 +46,7 @@
  *   Value::Ww(v)   % window width (live)
  *   Value::Wh(v)   % window height (live)
  *   Value::Auto()  shrink-to-content + optional px offset
+ *   Value::Grow(f)   grow % — take share of remaining space (.W() for InLine, .H() for InColumn)
  *
  * ## Layout modes
  *
@@ -113,7 +114,7 @@
  * ```cpp
  * // ScrollView vertical automatique (raccourci factory)
  * ui.ScrollView("list")
- *   .H(300).Grow(1)
+ *   .H(Value::Grow(100.f))
  *   .Children(...)
  *   .AsRoot();
  *
@@ -171,20 +172,20 @@
  * // uiPool.Add<SDL::TTF::Font>("font:assets/Roboto.ttf|15.0",
  * //     SDL::TTF::Font{ SDL::OpenFont("assets/Roboto.ttf", 15.f) });
  *
- * SDL::ECS::Context    ECS::Context;
- * SDL::System ui(ECS::Context, renderer, uiPool);  // ← single pool for all assets
+ * SDL::ECS::Context ctx;
+ * SDL::System ui(ctx, renderer, uiPool);  // ← single pool for all assets
  *
  * ui.Column("root").Pad(0).Gap(0)
  *   .Children(
  *     ui.Row("header").H(52).PadH(16).Gap(8)
  *       .Children(
- *         ui.Label("title","My App").TextColor({70,130,210,255}).Grow(1),
+ *         ui.Label("title","My App").TextColor({70,130,210,255}).W(Value::Grow(100.f)),
  *         ui.Button("ok","OK").W(100).H(36)
  *           .BgColor({70,130,210,255}).Radius(6)
  *           .ClickSound("assets/click.wav")
  *           .OnClick([]{ SDL::Log("clicked"); })
  *       ),
- *     ui.Slider("vol",0.f,1.f,0.8f).Grow(1)
+ *     ui.Slider("vol",0.f,1.f,0.8f).H(Value::Grow(100.f))
  *       .OnChange([](float v){ SDL::Log("vol %.2f",v); }),
  *     ui.Knob("k",0.f,1.f,0.5f).W(64).H(64),
  *     ui.ScrollBar("sb",300.f,100.f).OnScroll([](float v){}),
@@ -250,6 +251,7 @@ namespace UI {
 	// Enums
 	// ==================================================================================
 
+	/// @brief Layout mode controlling how a container arranges its children.
 	enum class Layout : Uint16 {
 		InLine,   ///< Children placed horizontally (no wrap).
 		InColumn, ///< Children stacked vertically.
@@ -271,12 +273,14 @@ namespace UI {
 		Both     ///< Both horizontal and vertical lines.
 	};
 
+	/// @brief How a widget is positioned relative to its parent or the root viewport.
 	enum class AttachLayout : Uint16 {
 		Relative, ///< Normal flow.
 		Absolute, ///< Absolute inside parent (bypasses flow; not scroll-offset).
 		Fixed     ///< Fixed relative to root viewport.
 	};
 
+	/// @brief Controls what the explicit W/H values include (CSS box-model equivalent).
 	enum class BoxSizing : Uint16 {
 		ContentBox, ///< W/H = content only.
 		PaddingBox, ///< W/H = content + padding.
@@ -284,6 +288,7 @@ namespace UI {
 		MarginBox   ///< W/H = content + padding + bdColor + margin.
 	};
 
+	/// @brief Bitmask that tracks which sub-systems need to reprocess a widget this frame.
 	enum class DirtyFlag : Uint8 {
 		None = 0,
 		Style = 1 << 0,
@@ -297,8 +302,10 @@ namespace UI {
 	inline DirtyFlag &operator|=(DirtyFlag &a, DirtyFlag b) noexcept { a = a | b; return a; }
 	inline DirtyFlag &operator&=(DirtyFlag &a, DirtyFlag b) noexcept { a = a & b; return a; }
 	inline bool operator!(DirtyFlag a) noexcept { return a == DirtyFlag::None; }
+	/** @brief Returns true if all bits of @p b are set in @p a. */
 	inline bool Has(DirtyFlag &a, DirtyFlag b) { return (a & b) != DirtyFlag::None; }
 
+	/// @brief Bitmask controlling what interactions a widget participates in.
 	enum class BehaviorFlag : Uint16 {
 		None            = 0,
 		Enable          = 1 << 0,
@@ -319,8 +326,10 @@ namespace UI {
 	inline BehaviorFlag &operator|=(BehaviorFlag &a, BehaviorFlag b) noexcept { a = a | b; return a; }
 	inline BehaviorFlag &operator&=(BehaviorFlag &a, BehaviorFlag b) noexcept { a = a & b; return a; }
 	inline bool operator!(BehaviorFlag a) noexcept { return a == BehaviorFlag::None; }
+	/** @brief Returns true if all bits of @p b are set in @p a. */
 	inline bool Has(BehaviorFlag a, BehaviorFlag b) { return (a & b) != BehaviorFlag::None; }
 
+	/// @brief Alignment of children along the cross axis of a layout container.
 	enum class Align : Uint8 {
 		Start,
 		Center,
@@ -334,6 +343,7 @@ namespace UI {
 		Bottom = End
 	};
 
+	/// @brief Orientation for sliders, scroll bars, separators, and progress bars.
 	enum class Orientation : Uint8 {
 		Horizontal,
 		Vertical
@@ -373,9 +383,17 @@ namespace UI {
 		Rch  = 10, ///< Percentage of Root Content Height
 		Pfs  = 11, ///< Percentage of Parent Font Size
 		Rfs  = 12, ///< Percentage of Root Font Size
-		Auto = 13  ///< Shrink-to-content + optional px offset
+		Auto = 13, ///< Shrink-to-content + optional px offset
+		Grow = 14  ///< Grow factor in percentage, take a share of remaining space in the layout direction
 	};
 
+	/**
+	 * @brief Immutable context passed down the widget tree during the Measure pass.
+	 *
+	 * Carries the resolved sizes of the window, root widget, and immediate parent so
+	 * that percentage-based `Value` units (Pw, Ph, Rw, Ww, …) can be resolved without
+	 * up-tree traversal.
+	 */
 	struct LayoutContext {
 		FPoint windowSize     = {0.f, 0.f};
 
@@ -404,9 +422,9 @@ namespace UI {
 		/** Percentage of Root Height */
 		static Value Rh  (float v, float o = 0.f) { return {v, Unit::Rh,   o}; }
 		/** Percentage of Window Width */
-		static Value Ww  (float v, float o = 0.f) { return {v, Unit::Ww,   o}; }
+		static Value Ww  (float v = 100.f, float o = 0.f) { return {v, Unit::Ww,   o}; }
 		/** Percentage of Window Height */
-		static Value Wh  (float v, float o = 0.f) { return {v, Unit::Wh,   o}; }
+		static Value Wh  (float v = 100.f, float o = 0.f) { return {v, Unit::Wh,   o}; }
 		/** Percentage of Parent Content Width */
 		static Value Pcw (float v, float o = 0.f) { return {v, Unit::Pcw,  o}; }
 		/** Percentage of Parent Content Height */
@@ -419,57 +437,73 @@ namespace UI {
 		static Value Pfs (float v, float o = 0.f) { return {v, Unit::Pfs,  o}; }
 		/** Percentage of Root Font Size */
 		static Value Rfs (float v, float o = 0.f) { return {v, Unit::Rfs,  o}; }
-		static Value Auto(float v = 0.f)          { return {v, Unit::Auto, 0.f}; }
+		/** Shrink-to-content */
+        static Value Auto(float v = 0.f, float o = 0.f) { return {v, Unit::Auto, o}; }
+		/** Grow factor: take a share of the remaining space in the layout direction.
+		 *  .W(Value::Grow(g)) grows width in InLine parents; .H(Value::Grow(g)) grows height in InColumn parents. */
+		static Value Grow(float g = 100.f, float o = 0.f) { return {g, Unit::Grow, o}; }
 
+		/** @brief Returns true if this value is an absolute pixel quantity. */
+		[[nodiscard]] bool IsPixel() const noexcept { return unit == Unit::Px; }
+		/** @brief Returns true if this value uses shrink-to-content sizing. */
 		[[nodiscard]] bool IsAuto() const noexcept { return unit == Unit::Auto; }
+		/** @brief Returns true if this value grows to fill remaining space. */
+		[[nodiscard]] bool IsGrow() const noexcept { return unit == Unit::Grow; }
+
 		Value operator+(float o) const noexcept { return {val, unit, offset + o}; }
 		Value operator-(float o) const noexcept { return {val, unit, offset - o}; }
 
-		[[nodiscard]] float Resolve(const LayoutContext &ecs_context) const noexcept {
+		/**
+		 * @brief Resolve this value to a pixel quantity using the given layout context.
+		 * @param ctx  Layout context providing parent, root, and window sizes.
+		 * @return     Resolved pixel value (plus any fixed offset).
+		 */
+		[[nodiscard]] float Resolve(const LayoutContext &ctx) const noexcept {
 			float base = 0.f;
 			switch (unit) {
 				case Unit::Px:
 				case Unit::Auto:
+				case Unit::Grow:
 					base = val;
 					break;
 
 				case Unit::Ww:
-					base = (val / 100.f) * ecs_context.windowSize.x;
+					base = (val / 100.f) * ctx.windowSize.x;
 					break;
 				case Unit::Wh:
-					base = (val / 100.f) * ecs_context.windowSize.y;
+					base = (val / 100.f) * ctx.windowSize.y;
 					break;
 
 				case Unit::Rw:
-					base = (val / 100.f) * ecs_context.rootSize.x;
+					base = (val / 100.f) * ctx.rootSize.x;
 					break;
 				case Unit::Rh:
-					base = (val / 100.f) * ecs_context.rootSize.y;
+					base = (val / 100.f) * ctx.rootSize.y;
 					break;
 				case Unit::Rcw:
-					base = (val / 100.f) * (ecs_context.rootSize.x - ecs_context.rootPadding.GetH());
+					base = (val / 100.f) * (ctx.rootSize.x - ctx.rootPadding.GetH());
 					break;
 				case Unit::Rch:
-					base = (val / 100.f) * (ecs_context.rootSize.y - ecs_context.rootPadding.GetV());
+					base = (val / 100.f) * (ctx.rootSize.y - ctx.rootPadding.GetV());
 					break;
 				case Unit::Rfs:
-					base = (val / 100.0f) * ecs_context.rootFontSize;
+					base = (val / 100.0f) * ctx.rootFontSize;
 					break;
 
 				case Unit::Pw:
-					base = (val / 100.f) * ecs_context.parentSize.x;
+					base = (val / 100.f) * ctx.parentSize.x;
 					break;
 				case Unit::Ph:
-					base = (val / 100.f) * ecs_context.parentSize.y;
+					base = (val / 100.f) * ctx.parentSize.y;
 					break;
 				case Unit::Pcw:
-					base = (val / 100.f) * (ecs_context.parentSize.x - ecs_context.parentPadding.GetH());
+					base = (val / 100.f) * (ctx.parentSize.x - ctx.parentPadding.GetH());
 					break;
 				case Unit::Pch:
-					base = (val / 100.f) * (ecs_context.parentSize.y - ecs_context.parentPadding.GetV());
+					base = (val / 100.f) * (ctx.parentSize.y - ctx.parentPadding.GetV());
 					break;
 				case Unit::Pfs:
-					base = (val / 100.f) * ecs_context.parentFontSize;
+					base = (val / 100.f) * ctx.parentFontSize;
 					break;
 			}
 			return base + offset;
@@ -560,8 +594,8 @@ namespace UI {
 	struct LayoutProps {
 		Value absX          = Value::Px(0);
 		Value absY          = Value::Px(0);
-		Value width         = Value::Auto();
-		Value height        = Value::Auto();
+		Value width         = Value::Auto(-1.f);
+		Value height        = Value::Auto(-1.f);
 		Value minWidth      = Value::Px(-1.f);  ///< Minimum width;  Px(-1) = no constraint.
 		Value minHeight     = Value::Px(-1.f);  ///< Minimum height; Px(-1) = no constraint.
 		Value maxWidth      = Value::Px(-1.f);  ///< Maximum width;  Px(-1) = no constraint.
@@ -570,14 +604,13 @@ namespace UI {
 		SDL::FBox margin    = {0.f, 0.f, 0.f, 0.f};
 		SDL::FBox padding   = {8.f, 6.f, 8.f, 6.f};
 		Layout layout       = Layout::InColumn;
-		Align alignChildrenH   = Align::Stretch;  ///< Default cross-axis alignment for children in InColumn (horizontal).
-		Align alignChildrenV   = Align::Stretch;  ///< Default cross-axis alignment for children in InRow / Stack (vertical).
+		Align alignChildrenH= Align::Stretch;  ///< Default cross-axis alignment for children in InColumn (horizontal).
+		Align alignChildrenV= Align::Stretch;  ///< Default cross-axis alignment for children in InRow / Stack (vertical).
 		Align alignSelfH    = Align::Stretch;  ///< Cross-axis alignment in InColumn (horizontal).
 		Align alignSelfV    = Align::Stretch;  ///< Cross-axis alignment in InRow / Stack (vertical).
 		AttachLayout attach = AttachLayout::Relative;
 		BoxSizing boxSizing = BoxSizing::BorderBox;
 		float gap = 4.f;    ///< Gap between children in InColumn / InLine / Stack (px).  Does not apply to Separator.
-		float grow = 0.f;   ///< Relative grow factor for distributing extra space in layout direction (default 0 = no grow).
 		float scrollX = 0.f, scrollY = 0.f;
 		float contentW = 0.f, contentH = 0.f;
 
@@ -626,9 +659,12 @@ namespace UI {
 		FPoint measured = {};
 	};
 
+	/// @brief Ordered list of child entity IDs maintained by the tree-management API.
 	struct Children {
 		std::vector<ECS::EntityId> ids;
+		/** @brief Append a child entity. */
 		void Add(ECS::EntityId e) { ids.push_back(e); }
+		/** @brief Remove a child entity (no-op if not present). */
 		void Remove(ECS::EntityId e) { std::erase(ids, e); }
 	};
 
@@ -647,12 +683,16 @@ namespace UI {
 		bool selectDragging = false;
 		SDL::Color highlightColor = {70, 130, 210, 90};
 
+		/** @brief Returns true when a non-empty selection exists. */
 		[[nodiscard]] bool HasSelection() const noexcept {
 			return selAnchor >= 0 && selFocus >= 0 && selAnchor != selFocus;
 		}
+		/** @brief Returns the byte offset of the selection start (min of anchor/focus). */
 		[[nodiscard]] int SelMin() const noexcept { return (selAnchor < selFocus) ? selAnchor : selFocus; }
+		/** @brief Returns the byte offset of the selection end (max of anchor/focus). */
 		[[nodiscard]] int SelMax() const noexcept { return (selAnchor > selFocus) ? selAnchor : selFocus; }
-		
+
+		/** @brief Returns the currently selected substring, or empty if no selection. */
 		[[nodiscard]] std::string GetSelectedText() const {
 			if (!HasSelection()) return {};
 			int a = std::clamp(SelMin(), 0, (int)text.size());
@@ -660,14 +700,21 @@ namespace UI {
 			return (a < b) ? text.substr(a, b - a) : std::string{};
 		}
 		
+		/** @brief Clears the selection (sets both anchor and focus to -1). */
 		void ClearSelection() noexcept { selAnchor = selFocus = -1; }
-		
+
+		/**
+		 * @brief Set the selection range, clamping to valid text positions.
+		 * @param anchor  Fixed end of the selection (where drag/shift started).
+		 * @param focus   Moving end of the selection (current cursor position).
+		 */
 		void SetSelection(int anchor, int focus) noexcept {
 			int sz = (int)text.size();
 			selAnchor = std::clamp(anchor, 0, sz);
 			selFocus  = std::clamp(focus,  0, sz);
 		}
 
+		/** @brief Deletes the selected text and moves the cursor to the selection start. */
 		void DeleteSelection() {
 			if (!HasSelection()) return;
 			int a = std::clamp(SelMin(), 0, (int)text.size());
@@ -866,6 +913,9 @@ namespace UI {
 		// ── Drag-selection state ───────────────────────────────────────────────
 		bool selectDragging = false; ///< True while mouse-drag selection is in progress.
 
+		// ── Read-only mode ────────────────────────────────────────────────────
+		bool readOnly = false;      ///< When true, text cannot be edited but selection and copy still work.
+
 		// ── Internal scroll ────────────────────────────────────────────────────
 		float scrollY = 0.f;        ///< Vertical scroll offset (pixels from document top).
 
@@ -878,22 +928,32 @@ namespace UI {
 
 		// ── Helpers ────────────────────────────────────────────────────────────
 
+		/** @brief Returns true when a non-empty selection exists. */
 		[[nodiscard]] bool HasSelection() const noexcept {
 			return selAnchor >= 0 && selFocus >= 0 && selAnchor != selFocus;
 		}
+		/** @brief Returns the byte offset of the selection start (min of anchor/focus). */
 		[[nodiscard]] int SelMin() const noexcept {
 			return (selAnchor < selFocus) ? selAnchor : selFocus;
 		}
+		/** @brief Returns the byte offset of the selection end (max of anchor/focus). */
 		[[nodiscard]] int SelMax() const noexcept {
 			return (selAnchor > selFocus) ? selAnchor : selFocus;
 		}
+		/** @brief Returns the currently selected substring, or empty if no selection. */
 		[[nodiscard]] std::string GetSelectedText() const {
 			if (!HasSelection()) return {};
 			int a = std::clamp(SelMin(), 0, (int)text.size());
 			int b = std::clamp(SelMax(), 0, (int)text.size());
 			return (a < b) ? text.substr(a, b - a) : std::string{};
 		}
+		/** @brief Clears the selection (sets both anchor and focus to -1). */
 		void ClearSelection() noexcept { selAnchor = selFocus = -1; }
+		/**
+		 * @brief Set the selection range, clamping to valid text positions.
+		 * @param anchor  Fixed end of the selection.
+		 * @param focus   Moving end of the selection (current cursor position).
+		 */
 		void SetSelection(int anchor, int focus) noexcept {
 			int sz = (int)text.size();
 			selAnchor = std::clamp(anchor, 0, sz);
@@ -902,6 +962,7 @@ namespace UI {
 
 		// ── Line / column navigation ───────────────────────────────────────────
 
+		/** @brief Returns the total number of lines in the document (always ≥ 1). */
 		[[nodiscard]] int LineCount() const noexcept {
 			int n = 1;
 			for (char c : text) if (c == '\n') ++n;
@@ -969,6 +1030,7 @@ namespace UI {
 			std::sort(spans.begin(), spans.end(),
 					  [](const Span &a, const Span &b){ return a.start < b.start; });
 		}
+		/** @brief Removes all rich-text spans from the document. */
 		void ClearSpans() noexcept { spans.clear(); }
 
 		/// Returns the innermost span covering `pos`, or nullptr.
@@ -1048,7 +1110,9 @@ namespace UI {
 					static_cast<float>(tileH)};
 		}
 
+		/** @brief Returns the effective horizontal border size (borderW or full tileW if 0). */
 		[[nodiscard]] float BorderW() const noexcept { return borderW > 0.f ? borderW : static_cast<float>(tileW); }
+		/** @brief Returns the effective vertical border size (borderH or full tileH if 0). */
 		[[nodiscard]] float BorderH() const noexcept { return borderH > 0.f ? borderH : static_cast<float>(tileH); }
 	};
 
@@ -1076,11 +1140,15 @@ namespace UI {
 	// Theme
 	// ==================================================================================
 
+	/// @brief Collection of pre-built `Style` factories and global theme controls.
 	struct Theme {
 		static inline SDL::Color accentColor = {70, 130, 210, 255};
+		/** @brief Switch the global accent colour to a dark-theme preset. */
 		static void ApplyDark(SDL::UI::System &);
+		/** @brief Switch the global accent colour to a light-theme preset. */
 		static void ApplyLight(SDL::UI::System &);
 
+		/** @brief Returns a dark-card style (slight elevation, rounded corners). */
 		static Style Card() {
 			Style s;
 			s.bgColor       = {26, 28, 40, 255};
@@ -1090,6 +1158,10 @@ namespace UI {
 			s.radius        = SDL::FCorners(8.f);
 			return s;
 		}
+		/**
+		 * @brief Returns a filled accent-colored button style.
+		 * @param a  Fill color (defaults to `accentColor`).
+		 */
 		static Style PrimaryButton(SDL::Color a = accentColor) {
 			Style s;
 			s.bgColor       = a;
@@ -1103,6 +1175,7 @@ namespace UI {
 			s.textColor     = s.textHovered = {255, 255, 255, 255};
 			return s;
 		}
+		/** @brief Returns a ghost (outline-only, transparent background) button style. */
 		static Style GhostButton() {
 			Style s;
 			s.bgColor       = {0, 0, 0, 0};
@@ -1115,6 +1188,7 @@ namespace UI {
 			s.radius        = SDL::FCorners(6.f);
 			return s;
 		}
+		/** @brief Returns a fully transparent, border-less style (useful for invisible containers). */
 		static Style Transparent() {
 			Style s;
 			s.bgColor       = {0, 0, 0, 0};
@@ -1122,13 +1196,17 @@ namespace UI {
 			s.radius        = SDL::FCorners(0.f);
 			return s;
 		}
+		/** @brief Returns a transparent style with the accent color applied to the text (for section headings). */
 		static Style SectionTitle() {
 			Style s         = Transparent();
 			s.textColor     = accentColor;
 			return s;
 		}
+		/** @brief Returns a red-tinted primary button style for destructive actions. */
 		static Style DangerButton() { return PrimaryButton({200, 55, 45, 255}); }
+		/** @brief Returns a green-tinted primary button style for confirmatory actions. */
 		static Style SuccessButton() { return PrimaryButton({50, 180, 90, 255}); }
+		/** @brief Returns a light-theme card style (white/light-grey surface, suitable for light UIs). */
 		static Style CardLight() {
 			Style s;
 			s.bgColor           = {248, 249, 252, 255};
@@ -1171,11 +1249,11 @@ namespace UI {
 		 * SDL::ResourceManager rm;
 		 * SDL::ResourcePool& uiPool = *rm.CreatePool("ui");
 		 * uiPool.Add<SDL::Texture>("hero", SDL::LoadTexture(renderer, "hero.png"));
-		 * SDL::UI::System ui(world, renderer, uiPool);
+		 * SDL::UI::System ui(rm, renderer, uiPool);
 		 * ```
 		 */
-		System(ECS::Context &w, RendererRef r, MixerRef m, ResourcePool &pool)
-			: m_ctx(w), m_renderer(r), m_mixer(m), m_pool(pool)
+		System(ECS::Context &ctx, RendererRef r, MixerRef m, ResourcePool &pool)
+			: m_ctx(ctx), m_renderer(r), m_mixer(m), m_pool(pool)
 		{
 		}
 
@@ -1222,26 +1300,44 @@ namespace UI {
 			m_defaultFontPath = path;
 			m_defaultFontSize = ptsize;
 		} 
+		/** @brief Returns the path of the current default font (empty if none). */
 		[[nodiscard]] const std::string &GetDefaultFontPath() const { return m_defaultFontPath; }
+		/** @brief Returns the point size of the current default font (0 if unset). */
 		[[nodiscard]] float GetDefaultFontSize() const { return m_defaultFontSize; }
 
 		// ── Entity factories ──────────────────────────────────────────────────────────
 
+		/** @brief Create a Container entity and return its ID. */
 		ECS::EntityId MakeContainer(const std::string &n = "Container") { return _Make(n, WidgetType::Container); }
 
-		ECS::EntityId MakeLabel(const std::string &n, const std::string &t = "") { 
+		/**
+		 * @brief Create a Label entity with the given display text.
+		 * @param n  Widget name (for debugging).
+		 * @param t  Initial text content.
+		 */
+		ECS::EntityId MakeLabel(const std::string &n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Label);
 			m_ctx.Get<Content>(e)->text = t;
 			auto &l = *m_ctx.Get<LayoutProps>(e);
 			l.padding.top = l.padding.bottom = 2.f;
 			return e;
 		}
+		/**
+		 * @brief Create a Button entity with the given label text.
+		 * @param n  Widget name.
+		 * @param t  Button label text.
+		 */
 		ECS::EntityId MakeButton(const std::string &n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Button);
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 			m_ctx.Get<Content>(e)->text = t;
 			return e;
 		}
+		/**
+		 * @brief Create a Toggle (on/off switch) entity.
+		 * @param n  Widget name.
+		 * @param t  Label text displayed beside the switch.
+		 */
 		ECS::EntityId MakeToggle(const std::string &n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Toggle);
 			m_ctx.Get<Content>(e)->text = t;
@@ -1250,6 +1346,12 @@ namespace UI {
 			m_ctx.Add<ToggleData>(e);
 			return e;
 		}
+		/**
+		 * @brief Create a RadioButton entity belonging to the given group.
+		 * @param n      Widget name.
+		 * @param group  Named group; only one radio button per group can be checked.
+		 * @param t      Label text displayed beside the button.
+		 */
 		ECS::EntityId MakeRadioButton(const std::string &n, const std::string &group, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::RadioButton);
 			m_ctx.Get<Content>(e)->text = t;
@@ -1258,7 +1360,15 @@ namespace UI {
 			m_ctx.Add<RadioData>(e, {group, false});
 			return e;
 		}
-		ECS::EntityId MakeSlider(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.f, 
+		/**
+		 * @brief Create a Slider entity.
+		 * @param n   Widget name.
+		 * @param mn  Minimum value.
+		 * @param mx  Maximum value.
+		 * @param v   Initial value (clamped to [mn, mx]).
+		 * @param o   Orientation (Horizontal or Vertical).
+		 */
+		ECS::EntityId MakeSlider(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.f,
 							Orientation o = Orientation::Horizontal) {
 			ECS::EntityId e = _Make(n, WidgetType::Slider);
 			SliderData sd;
@@ -1275,7 +1385,14 @@ namespace UI {
 				lp.width = Value::Px(24.f);
 			return e;
 		}
-		ECS::EntityId MakeScrollBar(const std::string &n, float cs = 0.f, float vs = 0.f, 
+		/**
+		 * @brief Create a ScrollBar entity.
+		 * @param n   Widget name.
+		 * @param cs  Total content size.
+		 * @param vs  Visible viewport size.
+		 * @param o   Orientation (Vertical by default).
+		 */
+		ECS::EntityId MakeScrollBar(const std::string &n, float cs = 0.f, float vs = 0.f,
 							   Orientation o = Orientation::Vertical) {
 			ECS::EntityId e = _Make(n, WidgetType::ScrollBar);
 			ScrollBarData sd;
@@ -1291,12 +1408,19 @@ namespace UI {
 				lp.height = Value::Px(10.f);
 			return e;
 		}
+		/**
+		 * @brief Create a Progress bar entity.
+		 * @param n   Widget name.
+		 * @param v   Initial value (clamped to [0, mx]).
+		 * @param mx  Maximum value.
+		 */
 		ECS::EntityId MakeProgress(const std::string &n, float v = 0.f, float mx = 1.f) {
 			ECS::EntityId e = _Make(n, WidgetType::Progress);
 			m_ctx.Add<SliderData>(e, {0.f, mx, SDL::Clamp(v, 0.f, mx)});
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(18.f);
 			return e;
 		}
+		/** @brief Create a 1-pixel horizontal separator entity. */
 		ECS::EntityId MakeSeparator(const std::string &n = "sep") {
 			ECS::EntityId e = _Make(n, WidgetType::Separator);
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
@@ -1304,6 +1428,11 @@ namespace UI {
 			lp.margin.top = lp.margin.bottom = 6.f;
 			return e;
 		}
+		/**
+		 * @brief Create a single-line text Input entity.
+		 * @param n   Widget name.
+		 * @param ph  Placeholder text shown when empty and unfocused.
+		 */
 		ECS::EntityId MakeInput(const std::string &n, const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Input);
 			m_ctx.Get<Content>(e)->placeholder = ph;
@@ -1311,6 +1440,13 @@ namespace UI {
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
 			return e;
 		}
+		/**
+		 * @brief Create a circular Knob entity.
+		 * @param n   Widget name.
+		 * @param mn  Minimum value.
+		 * @param mx  Maximum value.
+		 * @param v   Initial value (clamped to [mn, mx]).
+		 */
 		ECS::EntityId MakeKnob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f) {
 			ECS::EntityId e = _Make(n, WidgetType::Knob);
 			
@@ -1331,13 +1467,26 @@ namespace UI {
 			lp.width = lp.height = Value::Px(56.f); // Taille par défaut sécurisée
 			return e;
 		}
+		/**
+		 * @brief Create an Image entity.
+		 * @param n    Widget name.
+		 * @param key  Resource-pool key of the texture to display.
+		 * @param fit  How the image is scaled to fit the widget rect.
+		 */
 		ECS::EntityId MakeImage(const std::string &n, const std::string &key = "", ImageFit fit = ImageFit::Contain) {
 			ECS::EntityId e = _Make(n, WidgetType::Image);
 			m_ctx.Add<ImageData>(e, {key, fit});
 			return e;
 		}
+		/**
+		 * @brief Create a Canvas entity with custom callbacks.
+		 * @param n         Widget name.
+		 * @param cb_event  Called by `ProcessEvent` when the canvas is hit or focused.
+		 * @param cb_update Called every frame before layout with the frame delta time.
+		 * @param cb_render Called during the render pass with the renderer and screen rect.
+		 */
 		ECS::EntityId MakeCanvas(const std::string &n,
-			std::function<void(SDL::Event&)> cb_event = nullptr, 
+			std::function<void(SDL::Event&)> cb_event = nullptr,
 			std::function<void(float)> cb_update = nullptr,
 			std::function<void(RendererRef, FRect)> cb_render = nullptr) {
 			ECS::EntityId e = _Make(n, WidgetType::Canvas);
@@ -1345,6 +1494,11 @@ namespace UI {
 			m_ctx.Add<CanvasData>(e, {std::move(cb_event), std::move(cb_update), std::move(cb_render)});
 			return e; 
 		}
+		/**
+		 * @brief Create a ListBox entity pre-populated with items.
+		 * @param n      Widget name.
+		 * @param items  Initial list of text items.
+		 */
 		ECS::EntityId MakeListBox(const std::string &n,
 								  const std::vector<std::string>& items = {}) {
 			ECS::EntityId e = _Make(n, WidgetType::ListBox);
@@ -1358,12 +1512,19 @@ namespace UI {
 			m_ctx.Get<LayoutProps>(e)->padding = {2.f, 2.f, 2.f, 2.f};
 			return e;
 		}
+		/** @brief Create an empty Graph (graduated data plot) entity. */
 		ECS::EntityId MakeGraph(const std::string &n) {
 			ECS::EntityId e = _Make(n, WidgetType::Graph);
 			m_ctx.Add<GraphData>(e);
 			m_ctx.Get<LayoutProps>(e)->padding = {0.f, 0.f, 0.f, 0.f};
 			return e;
 		}
+		/**
+		 * @brief Create a multi-line TextArea entity.
+		 * @param n     Widget name.
+		 * @param text  Initial document content.
+		 * @param ph    Placeholder text shown when the document is empty and unfocused.
+		 */
 		ECS::EntityId MakeTextArea(const std::string &n, const std::string &text = "", const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::TextArea);
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
@@ -1380,31 +1541,54 @@ namespace UI {
 
 		// ── Builder factories (defined after Builder) ─────────────────────────────────
 
+		/** @brief Create a Container and return a Builder for it. */
 		inline Builder Container(const std::string &n = "Container");
-		inline Builder Label(const std::string &n, const std::string &t = ""); 
+		/** @brief Create a Label and return a Builder for it. */
+		inline Builder Label(const std::string &n, const std::string &t = "");
+		/** @brief Create a Button and return a Builder for it. */
 		inline Builder Button(const std::string &n, const std::string &t = "");
+		/** @brief Create a Toggle switch and return a Builder for it. */
 		inline Builder Toggle(const std::string &n, const std::string &t = "");
+		/** @brief Create a RadioButton and return a Builder for it. */
 		inline Builder Radio(const std::string &n, const std::string &grp, const std::string &t = "");
+		/** @brief Create a Slider and return a Builder for it. */
 		inline Builder Slider(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.f,
 								Orientation o = Orientation::Horizontal);
+		/** @brief Create a ScrollBar and return a Builder for it. */
 		inline Builder ScrollBar(const std::string &n, float cs = 0.f, float vs = 0.f,
 								   Orientation o = Orientation::Vertical);
+		/** @brief Create a Progress bar and return a Builder for it. */
 		inline Builder Progress(const std::string &n, float v = 0.f, float mx = 1.f);
-		inline Builder Sep(const std::string &n = "sep");
+		/** @brief Create a Separator and return a Builder for it. */
+		inline Builder Separator(const std::string &n = "sep");
+		/** @brief Create a single-line Input and return a Builder for it. */
 		inline Builder Input(const std::string &n, const std::string &ph = "");
+		/** @brief Create a Knob and return a Builder for it. */
 		inline Builder Knob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f);
+		/** @brief Create an Image widget and return a Builder for it. */
 		inline Builder ImageWidget(const std::string &n, const std::string &p = "", ImageFit f = ImageFit::Contain);
+		/** @brief Create a Canvas widget and return a Builder for it. */
 		inline Builder CanvasWidget(const std::string &n,
-			std::function<void(SDL::Event&)> cb_event = nullptr, 
+			std::function<void(SDL::Event&)> cb_event = nullptr,
 			std::function<void(float)> cb_update = nullptr,
 			std::function<void(RendererRef, FRect)> cb_render = nullptr);
+		/** @brief Create a multi-line TextArea and return a Builder for it. */
 		inline Builder TextArea(const std::string &n, const std::string &text = "", const std::string &ph = "");
+		/** @brief Create a ListBox and return a Builder for it. */
 		inline Builder ListBoxWidget(const std::string &n, const std::vector<std::string>& items = {});
+		/** @brief Create a Graph (graduated data plot) and return a Builder for it. */
 		inline Builder GradedGraph(const std::string &n);
+		/** @brief Create a vertical Column container (InColumn layout) and return a Builder for it. */
 		inline Builder Column(const std::string &n = "col", float gap = 4.f, float pad = 8.f);
+		/** @brief Create a horizontal Row container (InLine layout) and return a Builder for it. */
 		inline Builder Row(const std::string &n = "row", float gap = 8.f, float pad = 0.f);
+		/** @brief Create a wrapping Stack container and return a Builder for it. */
+		inline Builder Stack(const std::string &n, float gap = 0.f, float pad = 0.f);
+		/** @brief Create a Card container (Column with card styling) and return a Builder for it. */
 		inline Builder Card(const std::string &n, float gap = 8.f);
+		/** @brief Create an accent-colored section title Label and return a Builder for it. */
 		inline Builder SectionTitle(const std::string &text, SDL::Color color = {70, 130, 210, 255});
+		/** @brief Create a vertical ScrollView (Column with auto vertical scrollbar) and return a Builder for it. */
 		inline Builder ScrollView(const std::string &n, float gap = 4.f);
 		/// Grid container: children placed on a `columns × auto-rows` grid.
 		/// Use `.GridCols(n)`, `.GridRows(n)`, `.GridColSizing(...)` etc. on the returned Builder
@@ -1413,15 +1597,27 @@ namespace UI {
 
 		// ── Tree management ───────────────────────────────────────────────────────────
 
+		/** @brief Set the root widget entity; it is laid out to fill the full viewport. */
 		void SetRoot(ECS::EntityId e) { m_root = e; }
+		/** @brief Returns the current root entity (ECS::NullEntity if none). */
 		[[nodiscard]] ECS::EntityId GetRootId() const { return m_root; }
 
+		/**
+		 * @brief Append child @p c to parent @p p.
+		 * @param p  Parent entity (must be alive).
+		 * @param c  Child entity (must be alive).
+		 */
 		void AppendChild(ECS::EntityId p, ECS::EntityId c) {
 			if (!m_ctx.IsAlive(p) || !m_ctx.IsAlive(c)) 
 				return;
 			m_ctx.Get<Children>(p)->Add(c);
 			m_ctx.Get<Parent>(c)->id = p;
 		}
+		/**
+		 * @brief Remove child @p c from parent @p p.
+		 * @param p  Parent entity.
+		 * @param c  Child entity to detach.
+		 */
 		void RemoveChild(ECS::EntityId p, ECS::EntityId c) {
 			if (!m_ctx.IsAlive(p))
 				return;
@@ -1430,14 +1626,25 @@ namespace UI {
 				m_ctx.Get<Parent>(c)->id = ECS::NullEntity;
 		}
 
+		/** @brief Return a Builder wrapping an existing entity (for post-creation styling). */
+		inline Builder GetBuilder(ECS::EntityId e);
+
 		// ── Component accessors ───────────────────────────────────────────────────────
 
+		/** @brief Direct access to the Style component of entity @p e. */
 		Style &GetStyle(ECS::EntityId e) { return *m_ctx.Get<Style>(e); }
+		/** @brief Direct access to the LayoutProps component of entity @p e. */
 		LayoutProps &GetLayout(ECS::EntityId e) { return *m_ctx.Get<LayoutProps>(e); }
+		/** @brief Direct access to the Content component of entity @p e. */
 		Content &GetContent(ECS::EntityId e) { return *m_ctx.Get<Content>(e); }
 
 		// ── Setters ───────────────────────────────────────────────────────────────────
 
+		/**
+		 * @brief Set the display text of a Label, Button, or Input widget.
+		 * @param e  Target entity.
+		 * @param t  New text content; cursor is moved to the end.
+		 */
 		void SetText(ECS::EntityId e, const std::string &t) {
 			if (auto *c = m_ctx.Get<Content>(e)) {
 				c->text = t;
@@ -1445,6 +1652,11 @@ namespace UI {
 			}
 		}
 
+		/**
+		 * @brief Set the numeric value of a Slider or Knob widget (clamped to [min, max]).
+		 * @param e  Target entity.
+		 * @param v  New value.
+		 */
 		void SetValue(ECS::EntityId e, float v) {
 			if (auto *s = m_ctx.Get<SliderData>(e))
 				s->val = SDL::Clamp(v, s->min, s->max);
@@ -1455,6 +1667,13 @@ namespace UI {
 
 		// ── ListBox accessors ─────────────────────────────────────────────────────────
 
+		/**
+		 * @brief Replace the item list of a ListBox widget.
+		 *
+		 * Resets the scroll offset and clears the selection if it is out of range.
+		 * @param e      Target entity.
+		 * @param items  New item list.
+		 */
 		void SetListBoxItems(ECS::EntityId e, std::vector<std::string> items) {
 			auto *lb = m_ctx.Get<ListBoxData>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
@@ -1465,14 +1684,24 @@ namespace UI {
 					lb->selectedIndex = -1;
 			}
 		}
+		/**
+		 * @brief Return the index of the selected ListBox item, or -1 if none.
+		 * @param e  Target entity.
+		 */
 		[[nodiscard]] int GetListBoxSelection(ECS::EntityId e) const {
 			if (auto *lb = m_ctx.Get<ListBoxData>(e)) return lb->selectedIndex;
 			return -1;
 		}
+		/**
+		 * @brief Programmatically select a ListBox item.
+		 * @param e    Target entity.
+		 * @param idx  Item index to select, or -1 to clear the selection.
+		 */
 		void SetListBoxSelection(ECS::EntityId e, int idx) {
 			if (auto *lb = m_ctx.Get<ListBoxData>(e))
 				lb->selectedIndex = (idx >= 0 && idx < (int)lb->items.size()) ? idx : -1;
 		}
+		/** @brief Return a pointer to the ListBoxData component of @p e, or nullptr. */
 		ListBoxData* GetListBoxData(ECS::EntityId e) { return m_ctx.Get<ListBoxData>(e); }
 
 		// ── Tooltip accessors ─────────────────────────────────────────────────────────
@@ -1489,17 +1718,40 @@ namespace UI {
 
 		// ── Graph accessors ───────────────────────────────────────────────────────────
 
+		/**
+		 * @brief Replace the Y-data samples of a Graph widget.
+		 * @param e     Target entity.
+		 * @param data  New Y-values to plot (one per X sample).
+		 */
 		void SetGraphData(ECS::EntityId e, std::vector<float> data) {
 			if (auto *gd = m_ctx.Get<GraphData>(e)) gd->data = std::move(data);
 		}
+		/**
+		 * @brief Set the Y-axis display range of a Graph widget.
+		 * @param e     Target entity.
+		 * @param minV  Y axis minimum.
+		 * @param maxV  Y axis maximum.
+		 */
 		void SetGraphRange(ECS::EntityId e, float minV, float maxV) {
 			if (auto *gd = m_ctx.Get<GraphData>(e)) { gd->minVal = minV; gd->maxVal = maxV; }
 		}
+		/**
+		 * @brief Set the X-axis display range of a Graph widget (used for tick labels).
+		 * @param e     Target entity.
+		 * @param xMin  X axis start value.
+		 * @param xMax  X axis end value.
+		 */
 		void SetGraphXRange(ECS::EntityId e, float xMin, float xMax) {
 			if (auto *gd = m_ctx.Get<GraphData>(e)) { gd->xMin = xMin; gd->xMax = xMax; }
 		}
+		/** @brief Return a pointer to the GraphData component of @p e, or nullptr. */
 		GraphData* GetGraphData(ECS::EntityId e) { return m_ctx.Get<GraphData>(e); }
 
+		/**
+		 * @brief Programmatically set the scroll offset of a ScrollBar widget.
+		 * @param e    Target entity.
+		 * @param off  New offset (clamped to [0, contentSize - viewSize]).
+		 */
 		void SetScrollOffset(ECS::EntityId e, float off) {
 			if (auto *sb = m_ctx.Get<ScrollBarData>(e)) {
 				float mx = SDL::Max(0.f, sb->contentSize - sb->viewSize);
@@ -1507,6 +1759,11 @@ namespace UI {
 			}
 		}
 
+		/**
+		 * @brief Set the checked state of a Toggle or RadioButton widget.
+		 * @param e  Target entity.
+		 * @param b  New checked state.
+		 */
 		void SetChecked(ECS::EntityId e, bool b) {
 			if (auto *t = m_ctx.Get<ToggleData>(e)) {
 				t->checked = b;
@@ -1516,6 +1773,11 @@ namespace UI {
 				r->checked = b;
 		}
 
+		/**
+		 * @brief Enable or disable a widget (disabled widgets are not interactive but remain visible).
+		 * @param e  Target entity.
+		 * @param b  True to enable, false to disable.
+		 */
 		void SetEnabled(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Enable;
@@ -1523,6 +1785,14 @@ namespace UI {
 			}
 		}
 
+		/**
+		 * @brief Show or hide a widget (hidden widgets take no space and receive no input).
+		 *
+		 * Plays `showSound` / `hideSound` when the state actually changes and marks the
+		 * layout dirty so the tree is re-measured next frame.
+		 * @param e  Target entity.
+		 * @param b  True to make visible, false to hide.
+		 */
 		void SetVisible(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
 				bool wasVisible = Has(w->behavior, BehaviorFlag::Visible);
@@ -1542,6 +1812,7 @@ namespace UI {
 			}
 		}
 
+		/** @brief Enable or disable the Hoverable behavior flag on @p e. */
 		void SetHoverable(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Hoverable;
@@ -1549,6 +1820,7 @@ namespace UI {
 			}
 		}
 
+		/** @brief Enable or disable the Selectable behavior flag on @p e. */
 		void SetSelectable(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Selectable;
@@ -1556,6 +1828,7 @@ namespace UI {
 			}
 		}
 
+		/** @brief Enable or disable the Focusable behavior flag on @p e. */
 		void SetFocusable(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Focusable;
@@ -1563,6 +1836,7 @@ namespace UI {
 			}
 		}
 
+		/** @brief Enable or disable the permanent horizontal scrollbar on @p e. */
 		void SetScrollableX(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::ScrollableX;
@@ -1570,6 +1844,7 @@ namespace UI {
 			}
 		}
 
+		/** @brief Enable or disable the permanent vertical scrollbar on @p e. */
 		void SetScrollableY(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::ScrollableY;
@@ -1577,6 +1852,7 @@ namespace UI {
 			}
 		}
 
+		/** @brief Shorthand to set both permanent scrollbar axes at once. */
 		void SetScrollable(ECS::EntityId e, bool bx, bool by) {
 			SetScrollableX(e, bx);
 			SetScrollableY(e, by);
@@ -1619,12 +1895,19 @@ namespace UI {
 			return m_ctx.Add<LayoutGridProps>(e);
 		}
 
+		/** @brief Set the column count for a Layout::InGrid container. */
 		void SetGridCols(ECS::EntityId e, int n) { EnsureGridProps(e).columns = SDL::Max(1, n); }
+		/** @brief Set the fixed row count for a Layout::InGrid container (0 = auto). */
 		void SetGridRows(ECS::EntityId e, int n) { EnsureGridProps(e).rows    = SDL::Max(0, n); }
+		/** @brief Set the column sizing mode for a Layout::InGrid container. */
 		void SetGridColSizing(ECS::EntityId e, GridSizing s) { EnsureGridProps(e).colSizing = s; }
+		/** @brief Set the row sizing mode for a Layout::InGrid container. */
 		void SetGridRowSizing(ECS::EntityId e, GridSizing s) { EnsureGridProps(e).rowSizing = s; }
+		/** @brief Set which separator lines are drawn inside a Layout::InGrid container. */
 		void SetGridLines(ECS::EntityId e, GridLines l)      { EnsureGridProps(e).lines     = l; }
+		/** @brief Set the color of the separator lines in a Layout::InGrid container. */
 		void SetGridLineColor(ECS::EntityId e, SDL::Color c) { EnsureGridProps(e).lineColor = c; }
+		/** @brief Set the thickness of the separator lines in a Layout::InGrid container. */
 		void SetGridLineThickness(ECS::EntityId e, float t)  { EnsureGridProps(e).lineThickness = SDL::Max(0.f, t); }
 
 		/// Ensure a GridCell component exists on `e` and set its position/span.
@@ -1637,16 +1920,31 @@ namespace UI {
 			gc->rowSpan = SDL::Max(1, rowSpan);
 		}
 
+		/**
+		 * @brief Register (or replace) the event callback on a Canvas widget.
+		 * @param e   Target entity.
+		 * @param cb  New event handler.
+		 */
 		void OnEventCanvas(ECS::EntityId e, std::function<void(SDL::Event&)> cb) {
 			if (auto *c = m_ctx.Get<CanvasData>(e))
 				c->eventCb = std::move(cb);
 		}
 
+		/**
+		 * @brief Register (or replace) the per-frame update callback on a Canvas widget.
+		 * @param e   Target entity.
+		 * @param cb  Callback receiving the frame delta time in seconds.
+		 */
 		void OnUpdateCanvas(ECS::EntityId e, std::function<void(float)> cb) {
 			if (auto *c = m_ctx.Get<CanvasData>(e))
 				c->updateCb = std::move(cb);
 		}
 
+		/**
+		 * @brief Register (or replace) the render callback on a Canvas widget.
+		 * @param e   Target entity.
+		 * @param cb  Callback receiving the renderer and the screen-space rect of the canvas.
+		 */
 		void OnRenderCanvas(ECS::EntityId e, std::function<void(RendererRef, FRect)> cb) {
 			if (auto *c = m_ctx.Get<CanvasData>(e))
 				c->renderCb = std::move(cb);
@@ -1664,14 +1962,22 @@ namespace UI {
 			m_ctx.Add<TilesetStyle>(e, std::move(ts));
 		}
 
+		/** @brief Return a pointer to the TilesetStyle component of @p e, or nullptr. */
 		[[nodiscard]] TilesetStyle* GetTilesetStyle(ECS::EntityId e) {
 			return m_ctx.Get<TilesetStyle>(e);
 		}
 
+		/** @brief Remove the TilesetStyle component from @p e (restores default rendering). */
 		void RemoveTilesetStyle(ECS::EntityId e) {
 			m_ctx.Remove<TilesetStyle>(e);
 		}
 
+		/**
+		 * @brief Change the texture key and fit mode of an Image widget at runtime.
+		 * @param e    Target entity.
+		 * @param key  New resource-pool key.
+		 * @param f    New fit mode.
+		 */
 		void SetImageKey(ECS::EntityId e, const std::string &key, ImageFit f = ImageFit::Contain) {
 			if (auto *d = m_ctx.Get<ImageData>(e)) {
 				d->key = key;
@@ -1687,6 +1993,13 @@ namespace UI {
 
 		// ── TextArea accessors ────────────────────────────────────────────────────────
 
+		/**
+		 * @brief Replace the entire document content of a TextArea widget.
+		 *
+		 * Resets the cursor, selection, and vertical scroll to the top.
+		 * @param e  Target entity.
+		 * @param t  New document text (LF line endings).
+		 */
 		void SetTextAreaContent(ECS::EntityId e, const std::string &t) {
 			if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
 				ta->text = t;
@@ -1695,45 +2008,82 @@ namespace UI {
 				ta->scrollY = 0.f;
 			}
 		}
+		/**
+		 * @brief Return the document content of a TextArea widget.
+		 * @param e  Target entity.
+		 * @return   Reference to the document string, or an empty static string if not found.
+		 */
 		[[nodiscard]] const std::string &GetTextAreaContent(ECS::EntityId e) const {
 			static const std::string empty;
 			const auto *ta = m_ctx.Get<TextAreaData>(e);
 			return ta ? ta->text : empty;
 		}
+		/** @brief Set the selection highlight color of a TextArea widget. */
 		void SetTextAreaHighlightColor(ECS::EntityId e, SDL::Color c) {
 			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->highlightColor = c;
 		}
+		/** @brief Set the tab-stop size (in character columns) for a TextArea widget. */
 		void SetTextAreaTabSize(ECS::EntityId e, int sz) {
 			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->tabSize = SDL::Max(1, sz);
 		}
+		/**
+		 * @brief Add a styled span to a TextArea widget (rich text highlight).
+		 * @param e      Target entity.
+		 * @param start  Byte offset of the span start (inclusive).
+		 * @param end    Byte offset of the span end (exclusive).
+		 * @param style  Style to apply over the byte range.
+		 */
 		void AddTextAreaSpan(ECS::EntityId e, int start, int end, TextSpanStyle style) {
 			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->AddSpan(start, end, style);
 		}
+		/** @brief Remove all rich-text spans from a TextArea widget. */
 		void ClearTextAreaSpans(ECS::EntityId e) {
 			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->ClearSpans();
 		}
+		/** @brief Return a pointer to the TextAreaData component of @p e, or nullptr. */
 		[[nodiscard]] TextAreaData* GetTextAreaData(ECS::EntityId e) {
 			return m_ctx.Get<TextAreaData>(e);
+		}
+		/**
+		 * @brief Set whether a TextArea is read-only (selection and copy still work).
+		 * @param e   Target entity.
+		 * @param ro  True to prevent editing.
+		 */
+		void SetTextAreaReadOnly(ECS::EntityId e, bool ro) {
+			if (auto *ta = m_ctx.Get<TextAreaData>(e)) ta->readOnly = ro;
+		}
+		/** @brief Return true if the TextArea widget at @p e is in read-only mode. */
+		[[nodiscard]] bool GetTextAreaReadOnly(ECS::EntityId e) const {
+			const auto *ta = m_ctx.Get<TextAreaData>(e);
+			return ta && ta->readOnly;
 		}
 
 		// ── Getters ───────────────────────────────────────────────────────────────────
 
+		/**
+		 * @brief Return the display text of a Label, Button, or Input widget.
+		 * @param e  Target entity.
+		 * @return   Const reference to the text string, or an empty static string.
+		 */
 		[[nodiscard]] const std::string &GetText(ECS::EntityId e) const {
 			static const std::string empty;
 			const auto *c = m_ctx.Get<Content>(e);
 			return c ? c->text : empty;
 		}
 
+		/** @brief Return the current numeric value of a Slider widget (0 if not found). */
 		[[nodiscard]] float GetValue(ECS::EntityId e) const {
 			const auto *s = m_ctx.Get<SliderData>(e);
 			return s ? s->val : 0.f;
 		}
 
+		/** @brief Return the current scroll offset of a ScrollBar widget (0 if not found). */
 		[[nodiscard]] float GetScrollOffset(ECS::EntityId e) const {
 			const auto *sb = m_ctx.Get<ScrollBarData>(e);
 			return sb ? sb->offset : 0.f;
 		}
 
+		/** @brief Return true if a Toggle or RadioButton widget is currently checked. */
 		[[nodiscard]] bool IsChecked(ECS::EntityId e) const {
 			if (const auto *t = m_ctx.Get<ToggleData>(e))
 				return t->checked;
@@ -1742,88 +2092,135 @@ namespace UI {
 			return false;
 		}
 
+		/** @brief Return true if widget @p e has the Enable behavior flag set. */
 		[[nodiscard]] bool IsEnabled(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Enable);
 		}
 
+		/** @brief Return true if widget @p e has the Visible behavior flag set. */
 		[[nodiscard]] bool IsVisible(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Visible);
 		}
 
+		/** @brief Return true if widget @p e has the Hoverable behavior flag set. */
 		[[nodiscard]] bool IsHoverable(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Hoverable);
 		}
 
+		/** @brief Return true if widget @p e has the Selectable behavior flag set. */
 		[[nodiscard]] bool IsSelectable(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Selectable);
 		}
 
+		/** @brief Return true if widget @p e has the Focusable behavior flag set. */
 		[[nodiscard]] bool IsFocusable(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::Focusable);
 		}
 
+		/** @brief Return true if widget @p e has the ScrollableX behavior flag set. */
 		[[nodiscard]] bool IsScrollableX(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::ScrollableX);
 		}
 
+		/** @brief Return true if widget @p e has the ScrollableY behavior flag set. */
 		[[nodiscard]] bool IsScrollableY(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
 			return w && Has(w->behavior, BehaviorFlag::ScrollableY);
 		}
 
+		/** @brief Return true if the mouse cursor is currently over widget @p e. */
 		[[nodiscard]] bool IsHovered(ECS::EntityId e) const {
 			const auto *s = m_ctx.Get<WidgetState>(e);
 			return s && s->hovered;
 		}
 
-		[[nodiscard]] bool IsFocused(ECS::EntityId e) const { 
-			return m_focused == e; 
+		/** @brief Return true if widget @p e currently holds keyboard focus. */
+		[[nodiscard]] bool IsFocused(ECS::EntityId e) const {
+			return m_focused == e;
 		}
 		
+		/** @brief Return true if widget @p e is currently being pressed (mouse button held). */
 		[[nodiscard]] bool IsPressed(ECS::EntityId e) const {
 			const auto *s = m_ctx.Get<WidgetState>(e);
 			return s && s->pressed;
 		}
 
+		/**
+		 * @brief Return the screen-space rectangle of widget @p e as computed in the last layout pass.
+		 * @param e  Target entity.
+		 * @return   Screen rect, or a zero-sized rect if the entity has no ComputedRect.
+		 */
 		[[nodiscard]] FRect GetScreenRect(ECS::EntityId e) const {
 			const auto *c = m_ctx.Get<ComputedRect>(e);
 			return c ? c->screen : FRect{};
 		}
 
+		/**
+		 * @brief Pre-load a texture into the resource pool under the given key.
+		 * @param key   Pool key used to retrieve the texture later.
+		 * @param path  File path of the image.
+		 */
 		void LoadTexture(const std::string& key, const std::string& path) {
 			_EnsureTexture(key, path);
 		}
 
+		/**
+		 * @brief Pre-load a font into the resource pool under the given key (size 8 pt).
+		 * @param key   Pool key used to retrieve the font later.
+		 * @param path  File path of the TTF/OTF font.
+		 */
 		void LoadFont(const std::string& key, const std::string& path) {
 			_EnsureFont(key, 8.0f, path);
 		}
 
+		/**
+		 * @brief Pre-load an audio clip into the resource pool under the given key.
+		 * @param key   Pool key used to retrieve the audio later.
+		 * @param path  File path of the audio file.
+		 */
 		void LoadAudio(const std::string& key, const std::string& path) {
 			_EnsureAudio(key, path);
 		}
 
 		// ── Callback registration ─────────────────────────────────────────────────────
 
+		/** @brief Register (or replace) the click callback on widget @p e. */
 		void OnClick(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onClick = std::move(cb); }
+		/** @brief Register (or replace) the value-change callback on widget @p e (Slider, ScrollBar). */
 		void OnChange(ECS::EntityId e, std::function<void(float)> cb) { m_ctx.Get<Callbacks>(e)->onChange = std::move(cb); }
+		/** @brief Register (or replace) the text-change callback on widget @p e (Input, TextArea). */
 		void OnTextChange(ECS::EntityId e, std::function<void(const std::string &)> cb) { m_ctx.Get<Callbacks>(e)->onTextChange = std::move(cb); }
+		/** @brief Register (or replace) the toggle callback on widget @p e (Toggle, RadioButton). */
 		void OnToggle(ECS::EntityId e, std::function<void(bool)> cb) { m_ctx.Get<Callbacks>(e)->onToggle = std::move(cb); }
+		/** @brief Register (or replace) the scroll callback on widget @p e (Container, ScrollBar). */
 		void OnScroll(ECS::EntityId e, std::function<void(float)> cb) { m_ctx.Get<Callbacks>(e)->onScroll = std::move(cb); }
+		/** @brief Register (or replace) the hover-enter callback on widget @p e. */
 		void OnHoverEnter(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onHoverEnter = std::move(cb); }
+		/** @brief Register (or replace) the hover-leave callback on widget @p e. */
 		void OnHoverLeave(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onHoverLeave = std::move(cb); }
+		/** @brief Register (or replace) the focus-gain callback on widget @p e. */
 		void OnFocusGain(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onFocusGain = std::move(cb); }
+		/** @brief Register (or replace) the focus-lose callback on widget @p e. */
 		void OnFocusLose(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onFocusLose = std::move(cb); }
 
-		[[nodiscard]] ECS::Context &GetWorld() { return m_ctx; }
+		/** @brief Return a reference to the underlying ECS context (for advanced use). */
+		[[nodiscard]] ECS::Context &GetECSContext() { return m_ctx; }
 
 		// ── Frame pipeline ────────────────────────────────────────────────────────────
 
+		/**
+		 * @brief Feed an SDL event into the UI system.
+		 *
+		 * Must be called once per event from the application event loop.  Handles
+		 * mouse, keyboard, text-input, mouse-wheel, and drop-text events.
+		 * @param ev  The SDL event to process.
+		 */
 		void ProcessEvent(const SDL::Event &ev) {
 			switch (ev.type) {
 				case SDL::EVENT_WINDOW_RESIZED:
@@ -1873,6 +2270,12 @@ namespace UI {
 			_CanvasEvent(ev);
 		}
 
+		/**
+		 * @brief Run one full UI frame: layout → input → render → animate.
+		 *
+		 * Must be called once per game frame after all `ProcessEvent` calls.
+		 * @param dt  Frame delta time in seconds.
+		 */
 		void Iterate(float dt) {
 			m_pool.Update();
 
@@ -2220,13 +2623,14 @@ namespace UI {
 
 		/// Gère tous les raccourcis communs (Ctrl+C, Ctrl+V, Flèches, Suppr...)
 		template <typename T>
-		bool _HandleCommonTextKeys(T* data, SDL::Keycode k, SDL::Keymod mod, Callbacks* cb) {
+		bool _HandleCommonTextKeys(T* data, SDL::Keycode k, SDL::Keymod mod, Callbacks* cb, bool allowEdit = true) {
 			int& cursor = _GetCursor(data);
 			const bool ctrl  = (mod & SDL::KMOD_CTRL)  != 0;
 			const bool shift = (mod & SDL::KMOD_SHIFT) != 0;
 
 			switch (k) {
 				case SDL::KEYCODE_BACKSPACE:
+					if (!allowEdit) return true;
 					if (data->HasSelection()) {
 						data->DeleteSelection();
 					} else if (cursor > 0) {
@@ -2238,6 +2642,7 @@ namespace UI {
 					return true;
 
 				case SDL::KEYCODE_DELETE:
+					if (!allowEdit) return true;
 					if (data->HasSelection()) {
 						data->DeleteSelection();
 					} else if (cursor < (int)data->text.size()) {
@@ -2293,12 +2698,15 @@ namespace UI {
 				case SDL::KEYCODE_X:
 					if (ctrl && data->HasSelection()) {
 						try { SDL::SetClipboardText(data->GetSelectedText().c_str()); } catch (...) {}
-						data->DeleteSelection();
-						if (cb && cb->onTextChange) cb->onTextChange(data->text);
+						if (allowEdit) {
+							data->DeleteSelection();
+							if (cb && cb->onTextChange) cb->onTextChange(data->text);
+						}
 					}
 					return true;
 
 				case SDL::KEYCODE_V:
+					if (!allowEdit) return true;
 					if (ctrl) {
 						try {
 							if (SDL::HasClipboardText()) {
@@ -2375,7 +2783,7 @@ namespace UI {
 			_UpdateClips(m_root, m_viewport);
 		}
 
-		FPoint _Measure(ECS::EntityId e, const LayoutContext &ecs_context) {
+		FPoint _Measure(ECS::EntityId e, const LayoutContext &ctx) {
 			if (!m_ctx.IsAlive(e)) 
 				return {};
 			auto *w  = m_ctx.Get<Widget>(e);
@@ -2388,14 +2796,15 @@ namespace UI {
 				return {};
 			}
 
-			// Resolve explicit dimensions (Auto → 0 ici ; on élargit ci-dessous).
-			bool wa = lp->width.IsAuto(), ha = lp->height.IsAuto();
-			float fw = wa ? 0.f : lp->width.Resolve(ecs_context);
-			float fh = ha ? 0.f : lp->height.Resolve(ecs_context);
+			// Resolve explicit dimensions (Auto/Grow → 0 ici ; on élargit ci-dessous).
+			bool wa = lp->width.IsAuto()  || lp->width.IsGrow();
+			bool ha = lp->height.IsAuto() || lp->height.IsGrow();
+			float fw = wa ? 0.f : lp->width.Resolve(ctx);
+			float fh = ha ? 0.f : lp->height.Resolve(ctx);
 
 			// Espace contenu brut disponible pour les enfants.
-			float cW = SDL::Max(0.f, (wa ? ecs_context.parentSize.x : fw) - lp->padding.left - lp->padding.right);
-			float cH = SDL::Max(0.f, (ha ? ecs_context.parentSize.y : fh) - lp->padding.top  - lp->padding.bottom);
+			float cW = SDL::Max(0.f, (wa ? ctx.parentSize.x : fw) - lp->padding.left - lp->padding.right);
+			float cH = SDL::Max(0.f, (ha ? ctx.parentSize.y : fh) - lp->padding.top  - lp->padding.bottom);
 
 			if (w->type == WidgetType::ListBox) {
 				if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
@@ -2439,52 +2848,123 @@ namespace UI {
 			FPoint intr = _IntrinsicSize(e);
 
 			// Contexte transmis aux enfants.
-			LayoutContext cc = _MakeChildCtx(ecs_context, {cW, cH}, *lp);
+			LayoutContext cc = _MakeChildCtx(ctx, {cW, cH}, *lp);
 
 			float chW = 0.f, chH = 0.f;
 			float curLineW = 0.f, curLineH = 0.f;
 			int vis = 0, lineVis = 0;
 			auto *ch = m_ctx.Get<Children>(e);
 			if (ch) {
-				for (ECS::EntityId cid : ch->ids) {
-					if (!m_ctx.IsAlive(cid)) continue; 
-					auto *cw  = m_ctx.Get<Widget>(cid);
-					auto *cl  = m_ctx.Get<LayoutProps>(cid);
-					if (!cw || !cl || !Has(cw->behavior, BehaviorFlag::Visible)) continue;
-					
-					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
-						_Measure(cid, cc);
-						continue;
-					}
-					
-					FPoint csz = _Measure(cid, cc);
-					float mw = csz.x + cl->margin.left + cl->margin.right;
-					float mh = csz.y + cl->margin.top  + cl->margin.bottom;
-					
-					if (lp->layout == Layout::InColumn) {
-						chW  = SDL::Max(chW, mw);
-						chH += mh + (vis > 0 ? lp->gap : 0.f);
-					} else if (lp->layout == Layout::InLine) {
-						chH  = SDL::Max(chH, mh);
-						chW += mw + (vis > 0 ? lp->gap : 0.f);
-					} else if (lp->layout == Layout::Stack) {
-						if (lineVis > 0 && cW > 0.f && curLineW + lp->gap + mw > cW) {
-							chW = SDL::Max(chW, curLineW);
-							chH += curLineH + lp->gap;
-							curLineW = mw;
-							curLineH = mh;
-							lineVis = 1;
-						} else {
-							curLineW += mw + (lineVis > 0 ? lp->gap : 0.f);
-							curLineH = SDL::Max(curLineH, mh);
-							lineVis++;
+				if (lp->layout == Layout::InColumn || lp->layout == Layout::InLine) {
+					// Two-pass: measure non-grow children first to compute the grow
+					// budget, then re-measure grow children with the correct axis size
+					// in their context so that Ph/Pw in grandchildren resolve correctly.
+					// Grow factor: read from child's width (InLine) or height (InColumn).
+					const bool isCol = (lp->layout == Layout::InColumn);
+					auto growOf = [&](const LayoutProps* cl) -> float {
+						return 0.01f * (isCol ? (cl->height.IsGrow() ? cl->height.val : 0.f)
+						             : (cl->width.IsGrow() ? cl->width.val  : 0.f));
+					};
+					std::vector<ECS::EntityId> flow;
+					float tFixed = 0.f, tGrow = 0.f;
+
+					for (ECS::EntityId cid : ch->ids) {
+						if (!m_ctx.IsAlive(cid)) continue;
+						auto *cw2 = m_ctx.Get<Widget>(cid);
+						auto *cl2 = m_ctx.Get<LayoutProps>(cid);
+						if (!cw2 || !cl2 || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+						if (cl2->attach == AttachLayout::Absolute || cl2->attach == AttachLayout::Fixed) {
+							_Measure(cid, cc);
+							continue;
+						}
+						flow.push_back(cid);
+						float g = growOf(cl2);
+						tGrow += g;
+						// Count margins for ALL flow children — matches _Place tFixed logic.
+						if (isCol) tFixed += cl2->margin.top  + cl2->margin.bottom;
+						else       tFixed += cl2->margin.left + cl2->margin.right;
+						if (g == 0.f) {
+							FPoint csz = _Measure(cid, cc);
+							if (isCol) {
+								chW = SDL::Max(chW, csz.x + cl2->margin.left + cl2->margin.right);
+								tFixed += csz.y;
+							} else {
+								chH = SDL::Max(chH, csz.y + cl2->margin.top + cl2->margin.bottom);
+								tFixed += csz.x;
+							}
 						}
 					}
-					++vis;
-				}
-				if (lp->layout == Layout::Stack && lineVis > 0) {
-					chW = SDL::Max(chW, curLineW);
-					chH += curLineH;
+
+					int fvis    = (int)flow.size();
+					float avail   = isCol ? cH : cW;
+					float gBudget = SDL::Max(0.f, avail - tFixed - lp->gap * SDL::Max(0, fvis - 1));
+					float gUnit   = (tGrow > 0.f) ? gBudget / tGrow : 0.f;
+
+					for (int i = 0; i < fvis; ++i) {
+						ECS::EntityId cid = flow[i];
+						auto *cl2  = m_ctx.Get<LayoutProps>(cid);
+						auto *ccr2 = m_ctx.Get<ComputedRect>(cid);
+						float g = growOf(cl2);
+
+						if (g > 0.f) {
+							float growSz = SDL::Max(0.f, gUnit * g);
+							LayoutContext growCtx = cc;
+							if (isCol) growCtx.parentSize.y = growSz;
+							else       growCtx.parentSize.x = growSz;
+							_Measure(cid, growCtx);
+							// Store grow-resolved size so Ph/Pw in children resolve correctly.
+							if (isCol) ccr2->measured.y = growSz;
+							else       ccr2->measured.x = growSz;
+						}
+
+						float mw = ccr2->measured.x + cl2->margin.left + cl2->margin.right;
+						float mh = ccr2->measured.y + cl2->margin.top  + cl2->margin.bottom;
+						if (isCol) {
+							chW  = SDL::Max(chW, mw);
+							chH += mh + (i > 0 ? lp->gap : 0.f);
+						} else {
+							chH  = SDL::Max(chH, mh);
+							chW += mw + (i > 0 ? lp->gap : 0.f);
+						}
+					}
+					vis = fvis;
+
+				} else {
+					for (ECS::EntityId cid : ch->ids) {
+						if (!m_ctx.IsAlive(cid)) continue;
+						auto *cw  = m_ctx.Get<Widget>(cid);
+						auto *cl  = m_ctx.Get<LayoutProps>(cid);
+						if (!cw || !cl || !Has(cw->behavior, BehaviorFlag::Visible)) continue;
+
+						if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
+							_Measure(cid, cc);
+							continue;
+						}
+
+						FPoint csz = _Measure(cid, cc);
+						float mw = csz.x + cl->margin.left + cl->margin.right;
+						float mh = csz.y + cl->margin.top  + cl->margin.bottom;
+
+						if (lp->layout == Layout::Stack) {
+							float flowW = mw;
+							if (lineVis > 0 && cW > 0.f && curLineW + lp->gap + flowW > cW) {
+								chW = SDL::Max(chW, curLineW);
+								chH += curLineH + lp->gap;
+								curLineW = flowW;
+								curLineH = mh;
+								lineVis = 1;
+							} else {
+								curLineW += flowW + (lineVis > 0 ? lp->gap : 0.f);
+								curLineH = SDL::Max(curLineH, mh);
+								lineVis++;
+							}
+						}
+						++vis;
+					}
+					if (lp->layout == Layout::Stack && lineVis > 0) {
+						chW = SDL::Max(chW, curLineW);
+						chH += curLineH;
+					}
 				}
 
 				// ── InGrid: post-loop track computation ──────────────────────────────
@@ -2581,10 +3061,10 @@ namespace UI {
 
 			// Apply min/max size constraints (Px(-1) = no constraint).
 			// Convention CSS : maxWidth appliqué d'abord, puis minWidth prime sur maxWidth.
-			float rMinW = lp->minWidth.Resolve(ecs_context);
-			float rMinH = lp->minHeight.Resolve(ecs_context);
-			float rMaxW = lp->maxWidth.Resolve(ecs_context);
-			float rMaxH = lp->maxHeight.Resolve(ecs_context);
+			float rMinW = lp->minWidth.Resolve(ctx);
+			float rMinH = lp->minHeight.Resolve(ctx);
+			float rMaxW = lp->maxWidth.Resolve(ctx);
+			float rMaxH = lp->maxHeight.Resolve(ctx);
 			if (rMaxW >= 0.f) bW = SDL::Min(bW, rMaxW);
 			if (rMaxH >= 0.f) bH = SDL::Min(bH, rMaxH);
 			if (rMinW >= 0.f) bW = SDL::Max(bW, rMinW);
@@ -2691,74 +3171,157 @@ namespace UI {
 			}
 
 			if (lp->layout == Layout::InColumn || lp->layout == Layout::InLine) {
+				const bool isColP = (lp->layout == Layout::InColumn);
+				auto growOfP = [&](const LayoutProps* cl) -> float {
+					return 0.01f * (isColP ? (cl->height.IsGrow() ? cl->height.val : 0.f)
+					              : (cl->width.IsGrow() ? cl->width.val : 0.f));
+				};
+				std::vector<ECS::EntityId> flowChildren;
 				float tFixed = 0.f, tGrow = 0.f;
-				int vis = 0;
+
+				// 1. Collecte et détermination de l'espace alloué
 				for (ECS::EntityId cid : ch->ids) {
-					if (!m_ctx.IsAlive(cid)) continue; 
+					if (!m_ctx.IsAlive(cid)) continue;
 					auto *cw2 = m_ctx.Get<Widget>(cid);
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					auto *cc  = m_ctx.Get<ComputedRect>(cid);
 					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
-					
-					tGrow += cl->grow;
+
+					flowChildren.push_back(cid);
+					float g = growOfP(cl);
+					tGrow += g;
 					if (lp->layout == Layout::InColumn) {
 						tFixed += cl->margin.top + cl->margin.bottom;
-						if (cl->grow == 0.f) tFixed += cc->measured.y;
+						if (g == 0.f) tFixed += cc->measured.y;
 					} else {
 						tFixed += cl->margin.left + cl->margin.right;
-						if (cl->grow == 0.f) tFixed += cc->measured.x;
+						if (g == 0.f) tFixed += cc->measured.x;
 					}
-					++vis;
 				}
 
+				int vis = (int)flowChildren.size();
 				float avail   = (lp->layout == Layout::InColumn) ? ch2 : cw;
 				float gBudget = SDL::Max(0.f, avail - tFixed - lp->gap * SDL::Max(0, vis - 1));
 				float gUnit   = (tGrow > 0.f) ? gBudget / tGrow : 0.f;
 
-				bool first = true;
-				for (ECS::EntityId cid : ch->ids) {
-					if (!m_ctx.IsAlive(cid)) continue; 
-					auto *cw2 = m_ctx.Get<Widget>(cid);
+				// 2. Trouver le dernier élément qui grandit pour fermer la brèche exactement
+				int lastGrowIdx = -1;
+				for (int i = 0; i < vis; ++i) {
+					auto *cl = m_ctx.Get<LayoutProps>(flowChildren[i]);
+					if (growOfP(cl) > 0.f) lastGrowIdx = i;
+				}
+
+				std::vector<FRect> computed(vis);
+
+				// 3. Pré-calcul de l'axe principal et application de l'étirement (Stretch) sur l'axe croisé
+				for (int i = 0; i < vis; ++i) {
+					ECS::EntityId cid = flowChildren[i];
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					auto *cc  = m_ctx.Get<ComputedRect>(cid);
-					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
-					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
-					float childW = cc->measured.x, childH = cc->measured.y;
-					if (cl->grow > 0.f) {
-						if (lp->layout == Layout::InColumn) childH = gUnit * cl->grow;
-						else                                childW = gUnit * cl->grow;
+					float childW = cc->measured.x;
+					float childH = cc->measured.y;
+					float g = growOfP(cl);
+
+					if (g > 0.f) {
+						if (lp->layout == Layout::InColumn) childH = gUnit * g;
+						else                                childW = gUnit * g;
 					}
-
-					if (!first) {
-						if (lp->layout == Layout::InColumn) cy += lp->gap;
-						else                                cx += lp->gap;
-					}
-					first = false;
-
-					float px = cx + cl->margin.left;
-					float py = cy + cl->margin.top;
-
+					
 					if (lp->layout == Layout::InColumn) {
-						switch (cl->alignSelfH) {
-							case Align::Stretch: childW = SDL::Max(0.f, cw - cl->margin.left - cl->margin.right); [[fallthrough]];
-							case Align::Start:   break;
-							case Align::Center:  px = cx + (cw - childW) * 0.5f; break;
-							case Align::End:     px = cx + cw - childW - cl->margin.right; break;
-						}
-						cc->screen = {px, py, childW, childH};
-						cy += childH + cl->margin.top + cl->margin.bottom;
+						if (cl->alignSelfH == Align::Stretch)
+							childW = SDL::Max(0.f, cw - cl->margin.left - cl->margin.right);
 					} else {
-						switch (cl->alignSelfV) {
-							case Align::Stretch: childH = SDL::Max(0.f, ch2 - cl->margin.top - cl->margin.bottom); [[fallthrough]];
-							case Align::Start:   break;
-							case Align::Center:  py = cy + (ch2 - childH) * 0.5f; break;
-							case Align::End:     py = cy + ch2 - childH - cl->margin.bottom; break;
-						}
-						cc->screen = {px, py, childW, childH};
-						cx += childW + cl->margin.left + cl->margin.right;
+						if (cl->alignSelfV == Align::Stretch)
+							childH = SDL::Max(0.f, ch2 - cl->margin.top - cl->margin.bottom);
 					}
+					computed[i] = {0.f, 0.f, childW, childH};
+				}
+
+				float currentX = cx;
+				float currentY = cy;
+				float rightX = cx + cw;
+				float bottomY = cy + ch2;
+
+				// 4. Placement BI-DIRECTIONNEL sur l'axe principal
+				if (lastGrowIdx == -1) {
+					// Aucun grow : placement standard de gauche à droite / haut en bas
+					for (int i = 0; i < vis; ++i) {
+						auto *cl = m_ctx.Get<LayoutProps>(flowChildren[i]);
+						if (lp->layout == Layout::InColumn) {
+							computed[i].y = currentY + cl->margin.top;
+							currentY += computed[i].h + cl->margin.top + cl->margin.bottom + lp->gap;
+						} else {
+							computed[i].x = currentX + cl->margin.left;
+							currentX += computed[i].w + cl->margin.left + cl->margin.right + lp->gap;
+						}
+					}
+				} else {
+					// Placement depuis la Droite / Bas (éléments APRES le dernier grow)
+					for (int i = vis - 1; i > lastGrowIdx; --i) {
+						auto *cl = m_ctx.Get<LayoutProps>(flowChildren[i]);
+						if (lp->layout == Layout::InColumn) {
+							bottomY -= cl->margin.bottom;
+							bottomY -= computed[i].h;
+							computed[i].y = bottomY;
+							bottomY -= (cl->margin.top + lp->gap);
+						} else {
+							rightX -= cl->margin.right;
+							rightX -= computed[i].w;
+							computed[i].x = rightX;
+							rightX -= (cl->margin.left + lp->gap);
+						}
+					}
+					
+					// Placement depuis la Gauche / Haut (éléments AVANT et JUSQU'AU dernier grow)
+					for (int i = 0; i <= lastGrowIdx; ++i) {
+						auto *cl = m_ctx.Get<LayoutProps>(flowChildren[i]);
+						if (lp->layout == Layout::InColumn) {
+							computed[i].y = currentY + cl->margin.top;
+							
+							// Comble exactement le trou restant pour effacer les erreurs de float
+							if (i == lastGrowIdx) 
+								computed[i].h = SDL::Max(0.f, bottomY - computed[i].y - cl->margin.bottom);
+							
+							currentY += computed[i].h + cl->margin.top + cl->margin.bottom + lp->gap;
+						} else {
+							computed[i].x = currentX + cl->margin.left;
+							
+							// Comble exactement le trou restant
+							if (i == lastGrowIdx) 
+								computed[i].w = SDL::Max(0.f, rightX - computed[i].x - cl->margin.right);
+							
+							currentX += computed[i].w + cl->margin.left + cl->margin.right + lp->gap;
+						}
+					}
+				}
+
+				// 5. Application de l'alignement de l'axe secondaire et appel récursif
+				for (int i = 0; i < vis; ++i) {
+					ECS::EntityId cid = flowChildren[i];
+					auto *cl  = m_ctx.Get<LayoutProps>(cid);
+					auto *cc  = m_ctx.Get<ComputedRect>(cid);
+					
+					if (lp->layout == Layout::InColumn) {
+						float px = cx + cl->margin.left;
+						switch (cl->alignSelfH) {
+							case Align::Center:  px = cx + (cw - computed[i].w) * 0.5f; break;
+							case Align::End:     px = cx + cw - computed[i].w - cl->margin.right; break;
+							default: break;
+						}
+						computed[i].x = px;
+					} else {
+						float py = cy + cl->margin.top;
+						switch (cl->alignSelfV) {
+							case Align::Center:  py = cy + (ch2 - computed[i].h) * 0.5f; break;
+							case Align::End:     py = cy + ch2 - computed[i].h - cl->margin.bottom; break;
+							default: break;
+						}
+						computed[i].y = py;
+					}
+					
+					cc->screen = computed[i];
 					_Place(cid);
 				}
 			} else if (lp->layout == Layout::Stack) {
@@ -2781,7 +3344,8 @@ namespace UI {
 							j++; continue; 
 						}
 						
-						float itemFixedW = cl->margin.left + cl->margin.right + (cl->grow == 0.f ? cc->measured.x : 0.f);
+						float itemGrow   = cl->width.IsGrow() ? 0.01f * cl->width.val : 0.f;
+						float itemFixedW = cl->margin.left + cl->margin.right + (itemGrow == 0.f ? cc->measured.x : 0.f);
 						float itemH = cc->measured.y + cl->margin.top + cl->margin.bottom;
 
 						if (rowItems > 0 && cw > 0.f && rowFixedW + lp->gap + itemFixedW > cw) {
@@ -2789,7 +3353,7 @@ namespace UI {
 						}
 
 						rowFixedW += itemFixedW + (rowItems > 0 ? lp->gap : 0.f);
-						rowGrow += cl->grow;
+						rowGrow += itemGrow;
 						rowMaxH = SDL::Max(rowMaxH, itemH);
 						rowItems++;
 						j++;
@@ -2812,7 +3376,8 @@ namespace UI {
 						if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible) || cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 						float childW = cc->measured.x, childH = cc->measured.y;
-						if (cl->grow > 0.f) childW = gUnit * cl->grow;
+						float cg = cl->width.IsGrow() ? 0.01f * cl->width.val : 0.f;
+						if (cg > 0.f) childW = gUnit * cg;
 
 						if (!firstInRow) cx += lp->gap;
 						firstInRow = false;
@@ -3408,7 +3973,10 @@ namespace UI {
 			};
 
 			if (w->type == WidgetType::Input) processInput(m_ctx.Get<Content>(m_focused));
-			else if (w->type == WidgetType::TextArea) processInput(m_ctx.Get<TextAreaData>(m_focused));
+			else if (w->type == WidgetType::TextArea) {
+				auto* ta = m_ctx.Get<TextAreaData>(m_focused);
+				if (ta && !ta->readOnly) processInput(ta);
+			}
 		}
 
 		void _HandleKeyDownInput(SDL::Keycode k, SDL::Keymod mod) {
@@ -3425,11 +3993,13 @@ namespace UI {
 			auto *ta = m_ctx.Get<TextAreaData>(m_focused);
 			auto *cb = m_ctx.Get<Callbacks>(m_focused);
 			if (!ta) return;
-			
+
 			if (k == SDL::KEYCODE_ESCAPE) { _SetFocus(ECS::NullEntity); return; }
 
+			const bool editable = !ta->readOnly;
+
 			// Si le Helper a géré une touche standard (Copier, Flèches, Suppr...), on s'arrête
-			if (_HandleCommonTextKeys(ta, k, mod, cb)) return;
+			if (_HandleCommonTextKeys(ta, k, mod, cb, editable)) return;
 
 			// Sinon, on traite les spécificités multilignes du TextArea
 			const bool ctrl  = (mod & SDL::KMOD_CTRL)  != 0;
@@ -3438,6 +4008,7 @@ namespace UI {
 			switch (k) { 
 				case SDL::KEYCODE_TAB:
 					if (ctrl) break; // Laisse passer pour basculer le focus du widget
+					if (!editable) return;
 					if (shift) {
 						int ls = ta->LineStart(ta->LineOf(ta->cursorPos));
 						int spaces = 0;
@@ -3458,6 +4029,7 @@ namespace UI {
 				case SDL::KEYCODE_RETURN:
 				case SDL::KEYCODE_RETURN2:
 				case SDL::KEYCODE_KP_ENTER:
+					if (!editable) return;
 					_InsertText(ta, "\n");
 					if (cb && cb->onTextChange) cb->onTextChange(ta->text);
 					return;
@@ -4667,7 +5239,7 @@ namespace UI {
 				}
 
 				// ── 8. Rendu du Curseur clignotant ────────────────────────────────
-				if (foc && ta->blinkTimer < 0.5f) {
+				if (foc && !ta->readOnly && ta->blinkTimer < 0.5f) {
 					int curLine = ta->LineOf(ta->cursorPos);
 					int curCol  = ta->ColOf(ta->cursorPos);
 					
@@ -5127,105 +5699,143 @@ namespace UI {
 	// Builder
 	// =============================================================================
 
+	/**
+	 * @brief Fluent builder DSL wrapping a widget entity.
+	 *
+	 * Every setter returns `*this` so calls can be chained:
+	 * ```cpp
+	 * ui.Button("ok", "OK")
+	 *   .W(100).H(36)
+	 *   .BgColor({70,130,210,255})
+	 *   .OnClick([]{ ... })
+	 *   .AttachTo(root);
+	 * ```
+	 */
 	struct Builder {
-		System &sys; 
+		System &sys;
 		ECS::EntityId id;
 		Builder(System &s, ECS::EntityId e) : sys(s), id(e) {}
+		/** @brief Implicit conversion to the underlying entity ID. */
 		operator ECS::EntityId() const noexcept { return id; }
+		/** @brief Return the underlying entity ID. */
 		[[nodiscard]] ECS::EntityId Id() const noexcept { return id; }
 
 		// Style
+		/** @brief Replace the entire Style component with @p s.
+		 *  @return Reference to this builder for chaining. */
 		Builder &Style(const Style &s) {
 			sys.GetStyle(id) = s;
 			return *this;
 		}
+		/** @brief Apply an inline lambda to the Style component. */
 		Builder &WithStyle(std::function<void(UI::Style &)> fn) {
 			fn(sys.GetStyle(id));
 			return *this;
 		}
+		/** @brief Set the background color (normal state). */
 		Builder &BgColor(SDL::Color c) {
 			sys.GetStyle(id).bgColor = c;
 			return *this;
 		}
+		/** @brief Set the background color when the widget is hovered. */
 		Builder &BgHover(SDL::Color c) {
 			sys.GetStyle(id).bgHovered = c;
 			return *this;
 		}
+		/** @brief Set the background color when the widget is pressed. */
 		Builder &BgPress(SDL::Color c) {
 			sys.GetStyle(id).bgPressed = c;
 			return *this;
 		}
+		/** @brief Set the background color when the widget is checked (Toggle, selected ListBox item). */
 		Builder &BgCheck(SDL::Color c) {
 			sys.GetStyle(id).bgChecked = c;
 			return *this;
 		}
+		/** @brief Set the border color (normal state). */
 		Builder &BorderColor(SDL::Color c) {
 			sys.GetStyle(id).bdColor = c;
 			return *this;
 		}
+		/** @brief Set the left border thickness in pixels. */
 		Builder &BorderLeft(float w) {
 			sys.GetStyle(id).borders.left = w;
 			return *this;
 		}
+		/** @brief Set the right border thickness in pixels. */
 		Builder &BorderRight(float w) {
 			sys.GetStyle(id).borders.right = w;
 			return *this;
 		}
+		/** @brief Set the top border thickness in pixels. */
 		Builder &BorderTop(float w) {
 			sys.GetStyle(id).borders.top = w;
 			return *this;
 		}
+		/** @brief Set the bottom border thickness in pixels. */
 		Builder &BorderBottom(float w) {
 			sys.GetStyle(id).borders.bottom = w;
 			return *this;
 		}
+		/** @brief Set all four border thicknesses at once. */
 		Builder &Borders(SDL::FBox bd) {
 			sys.GetStyle(id).borders = bd;
 			return *this;
 		}
 
+		/** @brief Set the top-left corner radius. */
 		Builder &RadiusTopLeft(float r) {
 			sys.GetStyle(id).radius.tl = r;
 			return *this;
 		}
+		/** @brief Set the top-right corner radius. */
 		Builder &RadiusTopRight(float r) {
 			sys.GetStyle(id).radius.tr = r;
 			return *this;
 		}
+		/** @brief Set the bottom-left corner radius. */
 		Builder &RadiusBottomLeft(float r) {
 			sys.GetStyle(id).radius.bl = r;
 			return *this;
 		}
+		/** @brief Set the bottom-right corner radius. */
 		Builder &RadiusBottomRight(float r) {
 			sys.GetStyle(id).radius.br = r;
 			return *this;
 		}
+		/** @brief Set all four corner radii at once. */
 		Builder &Radius(SDL::FCorners rad) {
 			sys.GetStyle(id).radius = rad;
 			return *this;
 		}
 
+		/** @brief Set the text color (normal state). */
 		Builder &TextColor(SDL::Color c) {
 			sys.GetStyle(id).textColor = c;
 			return *this;
 		}
+		/** @brief Set the fill color (Slider track fill, Toggle active state, etc.). */
 		Builder &FillColor(SDL::Color c) {
 			sys.GetStyle(id).fill = c;
 			return *this;
 		}
+		/** @brief Set the track color (Slider / ScrollBar background rail). */
 		Builder &TrackColor(SDL::Color c) {
 			sys.GetStyle(id).track = c;
 			return *this;
 		}
+		/** @brief Set the thumb color (Slider handle, ScrollBar thumb when hovered). */
 		Builder &ThumbColor(SDL::Color c) {
 			sys.GetStyle(id).thumb = c;
 			return *this;
 		}
+		/** @brief Set the overall opacity multiplier [0..1] applied to all rendering. */
 		Builder &Opacity(float o) {
 			sys.GetStyle(id).opacity = o;
 			return *this;
 		}
 
+		/** @brief Set the texture key and fit mode for an Image widget. */
 		Builder &ImageKey(const std::string &key, ImageFit f = ImageFit::Contain) {
 			sys.SetImageKey(id, key, f);
 			return *this;
@@ -5266,133 +5876,169 @@ namespace UI {
 			return *this;
 		}
 
-		// If `key` is empty, used sdl debug font
-		Builder &FontKey(const std::string &key, float sz = 0.f) {
+		/** @brief Set the font key and optional point size.  Pass an empty key to use the built-in debug font. */
+		Builder &Font(const std::string &key, float sz = 0.f) {
 			auto &s = sys.GetStyle(id);
 			s.usedDebugFont = key.empty();
 			s.fontKey = key;
-			s.fontSize = sz;
+			if (sz > 0.f) s.fontSize = sz;
 			return *this;
 		}
+		/** @brief Set the font point size without changing the font key. */
 		Builder &FontSize(float s) {
 			sys.GetStyle(id).fontSize = s;
 			return *this;
 		}
 
-		Builder &ClickSoundKey(const std::string &key) {
+		/** @brief Set the audio clip played on click. */
+		Builder &ClickSound(const std::string &key) {
 			sys.GetStyle(id).clickSound = key;
 			return *this;
 		}
-		Builder &HoverSoundKey(const std::string &key) {
+		/** @brief Set the audio clip played on hover-enter. */
+		Builder &HoverSound(const std::string &key) {
 			sys.GetStyle(id).hoverSound = key;
 			return *this;
 		}
-		Builder &ScrollSoundKey(const std::string &key) {
+		/** @brief Set the audio clip played when the widget is scrolled. */
+		Builder &ScrollSound(const std::string &key) {
 			sys.GetStyle(id).scrollSound = key;
 			return *this;
 		}
-		Builder &ShowSoundKey(const std::string &key) {
+		/** @brief Set the audio clip played when the widget becomes visible. */
+		Builder &ShowSound(const std::string &key) {
 			sys.GetStyle(id).showSound = key;
 			return *this;
 		}
-		Builder &HideSoundKey(const std::string &key) {
+		/** @brief Set the audio clip played when the widget is hidden. */
+		Builder &HideSound(const std::string &key) {
 			sys.GetStyle(id).hideSound = key;
 			return *this;
 		}
 
 		// Layout
+		/** @brief Apply an inline lambda to the LayoutProps component. */
 		Builder &WithLayout(std::function<void(LayoutProps &)> fn) {
 			fn(sys.GetLayout(id));
 			return *this;
 		}
+		/** @brief Set the absolute X position (pixels) — only meaningful with Absolute/Fixed attach. */
 		Builder &X(float px) {
 			sys.GetLayout(id).absX = Value::Px(px);
 			return *this;
 		}
+		/** @brief Set the absolute X position via a Value — only meaningful with Absolute/Fixed attach. */
 		Builder &X(Value v) {
 			sys.GetLayout(id).absX = v;
 			return *this;
 		}
+		/** @brief Set the absolute Y position (pixels) — only meaningful with Absolute/Fixed attach. */
 		Builder &Y(float px) {
 			sys.GetLayout(id).absY = Value::Px(px);
 			return *this;
 		}
+		/** @brief Set the absolute Y position via a Value — only meaningful with Absolute/Fixed attach. */
 		Builder &Y(Value v) {
 			sys.GetLayout(id).absY = v;
 			return *this;
 		}
+		/** @brief Set the widget width (pixels). */
 		Builder &W(float px) {
 			sys.GetLayout(id).width = Value::Px(px);
 			return *this;
 		}
+		/** @brief Set the widget width via a Value (Px, Pw, Grow, etc.). */
 		Builder &W(Value v) {
 			sys.GetLayout(id).width = v;
 			return *this;
 		}
+		/** @brief Set the widget height (pixels). */
 		Builder &H(float px) {
 			sys.GetLayout(id).height = Value::Px(px);
 			return *this;
 		}
+		/** @brief Set the widget height via a Value (Px, Ph, Grow, etc.). */
 		Builder &H(Value v) {
 			sys.GetLayout(id).height = v;
 			return *this;
 		}
+		/** @brief Set the minimum width (pixels). */
 		Builder &MinW(float px) { sys.GetLayout(id).minWidth  = Value::Px(px); return *this; }
+		/** @brief Set the minimum width via a Value. */
 		Builder &MinW(Value  v) { sys.GetLayout(id).minWidth  = v;             return *this; }
+		/** @brief Set the minimum height (pixels). */
 		Builder &MinH(float px) { sys.GetLayout(id).minHeight = Value::Px(px); return *this; }
+		/** @brief Set the minimum height via a Value. */
 		Builder &MinH(Value  v) { sys.GetLayout(id).minHeight = v;             return *this; }
+		/** @brief Set the maximum width (pixels). */
 		Builder &MaxW(float px) { sys.GetLayout(id).maxWidth  = Value::Px(px); return *this; }
+		/** @brief Set the maximum width via a Value. */
 		Builder &MaxW(Value  v) { sys.GetLayout(id).maxWidth  = v;             return *this; }
+		/** @brief Set the maximum height (pixels). */
 		Builder &MaxH(float px) { sys.GetLayout(id).maxHeight = Value::Px(px); return *this; }
+		/** @brief Set the maximum height via a Value. */
 		Builder &MaxH(Value  v) { sys.GetLayout(id).maxHeight = v;             return *this; }
-		Builder &Grow(float g) {
-			sys.GetLayout(id).grow = g;
-			return *this;
-		}
+		/** @brief Grow the widget's width to fill remaining horizontal space (InLine parents only). */
+		Builder &GrowW(float g) { W(Value::Grow(g)); return *this; }
+		/** @brief Grow the widget's height to fill remaining vertical space (InColumn parents only). */
+		Builder &GrowH(float g) { H(Value::Grow(g)); return *this; }
+		/** @brief Grow both width and height to fill remaining space. */
+		Builder &Grow(float g) { W(Value::Grow(g)); H(Value::Grow(g)); return *this; }
+		/** @brief Set the gap between children in pixel (InColumn / InLine / Stack layouts). */
 		Builder &Gap(float g) {
 			sys.GetLayout(id).gap = g;
 			return *this;
 		}
+		/** @brief Set the layout mode for a container widget. */
 		Builder &Layout(Layout l) {
 			sys.GetLayout(id).layout = l;
 			return *this;
 		}
+		/** @brief Set the default horizontal alignment for direct children (InColumn containers). */
 		Builder &AlignChildrenH(UI::Align a) {
 			sys.GetLayout(id).alignChildrenH = a;
 			return *this;
 		}
+		/** @brief Set the default vertical alignment for direct children (InLine / Stack containers). */
 		Builder &AlignChildrenV(UI::Align a) {
 			sys.GetLayout(id).alignChildrenV = a;
 			return *this;
 		}
+		/** @brief Set both horizontal and vertical default child alignment at once. */
 		Builder &AlignChildren(UI::Align h, UI::Align v) {
 			auto &lp = sys.GetLayout(id);
 			lp.alignChildrenH = h;
 			lp.alignChildrenV = v;
 			return *this;
 		}
+		/** @brief Set this widget's own horizontal alignment within its parent. */
 		Builder &AlignH(UI::Align a) {
 			sys.GetLayout(id).alignSelfH = a;
 			return *this;
 		}
+		/** @brief Set this widget's own vertical alignment within its parent. */
 		Builder &AlignV(UI::Align a) {
 			sys.GetLayout(id).alignSelfV = a;
 			return *this;
 		}
+		/** @brief Set both horizontal and vertical self-alignment at once. */
 		Builder &Align(UI::Align h, UI::Align v) {
 			auto &lp = sys.GetLayout(id);
 			lp.alignSelfH = h;
 			lp.alignSelfV = v;
 			return *this;
 		}
+		/** @brief Set the CSS-style box-sizing mode (what W/H dimensions include). */
 		Builder &BoxSizingMode(BoxSizing b) {
 			sys.GetLayout(id).boxSizing = b;
 			return *this;
 		}
+		/** @brief Set the attach mode (Relative, Absolute, or Fixed). */
 		Builder &Attach(AttachLayout a) {
 			sys.GetLayout(id).attach = a;
 			return *this;
 		}
+		/** @brief Position the widget absolutely within its parent using Values. */
 		Builder &Absolute(Value x, Value y) {
 			auto &l = sys.GetLayout(id);
 			l.attach = AttachLayout::Absolute;
@@ -5400,7 +6046,9 @@ namespace UI {
 			l.absY = y;
 			return *this;
 		}
+		/** @brief Position the widget absolutely within its parent using pixel coordinates. */
 		Builder &Absolute(float x, float y) { return Absolute(Value::Px(x), Value::Px(y)); }
+		/** @brief Position the widget at a fixed position relative to the root viewport using Values. */
 		Builder &Fixed(Value x, Value y) {
 			auto &l = sys.GetLayout(id);
 			l.attach = AttachLayout::Fixed;
@@ -5409,121 +6057,162 @@ namespace UI {
 			return *this;
 		}
 
+		/** @brief Set uniform padding on all four sides (pixels). */
 		Builder &Padding(float a) {
 			auto &l = sys.GetLayout(id);
 			l.padding.left = l.padding.top = l.padding.right = l.padding.bottom = a;
 			return *this;
 		}
+		/** @brief Set horizontal and vertical padding independently (pixels). */
 		Builder &Padding(float h, float v) {
 			auto &l = sys.GetLayout(id);
 			l.padding.left = l.padding.right = h;
 			l.padding.top = l.padding.bottom = v;
 			return *this;
 		}
+		/** @brief Set padding on all four sides individually. */
 		Builder &Padding(SDL::FBox p) {
 			auto &l = sys.GetLayout(id);
 			l.padding = p;
 			return *this;
 		}
+		/** @brief Set left and right padding to the same value (pixels). */
 		Builder &PaddingH(float h) {
 			auto &l = sys.GetLayout(id);
 			l.padding.left = l.padding.right = h;
 			return *this;
 		}
+		/** @brief Set top and bottom padding to the same value (pixels). */
 		Builder &PaddingV(float v) {
 			auto &l = sys.GetLayout(id);
 			l.padding.top = l.padding.bottom = v;
 			return *this;
 		}
+		/** @brief Set the bottom padding (pixels). */
 		Builder &PaddingBottom(float v) {
 			sys.GetLayout(id).padding.bottom = v;
 			return *this;
 		}
+		/** @brief Set the top padding (pixels). */
 		Builder &PaddingTop(float v) {
 			sys.GetLayout(id).padding.top = v;
 			return *this;
 		}
+		/** @brief Set the left padding (pixels). */
 		Builder &PaddingLeft(float v) {
 			sys.GetLayout(id).padding.left = v;
 			return *this;
 		}
+		/** @brief Set the right padding (pixels). */
 		Builder &PaddingRight(float v) {
 			sys.GetLayout(id).padding.right = v;
 			return *this;
 		}
 
+		/** @brief Set uniform margin on all four sides (pixels). */
 		Builder &Margin(float a) {
 			auto &l = sys.GetLayout(id);
 			l.margin.left = l.margin.top = l.margin.right = l.margin.bottom = a;
 			return *this;
 		}
+		/** @brief Set horizontal and vertical margins independently (pixels). */
 		Builder &Margin(float h, float v) {
 			auto &l = sys.GetLayout(id);
 			l.margin.left = l.margin.right = h;
 			l.margin.top = l.margin.bottom = v;
 			return *this;
 		}
+		/** @brief Set margin on all four sides individually. */
 		Builder &Margin(SDL::FBox m) {
 			auto &l = sys.GetLayout(id);
 			l.margin = m;
 			return *this;
 		}
+		/** @brief Set left and right margins to the same value (pixels). */
 		Builder &MarginH(float h) {
 			auto &l = sys.GetLayout(id);
 			l.margin.left = l.margin.right = h;
 			return *this;
 		}
+		/** @brief Set top and bottom margins to the same value (pixels). */
 		Builder &MarginV(float v) {
 			auto &l = sys.GetLayout(id);
 			l.margin.top = l.margin.bottom = v;
 			return *this;
 		}
+		/** @brief Set the bottom margin (pixels). */
 		Builder &MarginBottom(float v) {
 			sys.GetLayout(id).margin.bottom = v;
 			return *this;
 		}
+		/** @brief Set the top margin (pixels). */
 		Builder &MarginTop(float v) {
 			sys.GetLayout(id).margin.top = v;
 			return *this;
 		}
+		/** @brief Set the left margin (pixels). */
 		Builder &MarginLeft(float v) {
 			sys.GetLayout(id).margin.left = v;
 			return *this;
 		}
+		/** @brief Set the right margin (pixels). */
 		Builder &MarginRight(float v) {
 			sys.GetLayout(id).margin.right = v;
 			return *this;
 		}
 
 		// BehaviorFlag
+		/** @brief Enable or disable the widget (disabled = not interactive, grayed visually). */
 		Builder &Enable(bool e = true) {
 			sys.SetEnabled(id, e);
 			return *this;
 		}
+		/** @brief Disable the widget (shorthand for Enable(false)). */
+		Builder &Disable() {
+			sys.SetEnabled(id, false);
+			return *this;
+		}
+		/** @brief Show or hide the widget (hidden = takes no space, receives no input). */
 		Builder &Visible(bool v = true) {
 			sys.SetVisible(id, v);
 			return *this;
 		}
+		/** @brief Hide the widget (shorthand for Visible(false)). */
+		Builder &Hide() {
+			sys.SetVisible(id, false);
+			return *this;
+		}
+		/** @brief Show the widget (shorthand for Visible(true)). */
+		Builder &Show() {
+			sys.SetVisible(id, true);
+			return *this;
+		}
+		/** @brief Enable or disable hover detection on the widget. */
 		Builder &Hoverable(bool v = true) {
 			sys.SetHoverable(id, v);
 			return *this;
 		}
+		/** @brief Enable or disable mouse-click selection on the widget. */
 		Builder &Selectable(bool v = true) {
 			sys.SetSelectable(id, v);
 			return *this;
 		}
+		/** @brief Enable or disable keyboard focus on the widget. */
 		Builder &Focusable(bool v = true) {
 			sys.SetFocusable(id, v);
 			return *this;
 		}
+		/** @brief Enable or disable the permanent horizontal scrollbar. */
 		Builder &ScrollableX(bool b = true) {
 			sys.SetScrollableX(id, b);
 			return *this;
 		}
+		/** @brief Enable or disable the permanent vertical scrollbar. */
 		Builder &ScrollableY(bool b = true) {
 			sys.SetScrollableY(id, b);
 			return *this;
 		}
+		/** @brief Shorthand to set both permanent scrollbar axes at once. */
 		Builder &Scrollable(bool bx = true, bool by = true) {
 			sys.SetScrollable(id, bx, by);
 			return *this;
@@ -5580,40 +6269,53 @@ namespace UI {
 			return *this;
 		}
 
+		/** @brief Set the text content of the widget at runtime. */
 		Builder &SetText(const std::string &t) {
 			sys.SetText(id, t);
 			return *this;
 		}
+		/** @brief Set the numeric value of a Slider or Knob widget at runtime (clamped). */
 		Builder &SetValue(float v) {
 			sys.SetValue(id, v);
 			return *this;
 		}
+		/** @brief Set the checked state of a Toggle or RadioButton widget at runtime. */
 		Builder &Check(bool c = true) {
 			sys.SetChecked(id, c);
 			return *this;
 		}
 
 		// Callbacks
+		/** @brief Register (or replace) the render callback on a Canvas widget. */
 		Builder &OnRenderCanvas(std::function<void(RendererRef, FRect)> cb) {
 			sys.OnRenderCanvas(id, std::move(cb));
 			return *this;
 		}
 
 		// TextArea
+		/** @brief Replace the document content of a TextArea widget. */
 		Builder &TextAreaContent(const std::string &t) {
 			sys.SetTextAreaContent(id, t);
 			return *this;
 		}
+		/** @brief Set the selection highlight color of a TextArea widget. */
 		Builder &TextAreaHighlightColor(SDL::Color c) {
 			sys.SetTextAreaHighlightColor(id, c);
 			return *this;
 		}
+		/** @brief Set the tab-stop size (in character columns) for a TextArea widget. */
 		Builder &TextAreaTabSize(int n) {
 			sys.SetTextAreaTabSize(id, n);
 			return *this;
 		}
+		/** @brief Add a rich-text span to a TextArea widget (see AddTextAreaSpan). */
 		Builder &TextAreaSpan(int start, int end, TextSpanStyle style) {
 			sys.AddTextAreaSpan(id, start, end, style);
+			return *this;
+		}
+		/** @brief Set or clear the read-only mode of a TextArea widget. */
+		Builder &ReadOnly(bool ro = true) {
+			sys.SetTextAreaReadOnly(id, ro);
 			return *this;
 		}
 
@@ -5652,44 +6354,66 @@ namespace UI {
 			return *this;
 		}
 
+		/** @brief Register a callback invoked when the widget is clicked. */
 		Builder &OnClick(std::function<void()> cb) {
 			sys.OnClick(id, std::move(cb));
 			return *this;
 		}
+		/**
+		 * @brief Register a callback invoked when the widget's numeric value changes.
+		 * @param cb  Receives the new value (Slider, Knob, ScrollBar, etc.).
+		 */
 		Builder &OnChange(std::function<void(float)> cb) {
 			sys.OnChange(id, std::move(cb));
 			return *this;
 		}
+		/**
+		 * @brief Register a callback invoked when the widget's text content changes.
+		 * @param cb  Receives the new text string (Input, TextArea, etc.).
+		 */
 		Builder &OnTextChange(std::function<void(const std::string &)> cb) {
 			sys.OnTextChange(id, std::move(cb));
 			return *this;
 		}
+		/**
+		 * @brief Register a callback invoked when a Toggle or RadioButton changes state.
+		 * @param cb  Receives `true` if the widget is now checked.
+		 */
 		Builder &OnToggle(std::function<void(bool)> cb) {
 			sys.OnToggle(id, std::move(cb));
 			return *this;
 		}
+		/**
+		 * @brief Register a callback invoked when the widget is scrolled.
+		 * @param cb  Receives the scroll delta.
+		 */
 		Builder &OnScroll(std::function<void(float)> cb) {
 			sys.OnScroll(id, std::move(cb));
 			return *this;
 		}
+		/** @brief Register a callback invoked when the mouse cursor enters the widget. */
 		Builder &OnHoverEnter(std::function<void()> cb) {
 			sys.OnHoverEnter(id, std::move(cb));
 			return *this;
 		}
+		/** @brief Register a callback invoked when the mouse cursor leaves the widget. */
 		Builder &OnHoverLeave(std::function<void()> cb) {
 			sys.OnHoverLeave(id, std::move(cb));
 			return *this;
 		}
+		/** @brief Register a callback invoked when the widget gains keyboard focus. */
 		Builder &OnFocusGain(std::function<void()> cb) {
 			sys.OnFocusGain(id, std::move(cb));
 			return *this;
 		}
+		/** @brief Register a callback invoked when the widget loses keyboard focus. */
 		Builder &OnFocusLose(std::function<void()> cb) {
 			sys.OnFocusLose(id, std::move(cb));
 			return *this;
 		}
 
 		// Children
+		/** @brief Append a child entity to this container. */
 		Builder &Child(ECS::EntityId c) {
 			sys.AppendChild(id, c);
 			return *this;
@@ -5707,6 +6431,10 @@ namespace UI {
 			sys.AppendChild(id, c.id);
 			return *this;
 		}
+		/**
+		 * @brief Append multiple child entities to this container in one call.
+		 * @param cs  Any number of entity IDs (or Builder instances) to append.
+		 */
 		template <typename... Cs>
 			requires(std::convertible_to<Cs, ECS::EntityId> && ...)
 		Builder &Children(Cs &&...cs) {
@@ -5714,21 +6442,39 @@ namespace UI {
 			return *this;
 		}
 
+		/** @brief Append this widget as a child of @p parent. */
 		Builder &AttachTo(ECS::EntityId parent) {
 			sys.AppendChild(parent, id);
 			return *this;
 		}
+		/**
+		 * @brief Append this widget as a child of @p parent and pin it to a grid cell.
+		 * @param parent   Target container entity.
+		 * @param col      Zero-based column index.
+		 * @param row      Zero-based row index.
+		 * @param colSpan  Number of columns to span (default 1).
+		 * @param rowSpan  Number of rows to span (default 1).
+		 */
 		Builder &AttachTo(ECS::EntityId parent, int col, int row, int colSpan = 1, int rowSpan = 1) {
 			sys.SetGridCell(id, col, row, colSpan, rowSpan);
 			sys.AppendChild(parent, id);
 			return *this;
 		}
+		/**
+		 * @brief Append this widget as a child of @p parent (Builder overload) and pin it to a grid cell.
+		 * @param parent   Target container Builder.
+		 * @param col      Zero-based column index.
+		 * @param row      Zero-based row index.
+		 * @param colSpan  Number of columns to span (default 1).
+		 * @param rowSpan  Number of rows to span (default 1).
+		 */
 		Builder &AttachTo(Builder parent, int col, int row, int colSpan = 1, int rowSpan = 1) {
 			sys.SetGridCell(id, col, row, colSpan, rowSpan);
 			sys.AppendChild(parent.id, id);
 			return *this;
 		}
 
+		/** @brief Promote this widget to be the root of the UI tree. */
 		Builder &AsRoot() {
 			sys.SetRoot(id);
 			return *this;
@@ -5739,6 +6485,8 @@ namespace UI {
 	// System builder factory implementations
 	// =============================================================================
 
+	inline Builder System::GetBuilder(ECS::EntityId e) { return {*this, e}; }
+	
 	inline Builder System::Container(const std::string &n) { return {*this, MakeContainer(n)}; }
 	inline Builder System::Label(const std::string &n, const std::string &t) { return {*this, MakeLabel(n, t)}; } 
 	inline Builder System::Button(const std::string &n, const std::string &t) { return {*this, MakeButton(n, t)}; }
@@ -5747,7 +6495,7 @@ namespace UI {
 	inline Builder System::Slider(const std::string &n, float mn, float mx, float v, Orientation o) { return {*this, MakeSlider(n, mn, mx, v, o)}; }
 	inline Builder System::ScrollBar(const std::string &n, float cs, float vs, Orientation o) { return {*this, MakeScrollBar(n, cs, vs, o)}; }
 	inline Builder System::Progress(const std::string &n, float v, float mx) { return {*this, MakeProgress(n, v, mx)}; }
-	inline Builder System::Sep(const std::string &n) { return {*this, MakeSeparator(n)}; }
+	inline Builder System::Separator(const std::string &n) { return {*this, MakeSeparator(n)}; }
 	inline Builder System::Input(const std::string &n, const std::string &ph) { return {*this, MakeInput(n, ph)}; }
 	inline Builder System::Knob(const std::string &n, float mn, float mx, float v) { return {*this, MakeKnob(n, mn, mx, v)}; }
 	inline Builder System::ImageWidget(const std::string &n, const std::string &p, ImageFit f) { return {*this, MakeImage(n, p, f)}; }
@@ -5762,10 +6510,17 @@ namespace UI {
 		b.Layout(Layout::InColumn).Gap(gap).Padding(pad);
 		return b;
 	}
-
 	inline Builder System::Row(const std::string &n, float gap, float pad) {
 		auto b = Container(n);
 		b.Layout(Layout::InLine).Gap(gap).Padding(pad)
+			.AlignH(Align::Center);
+		return b;
+	}
+	inline Builder System::Stack(const std::string &n, float gap, float pad) {
+		auto b = Container(n);
+		b.Layout(Layout::Stack).Gap(gap).Padding(pad)
+			.W(SDL::UI::Value::Auto())
+			.H(SDL::UI::Value::Auto())
 			.AlignH(Align::Center);
 		return b;
 	}

@@ -406,7 +406,7 @@ struct Main {
 						  [this](auto files, int){ if (files && *files) hex.saveFile(*files); },
 						  window, {}, hex.lastFilename);
 				  }),
-				ui.Sep("tsep1").W(1).H(24).MarginV(4.f),
+				ui.Separator("tsep1").W(1).H(24).MarginV(4.f),
 				ui.Input("goto_inp", "Go to address…").W(180).H(26)
 				  .OnTextChange([this](const std::string &v){
 					  Uint64 addr = 0;
@@ -414,8 +414,8 @@ struct Main {
 					  addr &= ~0xFULL;
 					  if (addr < hex.content.size()) { hex.address = addr; hex.cursor = {0,0}; }
 				  }),
-				ui.Sep("tsep2").W(1).H(24).MarginV(4.f),
-				ui.Label("lbl_file", " ").Grow(1).TextColor({180,180,180,255})
+				ui.Separator("tsep2").W(1).H(24).MarginV(4.f),
+				ui.Label("lbl_file", " ").Grow(100.f).TextColor({180,180,180,255})
 			);
 		eid_gotoInp = eid("goto_inp");
 
@@ -432,7 +432,7 @@ struct Main {
 				hex.clampCursor();
 				hexRen.draw(r, rect, hex);
 			}
-		).Grow(1).W(SDL::UI::Value::Auto());
+		).Grow(100.f).W(SDL::UI::Value::Auto());
 
 		eid_canvas = eid("hexcanvas");
 
@@ -446,7 +446,7 @@ struct Main {
 			"  - Ctrl+C / Ctrl+V / Ctrl+X\n"
 			"  - Ctrl+A to select all\n",
 			"Type your notes…")
-			.W(260.f).Grow(1)
+			.W(260.f).Grow(100.f)
 			.BgColor({22,22,32,255}).BorderColor({55,58,80,255})
 			.Borders({1,0,0,0})
 			.TextAreaHighlightColor({70,130,210,100})
@@ -469,12 +469,12 @@ struct Main {
 			.BorderColor({50,52,70,255});
 
 		auto notePanel = ui.Column("notepanel", 0.f, 0.f)
-			.W(260.f).Grow(1)
+			.W(260.f).Grow(100.f)
 			.BgColor({22,22,32,255})
 			.Children(notesLabel, notes);
 
 		auto centre = ui.Row("centre", 0.f, 0.f)
-			.W(Value::Ww(100.f)).Grow(1)
+			.W(Value::Ww(100.f)).Grow(100.f)
 			.Children(hexCanvas, notePanel);
 
 		// ── Status bar ────────────────────────────────────────────────────
@@ -483,7 +483,7 @@ struct Main {
 			.BgColor(pal::statusbar_bg)
 			.Borders({0,1,0,0}).BorderColor({40,42,60,255})
 			.Children(
-				ui.Label("status_lbl", "  Ready").Grow(1)
+				ui.Label("status_lbl", "  Ready").Grow(100.f)
 				  .TextColor({160,165,185,255}).Padding({4,3,4,3})
 			);
 		eid_status = eid("status_lbl");

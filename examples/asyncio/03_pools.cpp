@@ -165,7 +165,7 @@ struct Main {
 	SDL::AppResult Iterate() {
 		// Pump any completed async results on the main thread as well
 		// (belt-and-suspenders: the worker thread handles them too).
-		pool1->Update();
+		rm.UpdateAll();
 
 		const float progress = rm.TotalLoadingProgress();
 
@@ -232,8 +232,7 @@ struct Main {
 	static void Quit(Main* m, SDL::AppResult /*result*/) {
 		// Release pools explicitly (also called by ~ResourceManager).
 		if (m) {
-			m->pool1->Release();
-			m->pool2->Release();
+			m->rm.ReleaseAll();
 			delete m;
 		}
 	}

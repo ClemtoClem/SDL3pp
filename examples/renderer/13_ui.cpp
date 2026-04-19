@@ -281,7 +281,7 @@ struct Main {
 			.WithStyle([](auto& s){ s.borders = SDL::FBox(1.f); s.radius = SDL::FCorners(0.f); });
 
 		header.Child(ui.Label("title", "SDL3pp UI — Widget Showcase")
-			.TextColor(pal::ACCENT).Grow(1).PaddingV(0));
+			.TextColor(pal::ACCENT).W(SDL::UI::Value::Grow(100.f)).PaddingV(0));
 
 		for (int i = 0; i < kPageCount; ++i) {
 			tabBtns[i] = ui.Button(std::string("tab_") + kPageNames[i], kPageNames[i])
@@ -289,7 +289,7 @@ struct Main {
 				.AlignH(SDL::UI::Align::Center)
 				.Style(SDL::UI::Theme::PrimaryButton(i == 0 ? pal::TAB_ON : pal::TAB_OFF))
 				.WithStyle([](auto& s){ s.radius = SDL::FCorners(5.f); })
-				.ClickSoundKey(key::CLICK)
+				.ClickSound(key::CLICK)
 				.Tooltip(std::string("Switch to ") + kPageNames[i])
 				.OnClick([this, i]{ SwitchPage(i); });
 			header.Child(tabBtns[i]);
@@ -299,7 +299,7 @@ struct Main {
 
 	SDL::ECS::EntityId _BuildContent() {
 		auto content = ui.Column("content", 0.f, 0.f)
-			.Grow(1).PaddingH(16.f).PaddingV(12.f)
+			.H(SDL::UI::Value::Grow(100.f)).PaddingH(16.f).PaddingV(12.f)
 			.BgColor(pal::BG)
 			.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); });
 
@@ -319,7 +319,7 @@ struct Main {
 	}
 
 	SDL::UI::Builder _Page(const std::string& n) {
-		return ui.Column(n, 12.f, 0.f).Grow(1).BgColor(pal::BG)
+		return ui.Column(n, 12.f, 0.f).H(SDL::UI::Value::Grow(100.f)).BgColor(pal::BG)
 				 .WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); });
 	}
 
@@ -327,7 +327,7 @@ struct Main {
 
 	SDL::UI::Builder _TwoColRow(const std::string& n) {
 		return ui.Row(n, 12.f, 0.f)
-			.Grow(1).Style(SDL::UI::Theme::Transparent())
+			.H(SDL::UI::Value::Grow(100.f)).Style(SDL::UI::Theme::Transparent())
 			.AlignH(SDL::UI::Align::Left);
 	}
 	SDL::UI::Builder _LeftCol(const std::string& n) {
@@ -378,7 +378,7 @@ struct Main {
 				ui.Button(sp.n, sp.l).W(100).H(34)
 					.AlignH(SDL::UI::Align::Center)
 					.Style(SDL::UI::Theme::PrimaryButton(sp.c))
-					.ClickSoundKey(key::CLICK).HoverSoundKey(key::HOVER)
+					.ClickSound(key::CLICK).HoverSound(key::HOVER)
 					.Tooltip(tip)
 					.OnClick([this, txt, lblClick]{ ui.SetText(lblClick, txt); })
 			);
@@ -390,7 +390,7 @@ struct Main {
 				.AlignH(SDL::UI::Align::Center)
 				.Style(SDL::UI::Theme::GhostButton())
 				.Tooltip("Ghost button — transparent until hover")
-				.ClickSoundKey(key::CLICK),
+				.ClickSound(key::CLICK),
 			ui.Button("b_dis", "Disabled").W(100).H(34)
 				.Style(SDL::UI::Theme::PrimaryButton({80,80,90,255}))
 				.Enable(false).Tooltip("Disabled — cannot click")
@@ -431,7 +431,7 @@ struct Main {
 			mkRadio("r1","Option A-1","grpA"),
 			mkRadio("r2","Option A-2","grpA"),
 			mkRadio("r3","Option A-3","grpA"),
-			ui.Sep("sep_rad"),
+			ui.Separator("sep_rad"),
 			mkRadio("r4","Choice B-1","grpB"),
 			mkRadio("r5","Choice B-2","grpB"),
 			lblRadSel
@@ -463,7 +463,7 @@ struct Main {
 		{
 			auto vLbl = ui.Label(std::string(id) + "_v", std::format("{:.2f}", v))
 				.W(50).TextColor(pal::GREY);
-			auto sld = ui.Slider(id, mn, mx, v).Grow(1).FillColor(fill)
+			auto sld = ui.Slider(id, mn, mx, v).W(SDL::UI::Value::Grow(100.f)).FillColor(fill)
 				.Tooltip(tip)
 				.OnChange([this, vLbl](float val){
 					ui.SetText(vLbl, std::format("{:.2f}", val)); });
@@ -484,7 +484,7 @@ struct Main {
 				.Style(SDL::UI::Theme::Transparent()).AlignH(SDL::UI::Align::Center)
 				.Children(
 					ui.Label("sld_dis_lbl","Disabled").W(110),
-					ui.Slider("sld_dis", 0, 1, .3f).Grow(1).Enable(false)
+					ui.Slider("sld_dis", 0, 1, .3f).W(SDL::UI::Value::Grow(100.f)).Enable(false)
 						.Tooltip("Disabled slider — read-only"))
 		);
 
@@ -528,22 +528,22 @@ struct Main {
 			ui.Progress("prog_25", .25f).FillColor(pal::RED)   .Tooltip("25% — danger zone"),
 			ui.Progress("prog_50", .50f).FillColor(pal::ORANGE).Tooltip("50% — half way"),
 			ui.Progress("prog_75", .75f).FillColor(pal::GREEN) .Tooltip("75% — almost done"),
-			ui.Sep("sep_prog")
+			ui.Separator("sep_prog")
 		);
 
-		progAnimated = ui.Progress("prog_anim", 0.f).Grow(1).FillColor(pal::ACCENT)
+		progAnimated = ui.Progress("prog_anim", 0.f).W(SDL::UI::Value::Grow(100.f)).FillColor(pal::ACCENT)
 			.Tooltip("Animated progress");
 		lblProgress  = ui.Label("lbl_prog", "0%").W(45).TextColor(pal::WHITE);
 		auto btnPause = ui.Button("btn_pause", "Pause")
 			.Style(SDL::UI::Theme::PrimaryButton(pal::ORANGE))
 			.W(80).H(28).AlignH(SDL::UI::Align::Center)
-			.ClickSoundKey(key::CLICK)
+			.ClickSound(key::CLICK)
 			.Tooltip("Pause/resume the progress animation");
 		btnPause.OnClick([this, btnPause](){
 			m_animRunning = !m_animRunning;
 			ui.SetText(btnPause, m_animRunning ? "Pause" : "Resume");
 		});
-		auto sldSpd = ui.Slider("sld_aspd", 0.05f, 2.f, m_animSpeed).Grow(1)
+		auto sldSpd = ui.Slider("sld_aspd", 0.05f, 2.f, m_animSpeed).W(SDL::UI::Value::Grow(100.f))
 			.Tooltip("Animation speed")
 			.OnChange([this](float v){ m_animSpeed = v; });
 
@@ -582,7 +582,7 @@ struct Main {
 				.OnTextChange([this](const std::string& t){
 					ui.SetText(lblEcho, "Echo: " + t); }),
 			lblEcho,
-			ui.Sep("sep_i1"),
+			ui.Separator("sep_i1"),
 			ui.Input("inp_city",  "City name…")   .Tooltip("City input"),
 			ui.Input("inp_email", "user@example.com").Tooltip("Email address"),
 			ui.Input("inp_pre",   "").SetText("Pre-filled content").Tooltip("Pre-filled field"),
@@ -613,7 +613,7 @@ struct Main {
 					ui.Column("sb_info", 6.f, 0.f).Children(
 						ui.Label("lbl_sb_tip","Drag the thumb").TextColor(pal::GREY),
 						lblSB)),
-			ui.Sep("sep_sb"),
+			ui.Separator("sep_sb"),
 			ui.Label("lbl_sbh","Horizontal:").TextColor(pal::WHITE),
 			sbH
 		);
@@ -736,20 +736,20 @@ struct Main {
 		auto cardInfo = ui.Card("card_info");
 		cardInfo.Children(
 			ui.SectionTitle("Live debug — ECS / Resource pool"),
-			ui.Sep("sep_sub"),
+			ui.Separator("sep_sub"),
 			lblPoolInfo, lblEcsCount, lblHovered, lblFocused,
-			ui.Sep("sep_info"),
+			ui.Separator("sep_info"),
 			ui.Label("n1","SetDefaultFont(path, ptsize) — stamps font on every new widget")
 				.TextColor(pal::GREY),
 			ui.Label("n2","ResourcePool stores Texture / Font / Audio by string key")
 				.TextColor(pal::GREY),
 			ui.Label("n3","Mixer::PlayAudio() — fire-and-forget, no handle needed")
 				.TextColor(pal::GREY),
-			ui.Sep("sep_info2"),
+			ui.Separator("sep_info2"),
 			ui.Button("btn_pool_log","Log pool to console")
 				.Style(SDL::UI::Theme::GhostButton()).W(180).H(30)
 				.Tooltip("Print pool stats to the SDL log")
-				.ClickSoundKey(key::CLICK)
+				.ClickSound(key::CLICK)
 				.OnClick([this]{
 					SDL::LogInfo(SDL::LOG_CATEGORY_APPLICATION,
 						std::format("Pool '{}': {} entries, {:.1f}% loaded",
@@ -787,7 +787,7 @@ struct Main {
 			"Edit this text freely!";
 
 		auto ta = ui.TextArea("ta_main", initialText)
-			.Grow(1).H(SDL::UI::Value::Px(160.f))
+			.H(SDL::UI::Value::Grow(100.f))
 			.AutoScrollable(true, true)
 			.Tooltip("Multi-line rich text editor — click, type, select, copy/paste")
 			.OnTextChange([this](const std::string& t){
@@ -812,7 +812,7 @@ struct Main {
 					lblTaLen,
 					ui.Label("lbl_ta_hint",
 						"Ctrl+A select all  Ctrl+C/X/V copy/cut/paste")
-						.TextColor(pal::GREY).Grow(1)
+						.TextColor(pal::GREY).W(SDL::UI::Value::Grow(100.f))
 				)
 		);
 
@@ -850,7 +850,7 @@ struct Main {
 		};
 
 		auto lb = ui.ListBoxWidget("listbox", items)
-			.H(180)
+			.H(SDL::UI::Value::Pch(50.f))
 			.Tooltip("ListBox — click to select, scroll with mouse wheel\nLong items test horizontal scrollbar");
 		const SDL::ECS::EntityId lbId = lb.Id();
 		lb.OnClick([this, lbId](){
@@ -874,7 +874,7 @@ struct Main {
 		// ── Graphs ────────────────────────────────────────────────────────────────
 		auto cardGl = ui.Card("card_graph_line");
 		graphLine = ui.GradedGraph("g_line")
-			.H(160).Grow(1)
+			.H(SDL::UI::Value::Grow(100.f))
 			.Tooltip("Animated sine-wave (line mode, updated every frame)");
 		if (auto* gd = ui.GetGraphData(graphLine)) {
 			gd->title    = "Sine Wave (animated)";
@@ -890,7 +890,7 @@ struct Main {
 
 		auto cardGb = ui.Card("card_graph_bar");
 		graphBar = ui.GradedGraph("g_bar")
-			.H(140).Grow(1)
+			.H(SDL::UI::Value::Grow(100.f))
 			.Tooltip("Animated bar graph / spectrum (bar mode, updated every frame)");
 		if (auto* gd = ui.GetGraphData(graphBar)) {
 			gd->title    = "Spectrum (animated)";

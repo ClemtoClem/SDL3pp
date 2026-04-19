@@ -1957,7 +1957,7 @@ struct Main
 		panel.Children(
 			ui.Label("menu_title", "WOODENEYE  008  GPU").TextColor(kTitle),
 			ui.Label("menu_sub", "hardware-accelerated").TextColor(kSub),
-			ui.Sep("menu_sep1"));
+			ui.Separator("menu_sep1"));
 
 		// Helper: build a config row with < label > navigation buttons
 		auto mkRow = [&](const char *rowId, const char *label,
@@ -1998,7 +1998,7 @@ struct Main
 						  { config.enemyCount=std::min(20,config.enemyCount+1); _UpdateMenuLabels(); });
 
 		panel.Children(
-			ui.Sep("menu_sep2"),
+			ui.Separator("menu_sep2"),
 			ui.Button("menu_start", "[ START GAME ]")
 				.H(36)
 				.W(SDL::UI::Value::Pw(100))
@@ -2045,7 +2045,7 @@ struct Main
 
 		card.Children(
 			ui.Label("go_title", "GAME  OVER").TextColor({255, 40, 40, 255}),
-			ui.Sep("go_sep"));
+			ui.Separator("go_sep"));
 
 		for (int i = 0; i < MAX_PLAYERS; ++i)
 		{
@@ -2057,7 +2057,7 @@ struct Main
 		}
 
 		card.Children(
-			ui.Sep("go_sep2"),
+			ui.Separator("go_sep2"),
 			ui.Button("go_return", "Return to Menu")
 				.H(32)
 				.W(200)
