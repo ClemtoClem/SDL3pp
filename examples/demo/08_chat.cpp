@@ -1186,6 +1186,7 @@ struct Main {
             .PaddingH(0.f).PaddingV(60.f);
 
         auto box = ui.Column("launcher_box", 12.f, 0.f)
+            .Font("font", 14.f)
             .W(380.f).BgColor(pal::PANEL)
             .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
             .Radius(SDL::FCorners(10.f))
@@ -1216,12 +1217,10 @@ struct Main {
                 ui.Button("start_server_btn", "Start Server")
                     .Grow(50.f).H(38.f)
                     .Style(SDL::UI::Theme::PrimaryButton(pal::GREEN))
-                    .Font("font", 14.f)
                     .OnClick([this]{ _StartServer(); }),
                 ui.Button("start_client_btn", "Connect as Client")
                     .Grow(50.f).H(38.f)
                     .Style(SDL::UI::Theme::PrimaryButton(pal::ACCENT))
-                    .Font("font", 14.f)
                     .OnClick([this]{ _ConnectClient(); })));
 
         panel.Child(box);
@@ -1235,6 +1234,7 @@ struct Main {
 
         // ── Left: Clients + Rooms ─────────────────────────────────────────────
         auto left = ui.Column("srv_left", 10.f, 0.f)
+            .Font("font", 14.f)
             .W(260.f).BgColor(pal::TRANSP).Borders(SDL::FBox(0.f));
 
         left.Child(ui.SectionTitle("Connected Clients", pal::ACCENT));
@@ -1299,6 +1299,7 @@ struct Main {
         centre.Child(ui.SectionTitle("Server Log", pal::ACCENT));
         id_srvLogArea = ui.TextArea("srv_log_area")
             .W(SDL::UI::Value::Pw(100.f))
+            .H(SDL::UI::Value::Grow(100.f))
             .Style(SDL::UI::Theme::Card())
             .AutoScrollableY(true)
             .ReadOnly();

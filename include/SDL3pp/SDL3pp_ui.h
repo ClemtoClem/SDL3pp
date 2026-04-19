@@ -313,11 +313,14 @@ namespace UI {
 		Hoverable       = 1 << 2,
 		Selectable      = 1 << 3,
 		Focusable       = 1 << 4,
-		ScrollableX     = 1 << 5,
-		ScrollableY     = 1 << 6,
-		AutoScrollableX = 1 << 7,
-		AutoScrollableY = 1 << 8,
-		All             = 0x01FF
+		Resizable       = 1 << 5,
+		Draggable       = 1 << 6,
+		ScrollableX     = 1 << 7,
+		ScrollableY     = 1 << 8,
+		AutoScrollableX = 1 << 9,
+		AutoScrollableY = 1 << 10,
+		PropagateEvent  = 1 << 11, ///< Propagated unused event to parent widgets.
+		All             = 0x1001
 	};
 	
 	inline BehaviorFlag operator|(BehaviorFlag a, BehaviorFlag b) noexcept { return static_cast<BehaviorFlag>(static_cast<Uint16>(a) | static_cast<Uint16>(b)); }
@@ -539,9 +542,17 @@ namespace UI {
 
 	struct Widget {
 		std::string name;
-		WidgetType  type      = WidgetType::Container;
-		BehaviorFlag behavior = BehaviorFlag::Enable | BehaviorFlag::Visible;
-		DirtyFlag   dirty     = DirtyFlag::All;
+		WidgetType  type         = WidgetType::Container;
+		BehaviorFlag behavior    = BehaviorFlag::Enable | BehaviorFlag::Visible | BehaviorFlag::DispatchEvent;
+		DirtyFlag   dirty        = DirtyFlag::All;
+	};
+
+	enum class FontType: Uint8 {
+		Inherited, // Used herited to from last widget used self font in heraichie until root. If root dosen't have confogurer font, used default font or debug font.
+		Self,    // Used self font configured, if fontKey is empty used herited font
+		Root,    // Used default font firstly, if fontKey is empty used default font
+		Default, // Used default font or debug sdl3 utf8 font if fontKey is empty if or m_usedDebugFontPerDefault is true
+		Debug    // Used debug sdl3 utf8 font per
 	};
 
 	struct Style {
@@ -576,7 +587,7 @@ namespace UI {
 
 		std::string fontKey;
 		float fontSize              = 0.f;
-		bool usedDebugFont          = true;
+		FontType usedFont           = FontType::Inherited;
 
 		float opacity               = 1.f;
 
@@ -594,8 +605,8 @@ namespace UI {
 	struct LayoutProps {
 		Value absX          = Value::Px(0);
 		Value absY          = Value::Px(0);
-		Value width         = Value::Auto(-1.f);
-		Value height        = Value::Auto(-1.f);
+		Value width         = Value::Auto();
+		Value height        = Value::Auto();
 		Value minWidth      = Value::Px(-1.f);  ///< Minimum width;  Px(-1) = no constraint.
 		Value minHeight     = Value::Px(-1.f);  ///< Minimum height; Px(-1) = no constraint.
 		Value maxWidth      = Value::Px(-1.f);  ///< Maximum width;  Px(-1) = no constraint.
@@ -610,7 +621,7 @@ namespace UI {
 		Align alignSelfV    = Align::Stretch;  ///< Cross-axis alignment in InRow / Stack (vertical).
 		AttachLayout attach = AttachLayout::Relative;
 		BoxSizing boxSizing = BoxSizing::BorderBox;
-		float gap = 4.f;    ///< Gap between children in InColumn / InLine / Stack (px).  Does not apply to Separator.
+		float gap 			= 4.f;             ///< Gap between children in InColumn / InLine / Stack (px).  Does not apply to Separator.
 		float scrollX = 0.f, scrollY = 0.f;
 		float contentW = 0.f, contentH = 0.f;
 
@@ -1285,7 +1296,7 @@ namespace UI {
 		[[nodiscard]] ResourcePool &GetPool() noexcept { return m_pool; }
 
 		/**
-		 * Set a default font applied to every new widget created after this call.
+		 * Set a font applied to every widget.
 		 *
 		 * Widgets that already set their own `fontKey`/`fontSize` keep them.
 		 * Pass an empty path to clear the default.
@@ -1297,11 +1308,20 @@ namespace UI {
 		 * ```
 		 */
 		void SetDefaultFont(const std::string &path, float ptsize) {
+			m_usedDebugFontPerDefault = false;
 			m_defaultFontPath = path;
 			m_defaultFontSize = ptsize;
-		} 
+		}
+
+		/** @brief Use default font applied to every widget created */
+		void UseDebugFont(float ptsize) {
+			m_usedDebugFontPerDefault = true;
+			m_defaultFontSize = ptsize;
+		}
+
 		/** @brief Returns the path of the current default font (empty if none). */
 		[[nodiscard]] const std::string &GetDefaultFontPath() const { return m_defaultFontPath; }
+		
 		/** @brief Returns the point size of the current default font (0 if unset). */
 		[[nodiscard]] float GetDefaultFontSize() const { return m_defaultFontSize; }
 
@@ -2315,6 +2335,7 @@ namespace UI {
 		// all TextCache ECS components are cleared first, then this resets.
 		std::optional<SDL::RendererTextEngine> m_engine;
 #endif
+		bool        m_usedDebugFontPerDefault = false;
 		std::string m_defaultFontPath;
 		float       m_defaultFontSize = 0.f;
 		ECS::EntityId m_root = ECS::NullEntity, m_focused = ECS::NullEntity, m_hovered = ECS::NullEntity, m_pressed = ECS::NullEntity;
@@ -2435,6 +2456,69 @@ namespace UI {
 			return SDL::TextRef(cache->text.Get());
 		}
 		
+		// ── Font resolution ───────────────────────────────────────────────────────────
+
+		struct ResolvedFont {
+			std::string key;
+			float size   = 0.f;
+			bool isDebug = false;
+		};
+
+		/// Walk the FontType chain for entity @p e and return the effective font.
+		///
+		/// - FontType::Self    → own fontKey/fontSize (falls through to Inherited if unset).
+		/// - FontType::Inherited → walks up parents until a Self ancestor is found, then Default.
+		/// - FontType::Root    → uses root widget's Self font, then Default.
+		/// - FontType::Default → system SetDefaultFont() path, or debug if none configured.
+		/// - FontType::Debug   → always SDL3 built-in debug font.
+		ResolvedFont _ResolveFont(ECS::EntityId e) {
+			for (ECS::EntityId cur = e; cur != ECS::NullEntity && m_ctx.IsAlive(cur);) {
+				auto* s = m_ctx.Get<Style>(cur);
+				if (!s) break;
+
+				switch (s->usedFont) {
+					case FontType::Debug:
+						return {"", s->fontSize > 0.f ? s->fontSize : m_defaultFontSize, true};
+					case FontType::Default:
+						if (!m_defaultFontPath.empty())
+							return {m_defaultFontPath, m_defaultFontSize, false};
+						return {"", m_defaultFontSize, m_usedDebugFontPerDefault};
+					case FontType::Self:
+						if (!s->fontKey.empty() && s->fontSize > 0.f)
+							return {s->fontKey, s->fontSize, false};
+						break; // Self but unconfigured → walk up
+					case FontType::Root: {
+						ECS::EntityId root = cur;
+						while (true) {
+							auto* p = m_ctx.Get<Parent>(root);
+							if (!p || p->id == ECS::NullEntity) break;
+							root = p->id;
+						}
+						if (root != cur) {
+							auto* rs = m_ctx.Get<Style>(root);
+							if (rs && rs->usedFont == FontType::Self &&
+								!rs->fontKey.empty() && rs->fontSize > 0.f)
+								return {rs->fontKey, rs->fontSize, false};
+						}
+						// Root has no Self font → system default
+						if (!m_defaultFontPath.empty())
+							return {m_defaultFontPath, m_defaultFontSize, false};
+						return {"", m_defaultFontSize, m_usedDebugFontPerDefault};
+					}
+					case FontType::Inherited:
+						break; // walk up
+				}
+
+				auto* p = m_ctx.Get<Parent>(cur);
+				if (!p || p->id == ECS::NullEntity) break;
+				cur = p->id;
+			}
+			// No configured ancestor → system default
+			if (!m_defaultFontPath.empty())
+				return {m_defaultFontPath, m_defaultFontSize, false};
+			return {"", m_defaultFontSize, m_usedDebugFontPerDefault};
+		}
+
 		// ── Audio ─────────────────────────────────────────────────────────────────────
 
 		SDL::AudioRef _EnsureAudio(const std::string& key, const std::string& path = "") { 
@@ -2508,14 +2592,7 @@ namespace UI {
 			if (k == WidgetType::Container || k == WidgetType::ListBox)
 				m_ctx.Add<ContainerScrollState>(e);
 
-			if (!m_defaultFontPath.empty()) {
-				style.fontKey = m_defaultFontPath;
-				style.usedDebugFont = false;
-			} else {
-				style.usedDebugFont = true;
-			}
-			if (m_defaultFontSize > 0.f)
-				style.fontSize = m_defaultFontSize;
+			style.usedFont = FontType::Default;
 			return e;
 		}
 
@@ -2740,9 +2817,9 @@ namespace UI {
 			};
 
 			if (w->type == WidgetType::TextArea) {
-				if (auto *ta = m_ctx.Get<TextAreaData>(e)) applyHit(ta, _TextAreaHitPos(ta, relX, relY, *s));
+				if (auto *ta = m_ctx.Get<TextAreaData>(e)) applyHit(ta, _TextAreaHitPos(ta, relX, relY, e));
 			} else if (w->type == WidgetType::Input) {
-				if (auto *c = m_ctx.Get<Content>(e)) applyHit(c, _InputHitPos(c, relX, *s));
+				if (auto *c = m_ctx.Get<Content>(e)) applyHit(c, _InputHitPos(c, relX, e));
 			}
 		}
 
@@ -2810,24 +2887,21 @@ namespace UI {
 				if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
 					lp->contentH = (float)lb->items.size() * lb->itemHeight;
 					// Largeur max des items pour la scrollbar horizontale
-					if (auto *st = m_ctx.Get<Style>(e)) {
+					{
 						float maxW = 0.f;
 						for (const auto &item : lb->items)
-							maxW = SDL::Max(maxW, _TW(item, *st));
+							maxW = SDL::Max(maxW, _TW(item, e));
 						lp->contentW = maxW;
 					}
 				}
 			} else if (w->type == WidgetType::TextArea) {
-				auto *st = m_ctx.Get<Style>(e);
-				auto *ta = m_ctx.Get<TextAreaData>(e);
-				if (st && ta) {
-					float lineH = _TH(*st) + 2.f;
+				if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
+					float lineH = _TH(e) + 2.f;
 					lp->contentH = ta->LineCount() * lineH;
-					
-					// On calcule la largeur de la ligne la plus longue (en pixels)
+
 					float maxW = 0.f;
 					for (int i = 0; i < ta->LineCount(); ++i) {
-						float lw = _TextAreaLineX(ta, i, ta->LineEnd(i) - ta->LineStart(i), *st);
+						float lw = _TextAreaLineX(ta, i, ta->LineEnd(i) - ta->LineStart(i), e);
 						maxW = SDL::Max(maxW, lw);
 					}
 					lp->contentW = maxW;
@@ -3075,21 +3149,16 @@ namespace UI {
 		}
 
 		[[nodiscard]] FPoint _IntrinsicSize(ECS::EntityId e) {
-			auto *w = m_ctx.Get<Widget>(e); 
-			auto *s = m_ctx.Get<Style>(e);
-			if (!w)
-				return {};
-			// Use a default style for metrics when none is set
-			static const Style kDef{};
-			const Style &st = s ? *s : kDef;
-			float ch = _TH(st);
-			switch (w->type) { 
+			auto *w = m_ctx.Get<Widget>(e);
+			if (!w) return {};
+			float ch = _TH(e);
+			switch (w->type) {
 			case WidgetType::Label:
 			case WidgetType::Button: {
 				auto *c = m_ctx.Get<Content>(e);
 				if (!c || c->text.empty())
 					return {60.f, ch + 4.f};
-				return {_TW(c->text, st), ch + 4.f};
+				return {_TW(c->text, e), ch + 4.f};
 			}
 			case WidgetType::Toggle:
 				return {80.f, 28.f};
@@ -3570,27 +3639,27 @@ namespace UI {
 		// ── Input ─────────────────────────────────────────────────────────────────────
 		
 		/// Convertit une position pixel X (relative à la zone de texte) en index de caractère pour Input
-		[[nodiscard]] int _InputHitPos(const Content *c, float px, const Style &s) { 
+		[[nodiscard]] int _InputHitPos(const Content *c, float px, ECS::EntityId e) {
 			if (!c || c->text.empty() || px <= 0.f) return 0;
-			
+
+			auto rf = _ResolveFont(e);
+			float fallbackCharW = (rf.size > 0.f) ? rf.size : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+
 			float currentX = 0.f;
 			float bestDist = SDL::Abs(px);
 			int bestIdx = 0;
-			
-			float fallbackCharW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 
 			for (int i = 0; i <= (int)c->text.size(); ++i) {
 				float dist = SDL::Abs(px - currentX);
 				if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-				
-				// Si on a dépassé largement le clic, inutile de continuer
+
 				if (currentX > px + fallbackCharW * 2.f) break;
 
 				if (i < (int)c->text.size()) {
 					float charW = fallbackCharW;
 #if UI_HAS_TTF
-					if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-						if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+					if (!rf.isDebug && !rf.key.empty() && rf.size > 0.f) {
+						if (auto font = _EnsureFont(rf.key, rf.size)) {
 							int cw = 0, ch = 0;
 							char buf[2] = {c->text[i], 0};
 							font.GetStringSize(buf, &cw, &ch);
@@ -4056,21 +4125,17 @@ namespace UI {
 				}
 
 				case SDL::KEYCODE_PAGEUP: {
-					if (auto *s2 = m_ctx.Get<Style>(m_focused)) {
-						float lineH = _TH(*s2) + 2.f;
-						int linesPerPage = SDL::Max(1, (int)(_TextAreaViewH() / lineH));
-						int line = SDL::Max(0, ta->LineOf(ta->cursorPos) - linesPerPage);
-						_MoveTextCursor(ta, ta->LineStart(line), shift);
-					}
+					float lineH = _TH(m_focused) + 2.f;
+					int linesPerPage = SDL::Max(1, (int)(_TextAreaViewH() / lineH));
+					int line = SDL::Max(0, ta->LineOf(ta->cursorPos) - linesPerPage);
+					_MoveTextCursor(ta, ta->LineStart(line), shift);
 					return;
 				}
 				case SDL::KEYCODE_PAGEDOWN: {
-					if (auto *s2 = m_ctx.Get<Style>(m_focused)) {
-						float lineH = _TH(*s2) + 2.f;
-						int linesPerPage = SDL::Max(1, (int)(_TextAreaViewH() / lineH));
-						int line = SDL::Min(ta->LineCount() - 1, ta->LineOf(ta->cursorPos) + linesPerPage);
-						_MoveTextCursor(ta, ta->LineStart(line), shift);
-					}
+					float lineH = _TH(m_focused) + 2.f;
+					int linesPerPage = SDL::Max(1, (int)(_TextAreaViewH() / lineH));
+					int line = SDL::Min(ta->LineCount() - 1, ta->LineOf(ta->cursorPos) + linesPerPage);
+					_MoveTextCursor(ta, ta->LineStart(line), shift);
 					return;
 				}
 				case SDL::KEYCODE_Z:
@@ -4093,14 +4158,15 @@ namespace UI {
 		}
 
 		/// Pixel X offset for a column within a line (tabs expanded).
-		[[nodiscard]] float _TextAreaLineX(const TextAreaData *ta, int line, int col, const Style &s) { 
+		[[nodiscard]] float _TextAreaLineX(const TextAreaData *ta, int line, int col, ECS::EntityId e) {
 			int lineStart = ta->LineStart(line);
 			col = std::clamp(col, 0, ta->LineEnd(line) - lineStart);
 			float x = 0.f;
-			float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+			auto rf = _ResolveFont(e);
+			float charW = (rf.size > 0.f) ? rf.size : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 #if UI_HAS_TTF
-			if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-				if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+			if (!rf.isDebug && !rf.key.empty() && rf.size > 0.f) {
+				if (auto font = _EnsureFont(rf.key, rf.size)) {
 					int sw = 0, sh = 0;
 					font.GetStringSize(" ", &sw, &sh);
 					charW = (float)sw;
@@ -4117,8 +4183,8 @@ namespace UI {
 					colCount += spaces;
 				} else {
 #if UI_HAS_TTF
-					if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-						if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+					if (!rf.isDebug && !rf.key.empty() && rf.size > 0.f) {
+						if (auto font = _EnsureFont(rf.key, rf.size)) {
 							char buf[2] = {(char)ch, 0};
 							int cw = 0, ch2 = 0;
 							font.GetStringSize(buf, &cw, &ch2);
@@ -4134,19 +4200,19 @@ namespace UI {
 		}
 
 		/// Convert a pixel position (relative to content area origin) to a document offset.
-		[[nodiscard]] int _TextAreaHitPos(const TextAreaData *ta, float px, float py, const Style &s) { 
-			float lineH = _TH(s) + 2.f;
+		[[nodiscard]] int _TextAreaHitPos(const TextAreaData *ta, float px, float py, ECS::EntityId e) {
+			float lineH = _TH(e) + 2.f;
 			float pyDoc = py + ta->scrollY;
 			int line = std::clamp((int)(pyDoc / lineH), 0, ta->LineCount() - 1);
 			int lineStart = ta->LineStart(line);
 			int lineEnd   = ta->LineEnd(line);
 
-			// Walk character by character finding the closest hit.
-			float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+			auto rf = _ResolveFont(e);
+			float charW = (rf.size > 0.f) ? rf.size : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 			int best = lineStart;
 			float bestDist = SDL::Abs(px);
 			for (int i = lineStart; i <= lineEnd; ++i) {
-				float xOff = _TextAreaLineX(ta, line, i - lineStart, s);
+				float xOff = _TextAreaLineX(ta, line, i - lineStart, e);
 				float dist = SDL::Abs(px - xOff);
 				if (dist < bestDist) { bestDist = dist; best = i; }
 				if (xOff > px + charW * 3.f) break;
@@ -4155,9 +4221,9 @@ namespace UI {
 		}
 
 		/// Scroll the TextArea so the cursor is visible.
-		void _TextAreaScrollToCursor(TextAreaData *ta, const ComputedRect *cr, const LayoutProps *lp, const Style *s) { 
-			if (!ta || !cr || !lp || !s) return;
-			float lineH = _TH(*s) + 2.f;
+		void _TextAreaScrollToCursor(TextAreaData *ta, const ComputedRect *cr, const LayoutProps *lp, ECS::EntityId e) {
+			if (!ta || !cr || !lp) return;
+			float lineH = _TH(e) + 2.f;
 			float viewH = cr->screen.h - lp->padding.top - lp->padding.bottom;
 			int   curLine = ta->LineOf(ta->cursorPos);
 			float curY    = curLine * lineH;
@@ -4263,10 +4329,9 @@ namespace UI {
 				// TextArea has its own internal scroll.
 				if (w && w->type == WidgetType::TextArea) {
 					if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
-						auto *s2 = m_ctx.Get<Style>(e);
 						auto *cr = m_ctx.Get<ComputedRect>(e);
-						if (s2 && cr && dy != 0.f) {
-							float lineH  = _TH(*s2) + 2.f;
+						if (cr && dy != 0.f) {
+							float lineH  = _TH(e) + 2.f;
 							float viewH  = cr->screen.h - (lp ? lp->padding.top + lp->padding.bottom : 0.f);
 							float maxS   = SDL::Max(0.f, ta->LineCount() * lineH - viewH);
 							ta->scrollY  = SDL::Clamp(ta->scrollY - dy * lineH * 3.f, 0.f, maxS);
@@ -4410,8 +4475,7 @@ namespace UI {
 					// Keep cursor visible after scroll
 					auto *cr2 = m_ctx.Get<ComputedRect>(m_focused);
 					auto *lp2 = m_ctx.Get<LayoutProps>(m_focused);
-					auto *s2  = m_ctx.Get<Style>(m_focused);
-					_TextAreaScrollToCursor(ta, cr2, lp2, s2);
+					_TextAreaScrollToCursor(ta, cr2, lp2, m_focused);
 				}
 			}
 		}
@@ -4453,14 +4517,20 @@ namespace UI {
 				m_tooltipEntity = m_ctx.CreateEntity();
 				m_ctx.Add<Style>(m_tooltipEntity);
 			}
+			// Resolve the font from the hovered widget and pin it as Self on the
+			// tooltip entity so _TH/_TW don't walk an invalid parent chain.
 			auto &ts = *m_ctx.Get<Style>(m_tooltipEntity);
-			ts.fontKey       = s.fontKey;
-			ts.fontSize      = s.fontSize;
-			ts.usedDebugFont = s.usedDebugFont;
+			{
+				auto rf = _ResolveFont(m_tooltipTarget);
+				ts.fontKey  = rf.key;
+				ts.fontSize = rf.size;
+				ts.usedFont = rf.isDebug ? FontType::Debug
+				            : (rf.key.empty() ? FontType::Default : FontType::Self);
+			}
 
 			constexpr float kPadH = 8.f, kPadV = 5.f;
-			const float tw = _TW(td->text, ts);
-			const float th = _TH(ts);
+			const float tw = _TW(td->text, m_tooltipEntity);
+			const float th = _TH(m_tooltipEntity);
 			const float bw = tw + kPadH * 2.f + 2.f;
 			const float bh = th + kPadV * 2.f;
 
@@ -4509,6 +4579,18 @@ namespace UI {
 			}
 		}
 
+		// ── Clip helpers ─────────────────────────────────────────────────────────
+
+		/// Returns the intersection of two SDL::Rect clip regions.
+		/// If either rect has zero area the result is also empty.
+		static SDL::Rect _ClipIntersect(SDL::Rect a, SDL::Rect b) noexcept {
+			int x1 = SDL::Max(a.x, b.x);
+			int y1 = SDL::Max(a.y, b.y);
+			int x2 = SDL::Min(a.x + a.w, b.x + b.w);
+			int y2 = SDL::Min(a.y + a.h, b.y + b.h);
+			return {x1, y1, SDL::Max(0, x2 - x1), SDL::Max(0, y2 - y1)};
+		}
+
 		// ── Primitives ────────────────────────────────────────────────────────────
 
 		void _FillRect(const SDL::FRect& r, SDL::Color c, float op) {
@@ -4544,11 +4626,12 @@ namespace UI {
 			if (text.empty()) return;
 			c.a = SDL::Clamp8(c.a * op);
 #if UI_HAS_TTF
-			if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-				if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+			auto rf = _ResolveFont(e);
+			if (!rf.isDebug && !rf.key.empty() && rf.size > 0.f) {
+				if (auto font = _EnsureFont(rf.key, rf.size)) {
 					if (auto txt = _EnsureText(e, font, text)) {
 						txt.SetColor(c);
-						txt.DrawRenderer({x, y}); 
+						txt.DrawRenderer({x, y});
 						return;
 					}
 				}
@@ -4561,29 +4644,38 @@ namespace UI {
 			m_renderer.SetScale({1.f, 1.f});
 		}
 
-		/// Height of one text line in pixels, using TTF metrics when available.
-		[[nodiscard]] float _TH(const Style &s) noexcept {
+		/// Height of one text line in pixels, resolved through the FontType hierarchy.
+		[[nodiscard]] float _TH(ECS::EntityId e) noexcept {
 #if UI_HAS_TTF
-			if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f)
-				if (auto f = _EnsureFont(s.fontKey, s.fontSize))
+			auto rf = _ResolveFont(e);
+			if (!rf.isDebug && !rf.key.empty() && rf.size > 0.f)
+				if (auto f = _EnsureFont(rf.key, rf.size))
 					return (float)f.GetHeight();
+			return (rf.size > 0.f) ? rf.size : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+#else
+			auto* s = m_ctx.Get<Style>(e);
+			return (s && s->fontSize > 0.f) ? s->fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 #endif
-			return (s.fontSize > 0.f) ? s.fontSize : SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 		}
 
-		/// Width of a string in pixels, using TTF metrics when available.
-		[[nodiscard]] float _TW(const std::string &t, const Style &s) {
+		/// Width of a string in pixels, resolved through the FontType hierarchy.
+		[[nodiscard]] float _TW(const std::string &t, ECS::EntityId e) {
 			if (t.empty()) return 0.f;
 #if UI_HAS_TTF
-			if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-				if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+			auto rf = _ResolveFont(e);
+			if (!rf.isDebug && !rf.key.empty() && rf.size > 0.f) {
+				if (auto font = _EnsureFont(rf.key, rf.size)) {
 					int w = 0, h = 0;
 					font.GetStringSize(t, &w, &h);
 					return (float)w;
 				}
 			}
+			return (float)t.size() * (rf.size > 0.f ? rf.size : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE);
+#else
+			auto* s = m_ctx.Get<Style>(e);
+			float fs = (s && s->fontSize > 0.f) ? s->fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+			return (float)t.size() * fs;
 #endif
-			return (float)t.size() * ((s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE);
 		}
 
 		// ── Per-type draw ─────────────────────────────────────────────────────────
@@ -4865,7 +4957,7 @@ namespace UI {
 				return;
 			SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabled : st.hovered ? s.textHovered
 																	 : s.textColor;
-			_Text(e, c->text, r.x + (lp ? lp->padding.left : 4.f), r.y + (r.h - _TH(s)) * 0.5f, tc, s.opacity, s);
+			_Text(e, c->text, r.x + (lp ? lp->padding.left : 4.f), r.y + (r.h - _TH(e)) * 0.5f, tc, s.opacity, s);
 		}
 
 		void _DrawButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
@@ -4889,7 +4981,7 @@ namespace UI {
 				auto tex = _EnsureTexture(ic->key);
 				if (tex) {
 					float sz    = SDL::Min(r.w, r.h) - ic->pad * 2.f;
-					float textW = (c && !c->text.empty()) ? _TW(c->text, s) : 0.f;
+					float textW = (c && !c->text.empty()) ? _TW(c->text, e) : 0.f;
 					float iconX;
 					if (textW > 0.f) {
 						constexpr float kGap = 4.f;
@@ -4919,7 +5011,7 @@ namespace UI {
 
 			// ── Text ─────────────────────────────────────────────────────────
 			if (c && !c->text.empty()) {
-				float tw = _TW(c->text, s), th = _TH(s);
+				float tw = _TW(c->text, e), th = _TH(e);
 				float tx_ = (textX > 0.f) ? textX : r.x + (r.w - tw) * 0.5f;
 				_Text(e, c->text, tx_, r.y + (r.h - th) * 0.5f, tc, s.opacity, s);
 			}
@@ -4941,7 +5033,7 @@ namespace UI {
 			_FillRR({thumbX - thumbR, ty + (TH - thumbR * 2.f) * 0.5f, thumbR * 2.f, thumbR * 2.f}, st.hovered ? s.thumb : SDL::Color{200, 202, 210, 255}, SDL::FCorners(thumbR), s.opacity);
 			if (c && !c->text.empty()) {
 				SDL::Color col = w && !Has(w->behavior, BehaviorFlag::Enable) ? s.textDisabled : s.textColor;
-				_Text(e, c->text, tr_.x + TW + 10.f, r.y + (r.h - _TH(s)) * 0.5f, col, s.opacity, s);
+				_Text(e, c->text, tr_.x + TW + 10.f, r.y + (r.h - _TH(e)) * 0.5f, col, s.opacity, s);
 			}
 		}
 
@@ -4973,7 +5065,7 @@ namespace UI {
 			if (c && !c->text.empty()) {
 				SDL::Color tc = !w || !Has(w->behavior, BehaviorFlag::Enable) ? s.textDisabled : st.hovered ? s.textHovered
 																				: s.textColor;
-				_Text(e, c->text, r.x + 30.f, r.y + (r.h - _TH(s)) * 0.5f, tc, s.opacity, s);
+				_Text(e, c->text, r.x + 30.f, r.y + (r.h - _TH(e)) * 0.5f, tc, s.opacity, s);
 			}
 		}
 
@@ -5063,18 +5155,18 @@ namespace UI {
 			_StrokeRR(r, bdColor, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
 			
 			float tx_ = r.x + lp->padding.left;
-			float ty_ = r.y + (r.h - _TH(s)) * 0.5f;
+			float ty_ = r.y + (r.h - _TH(e)) * 0.5f;
 
 			// ── Dessin de la sélection ──
 			if (c->HasSelection() && !c->text.empty()) {
-				float selStartX = tx_ + _TW(c->text.substr(0, c->SelMin()), s);
-				float selWidth  = _TW(c->GetSelectedText(), s);
-				
+				float selStartX = tx_ + _TW(c->text.substr(0, c->SelMin()), e);
+				float selWidth  = _TW(c->GetSelectedText(), e);
+
 				SDL::Color hlC = c->highlightColor;
 				hlC.a = SDL::Clamp8((int)((float)hlC.a * s.opacity));
 				m_renderer.SetDrawColor(hlC);
 				m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
-				m_renderer.RenderFillRect(SDL::FRect{selStartX, ty_, selWidth, _TH(s)});
+				m_renderer.RenderFillRect(SDL::FRect{selStartX, ty_, selWidth, _TH(e)});
 			}
 
 			// ── Texte et Curseur ──
@@ -5083,10 +5175,10 @@ namespace UI {
 				_Text(e, c->placeholder, tx_, ty_, s.textPlaceholder, s.opacity, s);
 			} else {
 				_Text(e, c->text, tx_, ty_, enabled ? s.textColor : s.textDisabled, s.opacity, s);
-				
+
 				if (foc && c->blinkTimer < 0.5f) {
-					float cx_ = tx_ + _TW(c->text.substr(0, (size_t)SDL::Max(0, c->cursor)), s);
-					_FillRect({cx_, ty_, 1.5f, _TH(s)}, s.textColor, s.opacity);
+					float cx_ = tx_ + _TW(c->text.substr(0, (size_t)SDL::Max(0, c->cursor)), e);
+					_FillRect({cx_, ty_, 1.5f, _TH(e)}, s.textColor, s.opacity);
 				}
 			}
 		}
@@ -5125,16 +5217,17 @@ namespace UI {
 			const float viewH = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
 
 			// ── 3. Application du Clipping strict pour le texte ───────────────────
-			SDL_Rect prevClip = {};
-			bool hadClip = SDL_GetRenderClipRect(m_renderer.Get(), &prevClip);
+			// Intersect with the current (parent) clip so content never overflows a
+			// scrolled ancestor container.
+			SDL::Rect prevClip = m_renderer.GetClipRect();
 
-			SDL_Rect textClip = {
+			SDL::Rect textClip = _ClipIntersect(prevClip, {
 				(int)(r.x + lp->padding.left),
 				(int)(r.y + lp->padding.top),
 				(int)viewW,
 				(int)viewH
-			};
-			SDL_SetRenderClipRect(m_renderer.Get(), &textClip);
+			});
+			m_renderer.SetClipRect(textClip);
 
 			// ── 4. Rendu du Placeholder (si vide) ─────────────────────────────────
 			if (ta->text.empty() && cnt && !cnt->placeholder.empty() && !foc) {
@@ -5143,7 +5236,7 @@ namespace UI {
 			} 
 			else {
 				// ── 5. Préparation des coordonnées de rendu scrollées ─────────────
-				const float lineH  = _TH(s) + 2.f;
+				const float lineH  = _TH(e) + 2.f;
 				// On applique le décalage du scroll (X et Y) sur le point de départ
 				const float startX = r.x + lp->padding.left - lp->scrollX;
 				const float startY = r.y + lp->padding.top  - lp->scrollY;
@@ -5168,9 +5261,8 @@ namespace UI {
 						int hiStart = SDL::Max(ls, selMin);
 						int hiEnd   = SDL::Min(le, selMax);
 						
-						// X calculé depuis le startX (qui inclut déjà -scrollX)
-						float x0 = startX + _TextAreaLineX(ta, ln, hiStart - ls, s);
-						float x1 = startX + _TextAreaLineX(ta, ln, hiEnd   - ls, s);
+						float x0 = startX + _TextAreaLineX(ta, ln, hiStart - ls, e);
+						float x1 = startX + _TextAreaLineX(ta, ln, hiEnd   - ls, e);
 						
 						// Extension visuelle de la sélection jusqu'en fin de ligne si la sélection continue
 						if (hiEnd == le && selMax > le) x1 = startX + lp->contentW + 8.f; 
@@ -5197,10 +5289,11 @@ namespace UI {
 						spanEnd = ni;
 
 						std::string run;
-						float charW = (s.fontSize > 0.f) ? s.fontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+						auto _rf = _ResolveFont(e);
+						float charW = (_rf.size > 0.f) ? _rf.size : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 #if UI_HAS_TTF
-						if (!s.usedDebugFont && !s.fontKey.empty() && s.fontSize > 0.f) {
-							if (auto font = _EnsureFont(s.fontKey, s.fontSize)) {
+						if (!_rf.isDebug && !_rf.key.empty() && _rf.size > 0.f) {
+							if (auto font = _EnsureFont(_rf.key, _rf.size)) {
 								int sw = 0, sh = 0;
 								font.GetStringSize(" ", &sw, &sh);
 								charW = (float)sw;
@@ -5216,7 +5309,7 @@ namespace UI {
 									SDL::Color tc = enabled ? s.textColor : s.textDisabled;
 									if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
 									_Text(e, run, xOff, ly, tc, s.opacity, s);
-									xOff += _TW(run, s);
+									xOff += _TW(run, e);
 									run.clear();
 								}
 								int spaces = ta->tabSize - (visualCol % ta->tabSize);
@@ -5232,7 +5325,7 @@ namespace UI {
 							SDL::Color tc = enabled ? s.textColor : s.textDisabled;
 							if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
 							_Text(e, run, xOff, ly, tc, s.opacity, s);
-							xOff += _TW(run, s);
+							xOff += _TW(run, e);
 						}
 						ci = spanEnd;
 					}
@@ -5243,7 +5336,7 @@ namespace UI {
 					int curLine = ta->LineOf(ta->cursorPos);
 					int curCol  = ta->ColOf(ta->cursorPos);
 					
-					float cx_ = startX + _TextAreaLineX(ta, curLine, curCol, s);
+					float cx_ = startX + _TextAreaLineX(ta, curLine, curCol, e);
 					float cy_ = startY + curLine * lineH;
 					
 					_FillRect({cx_, cy_, 1.5f, lineH}, s.textColor, s.opacity);
@@ -5251,10 +5344,10 @@ namespace UI {
 			} // Fin du bloc (Texte non-vide)
 
 			// ── 9. Restauration du Clip parent ────────────────────────────────────
-			if (hadClip && prevClip.w > 0)
-				SDL_SetRenderClipRect(m_renderer.Get(), &prevClip);
+			if (prevClip.w > 0 && prevClip.h > 0)
+				m_renderer.SetClipRect(prevClip);
 			else
-				SDL_SetRenderClipRect(m_renderer.Get(), nullptr);
+				m_renderer.SetClipRect({});
 
 			// ── 10. Rendu des Scrollbars unifiées ─────────────────────────────────
 			// Dessinées en dernier, PARDESSUS le texte, hors du clip restrictif.
@@ -5318,7 +5411,7 @@ namespace UI {
 			}
 
 			// Point indicateur (Thumb)
-			float aRad = (135.f + norm * 270.f) * (SDL_PI_F / 180.f);
+			float aRad = (135.f + norm * 270.f) * (SDL::PI_F / 180.f);
 			float lx = cx_ + SDL::Cos(aRad) * iR;
 			float ly = cy_ + SDL::Sin(aRad) * iR;
 			
@@ -5331,7 +5424,7 @@ namespace UI {
 				_FillRR(r, s.bgColor, s.radius, s.opacity);
 				_StrokeRR(r, s.bdColor, s.borders, s.radius, s.opacity);
 				return;
-			} 
+			}
 			
 			auto texture = _EnsureTexture(d->key);
 			if (!texture) {
@@ -5382,17 +5475,16 @@ namespace UI {
 			// The renderCb typically sets its own SDL viewport/scissor.
 			// We save/restore the outer clip rect so the UI compositing
 			// remains correct after the canvas has drawn into its rect.
-			SDL_Rect prevClip = {};
-			bool hadClip = SDL_GetRenderClipRect(m_renderer.Get(), &prevClip);
+			SDL::Rect prevClip = m_renderer.GetClipRect();
 
 			cd->renderCb(m_renderer, r);
 
 			// Restore renderer state for the parent UI layer.
-			if (hadClip && prevClip.w > 0)
-				SDL_SetRenderClipRect(m_renderer.Get(), &prevClip);
+			if (prevClip.w > 0 && prevClip.h > 0)
+				m_renderer.SetClipRect(prevClip);
 			else
-				SDL_SetRenderClipRect(m_renderer.Get(), nullptr);
-			SDL_SetRenderViewport(m_renderer.Get(), nullptr);
+				m_renderer.SetClipRect({});
+			m_renderer.SetViewport({});
 		}
 
 		// ── ListBox draw ──────────────────────────────────────────────       
@@ -5414,7 +5506,7 @@ namespace UI {
 			const float innerW = r.w - lp->padding.left - lp->padding.right;
 			const float innerH = r.h - lp->padding.top - lp->padding.bottom;
 			const float iy     = r.y + lp->padding.top;
-			const float charH  = _TH(s);
+			const float charH  = _TH(e);
 
 			bool showX = false, showY = false;
 			_ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
@@ -5424,18 +5516,17 @@ namespace UI {
 			const float itemW  = r.w - s.borders.left - s.borders.right - (showY ? t : 0.f);
 			const float px     = r.x + lp->padding.left - lp->scrollX;
 
-			// SAUVEGARDE DU CLIP (Pour ne pas clipper la scrollbar qui arrive ensuite)
-			SDL_Rect prevClip = {};
-			bool hadClip = SDL_GetRenderClipRect(m_renderer.Get(), &prevClip);
+			// Save current (parent) clip and intersect with content area so items
+			// never overflow a scrolled ancestor container.
+			SDL::Rect prevClip = m_renderer.GetClipRect();
 
-			// Content clip — exclut l'espace de la scrollbar.
-			SDL_Rect clip = {
+			SDL::Rect clip = _ClipIntersect(prevClip, {
 				(int)r.x + 1,
 				(int)iy,
 				(int)(r.w - 2.f - (showY ? t : 0.f)),
 				(int)viewH
-			};
-			SDL_SetRenderClipRect(m_renderer.Get(), &clip);
+			});
+			m_renderer.SetClipRect(clip);
 
 			int firstIdx = SDL::Max(0, (int)(lp->scrollY / ih));
 			int lastIdx  = SDL::Min((int)lb->items.size(),
@@ -5467,10 +5558,10 @@ namespace UI {
 			}
 
 			// RESTAURATION DU CLIP PARENT
-			if (hadClip && prevClip.w > 0)
-				SDL_SetRenderClipRect(m_renderer.Get(), &prevClip);
+			if (prevClip.w > 0 && prevClip.h > 0)
+				m_renderer.SetClipRect(prevClip);
 			else
-				SDL_SetRenderClipRect(m_renderer.Get(), nullptr);
+				m_renderer.SetClipRect({});
 
 			// Dessin des scrollbars (désormais pardessus et hors du clip des items)
 			_DrawInlineScrollbars(e, r, s, w);
@@ -5478,15 +5569,19 @@ namespace UI {
 
 		// ── Graph draw ────────────────────────────────────────────────
 		void _DrawGraph(ECS::EntityId e, const FRect &r, const Style &s,
-						const WidgetState &st) { 
+						const WidgetState &st) {
 			auto *gd = m_ctx.Get<GraphData>(e);
 			if (!gd) return;
+
+			// Save the outer clip (set by _RenderNode) so we can restore it after
+			// clipping to the plot area, and so all sub-clips are properly intersected.
+			const SDL::Rect outerClip = m_renderer.GetClipRect();
 
 			_FillRR(r, s.bgColor, s.radius, s.opacity);
 			_StrokeRR(r, st.hovered ? s.bdHovered : s.bdColor, s.borders, s.radius, s.opacity);
 
 			const float op    = s.opacity;
-			const float charH = _TH(s);
+			const float charH = _TH(e);
 
 			// Margins: leave space for Y tick labels (left) and X tick labels (bottom).
 			float ml = 38.f, mr = 6.f, mt = 6.f, mb = charH + 10.f;
@@ -5500,13 +5595,13 @@ namespace UI {
 			// Title
 			if (!gd->title.empty()) {
 				SDL::Color tc = s.textColor;
-				float tw = _TW(gd->title, s);
+				float tw = _TW(gd->title, e);
 				_Text(e, gd->title, plot.x + (plot.w - tw) * 0.5f, r.y + 2.f, tc, op, s);
 			}
 			// X label
 			if (!gd->xLabel.empty()) {
 				SDL::Color tc = s.textColor;
-				float tw = _TW(gd->xLabel, s);
+				float tw = _TW(gd->xLabel, e);
 				_Text(e, gd->xLabel, plot.x + (plot.w - tw) * 0.5f,
 					  r.y + r.h - charH - 2.f, tc, op, s);
 			}
@@ -5547,7 +5642,7 @@ namespace UI {
 				else                        lbl = std::format("{:.0f}", val);
 
 				SDL::Color ac = gd->axisColor; ac.a = SDL::Clamp8((int)((float)ac.a * op));
-				float tw = _TW(lbl, s);
+				float tw = _TW(lbl, e);
 				_Text(e, lbl, plot.x - tw - 3.f, gy - charH * 0.5f, ac, op, s);
 			}
 
@@ -5577,14 +5672,15 @@ namespace UI {
 				else                       lbl = "0";
 
 				SDL::Color ac = gd->axisColor; ac.a = SDL::Clamp8((int)((float)ac.a * op));
-				float tw = _TW(lbl, s);
+				float tw = _TW(lbl, e);
 				_Text(e, lbl, gx - tw * 0.5f, plot.y + plot.h + 3.f, ac, op, s);
 			}
 
 			if (gd->data.empty()) return;
 
-			// Clip to plot area for data rendering
-			m_renderer.SetClipRect(FRectToRect(plot));
+			// Clip data rendering to the plot area, intersected with the outer widget
+			// clip so graph content never overflows a scrolled ancestor container.
+			m_renderer.SetClipRect(_ClipIntersect(outerClip, FRectToRect(plot)));
 
 			int n = (int)gd->data.size();
 
@@ -5647,6 +5743,9 @@ namespace UI {
 					m_renderer.RenderLine(SDL::FPoint{x1, y1}, SDL::FPoint{x2, y2});
 				}
 			}
+
+			// Restore the outer widget clip.
+			m_renderer.SetClipRect(outerClip);
 		}
 
 		// ── ListBox keyboard handler ──────────────────────────────────
@@ -5876,17 +5975,42 @@ namespace UI {
 			return *this;
 		}
 
-		/** @brief Set the font key and optional point size.  Pass an empty key to use the built-in debug font. */
+		/** @brief Set own font key and point size; sets FontType::Self. Pass empty key to force debug font. */
 		Builder &Font(const std::string &key, float sz = 0.f) {
 			auto &s = sys.GetStyle(id);
-			s.usedDebugFont = key.empty();
-			s.fontKey = key;
+			s.fontKey  = key;
+			s.usedFont = key.empty() ? FontType::Debug : FontType::Self;
 			if (sz > 0.f) s.fontSize = sz;
 			return *this;
 		}
-		/** @brief Set the font point size without changing the font key. */
-		Builder &FontSize(float s) {
-			sys.GetStyle(id).fontSize = s;
+		/** @brief Set the font point size without changing the font key or FontType. */
+		Builder &FontSize(float sz) {
+			sys.GetStyle(id).fontSize = sz;
+			return *this;
+		}
+		/** @brief Control how the font is resolved for this widget. */
+		Builder &FontUsage(FontType ft) {
+			sys.GetStyle(id).usedFont = ft;
+			return *this;
+		}
+		/** @brief Inherit the font from the nearest ancestor configured with FontType::Self. */
+		Builder &UseInheritedFont() {
+			sys.GetStyle(id).usedFont = FontType::Inherited;
+			return *this;
+		}
+		/** @brief Use the system-level default font (System::SetDefaultFont). */
+		Builder &UseDefaultFont() {
+			sys.GetStyle(id).usedFont = FontType::Default;
+			return *this;
+		}
+		/** @brief Always use the SDL3 built-in debug font regardless of parent fonts. */
+		Builder &UseDebugFont() {
+			sys.GetStyle(id).usedFont = FontType::Debug;
+			return *this;
+		}
+		/** @brief Use the root widget's configured font. */
+		Builder &UseRootFont() {
+			sys.GetStyle(id).usedFont = FontType::Root;
 			return *this;
 		}
 

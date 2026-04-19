@@ -159,7 +159,7 @@ struct Main {
     // -------------------------------------------------------------------------
     void LoadConfig() {
         SDL::IOStream io;
-        try { io = SDL::IOStream::FromFile(assetsPath + "saves/snake_config.json", "r"); }
+        try { io = SDL::IOStream::FromFile(std::string(SDL::GetBasePath()) + "../../../data/snake_config.json", "r"); }
         catch (...) { return; }
         auto doc = SDL::ParseDataScript(io, "json");
         if (doc && doc->getRoot()) {
@@ -188,7 +188,7 @@ struct Main {
         root->set("grid_h", SDL::S32DataNode::Make(config.grid_h));
         root->set("difficulty", SDL::S32DataNode::Make(config.difficulty));
         doc->setRoot(root);
-        auto io = SDL::IOStream::FromFile(assetsPath + "saves/snake_config.json", "w");
+        auto io = SDL::IOStream::FromFile(std::string(SDL::GetBasePath()) + "../../../data/snake_config.json", "w");
         doc->encode(io);
     }
 
@@ -237,7 +237,6 @@ struct Main {
         // 1. MAIN MENU
         uiMenu = ui.Column("Menu").AlignChildren(SDL::UI::Align::Center, SDL::UI::Align::Center)
             .Align(SDL::UI::Align::Center, SDL::UI::Align::Center)
-			.AlignChildrenH(SDL::UI::Align::Center)
             .W(300).Gap(15).AttachTo(rootUI);
 
 		auto mkBtn = [&](const std::string& name, const std::string& label, const SDL::UI::Style& style, std::function<void()> onClick) -> SDL::UI::Builder {
@@ -246,7 +245,7 @@ struct Main {
 				.Font("default_font", 16.f);
 		};
         
-        ui.Label("Title", "SNAKE ECS").FontSize(40).TextColor({50, 200, 100, 255}).MarginBottom(20).AttachTo(uiMenu);
+        ui.Label("Title", "SNAKE").FontSize(40).TextColor({50, 200, 100, 255}).MarginBottom(20).AttachTo(uiMenu).AlignH(SDL::UI::Align::Center);
         lblSettingsParams = ui.Label("Params", "").TextColor({150, 150, 150, 255}).AttachTo(uiMenu);
         mkBtn("BtnPlay", "JOUER", SDL::UI::Theme::SuccessButton(), [this]{ ChangeState(GameState::PLAYING); }).AttachTo(uiMenu);
         mkBtn("BtnSettings", "PARAMÈTRES", SDL::UI::Theme::PrimaryButton(), [this]{ ChangeState(GameState::SETTINGS); }).AttachTo(uiMenu);
