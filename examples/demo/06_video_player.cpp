@@ -113,7 +113,7 @@ static std::string StripASS(const std::string& raw) {
 struct Main {
 	static constexpr SDL::Point kWinSz      = {1280, 760};
 	static constexpr int        kSidePanelW = 290;
-	static constexpr float      kTopBarH    = 42.f;
+	static constexpr float      kTopBarH    = 48.f;
 	static constexpr float      kSeekH      = 30.f;
 	static constexpr float      kCtrlH      = 54.f;
 	static constexpr float      kStatusH    = 22.f;
@@ -390,7 +390,6 @@ private:
 								const std::string& label = "",
 								const std::string& tooltip = "") -> Builder {
 			Builder btn = ui.Button(name, label)
-				.W(label.empty() ? Value::Px(42.f) : Value::Auto())
 				.H(42.f)
 				.BgColor(pal::NEUTRAL)
 				.BgHover({45,45,65,255})
@@ -398,9 +397,15 @@ private:
 				.BorderColor(pal::BORDER)
 				.BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
 				.Radius(SDL::FCorners(6.f))
-				.TextColor(pal::WHITE)
-				.Font(res_key::FONT, 13.f)
-				.PaddingH(label.empty() ? 4.f : 8.f);
+				.TextColor(pal::WHITE);
+			if (label.empty()) {
+				btn.Font(res_key::FONT, 13.f)
+				.W(Value::Px(42.f))
+				.PaddingH(4.f);
+			} else {
+				btn.W(Value::Auto())
+				.PaddingH(8.f);
+			}
 			if (!iconK.empty()) {
 				btn.Icon(iconK, 4.f)
 					.IconOpacity(0.65f, 1.f, 0.9f);
@@ -430,7 +435,7 @@ private:
 				.Font(res_key::FONT, 15.f);
 
 		eTopBar =
-			ui.Row("topBar", 6.f, 8.f)
+			ui.Row("topBar", 6.f, 2.f)
 				.H(kTopBarH)
 				.GrowW(100.f)
 				.BgColor(pal::HEADER)
@@ -600,6 +605,7 @@ private:
 		// ── Root ──────────────────────────────────────────────────────────────
 
 		ui.Row("root", 0.f, 0.f)
+			.Margin(SDL::FBox(0.f))
 			.W(Value::Ww(100.f))
 			.H(Value::Wh(100.f))
 			.BgColor(pal::BG)

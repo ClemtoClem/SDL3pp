@@ -1579,13 +1579,13 @@ namespace UI {
 		/** @brief Create a Graph (graduated data plot) and return a Builder for it. */
 		inline Builder GradedGraph(const std::string &n);
 		/** @brief Create a vertical Column container (InColumn layout) and return a Builder for it. */
-		inline Builder Column(const std::string &n = "col", float gap = 4.f, float pad = 8.f);
+		inline Builder Column(const std::string &n = "col", float gap = 4.f, float pad = 8.f, float marg = 0.f);
 		/** @brief Create a horizontal Row container (InLine layout) and return a Builder for it. */
-		inline Builder Row(const std::string &n = "row", float gap = 8.f, float pad = 0.f);
-		/** @brief Create a wrapping Stack container and return a Builder for it. */
-		inline Builder Stack(const std::string &n, float gap = 0.f, float pad = 0.f);
+		inline Builder Row(const std::string &n = "row", float gap = 8.f, float pad = 0.f, float marg = 0.f);
 		/** @brief Create a Card container (Column with card styling) and return a Builder for it. */
-		inline Builder Card(const std::string &n, float gap = 8.f);
+		inline Builder Card(const std::string &n = "card", float gap = 8.f, float marg = 0.f);
+		/** @brief Create a wrapping Stack container and return a Builder for it. */
+		inline Builder Stack(const std::string &n = "stack", float gap = 0.f, float pad = 0.f, float marg = 0.f);
 		/** @brief Create an accent-colored section title Label and return a Builder for it. */
 		inline Builder SectionTitle(const std::string &text, SDL::Color color = {70, 130, 210, 255});
 		/** @brief Create a vertical ScrollView (Column with auto vertical scrollbar) and return a Builder for it. */
@@ -6505,29 +6505,32 @@ namespace UI {
 		std::function<void(RendererRef, FRect)> cb_render) { return {*this, MakeCanvas(n, std::move(cb_event), std::move(cb_update), std::move(cb_render))}; }
 	inline Builder System::TextArea(const std::string &n, const std::string &text, const std::string &ph) { return {*this, MakeTextArea(n, text, ph)}; }
 
-	inline Builder System::Column(const std::string &n, float gap, float pad) {
+	inline Builder System::Column(const std::string &n, float gap, float pad, float marg) {
+        auto b = Container(n);
+        b.Layout(Layout::InColumn).Gap(gap).Padding(pad).Margin(marg);
+        return b;
+    }
+
+    inline Builder System::Row(const std::string &n, float gap, float pad, float marg) {
+        auto b = Container(n);
+        b.Layout(Layout::InLine).Gap(gap).Padding(pad).Margin(marg)
+            .AlignH(Align::Center);
+        return b;
+    }
+
+    inline Builder System::Card(const std::string &n, float gap, float marg) {
+        auto b = Container(n);
+        b.Layout(Layout::InColumn).Gap(gap).Margin(marg);
+        b.Style(Theme::Card()).PaddingH(14.f).PaddingV(12.f);
+        return b;
+    }
+
+	inline Builder System::Stack(const std::string &n, float gap, float pad, float marg) {
 		auto b = Container(n);
-		b.Layout(Layout::InColumn).Gap(gap).Padding(pad);
-		return b;
-	}
-	inline Builder System::Row(const std::string &n, float gap, float pad) {
-		auto b = Container(n);
-		b.Layout(Layout::InLine).Gap(gap).Padding(pad)
-			.AlignH(Align::Center);
-		return b;
-	}
-	inline Builder System::Stack(const std::string &n, float gap, float pad) {
-		auto b = Container(n);
-		b.Layout(Layout::Stack).Gap(gap).Padding(pad)
+		b.Layout(Layout::Stack).Gap(gap).Padding(pad).Padding(marg)
 			.W(SDL::UI::Value::Auto())
 			.H(SDL::UI::Value::Auto())
 			.AlignH(Align::Center);
-		return b;
-	}
-
-	inline Builder System::Card(const std::string &n, float gap) {
-		auto b = Column(n, gap, 0.f);
-		b.Style(Theme::Card()).PaddingH(14.f).PaddingV(12.f);
 		return b;
 	}
 
