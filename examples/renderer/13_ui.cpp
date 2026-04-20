@@ -319,8 +319,12 @@ struct Main {
 	}
 
 	SDL::UI::Builder _Page(const std::string& n) {
-		return ui.Column(n, 12.f, 0.f).H(SDL::UI::Value::Grow(100.f)).BgColor(pal::BG)
-				 .WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); });
+		return ui.Column(n, 12.f, 0.f)
+			.Style(SDL::UI::Theme::Transparent())
+			.H(SDL::UI::Value::Grow(100.f))
+			.BgColor(pal::BG)
+			.AutoScrollableY(true)
+			.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); });
 	}
 
 	// ── 2-column row helper ───────────────────────────────────────────────────────
@@ -331,10 +335,14 @@ struct Main {
 			.AlignH(SDL::UI::Align::Left);
 	}
 	SDL::UI::Builder _LeftCol(const std::string& n) {
-		return ui.Column(n, 12.f, 0.f).W(SDL::UI::Value::Pcw(50.f) - 6.f);
+		return ui.Column(n, 12.f, 0.f)
+			.W(SDL::UI::Value::Pcw(50.f) - 6.f)
+			.Style(SDL::UI::Theme::Transparent());
 	}
 	SDL::UI::Builder _RightCol(const std::string& n) {
-		return ui.Column(n, 12.f, 0.f).W(SDL::UI::Value::Pcw(50.f) - 6.f);
+		return ui.Column(n, 12.f, 0.f)
+			.W(SDL::UI::Value::Pcw(50.f) - 6.f)
+			.Style(SDL::UI::Theme::Transparent());
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════════
@@ -800,7 +808,7 @@ struct Main {
 				td->spans.push_back({start, end, {false, false, col}});
 			};
 			addSpan(4,  12, pal::ACCENT);   // "TextArea"
-			addSpan(14, 21, pal::GREEN);    // "Multi-l"... let's colour "supports"
+			addSpan(13, 20, pal::GREEN);    // "Multi-l"... let's colour "supports"
 		}
 
 		cardTa.Children(

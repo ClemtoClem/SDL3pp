@@ -543,8 +543,9 @@ namespace UI {
 	struct Widget {
 		std::string name;
 		WidgetType  type         = WidgetType::Container;
-		BehaviorFlag behavior    = BehaviorFlag::Enable | BehaviorFlag::Visible | BehaviorFlag::DispatchEvent;
+		BehaviorFlag behavior    = BehaviorFlag::Enable | BehaviorFlag::Visible;
 		DirtyFlag   dirty        = DirtyFlag::All;
+		bool dispatchEvent       = true; ///< When false, unhandled scroll events are NOT propagated to parent widgets.
 	};
 
 	enum class FontType: Uint8 {
@@ -627,7 +628,7 @@ namespace UI {
 
 		/// Thickness (px) of the auto inline scrollbar drawn by _DrawContainer.
 		/// Applies to both axes.  Override via builder .ScrollbarThickness(n).
-		float sbThickness = 8.f;
+		float scrollbarThickness = 8.f;
 	};
 
 	/// @brief Grid layout configuration — attach to a Container with Layout::InGrid.
@@ -1133,6 +1134,7 @@ namespace UI {
 
 	struct Callbacks {
 		std::function<void()>      onClick;
+		std::function<void()>      onDoubleClick;
 		std::function<void(float)> onChange;
 		std::function<void(const std::string &)> onTextChange;
 		std::function<void(bool)>  onToggle;
@@ -1903,7 +1905,7 @@ namespace UI {
 		/// Épaisseur (px) des scrollbars inline dessinées dans le container.
 		void SetScrollbarThickness(ECS::EntityId e, float t) {
 			if (auto *lp = m_ctx.Get<LayoutProps>(e))
-				lp->sbThickness = SDL::Max(4.f, t);
+				lp->scrollbarThickness = SDL::Max(4.f, t);
 		}
 
 		// ── Grid layout helpers ───────────────────────────────────────────────────
@@ -2212,6 +2214,10 @@ namespace UI {
 
 		/** @brief Register (or replace) the click callback on widget @p e. */
 		void OnClick(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onClick = std::move(cb); }
+		/** @brief Register (or replace) the double-click callback on widget @p e. */
+		void OnDoubleClick(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onDoubleClick = std::move(cb); }
+		/** @brief Enable or disable event propagation to parent for widget @p e (default: true). */
+		void SetDispatchEvent(ECS::EntityId e, bool b) { if (auto *w = m_ctx.Get<Widget>(e)) w->dispatchEvent = b; }
 		/** @brief Register (or replace) the value-change callback on widget @p e (Slider, ScrollBar). */
 		void OnChange(ECS::EntityId e, std::function<void(float)> cb) { m_ctx.Get<Callbacks>(e)->onChange = std::move(cb); }
 		/** @brief Register (or replace) the text-change callback on widget @p e (Input, TextArea). */
@@ -2300,6 +2306,7 @@ namespace UI {
 			m_pool.Update();
 
 			m_dt = dt;
+			m_timeSinceLastClick += dt;
 			if (m_root == ECS::NullEntity || !m_ctx.IsAlive(m_root)) {
 				_ResetOneShots();
 				return;
@@ -2340,6 +2347,10 @@ namespace UI {
 		float       m_defaultFontSize = 0.f;
 		ECS::EntityId m_root = ECS::NullEntity, m_focused = ECS::NullEntity, m_hovered = ECS::NullEntity, m_pressed = ECS::NullEntity;
 		float m_dt = 0.f;
+		// ── Double-click tracking ──────────────────────────────────────────────────────
+		float         m_timeSinceLastClick  = 1e9f;
+		ECS::EntityId m_lastClickEntity     = ECS::NullEntity;
+		int           m_clickCount          = 0;
 
 		// ── Tooltip state ─────────────────────────────────────────────────────────────
 		ECS::EntityId m_tooltipEntity  = ECS::NullEntity; ///< Entité dédiée au cache de texte du tooltip.
@@ -2573,7 +2584,7 @@ namespace UI {
 					break;
 				case WidgetType::Container:
 					beh |= BehaviorFlag::AutoScrollableX | BehaviorFlag::AutoScrollableY;
-				// Label, Progress, Separator, Image n'ont PAS Hoverable/Selectable par défaut
+				// Label, Progress, Separator, Image n'ont PAS Hoverable/Selectable/Focusable par défaut
 				default:
 					break;
 			}
@@ -2620,7 +2631,7 @@ namespace UI {
 		/// rétrécit l'autre axe et peut faire apparaître la deuxième barre).
 		///
 		/// @param w      Widget (BehaviorFlags).
-		/// @param lp     LayoutProps (contentW/H, sbThickness).
+		/// @param lp     LayoutProps (contentW/H, scrollbarThickness).
 		/// @param viewW  Largeur intérieure disponible (padding déjà soustrait).
 		/// @param viewH  Hauteur intérieure disponible (padding déjà soustrait).
 		/// @param showX  [out] vrai si la barre horizontale doit être dessinée.
@@ -2634,17 +2645,19 @@ namespace UI {
 							 && !Has(w.behavior, BehaviorFlag::ScrollableX);
 			const bool autoY  = Has(w.behavior, BehaviorFlag::AutoScrollableY)
 							 && !Has(w.behavior, BehaviorFlag::ScrollableY);
-			const float t     = lp.sbThickness;
+			//const float t = lp.scrollbarThickness;
 
 			// Première passe — sans tenir compte de l'axe croisé.
 			showX = wantX && (!autoX || lp.contentW > viewW);
 			showY = wantY && (!autoY || lp.contentH > viewH);
 
 			// Deuxième passe — une barre visible réduit l'espace de l'autre axe.
+			// Pour le mode auto, on garde le même seuil que la première passe (viewW/viewH)
+			// afin d'éviter de déclencher une barre croisée quand contentW == viewW.
 			if (showY && !showX && wantX)
-				showX = !autoX || (lp.contentW > viewW - t);
+				showX = !autoX || (lp.contentW > viewW);
 			if (showX && !showY && wantY)
-				showY = !autoY || (lp.contentH > viewH - t);
+				showY = !autoY || (lp.contentH > viewH);
 		}
 
 		// ── Text Edition Helpers ──────────────────────────────────────────────────────
@@ -2823,6 +2836,45 @@ namespace UI {
 			}
 		}
 
+		// ── Multi-click selection ─────────────────────────────────────────────────────
+
+		/// Double-click (count==2) on Input  → select all.
+		/// Double-click (count==2) on TextArea → select current line.
+		/// Triple-click or more (count>=3) on TextArea → select all text.
+		void _HandleMultiClick(ECS::EntityId e, int count) {
+			auto *w  = m_ctx.Get<Widget>(e);
+			auto *cb = m_ctx.Get<Callbacks>(e);
+			if (!w) return;
+
+			if (w->type == WidgetType::Input) {
+				if (auto *c = m_ctx.Get<Content>(e)) {
+					c->SetSelection(0, (int)c->text.size());
+					c->cursor = (int)c->text.size();
+					if (cb && cb->onDoubleClick) cb->onDoubleClick();
+				}
+			} else if (w->type == WidgetType::TextArea) {
+				if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
+					if (count >= 3) {
+						// Select all
+						ta->SetSelection(0, (int)ta->text.size());
+						ta->cursorPos = (int)ta->text.size();
+					} else {
+						// Select the line under the cursor
+						auto *cr = m_ctx.Get<ComputedRect>(e);
+						auto *lp = m_ctx.Get<LayoutProps>(e);
+						if (cr && lp) {
+							float relY  = m_mousePos.y - (cr->screen.y + lp->padding.top);
+							float lineH = _TH(e) + 2.f;
+							int   line  = std::clamp((int)((relY + ta->scrollY) / lineH), 0, ta->LineCount() - 1);
+							ta->SetSelection(ta->LineStart(line), ta->LineEnd(line));
+							ta->cursorPos = ta->LineEnd(line);
+						}
+					}
+					if (cb && cb->onDoubleClick) cb->onDoubleClick();
+				}
+			}
+		}
+
 		// ── Layout ────────────────────────────────────────────────────────────────────
 
 		void _ProcessLayout() {
@@ -2915,8 +2967,8 @@ namespace UI {
 			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox || w->type == WidgetType::TextArea) {
 				bool showX = false, showY = false;
 				_ContainerScrollbars(*w, *lp, cW, cH, showX, showY);
-				if (showY) cW = SDL::Max(0.f, cW - lp->sbThickness);
-				if (showX) cH = SDL::Max(0.f, cH - lp->sbThickness);
+				if (showY) cW = SDL::Max(0.f, cW - lp->scrollbarThickness);
+				if (showX) cH = SDL::Max(0.f, cH - lp->scrollbarThickness);
 			}
 
 			FPoint intr = _IntrinsicSize(e);
@@ -3205,8 +3257,8 @@ namespace UI {
 			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox) {
 				bool showX = false, showY = false;
 				_ContainerScrollbars(*w, *lp, cw, ch2, showX, showY);
-				if (showY) cw  = SDL::Max(0.f, cw  - lp->sbThickness);
-				if (showX) ch2 = SDL::Max(0.f, ch2 - lp->sbThickness);
+				if (showY) cw  = SDL::Max(0.f, cw  - lp->scrollbarThickness);
+				if (showX) ch2 = SDL::Max(0.f, ch2 - lp->scrollbarThickness);
 			}
 
 			// Point de départ du flux, décalé par le scroll.
@@ -3621,8 +3673,8 @@ namespace UI {
 				childClip = cr->screen;
 				childClip.x += lp->padding.left;
 				childClip.y += lp->padding.top;
-				childClip.w = innerW - (showY ? lp->sbThickness : 0.f);
-				childClip.h = innerH - (showX ? lp->sbThickness : 0.f);
+				childClip.w = innerW - (showY ? lp->scrollbarThickness : 0.f);
+				childClip.h = innerH - (showX ? lp->scrollbarThickness : 0.f);
 				
 				// On restreint au clip du parent
 				childClip = childClip.GetIntersection(parentClip);
@@ -3642,33 +3694,16 @@ namespace UI {
 		[[nodiscard]] int _InputHitPos(const Content *c, float px, ECS::EntityId e) {
 			if (!c || c->text.empty() || px <= 0.f) return 0;
 
-			auto rf = _ResolveFont(e);
-			float fallbackCharW = (rf.size > 0.f) ? rf.size : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
+			// Use prefix-width measurement to match exactly how the cursor is drawn
+			// (_TW on the full prefix, including kerning between all characters).
+			float bestDist = px; // distance from x=0 at i=0
+			int   bestIdx  = 0;
 
-			float currentX = 0.f;
-			float bestDist = SDL::Abs(px);
-			int bestIdx = 0;
-
-			for (int i = 0; i <= (int)c->text.size(); ++i) {
-				float dist = SDL::Abs(px - currentX);
+			for (int i = 1; i <= (int)c->text.size(); ++i) {
+				float xOff = _TW(c->text.substr(0, (size_t)i), e);
+				float dist = SDL::Abs(px - xOff);
 				if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-
-				if (currentX > px + fallbackCharW * 2.f) break;
-
-				if (i < (int)c->text.size()) {
-					float charW = fallbackCharW;
-#if UI_HAS_TTF
-					if (!rf.isDebug && !rf.key.empty() && rf.size > 0.f) {
-						if (auto font = _EnsureFont(rf.key, rf.size)) {
-							int cw = 0, ch = 0;
-							char buf[2] = {c->text[i], 0};
-							font.GetStringSize(buf, &cw, &ch);
-							charW = (float)cw;
-						}
-					}
-#endif
-					currentX += charW;
-				}
+				if (xOff > px + 40.f) break; // early exit when far past the click
 			}
 			return bestIdx;
 		}
@@ -3723,16 +3758,25 @@ namespace UI {
 					if (m_hovered == ECS::NullEntity)
 						_SetFocus(ECS::NullEntity);
 
-					if (m_hovered != ECS::NullEntity && m_ctx.IsAlive(m_hovered)) { 
+					if (m_hovered != ECS::NullEntity && m_ctx.IsAlive(m_hovered)) {
 						auto *pw = m_ctx.Get<Widget>(m_hovered);
 						if (pw && Has(pw->behavior, BehaviorFlag::Enable) && Has(pw->behavior, BehaviorFlag::Selectable)) {
+							// ── Comptage des clics (double-clic) ─────────────────────────
+							if (m_hovered == m_lastClickEntity && m_timeSinceLastClick < 0.4f)
+								++m_clickCount;
+							else {
+								m_clickCount = 1;
+								m_lastClickEntity = m_hovered;
+							}
+							m_timeSinceLastClick = 0.f;
+
 							m_pressed = m_hovered;
 							if (auto *st = m_ctx.Get<WidgetState>(m_pressed)) st->pressed = true;
 
 							bool wantFocus = Has(pw->behavior, BehaviorFlag::Focusable);
 							_SetFocus(wantFocus ? m_pressed : ECS::NullEntity);
 
-							// Begin drag for interactive controls. 
+							// Begin drag for interactive controls.
 							if (pw->type == WidgetType::Slider) {
 								if (auto *sd = m_ctx.Get<SliderData>(m_pressed)) {
 									sd->drag        = true;
@@ -3754,7 +3798,10 @@ namespace UI {
 									kd->dragStartVal = kd->val;
 								}
 							} else if (pw->type == WidgetType::TextArea || pw->type == WidgetType::Input) {
-								_ProcessTextClickOrDrag(m_pressed, false); // false = c'est un clic, pas un drag
+								if (m_clickCount >= 2)
+									_HandleMultiClick(m_pressed, m_clickCount);
+								else
+									_ProcessTextClickOrDrag(m_pressed, false);
 							}
 						}
 					}
@@ -3870,13 +3917,13 @@ namespace UI {
 				const float innerH = cr->screen.h - lp->padding.top  - lp->padding.bottom;
 				bool showX = false, showY = false;
 				_ContainerScrollbars(*w, *lp, innerW, innerH, showX, showY);
-				const float viewW = showY ? SDL::Max(0.f, innerW - lp->sbThickness) : innerW;
-				const float viewH = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
+				const float viewW = showY ? SDL::Max(0.f, innerW - lp->scrollbarThickness) : innerW;
+				const float viewH = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
 
 				if (css.dragY && showY && lp->contentH > viewH) {
 					float barH   = viewH;
 					float ratio  = SDL::Clamp(viewH / lp->contentH, 0.05f, 1.f);
-					float thumbH = SDL::Max(lp->sbThickness * 2.f, barH * ratio);
+					float thumbH = SDL::Max(lp->scrollbarThickness * 2.f, barH * ratio);
 					float travel = barH - thumbH;
 					float dx     = m_mousePos.y - css.dragStartY_;
 					float maxOff = lp->contentH - viewH;
@@ -3890,7 +3937,7 @@ namespace UI {
 				if (css.dragX && showX && lp->contentW > viewW) {
 					float barW   = viewW;
 					float ratio  = SDL::Clamp(viewW / lp->contentW, 0.05f, 1.f);
-					float thumbW = SDL::Max(lp->sbThickness * 2.f, barW * ratio);
+					float thumbW = SDL::Max(lp->scrollbarThickness * 2.f, barW * ratio);
 					float travel = barW - thumbW;
 					float dx     = m_mousePos.x - css.dragStartX;
 					float maxOff = lp->contentW - viewW;
@@ -3939,7 +3986,7 @@ namespace UI {
 		}
 
 		void _OnClick(ECS::EntityId e, const Widget &w) {
-			auto *s = m_ctx.Get<Style>(e); 
+			auto *s = m_ctx.Get<Style>(e);
 			if (s && !s->clickSound.empty())
 				if (auto sh = _EnsureAudio(s->clickSound))
 					_PlayAudio(sh);
@@ -3984,6 +4031,9 @@ namespace UI {
 						cb->onClick();
 					break;
 			}
+			// Fire onDoubleClick on every widget type when click count >= 2.
+			if (m_clickCount >= 2 && cb && cb->onDoubleClick)
+				cb->onDoubleClick();
 		}
 
 		void _SetFocus(ECS::EntityId nf) {
@@ -4161,7 +4211,8 @@ namespace UI {
 		[[nodiscard]] float _TextAreaLineX(const TextAreaData *ta, int line, int col, ECS::EntityId e) {
 			int lineStart = ta->LineStart(line);
 			col = std::clamp(col, 0, ta->LineEnd(line) - lineStart);
-			float x = 0.f;
+
+			// Measure space width for tab expansion (matches the renderer).
 			auto rf = _ResolveFont(e);
 			float charW = (rf.size > 0.f) ? rf.size : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 #if UI_HAS_TTF
@@ -4173,29 +4224,25 @@ namespace UI {
 				}
 			}
 #endif
-			int colCount = 0;
+			// Accumulate non-tab characters into runs and measure each run with _TW,
+			// exactly as the renderer does — this includes inter-character kerning.
+			float x = 0.f;
+			int   colCount = 0;
+			std::string run;
 			for (int i = 0; i < col; ++i) {
-				unsigned char ch = (unsigned char)ta->text[lineStart + i];
+				char ch = ta->text[lineStart + i];
 				if (ch == '\t') {
+					if (!run.empty()) { x += _TW(run, e); run.clear(); }
 					int spaces = ta->tabSize - (colCount % ta->tabSize);
 					if (spaces == 0) spaces = ta->tabSize;
 					x += spaces * charW;
 					colCount += spaces;
 				} else {
-#if UI_HAS_TTF
-					if (!rf.isDebug && !rf.key.empty() && rf.size > 0.f) {
-						if (auto font = _EnsureFont(rf.key, rf.size)) {
-							char buf[2] = {(char)ch, 0};
-							int cw = 0, ch2 = 0;
-							font.GetStringSize(buf, &cw, &ch2);
-							x += (float)cw;
-						} else { x += charW; }
-					} else
-#endif
-					{ x += charW; }
+					run += ch;
 					++colCount;
 				}
 			}
+			if (!run.empty()) x += _TW(run, e);
 			return x;
 		}
 
@@ -4307,40 +4354,54 @@ namespace UI {
 		}
 
 		void _HandleScroll(float dx, float dy) {
-			ECS::EntityId e = _HitTest(m_root, m_mousePos); 
+			ECS::EntityId e = _HitTest(m_root, m_mousePos);
 			while (e != ECS::NullEntity && m_ctx.IsAlive(e)) {
 				auto *w  = m_ctx.Get<Widget>(e);
 				auto *lp = m_ctx.Get<LayoutProps>(e);
 
 				// ListBox has its own internal scroll.
 				if (w && w->type == WidgetType::ListBox) {
+					bool consumed = false;
 					if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
 						auto *cr2 = m_ctx.Get<ComputedRect>(e);
 						auto *lp2 = m_ctx.Get<LayoutProps>(e);
 						if (cr2 && lp2 && dy != 0.f) {
+							float prev   = lp2->scrollY;
 							float viewH  = cr2->screen.h - lp2->padding.top - lp2->padding.bottom;
 							float total  = (float)lb->items.size() * lb->itemHeight;
 							float maxOff = SDL::Max(0.f, total - viewH);
 							lp2->scrollY = SDL::Clamp(lp2->scrollY - dy * lb->itemHeight * 2.f, 0.f, maxOff);
+							consumed = (lp2->scrollY != prev);
 						}
 					}
-					return;
+					if (consumed || !w->dispatchEvent) return;
+					// Not consumed — bubble to parent.
+					auto *par = m_ctx.Get<Parent>(e);
+					e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
+					continue;
 				}
 				// TextArea has its own internal scroll.
 				if (w && w->type == WidgetType::TextArea) {
+					bool consumed = false;
 					if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
 						auto *cr = m_ctx.Get<ComputedRect>(e);
 						if (cr && dy != 0.f) {
+							float prev   = ta->scrollY;
 							float lineH  = _TH(e) + 2.f;
 							float viewH  = cr->screen.h - (lp ? lp->padding.top + lp->padding.bottom : 0.f);
 							float maxS   = SDL::Max(0.f, ta->LineCount() * lineH - viewH);
 							ta->scrollY  = SDL::Clamp(ta->scrollY - dy * lineH * 3.f, 0.f, maxS);
+							consumed = (ta->scrollY != prev);
 						}
 					}
-					return;
+					if (consumed || !w->dispatchEvent) return;
+					// Not consumed — bubble to parent.
+					auto *par = m_ctx.Get<Parent>(e);
+					e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
+					continue;
 				}
 				if (!w || !lp) break;
-				
+
 				// ScrollableX/Y = scroll permanent ; AutoScrollableX/Y = scroll si débordement.
 				bool scrollableV = Has(w->behavior, BehaviorFlag::ScrollableY | BehaviorFlag::AutoScrollableY);
 				bool scrollableH = Has(w->behavior, BehaviorFlag::ScrollableX | BehaviorFlag::AutoScrollableX);
@@ -4352,8 +4413,8 @@ namespace UI {
 
 					bool showX = false, showY = false;
 					_ContainerScrollbars(*w, *lp, innerW, innerH, showX, showY);
-					const float viewW = showY ? SDL::Max(0.f, innerW - lp->sbThickness) : innerW;
-					const float viewH = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
+					const float viewW = showY ? SDL::Max(0.f, innerW - lp->scrollbarThickness) : innerW;
+					const float viewH = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
 
 					float lastScrollX = lp->scrollX;
 					float lastScrollY = lp->scrollY;
@@ -4367,13 +4428,15 @@ namespace UI {
 						lp->scrollY = SDL::Clamp(lp->scrollY - dy * 20.f, 0.f, mx);
 					}
 
-					if (lastScrollX != lp->scrollX || lastScrollY != lp->scrollY) {
+					bool consumed = (lastScrollX != lp->scrollX || lastScrollY != lp->scrollY);
+					if (consumed) {
 						auto *s = m_ctx.Get<Style>(e);
 						if (s && !s->scrollSound.empty())
 							if (auto sh = _EnsureAudio(s->scrollSound))
 								_PlayAudio(sh);
 					}
-					return;
+					if (consumed || !w->dispatchEvent) return;
+					// Not consumed and dispatchEvent=true — bubble to parent.
 				}
 				auto *par = m_ctx.Get<Parent>(e);
 				e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
@@ -4411,8 +4474,12 @@ namespace UI {
 			auto *w = m_ctx.Get<Widget>(e);
 			if (!w || !Has(w->behavior, BehaviorFlag::Visible | BehaviorFlag::Enable)) return;
 
-			if (Has(w->behavior, BehaviorFlag::Focusable))
-				out.push_back(e);
+			if (Has(w->behavior, BehaviorFlag::Focusable)) {
+				// Only add if the widget is actually on-screen (clip rect has positive area).
+				auto *cr = m_ctx.Get<ComputedRect>(e);
+				if (cr && cr->clip.w > 0.f && cr->clip.h > 0.f)
+					out.push_back(e);
+			}
 
 			if (auto *ch = m_ctx.Get<Children>(e)) {
 				for (ECS::EntityId c : ch->ids)
@@ -4830,9 +4897,9 @@ namespace UI {
 			bool showX = false, showY = false;
 			_ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
 
-			const float viewW = showY ? SDL::Max(0.f, innerW - lp->sbThickness) : innerW;
-			const float viewH = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
-			const float t     = lp->sbThickness;
+			const float viewW = showY ? SDL::Max(0.f, innerW - lp->scrollbarThickness) : innerW;
+			const float viewH = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
+			const float t     = lp->scrollbarThickness;
 
 			// SÉCURITÉ : Empêcher le contenu de rester scrollé dans le vide
 			lp->scrollX = SDL::Clamp(lp->scrollX, 0.f, SDL::Max(0.f, lp->contentW - viewW));
@@ -5213,8 +5280,8 @@ namespace UI {
 			_ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
 			
 			// L'espace véritablement disponible pour lire le texte (sans les scrollbars)
-			const float viewW = showY ? SDL::Max(0.f, innerW - lp->sbThickness) : innerW;
-			const float viewH = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
+			const float viewW = showY ? SDL::Max(0.f, innerW - lp->scrollbarThickness) : innerW;
+			const float viewH = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
 
 			// ── 3. Application du Clipping strict pour le texte ───────────────────
 			// Intersect with the current (parent) clip so content never overflows a
@@ -5511,8 +5578,8 @@ namespace UI {
 			bool showX = false, showY = false;
 			_ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
 			
-			const float viewH  = showX ? SDL::Max(0.f, innerH - lp->sbThickness) : innerH;
-			const float t      = lp->sbThickness;
+			const float viewH  = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
+			const float t      = lp->scrollbarThickness;
 			const float itemW  = r.w - s.borders.left - s.borders.right - (showY ? t : 0.f);
 			const float px     = r.x + lp->padding.left - lp->scrollX;
 
@@ -6481,6 +6548,16 @@ namespace UI {
 		/** @brief Register a callback invoked when the widget is clicked. */
 		Builder &OnClick(std::function<void()> cb) {
 			sys.OnClick(id, std::move(cb));
+			return *this;
+		}
+		/** @brief Register a callback invoked on double-click. For Input/TextArea it fires after the automatic selection. */
+		Builder &OnDoubleClick(std::function<void()> cb) {
+			sys.OnDoubleClick(id, std::move(cb));
+			return *this;
+		}
+		/** @brief When set to false, unhandled scroll/wheel events are not propagated to parent widgets. */
+		Builder &DispatchEvent(bool b) {
+			sys.SetDispatchEvent(id, b);
 			return *this;
 		}
 		/**
