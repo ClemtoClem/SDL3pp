@@ -1113,12 +1113,14 @@ struct Main {
 
     explicit Main(SDL::AppArgs args) {
         Mode forcedMode = Mode::Launcher;
+        m_debugMode = false;
         for (auto arg : args) {
             std::string a{arg};
             if      (a == "--server")            forcedMode = Mode::Server;
             else if (a == "--client")            forcedMode = Mode::Client;
             else if (a.substr(0,7) == "--port=") m_port = static_cast<Uint16>(std::stoi(a.substr(7)));
             else if (a.substr(0,7) == "--host=") m_host = a.substr(7);
+            else if (a == "--debug") m_debugMode = true;
         }
         window.StartTextInput();
         _LoadResources();
@@ -1587,8 +1589,7 @@ struct Main {
         ui.SetVisible(id_serverPanel,   mode == Mode::Server);
         ui.SetVisible(id_clientPanel,   mode == Mode::Client);
         if (mode == Mode::Launcher) {
-            ui.SetVisible(id_debugPanel, false);
-            m_debugMode = false;
+            ui.SetVisible(id_debugPanel, m_debugMode);
         }
     }
 
