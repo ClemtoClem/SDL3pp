@@ -107,7 +107,7 @@ struct Main {
 
 	std::array<SDL::ECS::EntityId, kPageCount> pages   {};
 	std::array<SDL::ECS::EntityId, kPageCount> tabBtns {};
-	int currentPage = 0;
+	int currentPage = 5;
 
 	// ── Live-updated labels ───────────────────────────────────────────────────────
 
@@ -276,7 +276,7 @@ struct Main {
 	SDL::ECS::EntityId _BuildHeader() {
 		auto header = ui.Row("header", 8.f, 0.f)
 			.W(SDL::UI::Value::Ww(100.f)).H(52.f)
-			.PaddingH(12.f).PaddingV(0.f)
+			.PaddingH(12.f).PaddingV(2.f)
 			.BgColor(pal::HEADER).BorderColor(pal::BORDER)
 			.WithStyle([](auto& s){ s.borders = SDL::FBox(1.f); s.radius = SDL::FCorners(0.f); });
 
@@ -285,10 +285,13 @@ struct Main {
 
 		for (int i = 0; i < kPageCount; ++i) {
 			tabBtns[i] = ui.Button(std::string("tab_") + kPageNames[i], kPageNames[i])
-				.W(i == 4 ? 120 : 110).H(36)
+				.W(SDL::UI::Value::Auto())
+				.H(20.f)
+				.MinW(100)
 				.AlignH(SDL::UI::Align::Center)
-				.Style(SDL::UI::Theme::PrimaryButton(i == 0 ? pal::TAB_ON : pal::TAB_OFF))
-				.WithStyle([](auto& s){ s.radius = SDL::FCorners(5.f); })
+				.Style(SDL::UI::Theme::PrimaryButton(i == currentPage ? pal::TAB_ON : pal::TAB_OFF))
+				.Padding(SDL::FBox(2.f))
+				.WithStyle([](auto& s){ s.borders = SDL::FBox(1.f); s.radius = SDL::FCorners(5.f); })
 				.ClickSound(key::CLICK)
 				.Tooltip(std::string("Switch to ") + kPageNames[i])
 				.OnClick([this, i]{ SwitchPage(i); });
@@ -310,10 +313,11 @@ struct Main {
 		pages[4] = _BuildTextListsPage();
 		pages[5] = _BuildGridPage();
 
+		currentPage = SDL::Clamp(currentPage, 0, kPageCount-1);
 		for (int i = 0; i < kPageCount; ++i) {
 			content.Child(pages[i]);
 			ui.GetStyle(pages[i]).showSound = key::MENU_OPEN;
-			ui.SetVisible(pages[i], i == 0);
+			ui.SetVisible(pages[i], i == currentPage);
 		}
 		return content;
 	}
@@ -323,7 +327,7 @@ struct Main {
 			.Style(SDL::UI::Theme::Transparent())
 			.H(SDL::UI::Value::Grow(100.f))
 			.BgColor(pal::BG)
-			.AutoScrollableY(true)
+			.AutoScrollable(true)
 			.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); });
 	}
 

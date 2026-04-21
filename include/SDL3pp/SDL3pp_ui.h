@@ -2645,7 +2645,6 @@ namespace UI {
 							 && !Has(w.behavior, BehaviorFlag::ScrollableX);
 			const bool autoY  = Has(w.behavior, BehaviorFlag::AutoScrollableY)
 							 && !Has(w.behavior, BehaviorFlag::ScrollableY);
-			//const float t = lp.scrollbarThickness;
 
 			// Première passe — sans tenir compte de l'axe croisé.
 			showX = wantX && (!autoX || lp.contentW > viewW);
