@@ -684,8 +684,8 @@ struct Main {
 			bool active = (i == idx);
 			SDL::UI::Style& s = ui.GetStyle(m_szBtns[i]);
 			s.bgColor   = active ? pal::ACCENT  : SDL::Color{28, 32, 48, 255};
-			s.bgHovered = active ? pal::ACCENTH : SDL::Color{40, 44, 62, 255};
-			s.bgPressed = active ? pal::ACCENTP : SDL::Color{20, 24, 36, 255};
+			s.bgHoveredColor = active ? pal::ACCENTH : SDL::Color{40, 44, 62, 255};
+			s.bgPressedColor = active ? pal::ACCENTP : SDL::Color{20, 24, 36, 255};
 			s.textColor = active ? pal::WHITE   : pal::GREY;
 		}
 		_SetStatus(std::format("Sample size: {}", m_sampleSize));
@@ -701,8 +701,8 @@ struct Main {
 			bool active = (i == idx);
 			SDL::UI::Style& s = ui.GetStyle(m_raBtns[i]);
 			s.bgColor   = active ? pal::ORANGE                    : SDL::Color{28, 32, 48, 255};
-			s.bgHovered = active ? SDL::Color{245, 165,  50, 255} : SDL::Color{40, 44, 62, 255};
-			s.bgPressed = active ? SDL::Color{200, 120,  20, 255} : SDL::Color{20, 24, 36, 255};
+			s.bgHoveredColor = active ? SDL::Color{245, 165,  50, 255} : SDL::Color{40, 44, 62, 255};
+			s.bgPressedColor = active ? SDL::Color{200, 120,  20, 255} : SDL::Color{20, 24, 36, 255};
 			s.textColor = active ? pal::WHITE : pal::GREY;
 		}
 
@@ -723,8 +723,8 @@ struct Main {
 			bool active = (i == idx);
 			SDL::UI::Style& s = ui.GetStyle(m_winBtns[i]);
 			s.bgColor   = active ? kActBg  : SDL::Color{ 28,  32,  48, 255};
-			s.bgHovered = active ? kActBgH : SDL::Color{ 40,  44,  62, 255};
-			s.bgPressed = active ? kActBgP : SDL::Color{ 20,  24,  36, 255};
+			s.bgHoveredColor = active ? kActBgH : SDL::Color{ 40,  44,  62, 255};
+			s.bgPressedColor = active ? kActBgP : SDL::Color{ 20,  24,  36, 255};
 			s.textColor = active ? pal::WHITE : pal::GREY;
 		}
 		_SetStatus(std::format("Fenêtre: {}", kWindows[idx].label));

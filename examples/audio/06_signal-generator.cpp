@@ -723,8 +723,8 @@ struct Main {
 			bool active = (s == shapeIdx);
 			SDL::UI::Style& st = ui.GetStyle(oi.shapeBtns[s]);
 			st.bgColor   = active ? kShapeColor[s]  : SDL::Color{28, 32, 48, 255};
-			st.bgHovered = active ? kShapeColorH[s] : SDL::Color{40, 44, 62, 255};
-			st.bgPressed = active ? kShapeColorP[s] : SDL::Color{20, 24, 36, 255};
+			st.bgHoveredColor = active ? kShapeColorH[s] : SDL::Color{40, 44, 62, 255};
+			st.bgPressedColor = active ? kShapeColorP[s] : SDL::Color{20, 24, 36, 255};
 			st.textColor = active ? pal::WHITE       : pal::GREY;
 		}
 	}

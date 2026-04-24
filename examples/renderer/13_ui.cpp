@@ -54,9 +54,9 @@ namespace key {
 
 struct Main {
 	static constexpr SDL::Point kWinSz     = {1280, 720};
-	static constexpr int        kPageCount = 6;
+	static constexpr int        kPageCount = 7;
 	static constexpr const char* kPageNames[kPageCount] = {
-		"Basics", "Controls", "Input & Scroll", "Image & Canvas", "Text & Lists", "Grid"
+		"Basics", "Controls", "Input & Scroll", "Image & Canvas", "Text & Lists", "Grid", "New Widgets"
 	};
 
 	// ── SDL::AppResult callbacks ──────────────────────────────────────────────────
@@ -107,7 +107,7 @@ struct Main {
 
 	std::array<SDL::ECS::EntityId, kPageCount> pages   {};
 	std::array<SDL::ECS::EntityId, kPageCount> tabBtns {};
-	int currentPage = 5;
+	int currentPage = 6;
 
 	// ── Live-updated labels ───────────────────────────────────────────────────────
 
@@ -134,6 +134,14 @@ struct Main {
 	SDL::ECS::EntityId lblListSel   = SDL::ECS::NullEntity; // ListBox selection echo
 	SDL::ECS::EntityId graphLine    = SDL::ECS::NullEntity; // animated line graph
 	SDL::ECS::EntityId graphBar     = SDL::ECS::NullEntity; // bar/spectrum graph
+
+	// ── New-widgets page state ─────────────────────────────────────────────────────
+	SDL::ECS::EntityId lblCombo     = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId lblSpin      = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId lblColor     = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId spinnerWidget= SDL::ECS::NullEntity;
+	SDL::ECS::EntityId badgeWidget  = SDL::ECS::NullEntity;
+	int  m_badgeCount = 0;
 
 	// ── Timers & animation state ──────────────────────────────────────────────────
 
@@ -175,7 +183,7 @@ struct Main {
 			ui.SetVisible(pages[i], i == currentPage);
 			SDL::UI::Style& ts = ui.GetStyle(tabBtns[i]);
 			ts.bgColor   = (i == currentPage) ? pal::TAB_ON : pal::TAB_OFF;
-			ts.bgHovered = (i == currentPage)
+			ts.bgHoveredColor = (i == currentPage)
 				? SDL::Color{75,135,220,255} : SDL::Color{42,45,62,255};
 		}
 	}
@@ -312,6 +320,7 @@ struct Main {
 		pages[3] = _BuildImageCanvasPage();
 		pages[4] = _BuildTextListsPage();
 		pages[5] = _BuildGridPage();
+		pages[6] = _BuildNewWidgetsPage();
 
 		currentPage = SDL::Clamp(currentPage, 0, kPageCount-1);
 		for (int i = 0; i < kPageCount; ++i) {
@@ -787,7 +796,8 @@ struct Main {
 		auto page = _Page("page_text_lists");
 
 		// ── TextArea ──────────────────────────────────────────────────────────────
-		auto cardTa = ui.Card("card_ta");
+		auto cardTa = ui.Card("card_ta")
+			.H(SDL::UI::Value::Grow(50.f));
 		lblTaLen = ui.Label("lbl_ta_len","Characters: 0").TextColor(pal::GREY);
 		const std::string initialText =
 			"The TextArea widget supports:\n"
@@ -829,7 +839,8 @@ struct Main {
 		);
 
 		// ── ListBox ───────────────────────────────────────────────────────────────
-		auto cardLb = ui.Card("card_lb");
+		auto cardLb = ui.Card("card_lb")
+			.H(SDL::UI::Value::Grow(50.f));
 		lblListSel = ui.Label("lbl_lbsel","Selection: (none)").TextColor(pal::ACCENT);
 
 		// Items: mix of short names and long entries to test H scroll
@@ -862,7 +873,7 @@ struct Main {
 		};
 
 		auto lb = ui.ListBoxWidget("listbox", items)
-			.H(SDL::UI::Value::Pch(50.f))
+			.H(SDL::UI::Value::Grow(100.f))
 			.Tooltip("ListBox — click to select, scroll with mouse wheel\nLong items test horizontal scrollbar");
 		const SDL::ECS::EntityId lbId = lb.Id();
 		lb.OnClick([this, lbId](){
@@ -884,36 +895,40 @@ struct Main {
 		);
 
 		// ── Graphs ────────────────────────────────────────────────────────────────
-		auto cardGl = ui.Card("card_graph_line");
+		auto cardGl = ui.Card("card_graph_line")
+			.H(SDL::UI::Value::Grow(50.f));
 		graphLine = ui.GradedGraph("g_line")
+			.W(SDL::UI::Value::Grow(100.f))
 			.H(SDL::UI::Value::Grow(100.f))
 			.Tooltip("Animated sine-wave (line mode, updated every frame)");
 		if (auto* gd = ui.GetGraphData(graphLine)) {
-			gd->title    = "Sine Wave (animated)";
-			gd->yLabel   = "amp";
-			gd->minVal   = -1.f;
-			gd->maxVal   =  1.f;
-			gd->showFill = true;
-			gd->barMode  = false;
+			gd->title     = "Sine Wave (animated)";
+			gd->yLabel    = "amp";
+			gd->minVal    = -1.f;
+			gd->maxVal    =  1.f;
+			gd->showFill  = true;
+			gd->barMode   = false;
 			gd->lineColor = pal::ACCENT;
 			gd->fillColor = {70,130,210, 45};
 		}
 		cardGl.Children(ui.SectionTitle("Graph — line mode (animated)"), graphLine);
 
-		auto cardGb = ui.Card("card_graph_bar");
+		auto cardGb = ui.Card("card_graph_bar")
+			.H(SDL::UI::Value::Grow(50.f));
 		graphBar = ui.GradedGraph("g_bar")
+			.W(SDL::UI::Value::Grow(100.f))
 			.H(SDL::UI::Value::Grow(100.f))
 			.Tooltip("Animated bar graph / spectrum (bar mode, updated every frame)");
 		if (auto* gd = ui.GetGraphData(graphBar)) {
-			gd->title    = "Spectrum (animated)";
-			gd->xLabel   = "freq";
-			gd->yLabel   = "mag";
-			gd->minVal   = 0.f;
-			gd->maxVal   = 1.f;
-			gd->showFill = false;
-			gd->barMode  = true;
-			gd->lineColor = pal::GREEN;
-			gd->fillColor = pal::GREEN;
+			gd->title      = "Spectrum (animated)";
+			gd->xLabel     = "freq";
+			gd->yLabel     = "mag";
+			gd->minVal     = 0.f;
+			gd->maxVal     = 1.f;
+			gd->showFill   = false;
+			gd->barMode    = true;
+			gd->lineColor  = pal::GREEN;
+			gd->fillColor  = pal::GREEN;
 			gd->xDivisions = 8;
 			gd->yDivisions = 4;
 		}
@@ -1053,6 +1068,214 @@ struct Main {
 				);
 			}
 			card.Child(grid);
+			page.Child(card);
+		}
+
+		return page;
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════════
+	// Page 7 — New Widgets: ComboBox, SpinBox, TabView, Expander, Splitter,
+	//                       Spinner, Badge, ColorButton
+	// ══════════════════════════════════════════════════════════════════════════════
+
+	SDL::ECS::EntityId _BuildNewWidgetsPage() {
+		using namespace SDL::UI;
+		auto page = _Page("page_new");
+
+		// ── ComboBox + SpinBox ─────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_combo_spin");
+			card.Child(ui.SectionTitle("ComboBox & SpinBox"));
+
+			lblCombo = ui.Label("lbl_combo_val", "Selected: (none)")
+				.TextColor(pal::GREY);
+			auto combo = ui.ComboBox("combo1",
+				{"Apple", "Banana", "Cherry", "Date", "Elderberry",
+				 "Fig", "Grape", "Honeydew"}, 0)
+				.W(Value::Pcw(100)).H(32.f)
+				.Tooltip("Click to open dropdown")
+				.OnChange([this](float idx){
+					const char* items[] = {"Apple","Banana","Cherry","Date","Elderberry","Fig","Grape","Honeydew"};
+					ui.SetText(lblCombo, std::string("Selected: ") + items[(int)idx]);
+				});
+
+			lblSpin = ui.Label("lbl_spin_val", "Value: 0")
+				.TextColor(pal::GREY);
+			auto spin = ui.SpinBox("spin1", 0.f, 100.f, 42.f, /*intMode=*/true)
+				.W(Value::Pcw(100)).H(32.f)
+				.Tooltip("Drag up/down to change value, or click +/– buttons")
+				.OnChange([this](float v){
+					ui.SetText(lblSpin, std::format("Value: {:.0f}", v));
+				});
+			auto spinFloat = ui.SpinBox("spin_float", 0.f, 1.f, 0.5f, false)
+				.SpinDecimals(3).W(Value::Pcw(100)).H(32.f)
+				.Tooltip("Float spin box — drag or +/– buttons")
+				.OnChange([](float v){ (void)v; });
+
+			card.Children(
+				combo, lblCombo,
+				ui.Separator("sep_cs"),
+				spin, lblSpin,
+				spinFloat
+			);
+			page.Child(card);
+		}
+
+		// ── Spinner + Badge ───────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_spin_badge");
+			card.Child(ui.SectionTitle("Spinner (animated) & Badge"));
+
+			spinnerWidget = ui.Spinner("sp1", 4.f)
+				.W(48.f).H(48.f)
+				.Tooltip("Animated loading indicator (auto-rotates each frame)");
+
+			badgeWidget = ui.Badge("badge1", "0")
+				.W(Value::Auto()).H(24.f)
+				.Tooltip("Small notification counter");
+
+			auto btnInc = ui.Button("btn_badge_inc", "+ Increment badge")
+				.W(Value::Pcw(100)).H(32.f)
+				.OnClick([this]{
+					++m_badgeCount;
+					ui.GetECSContext().Get<SDL::UI::BadgeData>(badgeWidget)->text =
+						std::to_string(m_badgeCount);
+				});
+			auto btnReset = ui.Button("btn_badge_reset", "Reset badge")
+				.W(Value::Pcw(100)).H(32.f)
+				.OnClick([this]{
+					m_badgeCount = 0;
+					ui.GetECSContext().Get<SDL::UI::BadgeData>(badgeWidget)->text = "0";
+				});
+
+			card.Children(
+				ui.Row("spin_row", 8.f, 0.f).H(60.f).Children(spinnerWidget, badgeWidget),
+				btnInc, btnReset
+			);
+			page.Child(card);
+		}
+
+		// ── ColorButton ────────────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_color");
+			card.Child(ui.SectionTitle("ColorButton"));
+
+			lblColor = ui.Label("lbl_color_val", "Color: R=255 G=80 B=80")
+				.TextColor(pal::GREY);
+
+			const SDL::Color colors[] = {
+				{255, 80, 80, 255}, {80, 200, 120, 255}, {70, 130, 210, 255},
+				{230, 170, 40, 255}, {180, 80, 220, 255}, {40, 190, 190, 255},
+			};
+			auto row = ui.Row("color_row", 8.f, 0.f).H(36.f);
+			for (int i = 0; i < 6; ++i) {
+				SDL::Color c = colors[i];
+				row.Child(ui.ColorButton(std::string("cb") + std::to_string(i), c)
+					.W(50.f).H(32.f)
+					.Tooltip("Click to select this color")
+					.OnClick([this, c]{
+						ui.SetText(lblColor, std::format("Color: R={} G={} B={}",
+							(int)c.r, (int)c.g, (int)c.b));
+					}));
+			}
+			card.Children(row, lblColor);
+			page.Child(card);
+		}
+
+		// ── Expander ───────────────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_expander");
+			card.Child(ui.SectionTitle("Expander (collapsible section)"));
+
+			auto exp1 = ui.Expander("exp1", "Advanced Settings", false)
+				.W(Value::Pcw(100))
+				.Tooltip("Click header to expand/collapse");
+			auto content1 = ui.Column("exp1_body", 6.f, 4.f)
+				.BgColor({25, 26, 38, 200})
+				.Children(
+					ui.Label("exp1_l1", "Setting A:  enabled").TextColor(pal::WHITE),
+					ui.Label("exp1_l2", "Setting B:  42 px").TextColor(pal::WHITE),
+					ui.Toggle("exp1_tog", "Option C")
+				);
+			exp1.Child(content1);
+			// Start collapsed — hide child
+			ui.SetVisible(content1, false);
+
+			auto exp2 = ui.Expander("exp2", "Developer Info", true)
+				.W(Value::Pcw(100));
+			auto content2 = ui.Column("exp2_body", 4.f, 4.f)
+				.BgColor({25, 28, 40, 200})
+				.Children(
+					ui.Label("exp2_l1", "SDK: SDL3pp").TextColor(pal::GREY),
+					ui.Label("exp2_l2", "UI: ECS-backed retained-mode").TextColor(pal::GREY)
+				);
+			exp2.Child(content2);
+
+			card.Children(exp1, exp2);
+			page.Child(card);
+		}
+
+		// ── TabView ────────────────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_tabview");
+			card.Child(ui.SectionTitle("TabView (tabbed container)"));
+
+			auto tv = ui.TabView("tv1")
+				.W(Value::Pcw(100)).H(140.f)
+				.AddTab("Overview").AddTab("Details").AddTab("Settings")
+				.Tooltip("Click tabs to switch content");
+
+			// Child 0 — Overview tab
+			auto tab0 = ui.Column("tv1_t0", 6.f, 8.f)
+				.Children(
+					ui.Label("tv1_l0a", "Welcome to TabView!").TextColor(pal::ACCENT),
+					ui.Label("tv1_l0b", "Each tab shows a different child widget.")
+				);
+			// Child 1 — Details tab
+			auto tab1 = ui.Column("tv1_t1", 6.f, 8.f)
+				.Children(
+					ui.Label("tv1_l1a", "Widget: TabView").TextColor(pal::GREEN),
+					ui.Label("tv1_l1b", "Children per tab are shown/hidden on click.")
+				);
+			// Child 2 — Settings tab
+			auto tab2 = ui.Column("tv1_t2", 6.f, 8.f)
+				.Children(
+					ui.Slider("tv1_slider", 0.f, 1.f, 0.5f).W(Value::Pcw(100)),
+					ui.Toggle("tv1_tog", "Enable feature")
+				);
+			tv.Children(tab0, tab1, tab2);
+			// Show only first tab initially
+			ui.SetVisible(tab1, false);
+			ui.SetVisible(tab2, false);
+
+			card.Child(tv);
+			page.Child(card);
+		}
+
+		// ── Splitter ───────────────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_splitter");
+			card.Child(ui.SectionTitle("Splitter (resizable panes — drag the handle)"));
+
+			auto spl = ui.Splitter("spl1", SDL::UI::Orientation::Horizontal, 0.4f)
+				.W(Value::Pcw(100)).H(120.f)
+				.Tooltip("Drag the vertical divider to resize the two panes");
+			auto left = ui.Column("spl_left", 4.f, 6.f)
+				.BgColor({20, 22, 36, 255})
+				.Children(
+					ui.Label("spl_ll", "Left Pane").TextColor(pal::ACCENT),
+					ui.Label("spl_ll2", "Drag handle →").TextColor(pal::GREY)
+				);
+			auto right = ui.Column("spl_right", 4.f, 6.f)
+				.BgColor({22, 20, 36, 255})
+				.Children(
+					ui.Label("spl_rl", "Right Pane").TextColor(pal::TEAL),
+					ui.Label("spl_rl2", "← Drag handle").TextColor(pal::GREY)
+				);
+			spl.Children(left, right);
+
+			card.Child(spl);
 			page.Child(card);
 		}
 

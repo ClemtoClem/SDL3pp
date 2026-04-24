@@ -484,9 +484,9 @@ private:
 				.H(kSeekH)
 				.BgColor({30,30,46,255})
 				.WithStyle([](Style& s){
-					s.track = {40,40,58,255};
-					s.fill  = {70,130,210,255};
-					s.thumb = {100,160,235,255};
+					s.trackColor = {40,40,58,255};
+					s.fillColor  = {70,130,210,255};
+					s.accent = {100,160,235,255};
 				})
 				.Radius(SDL::FCorners(4.f))
 				.OnChange([this](float v) {
@@ -527,9 +527,9 @@ private:
 				.W(90.f).H(20.f)
 				.WithStyle([](Style& s){
 					s.bgColor = {30,30,46,255};
-					s.track   = {40,40,58,255};
-					s.fill    = {70,130,210,255};
-					s.thumb   = {100,160,235,255};
+					s.trackColor   = {40,40,58,255};
+					s.fillColor    = {70,130,210,255};
+					s.accent   = {100,160,235,255};
 				})
 				.Radius(SDL::FCorners(3.f))
 				.Tooltip("Volume")

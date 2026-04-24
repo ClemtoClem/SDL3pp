@@ -2100,14 +2100,14 @@ struct Main {
 				: SDL::Color{0, 0, 0, 0};
 			// Visibility button: green tint + full opacity when visible, dimmed when hidden
 			auto& icVis = ui.GetOrAddIconData(slot.btnVis);
-			icVis.tintNormal  = layer.visible ? pal::GREEN  : SDL::Color{255,255,255,255};
-			icVis.tintHovered = icVis.tintNormal;
+			icVis.tintNormalColor  = layer.visible ? pal::GREEN  : SDL::Color{255,255,255,255};
+			icVis.tintHoveredColor = icVis.tintNormalColor;
 			icVis.opacityNormal  = layer.visible ? 1.f : 0.3f;
 			icVis.opacityHovered = 0.9f;
 			// Lock button: orange tint + dark bg when locked
 			auto& icLock = ui.GetOrAddIconData(slot.btnLock);
-			icLock.tintNormal  = layer.locked ? pal::ORANGE : SDL::Color{255,255,255,255};
-			icLock.tintHovered = icLock.tintNormal;
+			icLock.tintNormalColor  = layer.locked ? pal::ORANGE : SDL::Color{255,255,255,255};
+			icLock.tintHoveredColor = icLock.tintNormalColor;
 			ui.GetStyle(slot.btnLock).bgColor =
 				layer.locked ? SDL::Color{70,40,10,200} : SDL::Color{0,0,0,0};
 		}
@@ -2129,14 +2129,14 @@ struct Main {
 			auto& s = ui.GetStyle(toolBtns[i]);
 			if (active) {
 				s.bgColor   = pal::ACCENT;
-				s.bgHovered = pal::ACCENT;
-				s.bgPressed = SDL::Color(pal::ACCENT).Darken(20);
+				s.bgHoveredColor = pal::ACCENT;
+				s.bgPressedColor = SDL::Color(pal::ACCENT).Darken(20);
 				s.borders   = SDL::FBox(1.f);
 				s.bdColor   = {pal::ACCENT.r, pal::ACCENT.g, pal::ACCENT.b, 140};
 			} else {
 				s.bgColor   = {0, 0, 0, 0};
-				s.bgHovered = {42, 54, 78, 220};
-				s.bgPressed = SDL::Color(pal::ACCENT).Darken(20);
+				s.bgHoveredColor = {42, 54, 78, 220};
+				s.bgPressedColor = SDL::Color(pal::ACCENT).Darken(20);
 				s.borders   = SDL::FBox(0.f);
 				s.bdColor   = pal::BORDER;
 			}
@@ -2147,8 +2147,8 @@ struct Main {
 		if (eGridBtn == SDL::ECS::NullEntity) return;
 		auto& ic = ui.GetOrAddIconData(eGridBtn);
 		SDL::Color tint = state.showGrid ? pal::GREEN : SDL::Color{255,255,255,255};
-		ic.tintNormal  = tint;
-		ic.tintHovered = tint;
+		ic.tintNormalColor  = tint;
+		ic.tintHoveredColor = tint;
 		auto& s = ui.GetStyle(eGridBtn);
 		s.bgColor = state.showGrid ? SDL::Color{26,58,38,220} : SDL::Color{0,0,0,0};
 	}

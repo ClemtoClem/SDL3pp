@@ -64,30 +64,34 @@ namespace UI {
 
 	struct Style {
 		SDL::Color bgColor          = {22, 22, 30, 255};
-		SDL::Color bgHovered        = {40, 42, 58, 255};
-		SDL::Color bgPressed        = {14, 14, 20, 255};
-		SDL::Color bgChecked        = {55, 115, 195, 255};
-		SDL::Color bgFocused        = {14, 14, 20, 255};
-		SDL::Color bgDisabled       = {22, 22, 28, 160};
+		SDL::Color bgHoveredColor	= {40, 42, 58, 255};
+		SDL::Color bgPressedColor	= {14, 14, 20, 255};
+		SDL::Color bgCheckedColor	= {55, 115, 195, 255};
+		SDL::Color bgFocusedColor	= {14, 14, 20, 255};
+		SDL::Color bgDisabledColor	= {22, 22, 28, 160};
 
 		SDL::Color bdColor          = {55, 58, 78, 255};
-		SDL::Color bdHovered        = {90, 95, 130, 255};
-		SDL::Color bdPressed        = {90, 95, 130, 255};
-		SDL::Color bdChecked        = {90, 95, 130, 255};
-		SDL::Color bdFocused        = {70, 130, 210, 255};
-		SDL::Color bdDisabled       = {90, 95, 130, 255};
+		SDL::Color bdHoveredColor	= {90, 95, 130, 255};
+		SDL::Color bdPressedColor	= {90, 95, 130, 255};
+		SDL::Color bdCheckedColor	= {90, 95, 130, 255};
+		SDL::Color bdFocusedColor	= {70, 130, 210, 255};
+		SDL::Color bdDisabledColor	= {90, 95, 130, 255};
 
-		SDL::Color textColor        = {215, 215, 220, 255};
-		SDL::Color textHovered      = {255, 255, 255, 255};
-		SDL::Color textPressed      = {255, 255, 255, 255};
-		SDL::Color textChecked      = {255, 255, 255, 255};
-		SDL::Color textDisabled     = {110, 110, 120, 200};
-		SDL::Color textPlaceholder  = {90, 92, 105, 200};
+		SDL::Color textColor        	= {215, 215, 220, 255};
+		SDL::Color textHoveredColor		= {255, 255, 255, 255};
+		SDL::Color textPressedColor		= {255, 255, 255, 255};
+		SDL::Color textCheckedColor		= {255, 255, 255, 255};
+		SDL::Color textDisabledColor	= {110, 110, 120, 200};
+		SDL::Color textPlaceholderColor	= {90, 92, 105, 200};
 
-		SDL::Color track            = {42, 44, 58, 255};
-		SDL::Color fill             = {70, 130, 210, 255};
-		SDL::Color thumb            = {100, 160, 230, 255};
-		SDL::Color separator        = {55, 58, 78, 255};
+		SDL::Color trackColor       = {42, 44, 58, 255};
+		SDL::Color fillColor        = {70, 130, 210, 255};
+		SDL::Color thumbColor       = {100, 160, 230, 255};
+		SDL::Color separatorColor   = {55, 58, 78, 255};
+
+		SDL::Color tooltipBgColor	= { 30,  32,  44, 245};  ///< Fond de l'info-bulle.
+		SDL::Color tooltipBdColor	= { 75,  80, 108, 255};  ///< Bordure de l'info-bulle.
+		SDL::Color tooltipTextColor	= {215, 218, 228, 255};  ///< Texte de l'info-bulle.
 
 		SDL::FBox     borders       = {1.f, 1.f, 1.f, 1.f};
 		SDL::FCorners radius        = {5.f, 5.f, 5.f, 5.f};
@@ -103,10 +107,6 @@ namespace UI {
 		std::string scrollSound;
 		std::string showSound;
 		std::string hideSound;
-
-		SDL::Color tooltipBg    = { 30,  32,  44, 245};  ///< Fond de l'info-bulle.
-		SDL::Color tooltipBd    = { 75,  80, 108, 255};  ///< Bordure de l'info-bulle.
-		SDL::Color tooltipText  = {215, 218, 228, 255};  ///< Texte de l'info-bulle.
 	};
 
 	struct LayoutProps {
@@ -313,10 +313,10 @@ namespace UI {
 		float opacityPressed  = 0.85f; ///< Icon alpha when pressed.
 		float opacityDisabled = 0.35f; ///< Icon alpha when disabled.
 
-		SDL::Color tintNormal   = {255, 255, 255, 255}; ///< Color-mod when idle.
-		SDL::Color tintHovered  = {255, 255, 255, 255}; ///< Color-mod when hovered.
-		SDL::Color tintPressed  = {220, 220, 220, 255}; ///< Color-mod when pressed.
-		SDL::Color tintDisabled = {180, 180, 180, 255}; ///< Color-mod when disabled.
+		SDL::Color tintNormalColor   = {255, 255, 255, 255}; ///< Color-mod when idle.
+		SDL::Color tintHoveredColor  = {255, 255, 255, 255}; ///< Color-mod when hovered.
+		SDL::Color tintPressedColor  = {220, 220, 220, 255}; ///< Color-mod when pressed.
+		SDL::Color tintDisabledColor = {180, 180, 180, 255}; ///< Color-mod when disabled.
 	};
 
 	struct CanvasData {

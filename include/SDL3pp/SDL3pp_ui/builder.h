@@ -48,17 +48,17 @@ namespace UI {
 		}
 		/** @brief Set the background color when the widget is hovered. */
 		Builder &BgHover(SDL::Color c) {
-			sys.GetStyle(id).bgHovered = c;
+			sys.GetStyle(id).bgHoveredColor = c;
 			return *this;
 		}
 		/** @brief Set the background color when the widget is pressed. */
 		Builder &BgPress(SDL::Color c) {
-			sys.GetStyle(id).bgPressed = c;
+			sys.GetStyle(id).bgPressedColor = c;
 			return *this;
 		}
 		/** @brief Set the background color when the widget is checked (Toggle, selected ListBox item). */
 		Builder &BgCheck(SDL::Color c) {
-			sys.GetStyle(id).bgChecked = c;
+			sys.GetStyle(id).bgCheckedColor = c;
 			return *this;
 		}
 		/** @brief Set the border color (normal state). */
@@ -125,17 +125,17 @@ namespace UI {
 		}
 		/** @brief Set the fill color (Slider track fill, Toggle active state, etc.). */
 		Builder &FillColor(SDL::Color c) {
-			sys.GetStyle(id).fill = c;
+			sys.GetStyle(id).fillColor = c;
 			return *this;
 		}
 		/** @brief Set the track color (Slider / ScrollBar background rail). */
 		Builder &TrackColor(SDL::Color c) {
-			sys.GetStyle(id).track = c;
+			sys.GetStyle(id).trackColor = c;
 			return *this;
 		}
 		/** @brief Set the thumb color (Slider handle, ScrollBar thumb when hovered). */
 		Builder &ThumbColor(SDL::Color c) {
-			sys.GetStyle(id).thumb = c;
+			sys.GetStyle(id).thumbColor = c;
 			return *this;
 		}
 		/** @brief Set the overall opacity multiplier [0..1] applied to all rendering. */
@@ -178,10 +178,10 @@ namespace UI {
 						  SDL::Color pressed  = {220, 220, 220, 255},
 						  SDL::Color disabled = {180, 180, 180, 255}) {
 			auto &ic = sys.GetOrAddIconData(id);
-			ic.tintNormal   = normal;
-			ic.tintHovered  = hovered;
-			ic.tintPressed  = pressed;
-			ic.tintDisabled = disabled;
+			ic.tintNormalColor   = normal;
+			ic.tintHoveredColor  = hovered;
+			ic.tintPressedColor  = pressed;
+			ic.tintDisabledColor = disabled;
 			return *this;
 		}
 
@@ -662,17 +662,17 @@ namespace UI {
 		}
 		/// Couleur de fond de l'info-bulle (héritée du widget survolé).
 		Builder &TooltipBg(SDL::Color c) {
-			sys.GetStyle(id).tooltipBg = c;
+			sys.GetStyle(id).tooltipBgColor = c;
 			return *this;
 		}
 		/// Couleur de bordure de l'info-bulle.
 		Builder &TooltipBd(SDL::Color c) {
-			sys.GetStyle(id).tooltipBd = c;
+			sys.GetStyle(id).tooltipBdColor = c;
 			return *this;
 		}
 		/// Couleur du texte de l'info-bulle.
 		Builder &TooltipTextColor(SDL::Color c) {
-			sys.GetStyle(id).tooltipText = c;
+			sys.GetStyle(id).tooltipTextColor = c;
 			return *this;
 		}
 
@@ -685,6 +685,129 @@ namespace UI {
 		/// Remove a previously attached tileset skin.
 		Builder &RemoveTilesetSkin() {
 			sys.RemoveTilesetStyle(id);
+			return *this;
+		}
+
+		// ── ComboBox setters ───────────────────────────────────────────────────────
+		Builder &Items(const std::vector<std::string>& items) {
+			if (auto *d = sys.GetECSContext().Get<ComboBoxData>(id)) d->items = items;
+			return *this;
+		}
+		Builder &SelectedIndex(int idx) {
+			if (auto *d = sys.GetECSContext().Get<ComboBoxData>(id)) d->selectedIndex = idx;
+			return *this;
+		}
+		Builder &ItemHeight(int h) {
+			if (auto *d = sys.GetECSContext().Get<ComboBoxData>(id)) d->itemHeight = h;
+			return *this;
+		}
+		Builder &MaxVisible(int n) {
+			if (auto *d = sys.GetECSContext().Get<ComboBoxData>(id)) d->maxVisible = n;
+			return *this;
+		}
+
+		// ── SpinBox setters ────────────────────────────────────────────────────────
+		Builder &SpinRange(float mn, float mx) {
+			if (auto *d = sys.GetECSContext().Get<SpinBoxData>(id)) { d->min = mn; d->max = mx; }
+			return *this;
+		}
+		Builder &SpinStep(float step) {
+			if (auto *d = sys.GetECSContext().Get<SpinBoxData>(id)) d->step = step;
+			return *this;
+		}
+		Builder &SpinDecimals(int dec) {
+			if (auto *d = sys.GetECSContext().Get<SpinBoxData>(id)) d->decimals = dec;
+			return *this;
+		}
+		Builder &IntMode(bool v) {
+			if (auto *d = sys.GetECSContext().Get<SpinBoxData>(id)) d->intMode = v;
+			return *this;
+		}
+
+		// ── TabView setters ────────────────────────────────────────────────────────
+		Builder &AddTab(const std::string &label, bool closable = false) {
+			if (auto *d = sys.GetECSContext().Get<TabViewData>(id)) d->tabs.push_back({label, closable});
+			return *this;
+		}
+		Builder &ActiveTab(int idx) {
+			if (auto *d = sys.GetECSContext().Get<TabViewData>(id)) d->activeTab = idx;
+			return *this;
+		}
+		Builder &TabHeight(float h) {
+			if (auto *d = sys.GetECSContext().Get<TabViewData>(id)) d->tabHeight = h;
+			return *this;
+		}
+		Builder &TabsBottom(bool v) {
+			if (auto *d = sys.GetECSContext().Get<TabViewData>(id)) d->tabsBottom = v;
+			return *this;
+		}
+
+		// ── Expander setters ───────────────────────────────────────────────────────
+		Builder &ExpanderLabel(const std::string &label) {
+			if (auto *d = sys.GetECSContext().Get<ExpanderData>(id)) d->label = label;
+			return *this;
+		}
+		Builder &Expanded(bool v) {
+			if (auto *d = sys.GetECSContext().Get<ExpanderData>(id)) {
+				d->expanded = v; d->animT = v ? 1.f : 0.f;
+			}
+			return *this;
+		}
+		Builder &HeaderHeight(float h) {
+			if (auto *d = sys.GetECSContext().Get<ExpanderData>(id)) d->headerH = h;
+			if (auto *d = sys.GetECSContext().Get<TabViewData>(id))   d->tabHeight = h;
+			return *this;
+		}
+
+		// ── Splitter setters ───────────────────────────────────────────────────────
+		Builder &SplitRatio(float ratio) {
+			if (auto *d = sys.GetECSContext().Get<SplitterData>(id)) d->ratio = SDL::Clamp(ratio, d->minRatio, d->maxRatio);
+			return *this;
+		}
+		Builder &SplitRatioRange(float mn, float mx) {
+			if (auto *d = sys.GetECSContext().Get<SplitterData>(id)) { d->minRatio = mn; d->maxRatio = mx; }
+			return *this;
+		}
+		Builder &HandleSize(float s) {
+			if (auto *d = sys.GetECSContext().Get<SplitterData>(id)) d->handleSize = s;
+			return *this;
+		}
+
+		// ── Spinner setters ────────────────────────────────────────────────────────
+		Builder &SpinnerSpeed(float speed) {
+			if (auto *d = sys.GetECSContext().Get<SpinnerData>(id)) d->speed = speed;
+			return *this;
+		}
+		Builder &SpinnerArc(float arc) {
+			if (auto *d = sys.GetECSContext().Get<SpinnerData>(id)) d->arcSpan = arc;
+			return *this;
+		}
+		Builder &SpinnerThickness(float t) {
+			if (auto *d = sys.GetECSContext().Get<SpinnerData>(id)) d->thickness = t;
+			return *this;
+		}
+
+		// ── Badge setters ──────────────────────────────────────────────────────────
+		Builder &BadgeText(const std::string &text) {
+			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->text = text;
+			return *this;
+		}
+		Builder &BadgeBgColor(SDL::Color c) {
+			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->bgColor = c;
+			return *this;
+		}
+		Builder &BadgeTextColor(SDL::Color c) {
+			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->textColor = c;
+			return *this;
+		}
+
+		// ── ColorButton setters ────────────────────────────────────────────────────
+		Builder &SwatchColor(SDL::Color c) {
+			if (auto *d = sys.GetECSContext().Get<ColorButtonData>(id)) d->color = c;
+			return *this;
+		}
+		Builder &ShowAlpha(bool v) {
+			if (auto *d = sys.GetECSContext().Get<ColorButtonData>(id)) d->showAlpha = v;
 			return *this;
 		}
 
@@ -914,6 +1037,30 @@ namespace UI {
 		return Builder(*this, MakeGraph(n));
 	}
 
+	inline Builder System::ComboBox(const std::string &n, const std::vector<std::string>& items, int sel) {
+		return Builder(*this, MakeComboBox(n, items, sel));
+	}
+	inline Builder System::SpinBox(const std::string &n, float mn, float mx, float v, bool intMode) {
+		return Builder(*this, MakeSpinBox(n, mn, mx, v, intMode));
+	}
+	inline Builder System::TabView(const std::string &n) {
+		return Builder(*this, MakeTabView(n));
+	}
+	inline Builder System::Expander(const std::string &n, const std::string &label, bool expanded) {
+		return Builder(*this, MakeExpander(n, label, expanded));
+	}
+	inline Builder System::Splitter(const std::string &n, Orientation o, float ratio) {
+		return Builder(*this, MakeSplitter(n, o, ratio));
+	}
+	inline Builder System::Spinner(const std::string &n, float speed) {
+		return Builder(*this, MakeSpinner(n, speed));
+	}
+	inline Builder System::Badge(const std::string &n, const std::string &text) {
+		return Builder(*this, MakeBadge(n, text));
+	}
+	inline Builder System::ColorButton(const std::string &n, SDL::Color color, bool showAlpha) {
+		return Builder(*this, MakeColorButton(n, color, showAlpha));
+	}
 
 } // namespace UI
 } // namespace SDL

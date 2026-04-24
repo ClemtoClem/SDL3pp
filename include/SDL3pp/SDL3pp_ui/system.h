@@ -1861,7 +1861,7 @@ namespace UI {
 					const bool isCol = (lp->layout == Layout::InColumn);
 					auto growOf = [&](const LayoutProps* cl) -> float {
 						return 0.01f * (isCol ? (cl->height.IsGrow() ? cl->height.val : 0.f)
-						             : (cl->width.IsGrow() ? cl->width.val  : 0.f));
+									 : (cl->width.IsGrow() ? cl->width.val  : 0.f));
 					};
 					std::vector<ECS::EntityId> flow;
 					float tFixed = 0.f, tGrow = 0.f;
@@ -2217,7 +2217,7 @@ namespace UI {
 				const bool isColP = (lp->layout == Layout::InColumn);
 				auto growOfP = [&](const LayoutProps* cl) -> float {
 					return 0.01f * (isColP ? (cl->height.IsGrow() ? cl->height.val : 0.f)
-					              : (cl->width.IsGrow() ? cl->width.val : 0.f));
+								  : (cl->width.IsGrow() ? cl->width.val : 0.f));
 				};
 				std::vector<ECS::EntityId> flowChildren;
 				float tFixed = 0.f, tGrow = 0.f;
@@ -2674,6 +2674,8 @@ namespace UI {
 
 			// ── Press ─────────────────────────────────────────────────────────────
 			if (m_mousePressed) {
+				// ComboBox overlay intercept — must run before normal hit-test.
+				if (_CheckComboOverlayPress()) goto end_press;
 				// Vérifier d'abord si le clic tombe sur un thumb de scrollbar inline.
 				// Si oui, on initie le drag et on consomme l'événement.
 				if (!_TryBeginContainerScrollDrag()) {
@@ -2727,10 +2729,10 @@ namespace UI {
 								}
 							} else if (pw->type == WidgetType::Splitter) {
 								if (auto *spl = m_ctx.Get<SplitterData>(m_pressed)) {
-									spl->drag = true;
-									spl->dragStartPos   = (spl->orientation == Orientation::Horizontal)
+									spl->dragging = true;
+									spl->dragStart   = (spl->orientation == Orientation::Horizontal)
 										? m_mousePos.x : m_mousePos.y;
-									spl->dragStartRatio = spl->ratio;
+									spl->dragRatio = spl->ratio;
 								}
 							} else if (pw->type == WidgetType::TextArea || pw->type == WidgetType::Input) {
 								if (m_clickCount >= 2)
@@ -2742,6 +2744,7 @@ namespace UI {
 					}
 				}
 			}
+			end_press:;
 
 			// ── Drag ──────────────────────────────────────────────────────────────
 			if (m_mouseDown && m_pressed != ECS::NullEntity && m_ctx.IsAlive(m_pressed)) { 
@@ -2806,34 +2809,34 @@ namespace UI {
 								if (cb && cb->onChange) cb->onChange(nv);
 							}
 						}
-						} else if (pw->type == WidgetType::SpinBox) {
-							if (auto *sp = m_ctx.Get<SpinBoxData>(m_pressed); sp && sp->drag) {
-								float range = sp->max - sp->min;
-								if (range <= 0.f) range = 1.f;
-								float dy = sp->dragStartY - m_mousePos.y;
-								float nv2 = SDL::Clamp(sp->dragStartVal + dy * 0.01f * range, sp->min, sp->max);
-								if (sp->intMode) nv2 = std::round(nv2);
-								if (nv2 != sp->val) {
-									sp->val = nv2;
-									auto *cb2 = m_ctx.Get<Callbacks>(m_pressed);
-									if (cb2 && cb2->onChange) cb2->onChange(nv2);
-								}
+						
+					} else if (pw->type == WidgetType::SpinBox) {
+						if (auto *sp = m_ctx.Get<SpinBoxData>(m_pressed); sp && sp->drag) {
+							float range = sp->max - sp->min;
+							if (range <= 0.f) range = 1.f;
+							float dy = sp->dragStartY - m_mousePos.y;
+							float nv2 = SDL::Clamp(sp->dragStartVal + dy * 0.01f * range, sp->min, sp->max);
+							if (sp->intMode) nv2 = std::round(nv2);
+							if (nv2 != sp->val) {
+								sp->val = nv2;
+								auto *cb2 = m_ctx.Get<Callbacks>(m_pressed);
+								if (cb2 && cb2->onChange) cb2->onChange(nv2);
 							}
-						} else if (pw->type == WidgetType::Splitter) {
-							if (auto *spl = m_ctx.Get<SplitterData>(m_pressed); spl && spl->drag) {
-								auto *cr = m_ctx.Get<ComputedRect>(m_pressed);
-								if (cr) {
-									bool horiz = (spl->orientation == Orientation::Horizontal);
-									float cur   = horiz ? m_mousePos.x : m_mousePos.y;
-									float total = horiz ? cr->screen.w  : cr->screen.h;
-									float start = horiz ? cr->screen.x  : cr->screen.y;
-									float nr = SDL::Clamp((cur - start) / SDL::Max(1.f, total), spl->minRatio, spl->maxRatio);
-									if (nr != spl->ratio) {
-										spl->ratio = nr;
-										auto *cb2 = m_ctx.Get<Callbacks>(m_pressed);
-										if (cb2 && cb2->onChange) cb2->onChange(nr);
-										m_layoutDirty = true;
-									}
+						}
+					} else if (pw->type == WidgetType::Splitter) {
+						if (auto *spl = m_ctx.Get<SplitterData>(m_pressed); spl && spl->dragging) {
+							auto *cr = m_ctx.Get<ComputedRect>(m_pressed);
+							if (cr) {
+								bool horiz = (spl->orientation == Orientation::Horizontal);
+								float cur   = horiz ? m_mousePos.x : m_mousePos.y;
+								float total = horiz ? cr->screen.w  : cr->screen.h;
+								float start = horiz ? cr->screen.x  : cr->screen.y;
+								float nr = SDL::Clamp((cur - start) / SDL::Max(1.f, total), spl->minRatio, spl->maxRatio);
+								if (nr != spl->ratio) {
+									spl->ratio = nr;
+									auto *cb2 = m_ctx.Get<Callbacks>(m_pressed);
+									if (cb2 && cb2->onChange) cb2->onChange(nr);
+									m_layoutDirty = true;
 								}
 							}
 						}
@@ -2859,7 +2862,7 @@ namespace UI {
 					if (auto *sb  = m_ctx.Get<ScrollBarData>(m_pressed)) sb->drag  = false;
 					if (auto *kd  = m_ctx.Get<KnobData>(m_pressed))      kd->drag  = false;
 					if (auto *sp  = m_ctx.Get<SpinBoxData>(m_pressed))   sp->drag  = false;
-					if (auto *spl = m_ctx.Get<SplitterData>(m_pressed))  spl->drag = false;
+					if (auto *spl = m_ctx.Get<SplitterData>(m_pressed))  spl->dragging = false;
 					if (auto *ta  = m_ctx.Get<TextAreaData>(m_pressed))  ta->selectDragging = false;
 					m_pressed = ECS::NullEntity;
 				}
@@ -2928,14 +2931,14 @@ namespace UI {
 				auto *lp = m_ctx.Get<LayoutProps>(e);
 				if (!lp) return;
 
-				if (css.thumbY.w > 0.f && css.thumbY.h > 0.f && _Contains(css.thumbY, m_mousePos)) {
+				if (css.thumbY.w > 0.f && css.thumbY.h > 0.f && css.thumbY.Contains(m_mousePos)) {
 					css.dragY        = true;
 					css.dragStartY_  = m_mousePos.y;
 					css.dragStartOffY = lp->scrollY;
 					consumed = true;
 					return;
 				}
-				if (css.thumbX.w > 0.f && css.thumbX.h > 0.f && _Contains(css.thumbX, m_mousePos)) {
+				if (css.thumbX.w > 0.f && css.thumbX.h > 0.f && css.thumbX.Contains(m_mousePos)) {
 					css.dragX       = true;
 					css.dragStartX  = m_mousePos.x;
 					css.dragStartOff = lp->scrollX;
@@ -2978,22 +2981,9 @@ namespace UI {
 							cb->onClick();
 					}
 					break;
-				case WidgetType::ListBox: {
-					if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
-						auto *cr2 = m_ctx.Get<ComputedRect>(e);
-						auto *lp2 = m_ctx.Get<LayoutProps>(e);
-						if (cr2 && lp2) {
-							float iy  = cr2->screen.y + lp2->padding.top;
-							int   idx = (int)((m_mousePos.y - iy + lp2->scrollY) / lb->itemHeight);
-							if (idx >= 0 && idx < (int)lb->items.size()) {
-								lb->selectedIndex = idx;
-								if (cb && cb->onChange) cb->onChange((float)idx);
-								if (cb && cb->onClick)  cb->onClick();
-							}
-						}
-					}
+				case WidgetType::ListBox: 
+					_OnClickListBox(e);
 					break;
-				}
 				case WidgetType::ComboBox:
 					_OnClickComboBox(e);
 					break;
@@ -3044,7 +3034,7 @@ namespace UI {
 			auto *cr = m_ctx.Get<ComputedRect>(e);
 			if (!w || !cr || !Has(w->behavior, BehaviorFlag::Visible))
 				return ECS::NullEntity;
-			if (!_Contains(cr->clip, p))
+			if (!cr->clip.Contains(p))
 				return ECS::NullEntity;
 			auto *ch = m_ctx.Get<Children>(e);
 			if (ch)
@@ -3053,10 +3043,7 @@ namespace UI {
 					if (h != ECS::NullEntity)
 						return h;
 				}
-			return _Contains(cr->screen, p) ? e : ECS::NullEntity;
-		}
-		[[nodiscard]] static bool _Contains(const FRect &r, FPoint p) noexcept {
-			return p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h;
+			return cr->screen.Contains(p) ? e : ECS::NullEntity;
 		}
 
 		void _HandleTextInput(const char *txt) {
@@ -3433,7 +3420,7 @@ namespace UI {
 				[&](ECS::EntityId e, CanvasData& cd, Widget& w, ComputedRect& cr) {
 					if (!Has(w.behavior, BehaviorFlag::Visible | BehaviorFlag::Enable)) return;
 					if (!cd.eventCb) return;
-					const bool mouseInside = _Contains(cr.clip, m_mousePos);
+					const bool mouseInside = cr.clip.Contains(m_mousePos);
 					const bool hasFocus    = (m_focused == e);
 					if (mouseInside || hasFocus)
 						cd.eventCb(const_cast<SDL::Event&>(evt));
@@ -3583,7 +3570,7 @@ namespace UI {
 				ts.fontKey  = rf.key;
 				ts.fontSize = rf.size;
 				ts.usedFont = rf.isDebug ? FontType::Debug
-				            : (rf.key.empty() ? FontType::Default : FontType::Self);
+							: (rf.key.empty() ? FontType::Default : FontType::Self);
 			}
 
 			constexpr float kPadH = 8.f, kPadV = 5.f;
@@ -3602,9 +3589,9 @@ namespace UI {
 
 			const FRect r = {x, y, bw, bh};
 			m_renderer.ResetClipRect();
-			_FillRR(r,   s.tooltipBg, SDL::FCorners(4.f), 1.f);
-			_StrokeRR(r, s.tooltipBd, {1.f, 1.f, 1.f, 1.f}, SDL::FCorners(4.f), 1.f);
-			_Text(m_tooltipEntity, td->text, x + kPadH, y + kPadV, s.tooltipText, 1.f, ts);
+			_FillRR(r,   s.tooltipBgColor, SDL::FCorners(4.f), 1.f);
+			_StrokeRR(r, s.tooltipBdColor, {1.f, 1.f, 1.f, 1.f}, SDL::FCorners(4.f), 1.f);
+			_Text(m_tooltipEntity, td->text, x + kPadH, y + kPadV, s.tooltipTextColor, 1.f, ts);
 		}
 
 		// ── Render ─────────────────────────────────────────────────────────
@@ -3921,7 +3908,7 @@ namespace UI {
 			lp->scrollX = SDL::Clamp(lp->scrollX, 0.f, SDL::Max(0.f, lp->contentW - viewW));
 			lp->scrollY = SDL::Clamp(lp->scrollY, 0.f, SDL::Max(0.f, lp->contentH - viewH));
 
-			SDL::Color trackCol = s.track;
+			SDL::Color trackCol = s.trackColor;
 			trackCol.a = SDL::Clamp8((int)(trackCol.a * s.opacity * 0.85f));
 
 			// ── Scrollbar Verticale ──
@@ -3937,8 +3924,8 @@ namespace UI {
 					float tH     = SDL::Max(t * 2.f, barY.h * ratio);
 					float tY     = barY.y + (barY.h - tH) * offN;
 
-					bool thumbHov = css->dragY || _Contains({barY.x, tY, t, tH}, m_mousePos);
-					SDL::Color thumbCol = thumbHov ? s.thumb : s.fill;
+					bool thumbHov = css->dragY || FRect(barY.x, tY, t, tH).Contains(m_mousePos);
+					SDL::Color thumbCol = thumbHov ? s.thumbColor : s.fillColor;
 					thumbCol.a = SDL::Clamp8((int)(thumbCol.a * s.opacity));
 
 					css->thumbY = {barY.x + 1.f, tY, t - 2.f, tH};
@@ -3960,8 +3947,8 @@ namespace UI {
 					float tW     = SDL::Max(t * 2.f, barX.w * ratio);
 					float tX     = barX.x + (barX.w - tW) * offN;
 
-					bool thumbHov = css->dragX || _Contains({tX, barX.y, tW, t}, m_mousePos);
-					SDL::Color thumbCol = thumbHov ? s.thumb : s.fill;
+					bool thumbHov = css->dragX || SDL::FRect(tX, barX.y, tW, t).Contains(m_mousePos);
+					SDL::Color thumbCol = thumbHov ? s.thumbColor : s.fillColor;
 					thumbCol.a = SDL::Clamp8((int)(thumbCol.a * s.opacity));
 
 					css->thumbX = {tX, barX.y + 1.f, tW, t - 2.f};
@@ -3979,11 +3966,11 @@ namespace UI {
 		void _DrawContainer(ECS::EntityId e, const FRect &r, const Style &s,
 							const WidgetState &st, const Widget &w) {
 			// ── Background & border ───────────────────────────────────────────────
-			SDL::Color bgColor = st.pressed ? s.bgPressed
-							   : st.hovered ? s.bgHovered
+			SDL::Color bgColor = st.pressed ? s.bgPressedColor
+							   : st.hovered ? s.bgHoveredColor
 							   : s.bgColor;
 			_FillRR(r, bgColor, s.radius, s.opacity);
-			_StrokeRR(r, st.hovered ? s.bdHovered : s.bdColor, s.borders, s.radius, s.opacity);
+			_StrokeRR(r, st.hovered ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
 
 			// ── InGrid separator lines ────────────────────────────────────────────
 			auto *lp = m_ctx.Get<LayoutProps>(e);
@@ -4038,20 +4025,20 @@ namespace UI {
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!c)
 				return;
-			SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabled : st.hovered ? s.textHovered
+			SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabledColor : st.hovered ? s.textHoveredColor
 																	 : s.textColor;
 			_Text(e, c->text, r.x + (lp ? lp->padding.left : 4.f), r.y + (r.h - _TH(e)) * 0.5f, tc, s.opacity, s);
 		}
 
 		void _DrawButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
 			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
-			SDL::Color bgColor = !enabled ? s.bgDisabled
-				: (st.pressed ? s.bgPressed
-					: (st.hovered ? s.bgHovered : s.bgColor));
-			SDL::Color bdColor = (m_focused == e) ? s.bdFocused
-				: (st.hovered ? s.bdHovered : s.bdColor);
-			SDL::Color tc = !enabled ? s.textDisabled
-				: (st.hovered ? s.textHovered : s.textColor);
+			SDL::Color bgColor = !enabled ? s.bgDisabledColor
+				: (st.pressed ? s.bgPressedColor
+					: (st.hovered ? s.bgHoveredColor : s.bgColor));
+			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor
+				: (st.hovered ? s.bdHoveredColor : s.bdColor);
+			SDL::Color tc = !enabled ? s.textDisabledColor
+				: (st.hovered ? s.textHoveredColor : s.textColor);
 			_FillRR(r, bgColor, s.radius, s.opacity);
 			_StrokeRR(r, bdColor, s.borders, s.radius, s.opacity);
 
@@ -4079,10 +4066,10 @@ namespace UI {
 						: st.pressed ? ic->opacityPressed
 						: st.hovered ? ic->opacityHovered
 						: ic->opacityNormal) * s.opacity;
-					const SDL::Color &tint = !enabled ? ic->tintDisabled
-						: st.pressed ? ic->tintPressed
-						: st.hovered ? ic->tintHovered
-						: ic->tintNormal;
+					const SDL::Color &tint = !enabled ? ic->tintDisabledColor
+						: st.pressed ? ic->tintPressedColor
+						: st.hovered ? ic->tintHoveredColor
+						: ic->tintNormalColor;
 
 					tex.SetAlphaMod(SDL::Clamp8((int)(opacity * 255.f)));
 					tex.SetColorMod(tint.r, tint.g, tint.b);
@@ -4109,13 +4096,13 @@ namespace UI {
 			constexpr float TW = 44.f, TH = 22.f;
 			float ty = r.y + (r.h - TH) * 0.5f;
 			FRect tr_ = {r.x + 8.f, ty, TW, TH};
-			SDL::Color tc2 = {(Uint8)(s.track.r + (s.fill.r - s.track.r) * t->animT), (Uint8)(s.track.g + (s.fill.g - s.track.g) * t->animT), (Uint8)(s.track.b + (s.fill.b - s.track.b) * t->animT), s.track.a};
+			SDL::Color tc2 = {(Uint8)(s.trackColor.r + (s.fillColor.r - s.trackColor.r) * t->animT), (Uint8)(s.trackColor.g + (s.fillColor.g - s.trackColor.g) * t->animT), (Uint8)(s.trackColor.b + (s.fillColor.b - s.trackColor.b) * t->animT), s.trackColor.a};
 			_FillRR(tr_, tc2, SDL::FCorners(TH) * 0.5f, s.opacity);
-			_StrokeRR(tr_, (m_focused == e) ? s.bdFocused : s.bdColor, s.borders, SDL::FCorners(TH) * 0.5f, s.opacity);
+			_StrokeRR(tr_, (m_focused == e) ? s.bdFocusedColor : s.bdColor, s.borders, SDL::FCorners(TH) * 0.5f, s.opacity);
 			float thumbR = (TH - 4.f) * 0.5f, thumbX = tr_.x + 2.f + thumbR + t->animT * (TW - 4.f - TH);
-			_FillRR({thumbX - thumbR, ty + (TH - thumbR * 2.f) * 0.5f, thumbR * 2.f, thumbR * 2.f}, st.hovered ? s.thumb : SDL::Color{200, 202, 210, 255}, SDL::FCorners(thumbR), s.opacity);
+			_FillRR({thumbX - thumbR, ty + (TH - thumbR * 2.f) * 0.5f, thumbR * 2.f, thumbR * 2.f}, st.hovered ? s.thumbColor : SDL::Color{200, 202, 210, 255}, SDL::FCorners(thumbR), s.opacity);
 			if (c && !c->text.empty()) {
-				SDL::Color col = w && !Has(w->behavior, BehaviorFlag::Enable) ? s.textDisabled : s.textColor;
+				SDL::Color col = w && !Has(w->behavior, BehaviorFlag::Enable) ? s.textDisabledColor : s.textColor;
 				_Text(e, c->text, tr_.x + TW + 10.f, r.y + (r.h - _TH(e)) * 0.5f, col, s.opacity, s);
 			}
 		}
@@ -4128,25 +4115,25 @@ namespace UI {
 				return;
 			const float OR = 9.f;
 			float cx_ = r.x + 14.f, cy_ = r.y + r.h * 0.5f;
-			SDL::Color bgColor = !w || !Has(w->behavior, BehaviorFlag::Enable) ? s.bgDisabled : st.pressed ? s.bgPressed
-														   : st.hovered   ? s.bgHovered
+			SDL::Color bgColor = !w || !Has(w->behavior, BehaviorFlag::Enable) ? s.bgDisabledColor : st.pressed ? s.bgPressedColor
+														   : st.hovered   ? s.bgHoveredColor
 																		  : s.bgColor;
 			bgColor.a = (Uint8)(bgColor.a * s.opacity);
 			m_renderer.SetDrawColor(bgColor);
 			m_renderer.RenderCircle({cx_, cy_}, OR);
-			SDL::Color bdColor = (m_focused == e) ? s.bdFocused : st.hovered ? s.bdHovered
+			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor : st.hovered ? s.bdHoveredColor
 																			: s.bdColor;
 			bdColor.a = (Uint8)(bdColor.a * s.opacity);
 			m_renderer.SetDrawColor(bdColor);
 			m_renderer.RenderCircle({cx_, cy_}, OR);
 			if (rd->checked) {
-				SDL::Color fc = s.fill;
+				SDL::Color fc = s.fillColor;
 				fc.a = (Uint8)(fc.a * s.opacity);
 				m_renderer.SetDrawColor(fc);
 				m_renderer.RenderFillCircle({cx_, cy_}, OR * 0.5f);
 			}
 			if (c && !c->text.empty()) {
-				SDL::Color tc = !w || !Has(w->behavior, BehaviorFlag::Enable) ? s.textDisabled : st.hovered ? s.textHovered
+				SDL::Color tc = !w || !Has(w->behavior, BehaviorFlag::Enable) ? s.textDisabledColor : st.hovered ? s.textHoveredColor
 																				: s.textColor;
 				_Text(e, c->text, r.x + 30.f, r.y + (r.h - _TH(e)) * 0.5f, tc, s.opacity, s);
 			}
@@ -4160,25 +4147,25 @@ namespace UI {
 			float norm = (sd->max > sd->min) ? (sd->val - sd->min) / (sd->max - sd->min) : 0.f;
 			if (sd->orientation == Orientation::Horizontal) {
 				float tx = r.x + lp->padding.left, bx_ = r.x + r.w - lp->padding.right, tw = bx_ - tx, mid = r.y + r.h * 0.5f;
-				_FillRR({tx, mid - TH * 0.5f, tw, TH}, s.track, SDL::FCorners(TH * 0.5f), s.opacity);
+				_FillRR({tx, mid - TH * 0.5f, tw, TH}, s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				if (norm > 0.f)
-					_FillRR({tx, mid - TH * 0.5f, tw * norm, TH}, Has(w.behavior, BehaviorFlag::Enable) ? s.fill : s.track, SDL::FCorners(TH * 0.5f), s.opacity);
+					_FillRR({tx, mid - TH * 0.5f, tw * norm, TH}, Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				float tcx = tx + tw * norm;
-				SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabled : (m_focused == e || sd->drag || st.hovered) ? s.thumb
+				SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabledColor : (m_focused == e || sd->drag || st.hovered) ? s.thumbColor
 																										 : SDL::Color{160, 170, 190, 255};
 				_FillRR({tcx - TR, mid - TR, TR * 2.f, TR * 2.f}, tc, SDL::FCorners(TR), s.opacity);
 				if (m_focused == e)
-					_StrokeRR({tcx - TR, mid - TR, TR * 2.f, TR * 2.f}, s.bdFocused, s.borders, SDL::FCorners(TR), s.opacity);
+					_StrokeRR({tcx - TR, mid - TR, TR * 2.f, TR * 2.f}, s.bdFocusedColor, s.borders, SDL::FCorners(TR), s.opacity);
 			}
 			else {
 				float ty_ = r.y + lp->padding.top, by_ = r.y + r.h - lp->padding.bottom, th_ = by_ - ty_, mid = r.x + r.w * 0.5f;
-				_FillRR({mid - TH * 0.5f, ty_, TH, th_}, s.track, SDL::FCorners(TH * 0.5f), s.opacity);
+				_FillRR({mid - TH * 0.5f, ty_, TH, th_}, s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				if (norm > 0.f) {
 					float fH = th_ * norm;
-					_FillRR({mid - TH * 0.5f, by_ - fH, TH, fH}, Has(w.behavior, BehaviorFlag::Enable) ? s.fill : s.track, SDL::FCorners(TH * 0.5f), s.opacity);
+					_FillRR({mid - TH * 0.5f, by_ - fH, TH, fH}, Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				}
 				float tcy = ty_ + th_ * (1.f - norm);
-				SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabled : (m_focused == e || sd->drag || st.hovered) ? s.thumb
+				SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabledColor : (m_focused == e || sd->drag || st.hovered) ? s.thumbColor
 																										 : SDL::Color{160, 170, 190, 255};
 				_FillRR({mid - TR, tcy - TR, TR * 2.f, TR * 2.f}, tc, SDL::FCorners(TR), s.opacity);
 			}
@@ -4188,18 +4175,18 @@ namespace UI {
 			auto *sb = m_ctx.Get<ScrollBarData>(e);
 			if (!sb)
 				return;
-			_FillRR(r, s.track, s.radius, s.opacity);
+			_FillRR(r, s.trackColor, s.radius, s.opacity);
 			if (sb->contentSize <= 0.f || sb->viewSize >= sb->contentSize)
 				return;
 			float ratio = sb->viewSize / sb->contentSize, maxO = sb->contentSize - sb->viewSize;
 			float offN = (maxO > 0.f) ? sb->offset / maxO : 0.f;
 			if (sb->orientation == Orientation::Vertical) {
 				float tH = SDL::Max(20.f, r.h * ratio), tY = r.y + (r.h - tH) * offN;
-				_FillRR({r.x + 1.f, tY, r.w - 2.f, tH}, (st.hovered || sb->drag) ? s.thumb : s.fill, s.radius, s.opacity);
+				_FillRR({r.x + 1.f, tY, r.w - 2.f, tH}, (st.hovered || sb->drag) ? s.thumbColor : s.fillColor, s.radius, s.opacity);
 			}
 			else {
 				float tW = SDL::Max(20.f, r.w * ratio), tX = r.x + (r.w - tW) * offN;
-				_FillRR({tX, r.y + 1.f, tW, r.h - 2.f}, (st.hovered || sb->drag) ? s.thumb : s.fill, s.radius, s.opacity);
+				_FillRR({tX, r.y + 1.f, tW, r.h - 2.f}, (st.hovered || sb->drag) ? s.thumbColor : s.fillColor, s.radius, s.opacity);
 			}
 		}
 
@@ -4209,14 +4196,14 @@ namespace UI {
 			if (!sd || !lp) return;
 			float tx = r.x + lp->padding.left, tw = r.x + r.w - lp->padding.right - tx, norm = (sd->max > sd->min) ? (sd->val - sd->min) / (sd->max - sd->min) : 0.f;
 			FRect tr_ = {tx, r.y + (r.h - 8.f) * 0.5f, tw, 8.f};
-			_FillRR(tr_, s.track, FCorners(4.f), s.opacity);
+			_FillRR(tr_, s.trackColor, FCorners(4.f), s.opacity);
 			if (norm > 0.f)
-				_FillRR({tx, tr_.y, tw * norm, tr_.h}, s.fill, FCorners(4.f), s.opacity);
+				_FillRR({tx, tr_.y, tw * norm, tr_.h}, s.fillColor, FCorners(4.f), s.opacity);
 			_StrokeRR(tr_, s.bdColor, s.borders, FCorners(4.f), s.opacity);
 		}
 		
 		void _DrawSeparator(const FRect &r, const Style &s) {
-			_FillRect({r.x, r.y + r.h * 0.5f, r.w, 1.f}, s.separator, s.opacity);
+			_FillRect({r.x, r.y + r.h * 0.5f, r.w, 1.f}, s.separatorColor, s.opacity);
 		}
 		
 		void _DrawInput(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
@@ -4228,11 +4215,11 @@ namespace UI {
 			bool enabled = Has(w.behavior, BehaviorFlag::Enable);
 
 			// Fond et bordures
-			SDL::Color bgColor = !enabled ? s.bgDisabled : foc ? s.bgFocused
+			SDL::Color bgColor = !enabled ? s.bgDisabledColor : foc ? s.bgFocusedColor
 													: st.hovered ? SDL::Color{30, 32, 44, 255}
 																 : s.bgColor;
-			SDL::Color bdColor = !enabled ? s.bdDisabled : foc ? s.bdFocused
-												: st.hovered ? s.bdHovered
+			SDL::Color bdColor = !enabled ? s.bdDisabledColor : foc ? s.bdFocusedColor
+												: st.hovered ? s.bdHoveredColor
 															 : s.bdColor;
 			_FillRR(r, bgColor, s.radius, s.opacity);
 			_StrokeRR(r, bdColor, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
@@ -4255,9 +4242,9 @@ namespace UI {
 			// ── Texte et Curseur ──
 			bool showPH = c->text.empty() && !c->placeholder.empty() && !foc;
 			if (showPH) {
-				_Text(e, c->placeholder, tx_, ty_, s.textPlaceholder, s.opacity, s);
+				_Text(e, c->placeholder, tx_, ty_, s.textPlaceholderColor, s.opacity, s);
 			} else {
-				_Text(e, c->text, tx_, ty_, enabled ? s.textColor : s.textDisabled, s.opacity, s);
+				_Text(e, c->text, tx_, ty_, enabled ? s.textColor : s.textDisabledColor, s.opacity, s);
 
 				if (foc && c->blinkTimer < 0.5f) {
 					float cx_ = tx_ + _TW(c->text.substr(0, (size_t)SDL::Max(0, c->cursor)), e);
@@ -4277,13 +4264,13 @@ namespace UI {
 			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
 
 			// ── 1. Fond & Bordures ────────────────────────────────────────────────
-			SDL::Color bgC = !enabled ? s.bgDisabled
-						   : foc      ? s.bgFocused
+			SDL::Color bgC = !enabled ? s.bgDisabledColor
+						   : foc      ? s.bgFocusedColor
 						   : st.hovered ? SDL::Color{30, 32, 44, 255}
 										: s.bgColor;
-			SDL::Color bdC = !enabled ? s.bdDisabled
-						   : foc      ? s.bdFocused
-						   : st.hovered ? s.bdHovered : s.bdColor;
+			SDL::Color bdC = !enabled ? s.bdDisabledColor
+						   : foc      ? s.bdFocusedColor
+						   : st.hovered ? s.bdHoveredColor : s.bdColor;
 			
 			_FillRR(r, bgC, s.radius, s.opacity);
 			_StrokeRR(r, bdC, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
@@ -4315,7 +4302,7 @@ namespace UI {
 			// ── 4. Rendu du Placeholder (si vide) ─────────────────────────────────
 			if (ta->text.empty() && cnt && !cnt->placeholder.empty() && !foc) {
 				_Text(e, cnt->placeholder, r.x + lp->padding.left, r.y + lp->padding.top,
-					  s.textPlaceholder, s.opacity, s);
+					  s.textPlaceholderColor, s.opacity, s);
 			} 
 			else {
 				// ── 5. Préparation des coordonnées de rendu scrollées ─────────────
@@ -4389,7 +4376,7 @@ namespace UI {
 							char ch = ta->text[k];
 							if (ch == '\t') {
 								if (!run.empty()) {
-									SDL::Color tc = enabled ? s.textColor : s.textDisabled;
+									SDL::Color tc = enabled ? s.textColor : s.textDisabledColor;
 									if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
 									_Text(e, run, xOff, ly, tc, s.opacity, s);
 									xOff += _TW(run, e);
@@ -4405,7 +4392,7 @@ namespace UI {
 							}
 						}
 						if (!run.empty()) {
-							SDL::Color tc = enabled ? s.textColor : s.textDisabled;
+							SDL::Color tc = enabled ? s.textColor : s.textDisabledColor;
 							if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
 							_Text(e, run, xOff, ly, tc, s.opacity, s);
 							xOff += _TW(run, e);
@@ -4453,22 +4440,22 @@ namespace UI {
 			if (oR <= 0.f) return; // Ultime sécurité
 
 			// Couleur de fond
-			SDL::Color bgColor = !Has(w.behavior, BehaviorFlag::Enable) ? s.bgDisabled 
-							: st.pressed ? s.bgPressed
-							: st.hovered ? s.bgHovered : s.bgColor;
+			SDL::Color bgColor = !Has(w.behavior, BehaviorFlag::Enable) ? s.bgDisabledColor 
+							: st.pressed ? s.bgPressedColor
+							: st.hovered ? s.bgHoveredColor : s.bgColor;
 			bgColor.a = (Uint8)(bgColor.a * s.opacity);
 			m_renderer.SetDrawColor(bgColor);
 			m_renderer.RenderFillCircle({cx_, cy_}, oR);
 
 			// Bordure
-			SDL::Color bdColor = (m_focused == e) ? s.bdFocused 
-							: st.hovered ? s.bdHovered : s.bdColor;
+			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor 
+							: st.hovered ? s.bdHoveredColor : s.bdColor;
 			bdColor.a = (Uint8)(bdColor.a * s.opacity);
 			m_renderer.SetDrawColor(bdColor);
 			m_renderer.RenderCircle({cx_, cy_}, oR);
 
 			// Track (fond de l'arc) : 135° à 45° (sens horaire)
-			SDL::Color trackC = s.track;
+			SDL::Color trackC = s.trackColor;
 			trackC.a = (Uint8)(trackC.a * s.opacity);
 			m_renderer.SetDrawColor(trackC);
 			m_renderer.RenderArc({cx_, cy_}, iR, 135.f, 360.f);
@@ -4478,7 +4465,7 @@ namespace UI {
 			norm = SDL::Clamp(norm, 0.f, 1.f);
 
 			// Remplissage de la valeur
-			SDL::Color fillC = Has(w.behavior, BehaviorFlag::Enable) ? s.fill : s.textDisabled;
+			SDL::Color fillC = Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.textDisabledColor;
 			fillC.a = (Uint8)(fillC.a * s.opacity);
 			m_renderer.SetDrawColor(fillC);
 			
@@ -4578,11 +4565,11 @@ namespace UI {
 			if (!lb || !lp) return;
 
 			// Background + focused/hovered border
-			SDL::Color bg = st.focused ? s.bgFocused
-						  : st.hovered ? s.bgHovered
+			SDL::Color bg = st.focused ? s.bgFocusedColor
+						  : st.hovered ? s.bgHoveredColor
 						  : s.bgColor;
 			_FillRR(r, bg, s.radius, s.opacity);
-			_StrokeRR(r, st.focused ? s.bdFocused : st.hovered ? s.bdHovered : s.bdColor,
+			_StrokeRR(r, st.focused ? s.bdFocusedColor : st.hovered ? s.bdHoveredColor : s.bdColor,
 					  s.borders, s.radius, s.opacity);
 
 			const float ih     = lb->itemHeight;
@@ -4623,18 +4610,18 @@ namespace UI {
 							   && m_mousePos.x >= r.x && m_mousePos.x < r.x + r.w - (showY ? t : 0.f));
 
 				if (isSel) {
-					SDL::Color c = s.bgChecked;
+					SDL::Color c = s.bgCheckedColor;
 					c.a = SDL::Clamp8((int)((float)c.a * s.opacity));
 					m_renderer.SetDrawColor(c);
 					m_renderer.RenderFillRect(itemR);
 				} else if (isHov) {
-					SDL::Color c = s.bgHovered;
+					SDL::Color c = s.bgHoveredColor;
 					c.a = SDL::Clamp8((int)((float)c.a * s.opacity * 0.55f));
 					m_renderer.SetDrawColor(c);
 					m_renderer.RenderFillRect(itemR);
 				}
 
-				SDL::Color tc = isSel ? s.textChecked : s.textColor;
+				SDL::Color tc = isSel ? s.textCheckedColor : s.textColor;
 				_Text(e, lb->items[(size_t)i],
 					  px, ry + (ih - charH) * 0.5f,
 					  tc, s.opacity, s);
@@ -4661,7 +4648,7 @@ namespace UI {
 			const SDL::Rect outerClip = m_renderer.GetClipRect();
 
 			_FillRR(r, s.bgColor, s.radius, s.opacity);
-			_StrokeRR(r, st.hovered ? s.bdHovered : s.bdColor, s.borders, s.radius, s.opacity);
+			_StrokeRR(r, st.hovered ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
 
 			const float op    = s.opacity;
 			const float charH = _TH(e);
@@ -4876,6 +4863,24 @@ namespace UI {
 				cb->onChange((float)lb->selectedIndex);
 		}
 
+		void _OnClickListBox(ECS::EntityId e) {
+			if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
+				auto *cr2 = m_ctx.Get<ComputedRect>(e);
+				auto *lp2 = m_ctx.Get<LayoutProps>(e);
+				if (cr2 && lp2) {
+					float iy  = cr2->screen.y + lp2->padding.top;
+					int   idx = (int)((m_mousePos.y - iy + lp2->scrollY) / lb->itemHeight);
+					if (idx >= 0 && idx < (int)lb->items.size()) {
+						lb->selectedIndex = idx;
+						auto *cb  = m_ctx.Get<Callbacks>(m_focused);
+						if (cb && cb->onChange) cb->onChange((float)idx);
+						if (cb && cb->onClick)  cb->onClick();
+					}
+				}
+			}
+		
+		}
+
 		// ── ComboBox helpers ───────────────────────────────────────────────────────
 
 		void _OnClickComboBox(ECS::EntityId e) {
@@ -4926,7 +4931,6 @@ namespace UI {
 			auto *cb = m_ctx.Get<Callbacks>(e);
 			if (!d || !cr) return;
 			float bx = cr->screen.x;
-			float by = cr->screen.y + (d->tabsBottom ? cr->screen.h - d->tabHeight : 0.f);
 			float x  = m_mousePos.x - bx;
 			float cumX = 0.f;
 			for (int i = 0; i < (int)d->tabs.size(); ++i) {
@@ -4984,27 +4988,35 @@ namespace UI {
 
 		// ── Draw helpers ───────────────────────────────────────────────────────────
 
-		void _DrawComboBox(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+		void _DrawComboBox(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
 			auto *d  = m_ctx.Get<ComboBoxData>(e);
-			auto *cb_c = m_ctx.Get<Content>(e);
 			if (!d) return;
 			const bool hover  = st.hovered;
 			const bool focus  = (m_focused == e);
-			SDL::Color bg  = hover ? s.hoverBg  : s.bgColor;
-			SDL::Color bd  = focus ? s.accentColor : s.bdColor;
-			_FillRR(r, bg, s.corners, s.opacity);
-			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.corners, s.opacity);
+			SDL::Color bg  = hover ? s.bgHoveredColor  : s.bgColor;
+			SDL::Color bd  = focus ? s.fillColor : s.bdColor;
+			_FillRR(r, bg, s.radius, s.opacity);
+			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.radius, s.opacity);
+
 			// Arrow
 			float ax = r.x + r.w - 18.f, ay = r.y + r.h * 0.5f;
 			m_renderer.SetDrawColor(s.textColor);
-			m_renderer.RenderLine({ax,     ay - 4.f}, {ax + 8.f, ay - 4.f});
-			m_renderer.RenderLine({ax,     ay - 4.f}, {ax + 4.f, ay + 3.f});
-			m_renderer.RenderLine({ax + 8.f, ay - 4.f}, {ax + 4.f, ay + 3.f});
+			if (d->open) {
+				m_renderer.RenderLine({ax,     ay - 4.f}, {ax + 8.f, ay - 4.f});
+				m_renderer.RenderLine({ax,     ay - 4.f}, {ax + 4.f, ay + 3.f});
+				m_renderer.RenderLine({ax + 8.f, ay - 4.f}, {ax + 4.f, ay + 3.f});
+			} else {
+				m_renderer.RenderLine({ax,     ay + 4.f}, {ax + 8.f, ay + 4.f});
+				m_renderer.RenderLine({ax,     ay + 4.f}, {ax + 4.f, ay - 3.f});
+				m_renderer.RenderLine({ax + 8.f, ay + 4.f}, {ax + 4.f, ay - 3.f});
+			}
+
 			// Selected text
 			const std::string &label = (d->selectedIndex >= 0 && d->selectedIndex < (int)d->items.size())
 				? d->items[d->selectedIndex] : "";
 			if (!label.empty())
 				_Text(e, label, r.x + 8.f, r.y + (r.h - _TH(e)) * 0.5f, s.textColor, s.opacity, s);
+			
 			// Store drop rect for overlay rendering
 			float dropH = SDL::Min((float)d->maxVisible, (float)d->items.size()) * d->itemHeight;
 			d->dropRect = {r.x, r.y + r.h, r.w, dropH};
@@ -5017,16 +5029,16 @@ namespace UI {
 			if (!d || !s || d->items.empty()) return;
 			const FRect &drop = d->dropRect;
 			m_renderer.ResetClipRect();
-			_FillRR(drop, s->popupBg.a ? s->popupBg : SDL::Color{30,30,35,245}, SDL::FCorners(4.f), 1.f);
+			_FillRR(drop, SDL::Color{30,30,35,245}, SDL::FCorners(4.f), 1.f);
 			_StrokeRR(drop, s->bdColor, {1.f,1.f,1.f,1.f}, SDL::FCorners(4.f), 1.f);
 			float iy = drop.y;
 			int count = SDL::Min((int)d->items.size(), d->maxVisible);
 			for (int i = d->scrollOffset; i < d->scrollOffset + count && i < (int)d->items.size(); ++i) {
 				FRect row = {drop.x, iy, drop.w, (float)d->itemHeight};
 				if (i == d->selectedIndex)
-					_FillRR(row, s->accentColor, {}, 0.35f);
+					_FillRR(row, s->fillColor, {}, 0.35f);
 				if (i == d->hoverIndex)
-					_FillRR(row, {255,255,255,20}, {}, 1.f);
+					_FillRR(row, {255,255,255,50}, {}, 1.f);
 				_Text(m_comboOpen, d->items[i], drop.x + 8.f, iy + (d->itemHeight - _TH(m_comboOpen)) * 0.5f,
 					  s->textColor, 1.f, *s);
 				iy += d->itemHeight;
@@ -5038,10 +5050,10 @@ namespace UI {
 			if (!d) return;
 			const bool hover = st.hovered;
 			const bool focus = (m_focused == e);
-			SDL::Color bg  = hover ? s.hoverBg  : s.bgColor;
-			SDL::Color bd  = focus ? s.accentColor : s.bdColor;
-			_FillRR(r, bg, s.corners, s.opacity);
-			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.corners, s.opacity);
+			SDL::Color bg  = hover ? s.bgHoveredColor  : s.bgColor;
+			SDL::Color bd  = focus ? s.bdFocusedColor : s.bdColor;
+			_FillRR(r, bg, s.radius, s.opacity);
+			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.radius, s.opacity);
 			// Button area
 			float bw = 20.f, bh = r.h * 0.5f;
 			FRect up   = {r.x + r.w - bw, r.y,       bw, bh};
@@ -5078,7 +5090,7 @@ namespace UI {
 				float tw = _TW(d->tabs[i].label, e) + 20.f;
 				d->tabWidths[i] = tw;
 				FRect tab = {tx, ty, tw, tabH};
-				SDL::Color bg = (i == d->activeTab) ? s.accentColor : SDL::Color{45,50,65,220};
+				SDL::Color bg = (i == d->activeTab) ? s.fillColor : SDL::Color{45,50,65,220};
 				_FillRR(tab, bg, SDL::FCorners(4.f, 4.f, 0.f, 0.f), s.opacity);
 				_Text(e, d->tabs[i].label, tx + 10.f, ty + (tabH - _TH(e)) * 0.5f, s.textColor, s.opacity, s);
 				tx += tw + 2.f;
@@ -5095,8 +5107,8 @@ namespace UI {
 			if (!d) return;
 			float headerH = d->headerH;
 			FRect header = {r.x, r.y, r.w, headerH};
-			SDL::Color bg = st.hovered ? s.hoverBg : s.bgColor;
-			_FillRR(header, bg, s.corners, s.opacity);
+			SDL::Color bg = st.hovered ? s.bgHoveredColor : s.bgColor;
+			_FillRR(header, bg, s.radius, s.opacity);
 			// Arrow  (rotates with animT: 0=right, 1=down)
 			float ax = r.x + 14.f, ay = r.y + headerH * 0.5f;
 			float t  = d->animT;
@@ -5123,7 +5135,7 @@ namespace UI {
 			FRect handle = horiz
 				? FRect{pos, r.y, hs, r.h}
 				: FRect{r.x, pos, r.w, hs};
-			SDL::Color hc = st.hovered ? s.accentColor : s.bdColor;
+			SDL::Color hc = st.hovered ? s.fillColor : s.bdColor;
 			_FillRR(handle, hc, {}, s.opacity);
 		}
 
@@ -5137,7 +5149,7 @@ namespace UI {
 			// Draw arc via line segments (approximation)
 			int segments = 24;
 			float arcEnd = d->angle + d->arcSpan;
-			SDL::Color c = s.accentColor;
+			SDL::Color c = s.fillColor;
 			m_renderer.SetDrawColor({c.r, c.g, c.b, (Uint8)(c.a * s.opacity)});
 			for (int i = 0; i < segments; ++i) {
 				float a0 = d->angle + d->arcSpan * i       / segments;
@@ -5154,7 +5166,7 @@ namespace UI {
 		void _DrawBadge(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &, const Widget &) {
 			auto *d = m_ctx.Get<BadgeData>(e);
 			if (!d) return;
-			SDL::Color bg = d->bgColor.a ? d->bgColor : s.accentColor;
+			SDL::Color bg = d->bgColor.a ? d->bgColor : s.fillColor;
 			_FillRR(r, bg, SDL::FCorners(r.h * 0.5f), s.opacity);
 			float tw = _TW(d->text, e);
 			float th = _TH(e);
@@ -5165,11 +5177,11 @@ namespace UI {
 		void _DrawColorButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
 			auto *d = m_ctx.Get<ColorButtonData>(e);
 			if (!d) return;
-			SDL::Color bd = (m_focused == e) ? s.accentColor : s.bdColor;
-			_FillRR(r, d->color, s.corners, s.opacity);
-			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.corners, s.opacity);
+			SDL::Color bd = (m_focused == e) ? s.fillColor : s.bdColor;
+			_FillRR(r, d->color, s.radius, s.opacity);
+			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.radius, s.opacity);
 			if (st.hovered) {
-				_FillRR(r, {255,255,255,30}, s.corners, 1.f);
+				_FillRR(r, {255,255,255,30}, s.radius, 1.f);
 			}
 		}
 
