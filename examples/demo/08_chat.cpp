@@ -1044,15 +1044,15 @@ struct Main {
 
     // ── Core objects ──────────────────────────────────────────────────────────
 
-    SDL::Window      window  { MakeWindow()         };
-    SDL::RendererRef renderer{ window.GetRenderer() };
+    SDL::Window          window  { MakeWindow()         };
+    SDL::RendererRef     renderer{ window.GetRenderer() };
     SDL::ResourceManager rm;
     SDL::ResourcePool&   pool{ *rm.CreatePool("ui") };
     SDL::ECS::Context    ecs_ctx;
     SDL::UI::System      ui{ ecs_ctx, renderer, {}, pool };
     SDL::FrameTimer      m_frameTimer{ 60.f };
-    std::string dataPath;
-    std::string assetsPath;
+    std::string          dataPath;
+    std::string          assetsPath;
 
     // ── Application logic ─────────────────────────────────────────────────────
 

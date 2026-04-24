@@ -10,27 +10,29 @@
  * Every widget is an ECS entity (`SDL::ECS::EntityId`) driven through the pipeline:
  * Measure → Place → Clip → Input → Render → Animate.
  * 
- * | Component        | Purpose                                                  |
- * |------------------|----------------------------------------------------------|
- * | `Widget`         | WidgetType, name, enabled/visible, dirty flags           |
- * | `Style`          | Colors, bdColor, radius, font path, opacity, audio cues  |
- * | `LayoutProps`    | Value w/h/x/y, margins, padding, layout mode, grow, gap  |
+ * |------------------|------------------------------------------------------------|
+ * | Component        | Purpose                                                    |
+ * |------------------|------------------------------------------------------------|
+ * | `Widget`         | WidgetType, name, enabled/visible, dirty flags             |
+ * | `Style`          | Colors, bdColor, radius, font path, opacity, audio cues    |
+ * | `LayoutProps`    | Value w/h/x/y, margins, padding, layout mode, grow, gap    |
  * | `LayoutGridProps`| columns, rows, GridSizing, GridLines, line color/thickness |
- * | `GridCell`       | col, row, colSpan, rowSpan (child position in InGrid)     |
- * | `Content`        | Text, placeholder, cursor (Input)                        |
- * | `SliderData`     | min/max/value + drag (Slider, Progress, horizontal SB)   |
- * | `ScrollBarData`  | contentSize, viewSize, offset + drag                     |
- * | `ToggleData`     | checked + animT (Toggle)                                 |
- * | `RadioData`      | group name + checked (RadioButton)                       |
- * | `KnobData`       | normalised val [0,1] + drag                              |
- * | `ImageData`      | texture path + ImageFit                                  |
- * | `IconData`       | icon key, padding, per-state opacity + tint (Button)     |
- * | `CanvasData`     | custom render callback                                   |
- * | `WidgetState`    | hover/press/focus                                        |
- * | `Callbacks`      | onClick, onChange, onScroll, onToggle, onTextChange, …   |
- * | `ComputedRect`   | screen rect, clip rect, measured size                    |
- * | `Children`       | ordered child entity IDs                                 |
- * | `Parent`         | parent entity ID                                         |
+ * | `GridCell`       | col, row, colSpan, rowSpan (child position in InGrid)      |
+ * | `Content`        | Text, placeholder, cursor (Input)                          |
+ * | `SliderData`     | min/max/value + drag (Slider, Progress, horizontal SB)     |
+ * | `ScrollBarData`  | contentSize, viewSize, offset + drag                       |
+ * | `ToggleData`     | checked + animT (Toggle)                                   |
+ * | `RadioData`      | group name + checked (RadioButton)                         |
+ * | `KnobData`       | normalised val [0,1] + drag                                |
+ * | `ImageData`      | texture path + ImageFit                                    |
+ * | `IconData`       | icon key, padding, per-state opacity + tint (Button)       |
+ * | `CanvasData`     | custom render callback                                     |
+ * | `WidgetState`    | hover/press/focus                                          |
+ * | `Callbacks`      | onClick, onChange, onScroll, onToggle, onTextChange, …     |
+ * | `ComputedRect`   | screen rect, clip rect, measured size                      |
+ * | `Children`       | ordered child entity IDs                                   |
+ * | `Parent`         | parent entity ID                                           |
+ * |------------------|------------------------------------------------------------|
  *
  * ## Value — resolution-independent dimensions
  *
@@ -133,12 +135,14 @@
  * assets — textures, fonts, and sounds — are stored in and retrieved from that
  * single pool.
  *
+ * |---------------------------|---------------------------------|------------------------|
  * | C++ type                  | Pool key                        | Builder setter         |
  * |---------------------------|---------------------------------|------------------------|
  * | `SDL::Texture`            | string in `ImageData::key`      | `.Image("key")`        |
  * | `SDL::RendererTextEngine` |                                 |                        |
  * | `SDL::Font`               | `"font:<key>|<ptsize>"`         | `.Font("key", ptsize)` |
  * | `SDL::Audio`              | string in `Style::clickSound` … | `.ClickSound("key")`   |
+ * |---------------------------|---------------------------------|------------------------|
  *
  * All three types are looked up at runtime via `pool.Get<T>(key)`.  If a key
  * is not found the operation is silently skipped.
