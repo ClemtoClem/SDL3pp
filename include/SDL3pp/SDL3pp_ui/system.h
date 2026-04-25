@@ -1176,7 +1176,7 @@ namespace UI {
 			}
 
 			SDL::Point sz    = m_renderer.GetWindow().GetSize();
-			SDL::FRect newVp = {0.f, 0.f, (float)sz.x, (float)sz.y};
+			SDL::FRect newVp = {0.f, 0.f, SDL::Round((float)sz.x), SDL::Round((float)sz.y)};
 			if (newVp.w != m_viewport.w || newVp.h != m_viewport.h)
 				m_layoutDirty = true;
 			m_viewport = newVp;
@@ -1756,12 +1756,12 @@ namespace UI {
 			if (!rootLp) return;
 
 			// Calcul de la taille racine sans écraser la valeur d'origine (Value::Auto)
-			float rootW = rootLp->width.IsAuto()
+			float rootW = SDL::Round(rootLp->width.IsAuto()
 							? m_viewport.w
-							: rootLp->width.Resolve({{m_viewport.w, m_viewport.h}, {m_viewport.w, m_viewport.h}, rootLp->padding});
-			float rootH = rootLp->height.IsAuto()
+							: rootLp->width.Resolve({{m_viewport.w, m_viewport.h}, {m_viewport.w, m_viewport.h}, rootLp->padding}));
+			float rootH = SDL::Round(rootLp->height.IsAuto()
 							? m_viewport.h
-							: rootLp->height.Resolve({{m_viewport.w, m_viewport.h}, {m_viewport.w, m_viewport.h}, rootLp->padding});
+							: rootLp->height.Resolve({{m_viewport.w, m_viewport.h}, {m_viewport.w, m_viewport.h}, rootLp->padding}));
 
 			float rootFs = (m_defaultFontSize > 0.f) ? m_defaultFontSize : (float)SDL::DEBUG_TEXT_FONT_CHARACTER_SIZE;
 
@@ -2056,6 +2056,16 @@ namespace UI {
 
 			float bW = wa ? SDL::Max(intr.x, chW) + lp->padding.left + lp->padding.right : fw;
 			float bH = ha ? SDL::Max(intr.y, chH) + lp->padding.top  + lp->padding.bottom : fh;
+			// Expander/TabView: the header/tab bar replaces padding.top — height is header + children + bottom padding.
+			if (ha) {
+				if (w->type == WidgetType::Expander) {
+					if (auto *exd = m_ctx.Get<ExpanderData>(e))
+						bH = exd->headerH + chH + lp->padding.bottom;
+				} else if (w->type == WidgetType::TabView) {
+					if (auto *tvd = m_ctx.Get<TabViewData>(e))
+						bH = tvd->tabHeight + chH + lp->padding.bottom;
+				}
+			}
 
 			// Apply min/max size constraints (Px(-1) = no constraint).
 			// Convention CSS : maxWidth appliqué d'abord, puis minWidth prime sur maxWidth.
@@ -2110,10 +2120,14 @@ namespace UI {
 				return {120.f, SDL::Max(28.f, ch + 8.f)};
 			case WidgetType::SpinBox:
 				return {100.f, SDL::Max(28.f, ch + 8.f)};
-			case WidgetType::TabView:
-				return {200.f, 120.f};
-			case WidgetType::Expander:
-				return {120.f, SDL::Max(28.f, ch + 8.f)};
+			case WidgetType::TabView: {
+				auto *tvd = m_ctx.Get<TabViewData>(e);
+				return {200.f, tvd ? tvd->tabHeight : 32.f};
+			}
+			case WidgetType::Expander: {
+				auto *exd = m_ctx.Get<ExpanderData>(e);
+				return {120.f, exd ? exd->headerH : 28.f};
+			}
 			case WidgetType::Splitter:
 				return {200.f, 200.f};
 			case WidgetType::Spinner:
@@ -2138,8 +2152,15 @@ namespace UI {
 				return;
 
 			const FRect &self = cr->screen;
-			float cw  = self.w - lp->padding.left - lp->padding.right;
-			float ch2 = self.h - lp->padding.top  - lp->padding.bottom;
+			float cw       = self.w - lp->padding.left - lp->padding.right;
+			// Expander/TabView: children start below the header/tab bar, not at padding.top.
+			float topInset = lp->padding.top;
+			if (w->type == WidgetType::Expander) {
+				if (auto *exd = m_ctx.Get<ExpanderData>(e)) topInset = exd->headerH;
+			} else if (w->type == WidgetType::TabView) {
+				if (auto *tvd = m_ctx.Get<TabViewData>(e); tvd && !tvd->tabsBottom) topInset = tvd->tabHeight;
+			}
+			float ch2 = SDL::Max(0.f, self.h - topInset - lp->padding.bottom);
 
 			// Réserver la place des scrollbars inline pour les containers.
 			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox) {
@@ -2184,8 +2205,8 @@ namespace UI {
 			}
 
 			// Point de départ du flux, décalé par le scroll.
-			float cx  = self.x + lp->padding.left  - lp->scrollX;
-			float cy  = self.y + lp->padding.top   - lp->scrollY;
+			float cx  = self.x + lp->padding.left - lp->scrollX;
+			float cy  = self.y + topInset         - lp->scrollY;
 
 			// First pass: compute grow budget over flow children only.
 			// Placer les éléments Absolute/Fixed en priorité pour les sortir du flux
@@ -2595,11 +2616,29 @@ namespace UI {
 				childClip = cr->screen;
 				childClip.x += lp->padding.left;
 				childClip.y += lp->padding.top;
-				childClip.w = innerW - (showY ? lp->scrollbarThickness : 0.f);
-				childClip.h = innerH - (showX ? lp->scrollbarThickness : 0.f);
+				childClip.w = SDL::Round(innerW - (showY ? lp->scrollbarThickness : 0.f));
+				childClip.h = SDL::Round(innerH - (showX ? lp->scrollbarThickness : 0.f));
 				
 				// On restreint au clip du parent
 				childClip = childClip.GetIntersection(parentClip);
+			} else if (w->type == WidgetType::Expander) {
+				if (auto *exd = m_ctx.Get<ExpanderData>(e)) {
+					childClip = cr->screen;
+					childClip.y += exd->headerH + s->borders.GetH();
+					childClip.h = SDL::Max(0.f, childClip.h - exd->headerH);
+					childClip = childClip.GetIntersection(parentClip);
+				}
+			} else if (w->type == WidgetType::TabView) {
+				if (auto *tvd = m_ctx.Get<TabViewData>(e)) {
+					childClip = cr->screen;
+					if (!tvd->tabsBottom) {
+						childClip.y += tvd->tabHeight + s->borders.GetH();
+						childClip.h = SDL::Max(0.f, childClip.h - tvd->tabHeight);
+					} else {
+						childClip.h = SDL::Max(0.f, childClip.h - tvd->tabHeight);
+					}
+					childClip = childClip.GetIntersection(parentClip);
+				}
 			}
 
 			auto *ch = m_ctx.Get<Children>(e);
