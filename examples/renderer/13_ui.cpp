@@ -54,9 +54,9 @@ namespace key {
 
 struct Main {
 	static constexpr SDL::Point kWinSz     = {1280, 720};
-	static constexpr int        kPageCount = 7;
+	static constexpr int        kPageCount = 8;
 	static constexpr const char* kPageNames[kPageCount] = {
-		"Basics", "Controls", "Input & Scroll", "Image & Canvas", "Text & Lists", "Grid", "New Widgets"
+		"Basics", "Controls", "Input & Scroll", "Image & Canvas", "Text & Lists", "Grid", "New Widgets", "Advanced"
 	};
 
 	// ── SDL::AppResult callbacks ──────────────────────────────────────────────────
@@ -124,6 +124,7 @@ struct Main {
 	SDL::ECS::EntityId lblTogStatus = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId lblKnob1     = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId lblKnob2     = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId lblKnob3     = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId sbV          = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId lblSB        = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId scrollContent= SDL::ECS::NullEntity;
@@ -142,6 +143,15 @@ struct Main {
 	SDL::ECS::EntityId spinnerWidget= SDL::ECS::NullEntity;
 	SDL::ECS::EntityId badgeWidget  = SDL::ECS::NullEntity;
 	int  m_badgeCount = 0;
+
+	// ── Advanced-widgets page state ───────────────────────────────────────────
+	SDL::ECS::EntityId colorPickerRgb  = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId colorPickerGray = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId colorPickerGrad = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId lblPickedColor  = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId treeWidget      = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId lblTreeSel      = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId popupWidget     = SDL::ECS::NullEntity;
 
 	// ── Timers & animation state ──────────────────────────────────────────────────
 
@@ -275,10 +285,11 @@ struct Main {
 	// ═══════════════════════════════════════════════════════════════════════════════
 
 	void _BuildUI() {
-		ui.Column("root", 0.f, 0.f)
+		auto root = ui.Column("root", 0.f, 0.f)
 			.BgColor(pal::BG).Borders(SDL::FBox(0.f)).Radius(SDL::FCorners(0.f))
-			.Children(_BuildHeader(), _BuildContent())
-			.AsRoot();
+			.Children(_BuildHeader(), _BuildContent());
+		_BuildPopupOverlay(root);
+		root.AsRoot();
 	}
 
 	SDL::ECS::EntityId _BuildHeader() {
@@ -321,6 +332,7 @@ struct Main {
 		pages[4] = _BuildTextListsPage();
 		pages[5] = _BuildGridPage();
 		pages[6] = _BuildNewWidgetsPage();
+		pages[7] = _BuildAdvancedPage();
 
 		currentPage = SDL::Clamp(currentPage, 0, kPageCount-1);
 		for (int i = 0; i < kPageCount; ++i) {
@@ -514,6 +526,7 @@ struct Main {
 		cardKnob.Child(ui.SectionTitle("Vertical Slider + Knobs"));
 		lblKnob1 = ui.Label("lbl_k1", "Knob 1: 0.50").TextColor(pal::GREY);
 		lblKnob2 = ui.Label("lbl_k2", "Knob 2: 50.0").TextColor(pal::GREY);
+		lblKnob3 = ui.Label("lbl_k3", "Knob 3: 50.0").TextColor(pal::GREY);
 
 		auto sldV = ui.Slider("sld_v", 0, 1, .5f, SDL::UI::Orientation::Vertical)
 			.H(120).W(24).AlignH(SDL::UI::Align::Center).FillColor(pal::ACCENT)
@@ -523,18 +536,36 @@ struct Main {
 			.Style(SDL::UI::Theme::Transparent()).AlignH(SDL::UI::Align::Center)
 			.Children(
 				sldV,
-				ui.Column("k1_col", 4.f, 0.f).AlignH(SDL::UI::Align::Center).Children(
-					ui.Knob("knob1", 0, 1, .5f).W(64).H(64)
-						.FillColor(pal::ACCENT).ThumbColor(pal::ACCENT)
-						.Tooltip("Knob 1 — drag or scroll [0–1]")
-						.OnChange([this](float v){ ui.SetText(lblKnob1, std::format("Knob 1: {:.2f}", v)); }),
-					lblKnob1),
-				ui.Column("k2_col", 4.f, 0.f).AlignH(SDL::UI::Align::Center).Children(
-					ui.Knob("knob2", 0, 100, 50.f).W(64).H(64)
-						.FillColor(pal::PURPLE).ThumbColor(pal::PURPLE)
-						.Tooltip("Knob 2 — drag or scroll [0–100]")
-						.OnChange([this](float v){ ui.SetText(lblKnob2, std::format("Knob 2: {:.1f}", v)); }),
-					lblKnob2),
+				ui.Column("k1_col", 4.f, 0.f)
+					.AlignH(SDL::UI::Align::Center)
+					.Children(
+						ui.Knob("knob1", 0, 1, .5f)
+							.W(64).H(64)
+							.FillColor(pal::ACCENT).ThumbColor(pal::ACCENT)
+							.Tooltip("Knob 1 — drag or scroll [0–1]")
+							.OnChange([this](float v){ ui.SetText(lblKnob1, std::format("Knob 1: {:.2f}", v)); }),
+						lblKnob1
+					),
+				ui.Column("k2_col", 4.f, 0.f)
+					.AlignH(SDL::UI::Align::Center)
+					.Children(
+						ui.Knob("knob2", 0, 100, 50.f)
+							.W(64).H(64)
+							.FillColor(pal::PURPLE).ThumbColor(pal::PURPLE)
+							.Tooltip("Knob 2 — drag or scroll [0–100]")
+							.OnChange([this](float v){ ui.SetText(lblKnob2, std::format("Knob 2: {:.1f}", v)); }),
+						lblKnob2
+					),
+				ui.Column("k3_col", 4.f, 0.f)
+					.AlignH(SDL::UI::Align::Center)
+					.Children(
+						ui.Knob("knob3", 0, 100, 50.f, SDL::UI::KnobShape::Potentiometer)
+							.W(64).H(64)
+							.FillColor(pal::GREEN).ThumbColor(pal::GREEN)
+							.Tooltip("Knob 3 — drag or scroll [0–100]")
+							.OnChange([this](float v){ ui.SetText(lblKnob2, std::format("Knob 3: {:.1f}", v)); }),
+						lblKnob3
+					),
 				ui.Column("k_dis_col", 4.f, 0.f).AlignH(SDL::UI::Align::Center).Children(
 					ui.Knob("knob_dis", 0, 1, .3f).W(64).H(64).Enable(false)
 						.Tooltip("Disabled knob"),
@@ -797,7 +828,8 @@ struct Main {
 
 		// ── TextArea ──────────────────────────────────────────────────────────────
 		auto cardTa = ui.Card("card_ta")
-			.H(SDL::UI::Value::Grow(50.f));
+			.H(SDL::UI::Value::Grow(50.f))
+			.MinH(150.f);
 		lblTaLen = ui.Label("lbl_ta_len","Characters: 0").TextColor(pal::GREY);
 		const std::string initialText =
 			"The TextArea widget supports:\n"
@@ -840,7 +872,8 @@ struct Main {
 
 		// ── ListBox ───────────────────────────────────────────────────────────────
 		auto cardLb = ui.Card("card_lb")
-			.H(SDL::UI::Value::Grow(50.f));
+			.H(SDL::UI::Value::Grow(50.f))
+			.MinH(150.f);
 		lblListSel = ui.Label("lbl_lbsel","Selection: (none)").TextColor(pal::ACCENT);
 
 		// Items: mix of short names and long entries to test H scroll
@@ -896,7 +929,8 @@ struct Main {
 
 		// ── Graphs ────────────────────────────────────────────────────────────────
 		auto cardGl = ui.Card("card_graph_line")
-			.H(SDL::UI::Value::Grow(50.f));
+			.H(SDL::UI::Value::Grow(50.f))
+			.MinH(150.f);
 		graphLine = ui.GradedGraph("g_line")
 			.W(SDL::UI::Value::Grow(100.f))
 			.H(SDL::UI::Value::Grow(100.f))
@@ -914,7 +948,8 @@ struct Main {
 		cardGl.Children(ui.SectionTitle("Graph — line mode (animated)"), graphLine);
 
 		auto cardGb = ui.Card("card_graph_bar")
-			.H(SDL::UI::Value::Grow(50.f));
+			.H(SDL::UI::Value::Grow(50.f))
+			.MinH(150.f);
 		graphBar = ui.GradedGraph("g_bar")
 			.W(SDL::UI::Value::Grow(100.f))
 			.H(SDL::UI::Value::Grow(100.f))
@@ -1076,7 +1111,7 @@ struct Main {
 
 	// ══════════════════════════════════════════════════════════════════════════════
 	// Page 7 — New Widgets: ComboBox, SpinBox, TabView, Expander, Splitter,
-	//                       Spinner, Badge, ColorButton
+	//                       Spinner, Badge
 	// ══════════════════════════════════════════════════════════════════════════════
 
 	SDL::ECS::EntityId _BuildNewWidgetsPage() {
@@ -1153,33 +1188,6 @@ struct Main {
 				ui.Row("spin_row", 8.f, 0.f).H(60.f).Children(spinnerWidget, badgeWidget),
 				btnInc, btnReset
 			);
-			page.Child(card);
-		}
-
-		// ── ColorButton ────────────────────────────────────────────────────────────
-		{
-			auto card = ui.Card("card_color");
-			card.Child(ui.SectionTitle("ColorButton"));
-
-			lblColor = ui.Label("lbl_color_val", "Color: R=255 G=80 B=80")
-				.TextColor(pal::GREY);
-
-			const SDL::Color colors[] = {
-				{255, 80, 80, 255}, {80, 200, 120, 255}, {70, 130, 210, 255},
-				{230, 170, 40, 255}, {180, 80, 220, 255}, {40, 190, 190, 255},
-			};
-			auto row = ui.Row("color_row", 8.f, 0.f).H(36.f);
-			for (int i = 0; i < 6; ++i) {
-				SDL::Color c = colors[i];
-				row.Child(ui.ColorButton(std::string("cb") + std::to_string(i), c)
-					.W(50.f).H(32.f)
-					.Tooltip("Click to select this color")
-					.OnClick([this, c]{
-						ui.SetText(lblColor, std::format("Color: R={} G={} B={}",
-							(int)c.r, (int)c.g, (int)c.b));
-					}));
-			}
-			card.Children(row, lblColor);
 			page.Child(card);
 		}
 
@@ -1280,6 +1288,191 @@ struct Main {
 		}
 
 		return page;
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// Page 8 — Advanced: ColorPicker, Tree, Popup, BgGradient
+	// ══════════════════════════════════════════════════════════════════════════
+
+	SDL::ECS::EntityId _BuildAdvancedPage() {
+		using namespace SDL::UI;
+		auto page = _Page("page_advanced");
+
+		auto cols  = _TwoColRow("adv_cols");
+		auto left  = _LeftCol("adv_l");
+		auto right = _RightCol("adv_r");
+
+		// ── ColorPicker ───────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_pickers");
+			card.Child(ui.SectionTitle("ColorPicker"));
+
+			lblPickedColor = ui.Label("lbl_picked", "RGB:  70 130 210")
+				.TextColor(pal::GREY);
+
+			colorPickerRgb = ui.ColorPicker("cp_rgb", ColorPickerPalette::RGB8)
+				.W(220).H(200)
+				.PickedColor(pal::ACCENT)
+				.PickerShowAlpha(false)
+				.OnChange([this](float){
+					auto c = ui.GetPickedColor(colorPickerRgb);
+					ui.SetText(lblPickedColor,
+						std::format("RGB: {:3d} {:3d} {:3d}", c.r, c.g, c.b));
+				})
+				.Tooltip("RGB8 picker — drag SV square and hue bar");
+
+			colorPickerGray = ui.ColorPicker("cp_gray", ColorPickerPalette::Grayscale)
+				.W(Value::Pw(100)).H(28)
+				.Tooltip("Grayscale picker — drag to pick a grey value");
+
+			colorPickerGrad = ui.ColorPicker("cp_grad", ColorPickerPalette::GradientAB)
+				.W(Value::Pw(100)).H(28)
+				.PickerColorA(pal::ACCENT)
+				.PickerColorB(pal::GREEN)
+				.Tooltip("Gradient A\xe2\x86\x92""B picker");
+
+			card.Children(
+				colorPickerRgb, lblPickedColor,
+				ui.Separator("sep_cp"),
+				ui.Label("lbl_cp_gs", "Grayscale:").TextColor(pal::GREY),
+				colorPickerGray,
+				ui.Label("lbl_cp_gr", "Gradient A\xe2\x86\x92""B:").TextColor(pal::GREY),
+				colorPickerGrad
+			);
+			left.Child(card);
+		}
+
+		// ── BgGradient demo ───────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_gradient");
+			card.Child(ui.SectionTitle("Background gradients (BgGradient)"));
+
+			struct GSpec { const char* n; const char* lbl;
+			               SDL::Color c1; SDL::Color c2; GradientAnchor start; GradientAnchor end; };
+			static const GSpec kG[] = {
+				{"gb_blue",  "Blue \xe2\x86\x95",
+					{ 30, 60,150,255}, { 80,160,255,255},
+					GradientAnchor::Left, GradientAnchor::Right },
+				{"gb_green", "Green \xe2\x86\x94",
+					{ 20,110, 50,255}, { 60,200, 90,255},
+					GradientAnchor::Top, GradientAnchor::Bottom },
+				{"gb_orange","Orange \xe2\x86\x95",
+					{150, 65, 10,255}, {240,155, 35,255},
+					GradientAnchor::TopLeft, GradientAnchor::BottomRight },
+				{"gb_purple","Purple \xe2\x86\x95",
+					{ 55, 18,110,255}, {150, 75,215,255},
+					GradientAnchor::BottomLeft, GradientAnchor::TopRight },
+			};
+			auto btnRow = ui.Row("grad_row", 8.f, 0.f).Style(Theme::Transparent());
+			for (auto& g : kG) {
+				SDL::Color c1 = g.c1, c2 = g.c2;
+				btnRow.Child(
+					ui.Button(g.n, g.lbl)
+						.W(106).H(44).AlignH(Align::Center)
+						.WithStyle([c1](Style& s){
+							s.bgColor        = c1;
+							s.bgHoveredColor = {SDL::Clamp8(c1.r+25),
+							                    SDL::Clamp8(c1.g+25),
+							                    SDL::Clamp8(c1.b+25),255};
+							s.bgPressedColor = {SDL::Clamp8(c1.r*0.6f),
+												SDL::Clamp8(c1.g*0.6f),
+							                    SDL::Clamp8(c1.b*0.6f),255};
+							s.radius = {6,6,6,6};
+						})
+						.BgGradient(c2, g.start, g.end)
+						.ClickSound(key::CLICK)
+				);
+			}
+			card.Child(btnRow);
+			left.Child(card);
+		}
+
+		// ── Tree ──────────────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_tree");
+			card.Child(ui.SectionTitle("Tree widget"));
+
+			auto lblSel = ui.Label("lbl_tree_sel", "Selection: (none)")
+				.TextColor(pal::ACCENT);
+			lblTreeSel = lblSel.Id();
+
+			treeWidget = ui.Tree("tree1")
+				.W(Value::Pw(100)).H(200)
+				.TreeNode("src/",           0, true,  true)
+				.TreeNode("main.cpp",       1, false, false)
+				.TreeNode("SDL3pp_ui/",     1, true,  false)
+				.TreeNode("system.h",       2, false, false)
+				.TreeNode("components.h",   2, false, false)
+				.TreeNode("builder.h",      2, false, false)
+				.TreeNode("assets/",        0, true,  true)
+				.TreeNode("fonts/",         1, true,  false)
+				.TreeNode("DejaVuSans.ttf", 2, false, false)
+				.TreeNode("textures/",      1, true,  false)
+				.TreeNode("crate.jpg",      2, false, false)
+				.TreeNode("sounds/",        1, true,  false)
+				.TreeNode("click.mp3",      2, false, false)
+				.TreeNode("README.md",      0, false, false)
+				.OnClick([this]{
+					int sel = ui.GetTreeSelection(treeWidget);
+					ui.SetText(lblTreeSel,
+						sel >= 0 ? std::format("Selected node #{}", sel)
+						         : "Selection: (none)");
+				})
+				.Tooltip("Click to select  •  arrow to expand/collapse  •  scroll wheel");
+
+			card.Children(treeWidget, lblSel);
+			right.Child(card);
+		}
+
+		// ── Popup ─────────────────────────────────────────────────────────────
+		{
+			auto card = ui.Card("card_popup_open");
+			card.Children(
+				ui.SectionTitle("Popup widget"),
+				ui.Label("lbl_popup_hint",
+					"Floating window: drag title bar to move, corner to resize.")
+					.TextColor(pal::GREY),
+				ui.Button("btn_open_popup", "Open Popup")
+					.W(130).H(32)
+					.Style(Theme::PrimaryButton(pal::ACCENT))
+					.ClickSound(key::CLICK)
+					.Tooltip("Open the floating popup window")
+					.OnClick([this]{ ui.SetPopupOpen(popupWidget, true); })
+			);
+			right.Child(card);
+		}
+
+		cols.Children(left, right);
+		page.Child(cols);
+		return page;
+	}
+
+	void _BuildPopupOverlay(SDL::UI::Builder& root) {
+		using namespace SDL::UI;
+
+		auto popup = ui.Popup("popup1", "Settings", true, true, true)
+			.X(240.f).Y(170.f)
+			.W(290).H(230)
+			.PopupOpen(false)
+			.Tooltip("Drag title bar to move  •  drag corner to resize");
+		popupWidget = popup.Id();
+
+		popup.Children(
+			ui.Label("pop_l1", "Floating popup window").TextColor(pal::WHITE),
+			ui.Slider("pop_sld", 0.f, 1.f, 0.5f)
+				.W(Value::Pw(100)).FillColor(pal::ACCENT)
+				.Tooltip("Slider inside the popup"),
+			ui.Toggle("pop_tog", "Enable option")
+				.Tooltip("Toggle inside the popup"),
+			ui.Separator("pop_sep"),
+			ui.Button("pop_close_btn", "Close")
+				.W(90).H(28)
+				.Style(Theme::PrimaryButton(pal::RED))
+				.ClickSound(key::CLICK)
+				.OnClick([this]{ ui.SetPopupOpen(popupWidget, false); })
+		);
+
+		root.Child(popup);
 	}
 
 };

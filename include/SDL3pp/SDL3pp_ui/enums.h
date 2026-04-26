@@ -77,7 +77,7 @@ namespace UI {
 		AutoScrollableX = 1 << 9,
 		AutoScrollableY = 1 << 10,
 		PropagateEvent  = 1 << 11, ///< Propagated unused event to parent widgets.
-		All             = 0x1001
+		All             = 0x0FFF
 	};
 	
 	inline BehaviorFlag operator|(BehaviorFlag a, BehaviorFlag b) noexcept { return static_cast<BehaviorFlag>(static_cast<Uint16>(a) | static_cast<Uint16>(b)); }
@@ -124,6 +124,7 @@ namespace UI {
 		Tile,    ///< Repeat the image to fill the widget's content box (preserves aspect ratio).
 		None     ///< No scaling; place the image at the top-left of the content box (may overflow).
 	};
+
 
 } // namespace UI
 } // namespace SDL

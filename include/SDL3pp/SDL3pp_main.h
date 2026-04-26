@@ -258,20 +258,20 @@ inline void GDKSuspendComplete() { SDL_GDKSuspendComplete(); }
  * Use this to define the callbacks for given class
  * @param CLASS The class to wrap in callbacks.
  */
-#define SDL3PP_DEFINE_CALLBACKS(CLASS)                                          \
-	static_assert(SDL::HasIterateFunction<CLASS>, "Main class not compatible");   \
-	inline SDL::AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {  \
-		return SDL::InitClass(reinterpret_cast<CLASS**>(appstate),                  \
-													SDL::AppArgs(argc, argv));                            \
-	}                                                                             \
-	inline SDL::AppResult SDL_AppIterate(void* appstate) {                        \
-		return SDL::IterateClass(static_cast<CLASS*>(appstate));                    \
-	}                                                                             \
-	inline SDL::AppResult SDL_AppEvent(void* appstate, SDL::Event* event) {       \
-		return SDL::EventClass(static_cast<CLASS*>(appstate), *event);              \
-	}                                                                             \
-	inline void SDL_AppQuit(void* appstate, SDL::AppResult result) {              \
-		SDL::QuitClass(static_cast<CLASS*>(appstate), result);                      \
+#define SDL3PP_DEFINE_CALLBACKS(CLASS)												\
+	static_assert(SDL::HasIterateFunction<CLASS>, "Main class not compatible");		\
+	inline SDL::AppResult SDL_AppInit(void** appstate, int argc, char* argv[]) {	\
+		return SDL::InitClass(reinterpret_cast<CLASS**>(appstate),					\
+													SDL::AppArgs(argc, argv));		\
+	}																				\
+	inline SDL::AppResult SDL_AppIterate(void* appstate) {							\
+		return SDL::IterateClass(static_cast<CLASS*>(appstate));					\
+	}																				\
+	inline SDL::AppResult SDL_AppEvent(void* appstate, SDL::Event* event) {			\
+		return SDL::EventClass(static_cast<CLASS*>(appstate), *event);				\
+	}																				\
+	inline void SDL_AppQuit(void* appstate, SDL::AppResult result) {				\
+		SDL::QuitClass(static_cast<CLASS*>(appstate), result);						\
 	}
 
 /// @}

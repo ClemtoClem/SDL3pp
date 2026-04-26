@@ -676,6 +676,41 @@ namespace UI {
 			return *this;
 		}
 
+		// ── BgGradient ────────────────────────────────────────────────────────────────
+
+		/// Attach a gradient background to this widget.
+		/// @param color2	End colour used for the normal state.
+		/// @param start	Gradient start.
+		/// @param end		Gradient end.
+		Builder &BgGradient(SDL::Color color2, GradientAnchor start = GradientAnchor::Top, GradientAnchor end = GradientAnchor::Bottom) {
+			::SDL::UI::BgGradient g;
+			g.color2         = color2;
+			g.color2Hovered  = {(Uint8)SDL::Min(255, color2.r + 20), (Uint8)SDL::Min(255, color2.g + 20), (Uint8)SDL::Min(255, color2.b + 30), color2.a};
+			g.color2Pressed  = {(Uint8)(color2.r * 0.6f), (Uint8)(color2.g * 0.6f), (Uint8)(color2.b * 0.6f), color2.a};
+			g.color2Focused  = g.color2Pressed;
+			g.color2Disabled = {(Uint8)(color2.r * 0.5f), (Uint8)(color2.g * 0.5f), (Uint8)(color2.b * 0.5f), (Uint8)(color2.a * 0.6f)};
+			g.start          = start;
+			g.end			 = end;
+			sys.SetBgGradient(id, g);
+			return *this;
+		}
+		/// Set the end color of the gradient for the hovered state.
+		Builder &BgGradientHover(SDL::Color c)    { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Hovered   = c; return *this; }
+		/// Set the end color of the gradient for the pressed state.
+		Builder &BgGradientPress(SDL::Color c)    { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Pressed   = c; return *this; }
+		/// Set the end color of the gradient for the checked state.
+		Builder &BgGradientCheck(SDL::Color c)    { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Checked   = c; return *this; }
+		/// Set the end color of the gradient for the focused state.
+		Builder &BgGradientFocus(SDL::Color c)    { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Focused   = c; return *this; }
+		/// Set the end color of the gradient for the disabled state.
+		Builder &BgGradientDisable(SDL::Color c)  { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Disabled  = c; return *this; }
+		/// Set the gradient start.
+		Builder &BgGradientStart(GradientAnchor start) { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->start = start; return *this; }
+		/// Set the gradient end.
+		Builder &BgGradientEnd(GradientAnchor end)     { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->end = end; return *this; }
+		/// Remove the gradient background (revert to solid colour).
+		Builder &RemoveBgGradient() { sys.RemoveBgGradient(id); return *this; }
+
 		/// Attach a 9-slice tileset skin to this widget.
 		Builder &TilesetSkin(TilesetStyle ts) {
 			sys.SetTilesetStyle(id, std::move(ts));
@@ -787,6 +822,91 @@ namespace UI {
 			return *this;
 		}
 
+		// ── Knob setters ──────────────────────────────────────────────────────────
+		Builder &SetKnobShape(KnobShape shape) {
+			if (auto *kd = sys.GetECSContext().Get<KnobData>(id)) kd->shape = shape;
+			return *this;
+		}
+
+		// ── ColorPicker setters ───────────────────────────────────────────────────
+		Builder &PickerPalette(ColorPickerPalette p) {
+			if (auto *d = sys.GetColorPickerData(id)) d->palette = p;
+			return *this;
+		}
+		Builder &PickedColor(SDL::Color c) {
+			sys.SetPickedColor(id, c);
+			return *this;
+		}
+		Builder &PickerColorA(SDL::Color c) {
+			if (auto *d = sys.GetColorPickerData(id)) d->colorA = c;
+			return *this;
+		}
+		Builder &PickerColorB(SDL::Color c) {
+			if (auto *d = sys.GetColorPickerData(id)) d->colorB = c;
+			return *this;
+		}
+		Builder &PickerStep(float step) {
+			if (auto *d = sys.GetColorPickerData(id)) d->precisionStep = step;
+			return *this;
+		}
+		Builder &PickerShowAlpha(bool v = true) {
+			if (auto *d = sys.GetColorPickerData(id)) d->showAlpha = v;
+			return *this;
+		}
+
+		// ── Popup setters ──────────────────────────────────────────────────────────
+		Builder &PopupTitle(const std::string &title) {
+			sys.SetPopupTitle(id, title);
+			return *this;
+		}
+		Builder &PopupOpen(bool v = true) {
+			sys.SetPopupOpen(id, v);
+			return *this;
+		}
+		Builder &PopupHeaderH(float h) {
+			if (auto *d = sys.GetPopupData(id)) d->headerH = h;
+			return *this;
+		}
+		Builder &PopupClosable(bool v = true) {
+			if (auto *d = sys.GetPopupData(id)) d->closable = v;
+			return *this;
+		}
+		Builder &PopupDraggable(bool v = true) {
+			if (auto *d = sys.GetPopupData(id)) d->draggable = v;
+			return *this;
+		}
+		Builder &PopupResizable(bool v = true) {
+			if (auto *d = sys.GetPopupData(id)) d->resizable = v;
+			return *this;
+		}
+		Builder &PopupHeaderBtn(const std::string &iconKey, std::function<void()> cb) {
+			sys.AddPopupHeaderButton(id, iconKey, std::move(cb));
+			return *this;
+		}
+
+		// ── Tree setters ───────────────────────────────────────────────────────────
+		Builder &TreeNode(const std::string &label, int level = 0, bool hasChildren = false,
+		                  bool expanded = false, const std::string &iconKey = "") {
+			sys.AddTreeNode(id, {label, iconKey, level, hasChildren, expanded});
+			return *this;
+		}
+		Builder &ClearTree() {
+			sys.ClearTreeNodes(id);
+			return *this;
+		}
+		Builder &TreeItemHeight(float h) {
+			if (auto *d = sys.GetTreeData(id)) d->itemHeight = h;
+			return *this;
+		}
+		Builder &TreeIndent(float px) {
+			if (auto *d = sys.GetTreeData(id)) d->indentSize = px;
+			return *this;
+		}
+		Builder &TreeIconSize(float px) {
+			if (auto *d = sys.GetTreeData(id)) d->iconSize = px;
+			return *this;
+		}
+
 		// ── Badge setters ──────────────────────────────────────────────────────────
 		Builder &BadgeText(const std::string &text) {
 			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->text = text;
@@ -798,16 +918,6 @@ namespace UI {
 		}
 		Builder &BadgeTextColor(SDL::Color c) {
 			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->textColor = c;
-			return *this;
-		}
-
-		// ── ColorButton setters ────────────────────────────────────────────────────
-		Builder &SwatchColor(SDL::Color c) {
-			if (auto *d = sys.GetECSContext().Get<ColorButtonData>(id)) d->color = c;
-			return *this;
-		}
-		Builder &ShowAlpha(bool v) {
-			if (auto *d = sys.GetECSContext().Get<ColorButtonData>(id)) d->showAlpha = v;
 			return *this;
 		}
 
@@ -964,7 +1074,7 @@ namespace UI {
 	inline Builder System::Progress(const std::string &n, float v, float mx) { return {*this, MakeProgress(n, v, mx)}; }
 	inline Builder System::Separator(const std::string &n) { return {*this, MakeSeparator(n)}; }
 	inline Builder System::Input(const std::string &n, const std::string &ph) { return {*this, MakeInput(n, ph)}; }
-	inline Builder System::Knob(const std::string &n, float mn, float mx, float v) { return {*this, MakeKnob(n, mn, mx, v)}; }
+	inline Builder System::Knob(const std::string &n, float mn, float mx, float v, KnobShape shape) { return {*this, MakeKnob(n, mn, mx, v, shape)}; }
 	inline Builder System::ImageWidget(const std::string &n, const std::string &p, ImageFit f) { return {*this, MakeImage(n, p, f)}; }
 	inline Builder System::CanvasWidget(const std::string &n,
 		std::function<void(SDL::Event&)> cb_event, 
@@ -1058,8 +1168,15 @@ namespace UI {
 	inline Builder System::Badge(const std::string &n, const std::string &text) {
 		return Builder(*this, MakeBadge(n, text));
 	}
-	inline Builder System::ColorButton(const std::string &n, SDL::Color color, bool showAlpha) {
-		return Builder(*this, MakeColorButton(n, color, showAlpha));
+	inline Builder System::ColorPicker(const std::string &n, ColorPickerPalette palette, float step) {
+		return Builder(*this, MakeColorPicker(n, palette, step));
+	}
+	inline Builder System::Popup(const std::string &n, const std::string &title,
+	                             bool closable, bool draggable, bool resizable) {
+		return Builder(*this, MakePopup(n, title, closable, draggable, resizable));
+	}
+	inline Builder System::Tree(const std::string &n) {
+		return Builder(*this, MakeTree(n));
 	}
 
 } // namespace UI

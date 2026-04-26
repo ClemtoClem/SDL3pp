@@ -257,7 +257,7 @@ namespace UI {
 		 * @param mx  Maximum value.
 		 * @param v   Initial value (clamped to [mn, mx]).
 		 */
-		ECS::EntityId MakeKnob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f) {
+		ECS::EntityId MakeKnob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f, KnobShape shape = KnobShape::Arc) {
 			ECS::EntityId e = _Make(n, WidgetType::Knob);
 			
 			// Initialisation explicite de tous les champs pour éviter le garbage memory
@@ -268,6 +268,7 @@ namespace UI {
 			kd.drag = false;
 			kd.dragStartY = 0.f;
 			kd.dragStartVal = 0.f;
+			kd.shape = shape;
 			m_ctx.Add<KnobData>(e, kd);
 			
 			auto *w = m_ctx.Get<Widget>(e);
@@ -400,13 +401,118 @@ namespace UI {
 			d.text = text;
 			return e;
 		}
-		/** @brief Create a ColorButton entity (color swatch). */
-		ECS::EntityId MakeColorButton(const std::string &n, SDL::Color color = {255,0,0,255}, bool showAlpha = false) {
-			ECS::EntityId e = _Make(n, WidgetType::ColorButton);
-			auto &d = m_ctx.Add<ColorButtonData>(e);
-			d.color = color; d.showAlpha = showAlpha;
+		/** @brief Create a ColorPicker entity.
+		 *  @param palette  Palette type (Grayscale, RGB8, RGBFloat, GradientAB).
+		 *  @param step     Quantization step used in RGBFloat mode (default 1/255). */
+		ECS::EntityId MakeColorPicker(const std::string &n,
+		                              ColorPickerPalette palette = ColorPickerPalette::RGB8,
+		                              float step = 1.f / 255.f) {
+			ECS::EntityId e = _Make(n, WidgetType::ColorPicker);
+			auto &d = m_ctx.Add<ColorPickerData>(e);
+			d.palette       = palette;
+			d.precisionStep = step;
 			return e;
 		}
+		/** @brief Create a Popup (floating window) entity.
+		 *
+		 *  Position it via builder: `.Fixed(x,y).W(w).H(h)`.
+		 *  Children added via `.Child(...)` or `.Children(...)` appear in the content area.
+		 */
+		ECS::EntityId MakePopup(const std::string &n,
+		                        const std::string &title = "",
+		                        bool closable  = true,
+		                        bool draggable = true,
+		                        bool resizable = false) {
+			ECS::EntityId e = _Make(n, WidgetType::Popup);
+			auto &d  = m_ctx.Add<PopupData>(e);
+			d.title    = title;
+			d.closable = closable;
+			d.draggable= draggable;
+			d.resizable= resizable;
+			// Reserve top padding for the header bar
+			if (auto *lp = m_ctx.Get<LayoutProps>(e)) {
+				lp->attach  = AttachLayout::Fixed;
+				lp->padding = {4.f, 4.f, 4.f, d.headerH + 4.f};
+			}
+			return e;
+		}
+		/** @brief Create a Tree widget entity.
+		 *
+		 *  Populate it with nodes via `GetTreeData(e)->nodes.push_back(...)` or the
+		 *  builder helpers `.TreeNode(...)`. */
+		ECS::EntityId MakeTree(const std::string &n) {
+			ECS::EntityId e = _Make(n, WidgetType::Tree);
+			m_ctx.Add<TreeData>(e);
+			auto &lp = *m_ctx.Get<LayoutProps>(e);
+			lp.padding = {2.f, 2.f, 2.f, 2.f};
+			return e;
+		}
+
+		// ── ColorPicker accessors ─────────────────────────────────────────────────────
+
+		/** @brief Returns the ColorPickerData of entity @p e, or nullptr. */
+		ColorPickerData* GetColorPickerData(ECS::EntityId e) { return m_ctx.Get<ColorPickerData>(e); }
+		/** @brief Returns the current color selected by a ColorPicker widget. */
+		[[nodiscard]] SDL::Color GetPickedColor(ECS::EntityId e) const {
+			if (auto *d = m_ctx.Get<ColorPickerData>(e)) return d->currentColor;
+			return {};
+		}
+		/** @brief Set the current color of a ColorPicker widget (updates internal HSV state). */
+		void SetPickedColor(ECS::EntityId e, SDL::Color c) {
+			if (auto *d = m_ctx.Get<ColorPickerData>(e)) {
+				d->currentColor = c;
+				_RgbToHsv(c, d->hue, d->sat, d->val);
+			}
+		}
+
+		// ── Popup accessors ───────────────────────────────────────────────────────────
+
+		/** @brief Returns the PopupData of entity @p e, or nullptr. */
+		PopupData* GetPopupData(ECS::EntityId e) { return m_ctx.Get<PopupData>(e); }
+		/** @brief Open or close a Popup widget. Closing also hides the widget. */
+		void SetPopupOpen(ECS::EntityId e, bool open) {
+			if (auto *d = m_ctx.Get<PopupData>(e)) {
+				d->open = open;
+				SetVisible(e, open);
+			}
+		}
+		/** @brief Set the title of a Popup widget. */
+		void SetPopupTitle(ECS::EntityId e, const std::string &title) {
+			if (auto *d = m_ctx.Get<PopupData>(e)) d->title = title;
+		}
+		/** @brief Add a custom icon button to the Popup header. */
+		void AddPopupHeaderButton(ECS::EntityId e, const std::string &iconKey, std::function<void()> cb) {
+			if (auto *d = m_ctx.Get<PopupData>(e)) d->headerButtons.push_back({iconKey, std::move(cb)});
+		}
+
+		// ── Tree accessors ────────────────────────────────────────────────────────────
+
+		/** @brief Returns the TreeData of entity @p e, or nullptr. */
+		TreeData* GetTreeData(ECS::EntityId e) { return m_ctx.Get<TreeData>(e); }
+		/** @brief Append a node to a Tree widget. */
+		void AddTreeNode(ECS::EntityId e, const TreeNodeData &node) {
+			if (auto *d = m_ctx.Get<TreeData>(e)) d->nodes.push_back(node);
+		}
+		/** @brief Clear all nodes from a Tree widget. */
+		void ClearTreeNodes(ECS::EntityId e) {
+			if (auto *d = m_ctx.Get<TreeData>(e)) { d->nodes.clear(); d->selectedIndex = -1; }
+		}
+		/** @brief Returns the currently selected node index in a Tree, or -1 if none. */
+		[[nodiscard]] int GetTreeSelection(ECS::EntityId e) const {
+			if (auto *d = m_ctx.Get<TreeData>(e)) return d->selectedIndex;
+			return -1;
+		}
+
+		// ── BgGradient accessors ──────────────────────────────────────────────────────
+
+		/** @brief Attach or replace the BgGradient component on entity @p e. */
+		void SetBgGradient(ECS::EntityId e, BgGradient grad) {
+			auto *g = m_ctx.Get<BgGradient>(e);
+			if (g) *g = std::move(grad);
+			else m_ctx.Add<BgGradient>(e, std::move(grad));
+		}
+		/** @brief Remove the BgGradient component from entity @p e (reverts to solid color). */
+		void RemoveBgGradient(ECS::EntityId e) { m_ctx.Remove<BgGradient>(e); }
 
 		// ── Builder factories (defined after Builder) ─────────────────────────────────
 
@@ -433,7 +539,7 @@ namespace UI {
 		/** @brief Create a single-line Input and return a Builder for it. */
 		inline Builder Input(const std::string &n, const std::string &ph = "");
 		/** @brief Create a Knob and return a Builder for it. */
-		inline Builder Knob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f);
+		inline Builder Knob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f, KnobShape shape = KnobShape::Arc);
 		/** @brief Create an Image widget and return a Builder for it. */
 		inline Builder ImageWidget(const std::string &n, const std::string &p = "", ImageFit f = ImageFit::Contain);
 		/** @brief Create a Canvas widget and return a Builder for it. */
@@ -461,8 +567,16 @@ namespace UI {
 		inline Builder Spinner(const std::string &n, float speed = 3.f);
 		/** @brief Create a Badge and return a Builder for it. */
 		inline Builder Badge(const std::string &n, const std::string &text = "0");
-		/** @brief Create a ColorButton and return a Builder for it. */
-		inline Builder ColorButton(const std::string &n, SDL::Color color = {255,0,0,255}, bool showAlpha = false);
+		/** @brief Create a ColorPicker and return a Builder for it. */
+		inline Builder ColorPicker(const std::string &n,
+		                           ColorPickerPalette palette = ColorPickerPalette::RGB8,
+		                           float step = 1.f / 255.f);
+		/** @brief Create a Popup window and return a Builder for it. */
+		inline Builder Popup(const std::string &n, const std::string &title = "",
+		                     bool closable = true, bool draggable = true, bool resizable = false);
+		/** @brief Create a Tree widget and return a Builder for it. */
+		inline Builder Tree(const std::string &n);
+		
 		/** @brief Create a vertical Column container (InColumn layout) and return a Builder for it. */
 		inline Builder Column(const std::string &n = "col", float gap = 4.f, float pad = 8.f, float marg = 0.f);
 		/** @brief Create a horizontal Row container (InLine layout) and return a Builder for it. */
@@ -1439,25 +1553,29 @@ namespace UI {
 				case WidgetType::ScrollBar:
 				case WidgetType::Input:
 				case WidgetType::Canvas:
-				case WidgetType::TextArea:
-				case WidgetType::ListBox:
-				case WidgetType::ComboBox:
 				case WidgetType::SpinBox:
 				case WidgetType::TabView:
 				case WidgetType::Expander:
-				case WidgetType::ColorButton:
+				case WidgetType::ColorPicker:
+				case WidgetType::ComboBox:
 					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 					break;
 				case WidgetType::Graph:
 				case WidgetType::Splitter:
 					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable;
 					break;
-				case WidgetType::Spinner:
-				case WidgetType::Badge:
+				case WidgetType::Popup:
+					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Resizable | BehaviorFlag::Draggable;
 					break;
 				case WidgetType::Container:
 					beh |= BehaviorFlag::AutoScrollableX | BehaviorFlag::AutoScrollableY;
-				// Label, Progress, Separator, Image n'ont PAS Hoverable/Selectable/Focusable par défaut
+					break;
+				case WidgetType::ListBox:
+				case WidgetType::TextArea:
+				case WidgetType::Tree:
+					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+					beh |= BehaviorFlag::AutoScrollableX | BehaviorFlag::AutoScrollableY;
+					break;
 				default:
 					break;
 			}
@@ -1473,7 +1591,7 @@ namespace UI {
 			m_ctx.Add<Parent>(e);
 
 			// Containers get a scroll-drag state component for their inline scrollbars.
-			if (k == WidgetType::Container || k == WidgetType::ListBox)
+			if (k == WidgetType::Container || k == WidgetType::TextArea || k == WidgetType::ListBox || k == WidgetType::Tree)
 				m_ctx.Add<ContainerScrollState>(e);
 
 			style.usedFont = FontType::Default;
@@ -1836,7 +1954,7 @@ namespace UI {
 			// si les barres seront visibles afin de réserver leur place dans l'espace
 			// contenu.  On utilise les données contentW/H du frame précédent (première
 			// frame = 0, ce qui est correct car le contenu ne déborde pas encore).
-			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox || w->type == WidgetType::TextArea) {
+			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox || w->type == WidgetType::TextArea || w->type == WidgetType::Tree) {
 				bool showX = false, showY = false;
 				_ContainerScrollbars(*w, *lp, cW, cH, showX, showY);
 				if (showY) cW = SDL::Max(0.f, cW - lp->scrollbarThickness);
@@ -2134,8 +2252,14 @@ namespace UI {
 				return {32.f, 32.f};
 			case WidgetType::Badge:
 				return {SDL::Max(20.f, _TW("0", e) + 10.f), SDL::Max(18.f, ch + 4.f)};
-			case WidgetType::ColorButton:
-				return {60.f, 28.f};
+			case WidgetType::ColorPicker:
+				return {220.f, 240.f};
+			case WidgetType::Popup: {
+				auto *pd = m_ctx.Get<PopupData>(e);
+				return {320.f, 240.f + (pd ? pd->headerH : 28.f)};
+			}
+			case WidgetType::Tree:
+				return {160.f, SDL::Max(80.f, ch * 4.f + 8.f)};
 			default:
 				return {};
 			}
@@ -2159,11 +2283,13 @@ namespace UI {
 				if (auto *exd = m_ctx.Get<ExpanderData>(e)) topInset = exd->headerH;
 			} else if (w->type == WidgetType::TabView) {
 				if (auto *tvd = m_ctx.Get<TabViewData>(e); tvd && !tvd->tabsBottom) topInset = tvd->tabHeight;
+			} else if (w->type == WidgetType::Popup) {
+				if (auto *pd = m_ctx.Get<PopupData>(e)) topInset = pd->headerH;
 			}
 			float ch2 = SDL::Max(0.f, self.h - topInset - lp->padding.bottom);
 
 			// Réserver la place des scrollbars inline pour les containers.
-			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox) {
+			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox || w->type == WidgetType::TextArea || w->type == WidgetType::Tree) {
 				bool showX = false, showY = false;
 				_ContainerScrollbars(*w, *lp, cw, ch2, showX, showY);
 				if (showY) cw  = SDL::Max(0.f, cw  - lp->scrollbarThickness);
@@ -2604,7 +2730,7 @@ namespace UI {
 			FRect childClip = cr->clip; 
 			
 			// 2. Si c'est un container, la zone allouée aux enfants est plus petite
-			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox || w->type == WidgetType::TextArea) {
+			if (w->type == WidgetType::Container || w->type == WidgetType::ListBox || w->type == WidgetType::TextArea || w->type == WidgetType::Tree) {
 				float innerW = cr->screen.w - lp->padding.left - lp->padding.right;
 				float innerH = cr->screen.h - lp->padding.top  - lp->padding.bottom;
 				
@@ -2741,10 +2867,29 @@ namespace UI {
 
 							// Begin drag for interactive controls.
 							if (pw->type == WidgetType::Slider) {
-								if (auto *sd = m_ctx.Get<SliderData>(m_pressed)) {
-									sd->drag        = true;
-									sd->dragStartPos = (sd->orientation == Orientation::Horizontal)
-														 ? m_mousePos.x : m_mousePos.y;
+								auto *sd = m_ctx.Get<SliderData>(m_pressed);
+								auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
+								auto *lp2 = m_ctx.Get<LayoutProps>(m_pressed);
+								if (sd && cr2 && lp2) {
+									sd->drag = true;
+									bool h = (sd->orientation == Orientation::Horizontal);
+									sd->dragStartPos = h ? m_mousePos.x : m_mousePos.y;
+									// Jump thumb to click position immediately
+									float nv;
+									if (h) {
+										float tx = cr2->screen.x + lp2->padding.left;
+										float tw = cr2->screen.w - lp2->padding.left - lp2->padding.right;
+										nv = SDL::Clamp(sd->min + (m_mousePos.x - tx) / SDL::Max(1.f, tw) * (sd->max - sd->min), sd->min, sd->max);
+									} else {
+										float ty = cr2->screen.y + lp2->padding.top;
+										float th = cr2->screen.h - lp2->padding.top - lp2->padding.bottom;
+										nv = SDL::Clamp(sd->min + (1.f - (m_mousePos.y - ty) / SDL::Max(1.f, th)) * (sd->max - sd->min), sd->min, sd->max);
+									}
+									if (nv != sd->val) {
+										sd->val = nv;
+										auto *cb2 = m_ctx.Get<Callbacks>(m_pressed);
+										if (cb2 && cb2->onChange) cb2->onChange(nv);
+									}
 									sd->dragStartVal = sd->val;
 								}
 							} else if (pw->type == WidgetType::ScrollBar) {
@@ -2755,10 +2900,15 @@ namespace UI {
 									sb->dragStartOff = sb->offset;
 								}
 							} else if (pw->type == WidgetType::Knob) {
-								if (auto *kd = m_ctx.Get<KnobData>(m_pressed)) {
+								auto *kd  = m_ctx.Get<KnobData>(m_pressed);
+								auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
+								if (kd && cr2) {
 									kd->drag         = true;
 									kd->dragStartY   = m_mousePos.y;
 									kd->dragStartVal = kd->val;
+									float cx_ = cr2->screen.x + cr2->screen.w * 0.5f;
+									float cy_ = cr2->screen.y + cr2->screen.h * 0.5f;
+									kd->dragStartAngle = SDL::Atan2(m_mousePos.y - cy_, m_mousePos.x - cx_) * (180.f / SDL::PI_F);
 								}
 							} else if (pw->type == WidgetType::SpinBox) {
 								if (auto *sp = m_ctx.Get<SpinBoxData>(m_pressed)) {
@@ -2778,6 +2928,31 @@ namespace UI {
 									_HandleMultiClick(m_pressed, m_clickCount);
 								else
 									_ProcessTextClickOrDrag(m_pressed, false);
+							} else if (pw->type == WidgetType::ColorPicker) {
+								auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
+								if (auto *cp = m_ctx.Get<ColorPickerData>(m_pressed); cp && cr2) {
+									cp->dragging = true;
+									_UpdateColorPicker(m_pressed, cr2->screen, cp, m_mousePos);
+								}
+							} else if (pw->type == WidgetType::Popup) {
+								if (auto *pd = m_ctx.Get<PopupData>(m_pressed)) {
+									auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
+									if (cr2) {
+										FRect hdrR    = {cr2->screen.x, cr2->screen.y, cr2->screen.w, pd->headerH};
+										FRect resizeR = {cr2->screen.x + cr2->screen.w - 16.f,
+										                 cr2->screen.y + cr2->screen.h - 16.f, 16.f, 16.f};
+										pd->pressPos = m_mousePos;
+										if (pd->draggable && hdrR.Contains(m_mousePos)) {
+											pd->dragging   = true;
+											pd->dragOffset = {m_mousePos.x - cr2->screen.x,
+											                   m_mousePos.y - cr2->screen.y};
+										} else if (pd->resizable && resizeR.Contains(m_mousePos)) {
+											pd->resizing        = true;
+											pd->resizeStart     = m_mousePos;
+											pd->resizeStartSize = {cr2->screen.w, cr2->screen.h};
+										}
+									}
+								}
 							}
 						}
 					}
@@ -2837,16 +3012,26 @@ namespace UI {
 							}
 						}
 					} else if (pw->type == WidgetType::Knob) {
-						if (auto *kd = m_ctx.Get<KnobData>(m_pressed); kd && kd->drag) {
-							float range = kd->max - kd->min;
-							if (range <= 0.f) range = 1.f;
-							float dragDeltaNorm = (kd->dragStartY - m_mousePos.y) * 0.005f;
-							float nv = SDL::Clamp(kd->dragStartVal + dragDeltaNorm * range, kd->min, kd->max);
+						auto *kd  = m_ctx.Get<KnobData>(m_pressed);
+						auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
+						if (kd && kd->drag && cr2) {
+							float range = SDL::Max(0.0001f, kd->max - kd->min);
+							float cx_ = cr2->screen.x + cr2->screen.w * 0.5f;
+							float cy_ = cr2->screen.y + cr2->screen.h * 0.5f;
+							float curAngle = SDL::Atan2(m_mousePos.y - cy_, m_mousePos.x - cx_) * (180.f / SDL::PI_F);
+							// Incremental angle delta with wrap-around handling
+							float dAngle = curAngle - kd->dragStartAngle;
+							if (dAngle >  180.f) dAngle -= 360.f;
+							if (dAngle < -180.f) dAngle += 360.f;
+							float nv = SDL::Clamp(kd->dragStartVal + dAngle / 270.f * range, kd->min, kd->max);
 							if (nv != kd->val) {
 								kd->val = nv;
 								auto *cb = m_ctx.Get<Callbacks>(m_pressed);
 								if (cb && cb->onChange) cb->onChange(nv);
 							}
+							// Update start for next frame (incremental)
+							kd->dragStartAngle = curAngle;
+							kd->dragStartVal   = kd->val;
 						}
 						
 					} else if (pw->type == WidgetType::SpinBox) {
@@ -2879,6 +3064,44 @@ namespace UI {
 								}
 							}
 						}
+					} else if (pw->type == WidgetType::ColorPicker) {
+						if (auto *cp = m_ctx.Get<ColorPickerData>(m_pressed); cp && cp->dragging) {
+							auto *cr = m_ctx.Get<ComputedRect>(m_pressed);
+							if (cr) _UpdateColorPicker(m_pressed, cr->screen, cp, m_mousePos);
+						}
+					} else if (pw->type == WidgetType::Popup) {
+						if (auto *pd = m_ctx.Get<PopupData>(m_pressed)) {
+							if (pd->dragging) {
+								auto *lp = m_ctx.Get<LayoutProps>(m_pressed);
+								if (lp) {
+									lp->absX = Value::Px(m_mousePos.x - pd->dragOffset.x);
+									lp->absY = Value::Px(m_mousePos.y - pd->dragOffset.y);
+									m_layoutDirty = true;
+								}
+							} else if (pd->resizing) {
+								auto *lp = m_ctx.Get<LayoutProps>(m_pressed);
+								if (lp) {
+									float nw = pd->resizeStartSize.x + (m_mousePos.x - pd->resizeStart.x);
+									float nh = pd->resizeStartSize.y + (m_mousePos.y - pd->resizeStart.y);
+									lp->width  = Value::Px(SDL::Max(100.f, nw));
+									lp->height = Value::Px(SDL::Max(pd->headerH + 20.f, nh));
+									m_layoutDirty = true;
+								}
+							}
+						}
+					} else if (pw->type == WidgetType::Tree) {
+						if (auto *css = m_ctx.Get<ContainerScrollState>(m_pressed); css && css->dragY) {
+							auto *d  = m_ctx.Get<TreeData>(m_pressed);
+							auto *lp = m_ctx.Get<LayoutProps>(m_pressed);
+							auto *cr = m_ctx.Get<ComputedRect>(m_pressed);
+							if (d && lp && cr) {
+								float viewH  = cr->screen.h - lp->padding.top - lp->padding.bottom;
+								float totalH = (float)_GetVisibleTreeNodes(d->nodes).size() * d->itemHeight;
+								d->scrollY = _ApplyScrollDrag(viewH, totalH, lp->scrollbarThickness,
+								                              css->dragStartY_, css->dragStartOffY,
+								                              m_mousePos.y);
+							}
+						}
 					}
 				}
 			}
@@ -2903,6 +3126,8 @@ namespace UI {
 					if (auto *sp  = m_ctx.Get<SpinBoxData>(m_pressed))   sp->drag  = false;
 					if (auto *spl = m_ctx.Get<SplitterData>(m_pressed))  spl->dragging = false;
 					if (auto *ta  = m_ctx.Get<TextAreaData>(m_pressed))  ta->selectDragging = false;
+					if (auto *cp  = m_ctx.Get<ColorPickerData>(m_pressed)) { cp->dragging = false; cp->draggingHue = false; }
+					if (auto *pd  = m_ctx.Get<PopupData>(m_pressed))     { pd->dragging = false; pd->resizing = false; }
 					m_pressed = ECS::NullEntity;
 				}
 				if (auto *c = m_ctx.Get<Content>(m_pressed)) {
@@ -2931,32 +3156,16 @@ namespace UI {
 				const float viewH = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
 
 				if (css.dragY && showY && lp->contentH > viewH) {
-					float barH   = viewH;
-					float ratio  = SDL::Clamp(viewH / lp->contentH, 0.05f, 1.f);
-					float thumbH = SDL::Max(lp->scrollbarThickness * 2.f, barH * ratio);
-					float travel = barH - thumbH;
-					float dx     = m_mousePos.y - css.dragStartY_;
-					float maxOff = lp->contentH - viewH;
-					float newOff = (travel > 0.f)
-						? SDL::Clamp(css.dragStartOffY + dx / travel * maxOff, 0.f, maxOff)
-						: 0.f;
-					lp->scrollY = newOff;
+					lp->scrollY = _ApplyScrollDrag(viewH, lp->contentH, lp->scrollbarThickness,
+					                               css.dragStartY_, css.dragStartOffY, m_mousePos.y);
 					auto *cb = m_ctx.Get<Callbacks>(e);
-					if (cb && cb->onScroll) cb->onScroll(newOff);
+					if (cb && cb->onScroll) cb->onScroll(lp->scrollY);
 				}
 				if (css.dragX && showX && lp->contentW > viewW) {
-					float barW   = viewW;
-					float ratio  = SDL::Clamp(viewW / lp->contentW, 0.05f, 1.f);
-					float thumbW = SDL::Max(lp->scrollbarThickness * 2.f, barW * ratio);
-					float travel = barW - thumbW;
-					float dx     = m_mousePos.x - css.dragStartX;
-					float maxOff = lp->contentW - viewW;
-					float newOff = (travel > 0.f)
-						? SDL::Clamp(css.dragStartOff + dx / travel * maxOff, 0.f, maxOff)
-						: 0.f;
-					lp->scrollX = newOff;
+					lp->scrollX = _ApplyScrollDrag(viewW, lp->contentW, lp->scrollbarThickness,
+					                               css.dragStartX, css.dragStartOff, m_mousePos.x);
 					auto *cb = m_ctx.Get<Callbacks>(e);
-					if (cb && cb->onScroll) cb->onScroll(newOff);
+					if (cb && cb->onScroll) cb->onScroll(lp->scrollX);
 				}
 			});
 		}
@@ -3032,9 +3241,42 @@ namespace UI {
 				case WidgetType::Expander:
 					_OnClickExpander(e);
 					break;
-				case WidgetType::ColorButton:
-					if (cb && cb->onChange) cb->onChange(0.f);
-					if (cb && cb->onClick)  cb->onClick();
+				case WidgetType::Popup: {
+					auto *pd = m_ctx.Get<PopupData>(e);
+					auto *cr = m_ctx.Get<ComputedRect>(e);
+					if (!pd || !cr) break;
+					// Ignore if the mouse actually moved (drag release, not a click)
+					{
+						float dx = m_mousePos.x - pd->pressPos.x;
+						float dy = m_mousePos.y - pd->pressPos.y;
+						if (dx*dx + dy*dy > 16.f) break; // > 4px threshold
+					}
+					// Close button
+					if (pd->closable) {
+						float hs = pd->headerH;
+						FRect closeR = {cr->screen.x + cr->screen.w - hs, cr->screen.y, hs, hs};
+						if (closeR.Contains(m_mousePos)) {
+							pd->open = false;
+							SetVisible(e, false);
+							if (cb && cb->onClick) cb->onClick();
+							break;
+						}
+					}
+					// Custom header buttons
+					float btnX = cr->screen.x + cr->screen.w - pd->headerH * (pd->closable ? 2.f : 1.f);
+					for (int i = (int)pd->headerButtons.size() - 1; i >= 0; --i) {
+						FRect btnR = {btnX - pd->headerH, cr->screen.y, pd->headerH, pd->headerH};
+						if (btnR.Contains(m_mousePos)) {
+							if (pd->headerButtons[i].onClick) pd->headerButtons[i].onClick();
+							break;
+						}
+						btnX -= pd->headerH;
+					}
+					if (cb && cb->onClick) cb->onClick();
+					break;
+				}
+				case WidgetType::Tree:
+					_OnClickTree(e);
 					break;
 				default:
 					if (cb && cb->onClick)
@@ -3372,17 +3614,30 @@ namespace UI {
 					if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
 						auto *cr2 = m_ctx.Get<ComputedRect>(e);
 						auto *lp2 = m_ctx.Get<LayoutProps>(e);
-						if (cr2 && lp2 && dy != 0.f) {
-							float prev   = lp2->scrollY;
-							float viewH  = cr2->screen.h - lp2->padding.top - lp2->padding.bottom;
-							float total  = (float)lb->items.size() * lb->itemHeight;
-							float maxOff = SDL::Max(0.f, total - viewH);
-							lp2->scrollY = SDL::Clamp(lp2->scrollY - dy * lb->itemHeight * 2.f, 0.f, maxOff);
-							consumed = (lp2->scrollY != prev);
+						if (cr2 && lp2) {
+							float viewH = cr2->screen.h - lp2->padding.top - lp2->padding.bottom;
+							consumed = _ScrollOnAxis(lp2->scrollY, viewH,
+							                         (float)lb->items.size() * lb->itemHeight,
+							                         dy, lb->itemHeight * 2.f);
 						}
 					}
 					if (consumed || !w->dispatchEvent) return;
-					// Not consumed — bubble to parent.
+					auto *par = m_ctx.Get<Parent>(e);
+					e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
+					continue;
+				}
+				// Tree has its own internal scroll.
+				if (w && w->type == WidgetType::Tree) {
+					bool consumed = false;
+					if (auto *d2 = m_ctx.Get<TreeData>(e)) {
+						auto *cr2 = m_ctx.Get<ComputedRect>(e);
+						if (cr2) {
+							float viewH  = cr2->screen.h - (lp ? lp->padding.top + lp->padding.bottom : 0.f);
+							float totalH = (float)_GetVisibleTreeNodes(d2->nodes).size() * d2->itemHeight;
+							consumed = _ScrollOnAxis(d2->scrollY, viewH, totalH, dy, d2->itemHeight * 2.f);
+						}
+					}
+					if (consumed || !w->dispatchEvent) return;
 					auto *par = m_ctx.Get<Parent>(e);
 					e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
 					continue;
@@ -3392,17 +3647,14 @@ namespace UI {
 					bool consumed = false;
 					if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
 						auto *cr = m_ctx.Get<ComputedRect>(e);
-						if (cr && dy != 0.f) {
-							float prev   = ta->scrollY;
+						if (cr) {
 							float lineH  = _TH(e) + 2.f;
 							float viewH  = cr->screen.h - (lp ? lp->padding.top + lp->padding.bottom : 0.f);
-							float maxS   = SDL::Max(0.f, ta->LineCount() * lineH - viewH);
-							ta->scrollY  = SDL::Clamp(ta->scrollY - dy * lineH * 3.f, 0.f, maxS);
-							consumed = (ta->scrollY != prev);
+							consumed = _ScrollOnAxis(ta->scrollY, viewH,
+							                         (float)ta->LineCount() * lineH, dy, lineH * 3.f);
 						}
 					}
 					if (consumed || !w->dispatchEvent) return;
-					// Not consumed — bubble to parent.
 					auto *par = m_ctx.Get<Parent>(e);
 					e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
 					continue;
@@ -3415,27 +3667,12 @@ namespace UI {
 
 				if (scrollableV || scrollableH) {
 					auto *cr = m_ctx.Get<ComputedRect>(e);
-					const float innerW = cr ? (cr->screen.w - lp->padding.left - lp->padding.right) : 0.f;
-					const float innerH = cr ? (cr->screen.h - lp->padding.top  - lp->padding.bottom) : 0.f;
+					auto sv = cr ? _ComputeScrollView(cr->screen, *lp, *w) : ScrollViewInfo{};
 
-					bool showX = false, showY = false;
-					_ContainerScrollbars(*w, *lp, innerW, innerH, showX, showY);
-					const float viewW = showY ? SDL::Max(0.f, innerW - lp->scrollbarThickness) : innerW;
-					const float viewH = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
+					bool consumed = false;
+					consumed |= scrollableH && _ScrollOnAxis(lp->scrollX, sv.viewW, lp->contentW, dx, 20.f);
+					consumed |= scrollableV && _ScrollOnAxis(lp->scrollY, sv.viewH, lp->contentH, dy, 20.f);
 
-					float lastScrollX = lp->scrollX;
-					float lastScrollY = lp->scrollY;
-
-					if (scrollableH && dx != 0.f) {
-						float mx    = SDL::Max(0.f, lp->contentW - viewW);
-						lp->scrollX = SDL::Clamp(lp->scrollX - dx * 20.f, 0.f, mx);
-					}
-					if (scrollableV && dy != 0.f) {
-						float mx    = SDL::Max(0.f, lp->contentH - viewH);
-						lp->scrollY = SDL::Clamp(lp->scrollY - dy * 20.f, 0.f, mx);
-					}
-
-					bool consumed = (lastScrollX != lp->scrollX || lastScrollY != lp->scrollY);
 					if (consumed) {
 						auto *s = m_ctx.Get<Style>(e);
 						if (s && !s->scrollSound.empty())
@@ -3443,7 +3680,6 @@ namespace UI {
 								_PlayAudio(sh);
 					}
 					if (consumed || !w->dispatchEvent) return;
-					// Not consumed and dispatchEvent=true — bubble to parent.
 				}
 				auto *par = m_ctx.Get<Parent>(e);
 				e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
@@ -3676,6 +3912,93 @@ namespace UI {
 			return {x1, y1, SDL::Max(0, x2 - x1), SDL::Max(0, y2 - y1)};
 		}
 
+		// ── Scrollable-widget shared helpers ─────────────────────────────────────
+
+		/// Viewport dimensions and scrollbar visibility for a scrollable widget.
+		struct ScrollViewInfo {
+			float innerW = 0.f, innerH = 0.f;
+			float viewW  = 0.f, viewH  = 0.f;
+			bool  showX  = false, showY = false;
+		};
+
+		/// Compute viewport dimensions and scrollbar visibility from a widget's rect.
+		/// Central source of truth for showX/showY/viewW/viewH — replaces repeated
+		/// innerW/innerH/_ContainerScrollbars/viewW/viewH blocks in draw functions.
+		ScrollViewInfo _ComputeScrollView(const FRect &r, const LayoutProps &lp, const Widget &w) const noexcept {
+			ScrollViewInfo v;
+			v.innerW = r.w - lp.padding.left - lp.padding.right;
+			v.innerH = r.h - lp.padding.top  - lp.padding.bottom;
+			_ContainerScrollbars(w, lp, v.innerW, v.innerH, v.showX, v.showY);
+			v.viewW = v.showY ? SDL::Max(0.f, v.innerW - lp.scrollbarThickness) : v.innerW;
+			v.viewH = v.showX ? SDL::Max(0.f, v.innerH - lp.scrollbarThickness) : v.innerH;
+			return v;
+		}
+
+		/// Push a new clip rect (intersection of current clip and @p area); returns
+		/// the previous clip so it can be restored with _PopClip.
+		SDL::Rect _PushClip(const FRect &area) {
+			SDL::Rect prev = m_renderer.GetClipRect();
+			m_renderer.SetClipRect(_ClipIntersect(prev,
+				{(int)area.x, (int)area.y, (int)area.w, (int)area.h}));
+			return prev;
+		}
+
+		/// Restore the clip rect saved by _PushClip.
+		void _PopClip(const SDL::Rect &prev) {
+			if (prev.w > 0 && prev.h > 0) m_renderer.SetClipRect(prev);
+			else                           m_renderer.SetClipRect({});
+		}
+
+		/// Scroll one axis by @p delta * @p step, clamped to [0, contentSize-viewSize].
+		/// Returns true if the scroll offset actually changed.
+		static bool _ScrollOnAxis(float &scroll, float viewSize, float contentSize,
+		                          float delta, float step) noexcept {
+			if (delta == 0.f || contentSize <= viewSize) return false;
+			float prev   = scroll;
+			scroll = SDL::Clamp(scroll - delta * step, 0.f, contentSize - viewSize);
+			return scroll != prev;
+		}
+
+		/// Compute a new scroll offset from a thumb-drag gesture on one axis.
+		/// viewSize/contentSize define the ratio; dragStartMouse/dragStartOff are the
+		/// values captured at press time; currentMouse is the live mouse coordinate.
+		static float _ApplyScrollDrag(float viewSize, float contentSize, float sbThickness,
+		                              float dragStartMouse, float dragStartOff,
+		                              float currentMouse) noexcept {
+			float ratio   = SDL::Clamp(viewSize / SDL::Max(1.f, contentSize), 0.05f, 1.f);
+			float thumbSz = SDL::Max(sbThickness * 2.f, viewSize * ratio);
+			float travel  = viewSize - thumbSz;
+			float maxOff  = contentSize - viewSize;
+			if (travel <= 0.f || maxOff <= 0.f) return 0.f;
+			return SDL::Clamp(dragStartOff + (currentMouse - dragStartMouse) / travel * maxOff,
+			                  0.f, maxOff);
+		}
+
+		/// Draw a vertical scrollbar track + thumb inside @p barR.
+		/// Updates css->thumbY for hit-testing. @p scrollY is the current scroll offset.
+		void _DrawScrollbarY(const FRect &barR, float contentH, float viewH, float scrollY,
+		                     ContainerScrollState *css, const Style &s, float op) {
+			float t = barR.w;
+			SDL::Color trackCol = s.trackColor;
+			trackCol.a = SDL::Clamp8((int)(trackCol.a * op * 0.85f));
+			_FillRR(barR, trackCol, SDL::FCorners(t * 0.5f), 1.f);
+
+			css->thumbY = {};
+			if (contentH > 0.f && contentH > viewH) {
+				float ratio  = SDL::Clamp(viewH / contentH, 0.05f, 1.f);
+				float maxOff = contentH - viewH;
+				float offN   = (maxOff > 0.f) ? scrollY / maxOff : 0.f;
+				float tH     = SDL::Max(t * 2.f, barR.h * ratio);
+				float tY     = barR.y + (barR.h - tH) * offN;
+				FRect thumb  = {barR.x + 1.f, tY, t - 2.f, tH};
+				bool  hov    = css->dragY || FRect(barR.x, tY, t, tH).Contains(m_mousePos);
+				SDL::Color thumbCol = hov ? s.thumbColor : s.fillColor;
+				thumbCol.a = SDL::Clamp8((int)(thumbCol.a * op));
+				_FillRR(thumb, thumbCol, SDL::FCorners((t - 2.f) * 0.5f), 1.f);
+				css->thumbY = thumb;
+			}
+		}
+
 		// ── Primitives ────────────────────────────────────────────────────────────
 
 		void _FillRect(const SDL::FRect& r, SDL::Color c, float op) {
@@ -3700,6 +4023,229 @@ namespace UI {
 			else
 				m_renderer.RenderRect(r);
 		}
+		// ── Gradient & background helpers ─────────────────────────────────────────
+
+		SDL::FPoint _AnchorToPoint(const SDL::FRect& r, GradientAnchor a) {
+			switch (a) {
+				case GradientAnchor::Top:        return {r.x + r.w * 0.5f, r.y};
+				case GradientAnchor::Bottom:     return {r.x + r.w * 0.5f, r.y + r.h};
+				case GradientAnchor::Left:       return {r.x, r.y + r.h * 0.5f};
+				case GradientAnchor::Right:      return {r.x + r.w, r.y + r.h * 0.5f};
+				case GradientAnchor::TopLeft:    return {r.x, r.y};
+				case GradientAnchor::TopRight:   return {r.x + r.w, r.y};
+				case GradientAnchor::BottomLeft: return {r.x, r.y + r.h};
+				case GradientAnchor::BottomRight:return {r.x + r.w, r.y + r.h};
+				case GradientAnchor::Center:     return {r.x + r.w * 0.5f, r.y + r.h * 0.5f};
+			}
+			return {r.x, r.y};
+		}
+
+		/// Fill a rectangle with a 2-colour linear gradient (no rounded corners).
+		void _FillGradientRect(const FRect &r, SDL::Color c1, GradientAnchor start, SDL::Color c2, GradientAnchor end, float op) {
+			SDL::FColor col1 = c1.ToFloat(op);
+			SDL::FColor col2 = c2.ToFloat(op);
+			SDL::FPoint p1   = _AnchorToPoint(r, start);
+			SDL::FPoint p2   = _AnchorToPoint(r, end);
+			float dx = p2.x - p1.x;
+			float dy = p2.y - p1.y;
+			float len2 = dx*dx + dy*dy;
+
+			// Fonction projection → t
+			auto computeT = [&](float x, float y) {
+				if (len2 == 0.f) return 0.f;
+				float t = ((x - p1.x) * dx + (y - p1.y) * dy) / len2;
+				return SDL::Clamp(t, 0.f, 1.f);
+			};
+
+			// Interpolation couleur
+			auto lerpColor = [&](float t) {
+				return SDL::FColor{
+					col1.r + (col2.r - col1.r) * t,
+					col1.g + (col2.g - col1.g) * t,
+					col1.b + (col2.b - col1.b) * t,
+					col1.a + (col2.a - col1.a) * t
+				};
+			};
+
+			// Sommets du rectangle
+			SDL::FPoint pts[4] = {
+				{r.x,       r.y},
+				{r.x+r.w,   r.y},
+				{r.x+r.w,   r.y+r.h},
+				{r.x,       r.y+r.h}
+			};
+
+			SDL::Vertex vs[6];
+
+			int indices[6] = {0,1,2, 0,2,3};
+
+			for (int i = 0; i < 6; ++i) {
+				auto& p = pts[indices[i]];
+				float t = computeT(p.x, p.y);
+
+				vs[i] = {
+					{p.x, p.y},
+					lerpColor(t),
+					{}
+				};
+			}
+			m_renderer.RenderGeometry(nullptr, vs);
+		}
+
+		/// Draw the background of a widget: gradient if BgGradient component is attached,
+		/// otherwise solid colour via _FillRR.  Border is NOT drawn by this function.
+		void _DrawBg(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
+			SDL::Color bg1 = !enabled      ? s.bgDisabledColor
+			               : st.pressed    ? s.bgPressedColor
+			               : (m_focused==e)? s.bgFocusedColor
+			               : st.hovered    ? s.bgHoveredColor
+			               : s.bgColor;
+			if (auto *bg = m_ctx.Get<BgGradient>(e)) {
+				SDL::Color bg2 = !enabled       ? bg->color2Disabled
+				               : st.pressed     ? bg->color2Pressed
+				               : (m_focused==e) ? bg->color2Focused
+				               : st.hovered     ? bg->color2Hovered
+				               : bg->color2;
+				_FillGradientRect(r, bg1, bg->start, bg2, bg->end, s.opacity);
+			} else {
+				_FillRR(r, bg1, s.radius, s.opacity);
+			}
+		}
+
+		/// Convert RGB (Uint8) to HSV floats [0..1].
+		static void _RgbToHsv(SDL::Color c, float &h, float &s, float &v) noexcept {
+			float rf = c.r/255.f, gf = c.g/255.f, bf = c.b/255.f;
+			float cmax = SDL::Max(rf, SDL::Max(gf, bf));
+			float cmin = SDL::Min(rf, SDL::Min(gf, bf));
+			float delta = cmax - cmin;
+			v = cmax;
+			s = (cmax > 0.f) ? delta/cmax : 0.f;
+			if (delta < 1e-6f) { h = 0.f; return; }
+			if (cmax == rf)      h = (gf - bf) / delta / 6.f;
+			else if (cmax == gf) h = (2.f + (bf - rf) / delta) / 6.f;
+			else                 h = (4.f + (rf - gf) / delta) / 6.f;
+			if (h < 0.f) h += 1.f;
+		}
+
+		/// Convert HSV floats [0..1] to SDL::Color.
+		static SDL::Color _HsvToColor(float h, float s, float v, Uint8 a = 255) noexcept {
+			if (s < 1e-6f) {
+				Uint8 g = (Uint8)(v * 255.f);
+				return {g, g, g, a};
+			}
+			float hh = h * 6.f;
+			int   i  = (int)hh % 6;
+			float f  = hh - (float)i;
+			float p  = v * (1.f - s);
+			float q  = v * (1.f - f * s);
+			float t  = v * (1.f - (1.f - f) * s);
+			float r, g, b;
+			switch (i) {
+				case 0:  r=v; g=t; b=p; break;
+				case 1:  r=q; g=v; b=p; break;
+				case 2:  r=p; g=v; b=t; break;
+				case 3:  r=p; g=q; b=v; break;
+				case 4:  r=t; g=p; b=v; break;
+				default: r=v; g=p; b=q; break;
+			}
+			return {(Uint8)(r*255.f), (Uint8)(g*255.f), (Uint8)(b*255.f), a};
+		}
+
+		/// Draw a rainbow hue bar (6 gradient segments) inside @p r.
+		void _DrawHueBarGradient(const FRect &r, float op) {
+			static const SDL::Color kHues[7] = {
+				{255,  0,  0, 255}, {255,255,  0, 255}, {  0,255,  0, 255},
+				{  0,255,255, 255}, {  0,  0,255, 255}, {255,  0,255, 255},
+				{255,  0,  0, 255},
+			};
+			float sw = r.w / 6.f;
+			for (int i = 0; i < 6; ++i)
+				_FillGradientRect({r.x + i*sw, r.y, sw, r.h}, kHues[i], GradientAnchor::Left, kHues[i+1], GradientAnchor::Right, op);
+		}
+
+		/// Build the list of visible tree node indices (respecting expand/collapse).
+		static std::vector<int> _GetVisibleTreeNodes(const std::vector<TreeNodeData> &nodes) {
+			std::vector<int> visible;
+			std::vector<bool> depthCollapsed(64, false);
+			for (int i = 0; i < (int)nodes.size(); ++i) {
+				const auto &n = nodes[i];
+				int lvl = (n.level < 64) ? n.level : 63;
+				// Rising to this level resets deeper collapse flags
+				for (int l = lvl; l < 64; ++l) depthCollapsed[l] = false;
+				// Hidden if any ancestor level is marked collapsed
+				bool hidden = false;
+				for (int l = 0; l < lvl; ++l)
+					if (depthCollapsed[l]) { hidden = true; break; }
+				if (hidden) continue;
+				visible.push_back(i);
+				if (n.hasChildren && !n.expanded)
+					depthCollapsed[lvl] = true;
+			}
+			return visible;
+		}
+
+		/// Update ColorPicker internal state from mouse position.
+		void _UpdateColorPicker(ECS::EntityId e, const FRect &r, ColorPickerData *cp, FPoint mouse) {
+			constexpr float P      = 4.f;   // internal padding
+			constexpr float hueH   = 14.f;
+			constexpr float bGap   = 4.f;
+			FRect inner = {r.x+P, r.y+P, r.w-2*P, r.h-2*P};
+
+			if (cp->palette == ColorPickerPalette::Grayscale) {
+				float t = SDL::Clamp((mouse.x - inner.x) / SDL::Max(1.f, inner.w), 0.f, 1.f);
+				cp->gradT = t;
+				Uint8 v = (Uint8)(t * 255.f);
+				cp->currentColor = {v, v, v, cp->currentColor.a};
+			} else if (cp->palette == ColorPickerPalette::GradientAB) {
+				float t = SDL::Clamp((mouse.x - inner.x) / SDL::Max(1.f, inner.w), 0.f, 1.f);
+				cp->gradT = t;
+				auto lerp8 = [](Uint8 a, Uint8 b, float t) { return (Uint8)(a + t * (float)(b - a)); };
+				cp->currentColor = {lerp8(cp->colorA.r, cp->colorB.r, t),
+				                    lerp8(cp->colorA.g, cp->colorB.g, t),
+				                    lerp8(cp->colorA.b, cp->colorB.b, t),
+				                    cp->currentColor.a};
+			} else {
+				float alphaH = cp->showAlpha ? hueH : 0.f;
+				float svH    = inner.h - hueH - bGap - (cp->showAlpha ? alphaH + bGap : 0.f);
+				float realSvH = SDL::Max(10.f, svH);
+				FRect svR  = {inner.x, inner.y, inner.w, realSvH};
+				FRect hueR = {inner.x, inner.y + realSvH + bGap, inner.w, hueH};
+
+				bool inHue = hueR.Contains(mouse);
+				bool inSV  = svR.Contains(mouse);
+
+				if (inHue || cp->draggingHue) {
+					cp->hue = SDL::Clamp((mouse.x - hueR.x) / SDL::Max(1.f, hueR.w), 0.f, 1.f);
+					cp->draggingHue = true;
+				} else if (inSV) {
+					float sat = SDL::Clamp((mouse.x - svR.x) / SDL::Max(1.f, svR.w), 0.f, 1.f);
+					float val = 1.f - SDL::Clamp((mouse.y - svR.y) / SDL::Max(1.f, svR.h), 0.f, 1.f);
+					if (cp->palette == ColorPickerPalette::RGBFloat && cp->precisionStep > 0.f) {
+						sat = std::round(sat / cp->precisionStep) * cp->precisionStep;
+						val = std::round(val / cp->precisionStep) * cp->precisionStep;
+					}
+					cp->sat = sat;
+					cp->val = val;
+					cp->draggingHue = false;
+				}
+
+				if (cp->showAlpha) {
+					FRect alphaR = {inner.x, hueR.y + hueH + bGap, inner.w, alphaH};
+					if (alphaR.Contains(mouse)) {
+						float t = SDL::Clamp((mouse.x - alphaR.x) / SDL::Max(1.f, alphaR.w), 0.f, 1.f);
+						cp->currentColor.a = (Uint8)(t * 255.f);
+					}
+				}
+				SDL::Color nc = _HsvToColor(cp->hue, cp->sat, cp->val, cp->currentColor.a);
+				cp->currentColor = nc;
+			}
+
+			if (auto *cb = m_ctx.Get<Callbacks>(e)) {
+				if (cb->onChange) cb->onChange(0.f);
+			}
+		}
+
 		// ── Text rendering (TTF with debug fallback) ──────────────────────────────
 		//
 		// All draw helpers pass `const Style& s` so font metadata is always
@@ -3865,8 +4411,14 @@ namespace UI {
 				case WidgetType::Badge:
 					_DrawBadge(e, r, *s, *st, *w);
 					break;
-				case WidgetType::ColorButton:
-					_DrawColorButton(e, r, *s, *st, *w);
+				case WidgetType::ColorPicker:
+					_DrawColorPicker(e, r, *s, *st, *w);
+					break;
+				case WidgetType::Popup:
+					_DrawPopup(e, r, *s, *st, *w);
+					break;
+				case WidgetType::Tree:
+					_DrawTree(e, r, *s, *st, *w);
 					break;
 			}
 		}
@@ -3932,83 +4484,57 @@ namespace UI {
 			auto *css = m_ctx.Get<ContainerScrollState>(e);
 			if (!lp || !css) return;
 
-			const float innerW = r.w - lp->padding.left - lp->padding.right;
-			const float innerH = r.h - lp->padding.top  - lp->padding.bottom;
+			auto sv = _ComputeScrollView(r, *lp, w);
+			const float t = lp->scrollbarThickness;
 
-			// Déterminer la visibilité des scrollbars
-			bool showX = false, showY = false;
-			_ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
-
-			const float viewW = showY ? SDL::Max(0.f, innerW - lp->scrollbarThickness) : innerW;
-			const float viewH = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
-			const float t     = lp->scrollbarThickness;
-
-			// SÉCURITÉ : Empêcher le contenu de rester scrollé dans le vide
-			lp->scrollX = SDL::Clamp(lp->scrollX, 0.f, SDL::Max(0.f, lp->contentW - viewW));
-			lp->scrollY = SDL::Clamp(lp->scrollY, 0.f, SDL::Max(0.f, lp->contentH - viewH));
-
-			SDL::Color trackCol = s.trackColor;
-			trackCol.a = SDL::Clamp8((int)(trackCol.a * s.opacity * 0.85f));
+			// Clamp scroll so content never stays scrolled into empty space
+			lp->scrollX = SDL::Clamp(lp->scrollX, 0.f, SDL::Max(0.f, lp->contentW - sv.viewW));
+			lp->scrollY = SDL::Clamp(lp->scrollY, 0.f, SDL::Max(0.f, lp->contentH - sv.viewH));
 
 			// ── Scrollbar Verticale ──
-			css->thumbY = {}; 
-			if (showY) {
-				FRect barY = {r.x + r.w - t, r.y + lp->padding.top, t, viewH};
-				_FillRR(barY, trackCol, SDL::FCorners(t * 0.5f), 1.f);
-
-				if (lp->contentH > 0.f && lp->contentH > viewH) {
-					float ratio  = SDL::Clamp(viewH / lp->contentH, 0.05f, 1.f);
-					float maxOff = lp->contentH - viewH;
-					float offN   = (maxOff > 0.f) ? lp->scrollY / maxOff : 0.f;
-					float tH     = SDL::Max(t * 2.f, barY.h * ratio);
-					float tY     = barY.y + (barY.h - tH) * offN;
-
-					bool thumbHov = css->dragY || FRect(barY.x, tY, t, tH).Contains(m_mousePos);
-					SDL::Color thumbCol = thumbHov ? s.thumbColor : s.fillColor;
-					thumbCol.a = SDL::Clamp8((int)(thumbCol.a * s.opacity));
-
-					css->thumbY = {barY.x + 1.f, tY, t - 2.f, tH};
-					_FillRR(css->thumbY, thumbCol, SDL::FCorners((t - 2.f) * 0.5f), 1.f);
-				}
+			if (sv.showY) {
+				FRect barY = {r.x + r.w - t, r.y + lp->padding.top, t, sv.viewH};
+				_DrawScrollbarY(barY, lp->contentH, sv.viewH, lp->scrollY, css, s, s.opacity);
+			} else {
+				css->thumbY = {};
 			}
 
 			// ── Scrollbar Horizontale ──
-			css->thumbX = {}; 
-			if (showX) {
-				float barW  = showY ? viewW : innerW;
-				FRect barX  = {r.x + lp->padding.left, r.y + r.h - t, barW, t};
+			css->thumbX = {};
+			if (sv.showX) {
+				float barW = sv.showY ? sv.viewW : sv.innerW;
+				FRect barX = {r.x + lp->padding.left, r.y + r.h - t, barW, t};
+
+				SDL::Color trackCol = s.trackColor;
+				trackCol.a = SDL::Clamp8((int)(trackCol.a * s.opacity * 0.85f));
 				_FillRR(barX, trackCol, SDL::FCorners(t * 0.5f), 1.f);
 
-				if (lp->contentW > 0.f && lp->contentW > viewW) {
-					float ratio  = SDL::Clamp(viewW / lp->contentW, 0.05f, 1.f);
-					float maxOff = lp->contentW - viewW;
+				if (lp->contentW > 0.f && lp->contentW > sv.viewW) {
+					float ratio  = SDL::Clamp(sv.viewW / lp->contentW, 0.05f, 1.f);
+					float maxOff = lp->contentW - sv.viewW;
 					float offN   = (maxOff > 0.f) ? lp->scrollX / maxOff : 0.f;
 					float tW     = SDL::Max(t * 2.f, barX.w * ratio);
 					float tX     = barX.x + (barX.w - tW) * offN;
-
-					bool thumbHov = css->dragX || SDL::FRect(tX, barX.y, tW, t).Contains(m_mousePos);
-					SDL::Color thumbCol = thumbHov ? s.thumbColor : s.fillColor;
+					bool  hov    = css->dragX || SDL::FRect(tX, barX.y, tW, t).Contains(m_mousePos);
+					SDL::Color thumbCol = hov ? s.thumbColor : s.fillColor;
 					thumbCol.a = SDL::Clamp8((int)(thumbCol.a * s.opacity));
-
 					css->thumbX = {tX, barX.y + 1.f, tW, t - 2.f};
 					_FillRR(css->thumbX, thumbCol, SDL::FCorners((t - 2.f) * 0.5f), 1.f);
 				}
 			}
 
 			// ── Coin (quand les 2 barres sont affichées) ──
-			if (showX && showY) {
-				FRect corner = {r.x + r.w - t, r.y + r.h - t, t, t};
-				_FillRR(corner, trackCol, SDL::FCorners(0.f), 1.f);
+			if (sv.showX && sv.showY) {
+				SDL::Color trackCol = s.trackColor;
+				trackCol.a = SDL::Clamp8((int)(trackCol.a * s.opacity * 0.85f));
+				_FillRR({r.x + r.w - t, r.y + r.h - t, t, t}, trackCol, SDL::FCorners(0.f), 1.f);
 			}
 		}
 		
 		void _DrawContainer(ECS::EntityId e, const FRect &r, const Style &s,
 							const WidgetState &st, const Widget &w) {
 			// ── Background & border ───────────────────────────────────────────────
-			SDL::Color bgColor = st.pressed ? s.bgPressedColor
-							   : st.hovered ? s.bgHoveredColor
-							   : s.bgColor;
-			_FillRR(r, bgColor, s.radius, s.opacity);
+			_DrawBg(e, r, s, st, w);
 			_StrokeRR(r, st.hovered ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
 
 			// ── InGrid separator lines ────────────────────────────────────────────
@@ -4071,14 +4597,11 @@ namespace UI {
 
 		void _DrawButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
 			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
-			SDL::Color bgColor = !enabled ? s.bgDisabledColor
-				: (st.pressed ? s.bgPressedColor
-					: (st.hovered ? s.bgHoveredColor : s.bgColor));
 			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor
 				: (st.hovered ? s.bdHoveredColor : s.bdColor);
 			SDL::Color tc = !enabled ? s.textDisabledColor
 				: (st.hovered ? s.textHoveredColor : s.textColor);
-			_FillRR(r, bgColor, s.radius, s.opacity);
+			_DrawBg(e, r, s, st, w);
 			_StrokeRR(r, bdColor, s.borders, s.radius, s.opacity);
 
 			auto *c  = m_ctx.Get<Content>(e);
@@ -4254,13 +4777,10 @@ namespace UI {
 			bool enabled = Has(w.behavior, BehaviorFlag::Enable);
 
 			// Fond et bordures
-			SDL::Color bgColor = !enabled ? s.bgDisabledColor : foc ? s.bgFocusedColor
-													: st.hovered ? SDL::Color{30, 32, 44, 255}
-																 : s.bgColor;
 			SDL::Color bdColor = !enabled ? s.bdDisabledColor : foc ? s.bdFocusedColor
 												: st.hovered ? s.bdHoveredColor
 															 : s.bdColor;
-			_FillRR(r, bgColor, s.radius, s.opacity);
+			_DrawBg(e, r, s, st, w);
 			_StrokeRR(r, bdColor, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
 			
 			float tx_ = r.x + lp->padding.left;
@@ -4315,28 +4835,14 @@ namespace UI {
 			_StrokeRR(r, bdC, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
 
 			// ── 2. Calcul des zones et scrollbars ─────────────────────────────────
-			const float innerW = r.w - lp->padding.left - lp->padding.right;
-			const float innerH = r.h - lp->padding.top - lp->padding.bottom;
-			
-			bool showX = false, showY = false;
-			_ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
-			
-			// L'espace véritablement disponible pour lire le texte (sans les scrollbars)
-			const float viewW = showY ? SDL::Max(0.f, innerW - lp->scrollbarThickness) : innerW;
-			const float viewH = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
+			auto sv = _ComputeScrollView(r, *lp, w);
+			const float viewW = sv.viewW;
+			const float viewH = sv.viewH;
 
 			// ── 3. Application du Clipping strict pour le texte ───────────────────
-			// Intersect with the current (parent) clip so content never overflows a
-			// scrolled ancestor container.
-			SDL::Rect prevClip = m_renderer.GetClipRect();
-
-			SDL::Rect textClip = _ClipIntersect(prevClip, {
-				(int)(r.x + lp->padding.left),
-				(int)(r.y + lp->padding.top),
-				(int)viewW,
-				(int)viewH
+			SDL::Rect prevClip = _PushClip({
+				r.x + lp->padding.left, r.y + lp->padding.top, viewW, viewH
 			});
-			m_renderer.SetClipRect(textClip);
 
 			// ── 4. Rendu du Placeholder (si vide) ─────────────────────────────────
 			if (ta->text.empty() && cnt && !cnt->placeholder.empty() && !foc) {
@@ -4453,10 +4959,7 @@ namespace UI {
 			} // Fin du bloc (Texte non-vide)
 
 			// ── 9. Restauration du Clip parent ────────────────────────────────────
-			if (prevClip.w > 0 && prevClip.h > 0)
-				m_renderer.SetClipRect(prevClip);
-			else
-				m_renderer.SetClipRect({});
+			_PopClip(prevClip);
 
 			// ── 10. Rendu des Scrollbars unifiées ─────────────────────────────────
 			// Dessinées en dernier, PARDESSUS le texte, hors du clip restrictif.
@@ -4493,38 +4996,60 @@ namespace UI {
 			m_renderer.SetDrawColor(bdColor);
 			m_renderer.RenderCircle({cx_, cy_}, oR);
 
-			// Track (fond de l'arc) : 135° à 45° (sens horaire)
-			SDL::Color trackC = s.trackColor;
-			trackC.a = (Uint8)(trackC.a * s.opacity);
-			m_renderer.SetDrawColor(trackC);
-			m_renderer.RenderArc({cx_, cy_}, iR, 135.f, 360.f);
-			m_renderer.RenderArc({cx_, cy_}, iR, 0.f, 45.f);
-
 			float norm = (kd->max > kd->min) ? (kd->val - kd->min) / (kd->max - kd->min) : 0.5f;
 			norm = SDL::Clamp(norm, 0.f, 1.f);
 
-			// Remplissage de la valeur
 			SDL::Color fillC = Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.textDisabledColor;
 			fillC.a = (Uint8)(fillC.a * s.opacity);
-			m_renderer.SetDrawColor(fillC);
-			
-			// On ne dessine l'arc de remplissage que si la valeur est significative
-			if (norm > 0.001f) {
-				float endAngle = 135.f + (norm * 270.f);
-				if (endAngle > 360.f) {
-					m_renderer.RenderArc({cx_, cy_}, iR, 135.f, 360.f);
-					m_renderer.RenderArc({cx_, cy_}, iR, 0.f, endAngle - 360.f);
-				} else {
-					m_renderer.RenderArc({cx_, cy_}, iR, 135.f, endAngle);
-				}
-			}
 
-			// Point indicateur (Thumb)
-			float aRad = (135.f + norm * 270.f) * (SDL::PI_F / 180.f);
-			float lx = cx_ + SDL::Cos(aRad) * iR;
-			float ly = cy_ + SDL::Sin(aRad) * iR;
-			
-			_FillRR({lx - 4.f, ly - 4.f, 8.f, 8.f}, fillC, SDL::FCorners(4.f), s.opacity);
+			if (kd->shape == KnobShape::Potentiometer) {
+				// ── Potentiometer style ─────────────────────────────────────────
+				// Inner dial ring (thick border effect)
+				SDL::Color ringC = s.trackColor;
+				ringC.a = (Uint8)(ringC.a * s.opacity);
+				m_renderer.SetDrawColor(ringC);
+				for (float dr = 0.f; dr < 3.f; dr += 1.f)
+					m_renderer.RenderCircle({cx_, cy_}, iR - dr);
+
+				// Pointer line from center to rim
+				float aRad = (135.f + norm * 270.f) * (SDL::PI_F / 180.f);
+				float px1 = cx_ + SDL::Cos(aRad) * (iR * 0.25f);
+				float py1 = cy_ + SDL::Sin(aRad) * (iR * 0.25f);
+				float px2 = cx_ + SDL::Cos(aRad) * (oR - 2.f);
+				float py2 = cy_ + SDL::Sin(aRad) * (oR - 2.f);
+				m_renderer.SetDrawColor(fillC);
+				for (float dt = -1.f; dt <= 1.f; dt += 1.f) {
+					float perpX = -SDL::Sin(aRad) * dt;
+					float perpY =  SDL::Cos(aRad) * dt;
+					m_renderer.RenderLine({px1 + perpX, py1 + perpY}, {px2 + perpX, py2 + perpY});
+				}
+			} else {
+				// ── Arc style (default) ─────────────────────────────────────────
+				// Track (fond de l'arc) : 135° à 45° (sens horaire)
+				SDL::Color trackC = s.trackColor;
+				trackC.a = (Uint8)(trackC.a * s.opacity);
+				m_renderer.SetDrawColor(trackC);
+				m_renderer.RenderArc({cx_, cy_}, iR, 135.f, 360.f);
+				m_renderer.RenderArc({cx_, cy_}, iR, 0.f, 45.f);
+
+				// Remplissage de la valeur
+				m_renderer.SetDrawColor(fillC);
+				if (norm > 0.001f) {
+					float endAngle = 135.f + (norm * 270.f);
+					if (endAngle > 360.f) {
+						m_renderer.RenderArc({cx_, cy_}, iR, 135.f, 360.f);
+						m_renderer.RenderArc({cx_, cy_}, iR, 0.f, endAngle - 360.f);
+					} else {
+						m_renderer.RenderArc({cx_, cy_}, iR, 135.f, endAngle);
+					}
+				}
+
+				// Point indicateur (Thumb)
+				float aRad = (135.f + norm * 270.f) * (SDL::PI_F / 180.f);
+				float lx = cx_ + SDL::Cos(aRad) * iR;
+				float ly = cy_ + SDL::Sin(aRad) * iR;
+				_FillRR({lx - 4.f, ly - 4.f, 8.f, 8.f}, fillC, SDL::FCorners(4.f), s.opacity);
+			}
 		}
 
 		void _DrawImage(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) { 
@@ -4611,31 +5136,20 @@ namespace UI {
 			_StrokeRR(r, st.focused ? s.bdFocusedColor : st.hovered ? s.bdHoveredColor : s.bdColor,
 					  s.borders, s.radius, s.opacity);
 
-			const float ih     = lb->itemHeight;
-			const float innerW = r.w - lp->padding.left - lp->padding.right;
-			const float innerH = r.h - lp->padding.top - lp->padding.bottom;
-			const float iy     = r.y + lp->padding.top;
-			const float charH  = _TH(e);
+			const float ih    = lb->itemHeight;
+			const float iy    = r.y + lp->padding.top;
+			const float charH = _TH(e);
 
-			bool showX = false, showY = false;
-			_ContainerScrollbars(w, *lp, innerW, innerH, showX, showY);
-			
-			const float viewH  = showX ? SDL::Max(0.f, innerH - lp->scrollbarThickness) : innerH;
-			const float t      = lp->scrollbarThickness;
-			const float itemW  = r.w - s.borders.left - s.borders.right - (showY ? t : 0.f);
-			const float px     = r.x + lp->padding.left - lp->scrollX;
+			auto sv = _ComputeScrollView(r, *lp, w);
+			const float viewH = sv.viewH;
+			const bool  showY = sv.showY;
+			const float t     = lp->scrollbarThickness;
+			const float itemW = r.w - s.borders.left - s.borders.right - (showY ? t : 0.f);
+			const float px    = r.x + lp->padding.left - lp->scrollX;
 
-			// Save current (parent) clip and intersect with content area so items
-			// never overflow a scrolled ancestor container.
-			SDL::Rect prevClip = m_renderer.GetClipRect();
-
-			SDL::Rect clip = _ClipIntersect(prevClip, {
-				(int)r.x + 1,
-				(int)iy,
-				(int)(r.w - 2.f - (showY ? t : 0.f)),
-				(int)viewH
+			SDL::Rect prevClip = _PushClip({
+				r.x + 1.f, iy, r.w - 2.f - (showY ? t : 0.f), viewH
 			});
-			m_renderer.SetClipRect(clip);
 
 			int firstIdx = SDL::Max(0, (int)(lp->scrollY / ih));
 			int lastIdx  = SDL::Min((int)lb->items.size(),
@@ -4666,11 +5180,7 @@ namespace UI {
 					  tc, s.opacity, s);
 			}
 
-			// RESTAURATION DU CLIP PARENT
-			if (prevClip.w > 0 && prevClip.h > 0)
-				m_renderer.SetClipRect(prevClip);
-			else
-				m_renderer.SetClipRect({});
+			_PopClip(prevClip);
 
 			// Dessin des scrollbars (désormais pardessus et hors du clip des items)
 			_DrawInlineScrollbars(e, r, s, w);
@@ -5002,6 +5512,39 @@ namespace UI {
 
 		// ── Expander helper ────────────────────────────────────────────────────────
 
+		void _OnClickTree(ECS::EntityId e) {
+			auto *d  = m_ctx.Get<TreeData>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
+			auto *cb = m_ctx.Get<Callbacks>(e);
+			if (!d || !lp || !cr) return;
+
+			std::vector<int> visible = _GetVisibleTreeNodes(d->nodes);
+			float y0 = cr->screen.y + lp->padding.top - d->scrollY;
+
+			for (int vi = 0; vi < (int)visible.size(); ++vi) {
+				int ni = visible[vi];
+				float iy = y0 + vi * d->itemHeight;
+				FRect itemR = {cr->screen.x, iy, cr->screen.w, d->itemHeight};
+				if (!itemR.Contains(m_mousePos)) continue;
+
+				auto &node = d->nodes[ni];
+				// Arrow area: click to expand/collapse
+				if (node.hasChildren) {
+					float ax = cr->screen.x + lp->padding.left + node.level * d->indentSize;
+					FRect arrowR = {ax, iy, 14.f, d->itemHeight};
+					if (arrowR.Contains(m_mousePos)) {
+						node.expanded = !node.expanded;
+						if (cb && cb->onToggle) cb->onToggle(node.expanded);
+					}
+				}
+				d->selectedIndex = ni;
+				if (cb && cb->onChange) cb->onChange((float)ni);
+				if (cb && cb->onClick)  cb->onClick();
+				break;
+			}
+		}
+
 		void _OnClickExpander(ECS::EntityId e) {
 			auto *d  = m_ctx.Get<ExpanderData>(e);
 			auto *cb = m_ctx.Get<Callbacks>(e);
@@ -5213,11 +5756,277 @@ namespace UI {
 				  d->textColor.a ? d->textColor : SDL::Color{255,255,255,255}, s.opacity, s);
 		}
 
-		void _DrawColorButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
-			auto *d = m_ctx.Get<ColorButtonData>(e);
+		// ── ColorPicker ────────────────────────────────────────────────────────────
+
+		void _DrawColorPicker(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+			auto *d = m_ctx.Get<ColorPickerData>(e);
 			if (!d) return;
+
+			_DrawBg(e, r, s, st, w);
+			_StrokeRR(r, (m_focused==e) ? s.bdFocusedColor : s.bdColor, s.borders, s.radius, s.opacity);
+
+			constexpr float P    = 4.f;
+			constexpr float hueH = 14.f;
+			constexpr float bGap = 4.f;
+			float op = s.opacity;
+			FRect inner = {r.x+P, r.y+P, r.w-2*P, r.h-2*P};
+
+			if (d->palette == ColorPickerPalette::Grayscale) {
+				_FillGradientRect(inner,
+					{0,0,0,255}, GradientAnchor::Left,
+					{255,255,255,255}, GradientAnchor::Right, op);
+				_StrokeRR(inner, s.bdColor, {1,1,1,1}, FCorners(2.f), op);
+				float cx = inner.x + d->gradT * inner.w;
+				SDL::Color cc = {255,255,255,200}; cc.a = SDL::Clamp8(cc.a * op);
+				m_renderer.SetDrawColor(cc);
+				m_renderer.RenderFillRect(FRect{cx - 2.f, inner.y, 4.f, inner.h});
+
+			} else if (d->palette == ColorPickerPalette::GradientAB) {
+				_FillGradientRect(inner,
+					d->colorA, GradientAnchor::Left,
+					d->colorB, GradientAnchor::Right, op);
+				_StrokeRR(inner, s.bdColor, {1,1,1,1}, FCorners(2.f), op);
+				float cx = inner.x + d->gradT * inner.w;
+				SDL::Color cc = {255,255,255,200}; cc.a = SDL::Clamp8(cc.a * op);
+				m_renderer.SetDrawColor(cc);
+				m_renderer.RenderFillRect(FRect{cx - 2.f, inner.y, 4.f, inner.h});
+
+			} else {
+				// RGB8 / RGBFloat — SV square + hue bar (+ optional alpha bar)
+				float alphaH = d->showAlpha ? hueH : 0.f;
+				float svH    = inner.h - hueH - bGap - (d->showAlpha ? alphaH + bGap : 0.f);
+				float realSvH = SDL::Max(10.f, svH);
+				FRect svR  = {inner.x, inner.y, inner.w, realSvH};
+				FRect hueR = {inner.x, inner.y + realSvH + bGap, inner.w, hueH};
+
+				// SV square: horizontal white→hue, then vertical transparent→black overlay
+				SDL::Color hueCol = _HsvToColor(d->hue, 1.f, 1.f);
+				_FillGradientRect(svR,
+					{255,255,255,255}, GradientAnchor::Left,
+					hueCol, GradientAnchor::Right, op);
+				_FillGradientRect(svR,
+					{0,0,0,0}, GradientAnchor::Left,
+					{0,0,0,255}, GradientAnchor::Right, op);
+				_StrokeRR(svR, s.bdColor, {1,1,1,1}, FCorners(2.f), op);
+
+				// Hue bar
+				_DrawHueBarGradient(hueR, op);
+				_StrokeRR(hueR, s.bdColor, {1,1,1,1}, FCorners(2.f), op);
+
+				// Alpha bar (optional)
+				if (d->showAlpha) {
+					FRect alphaR = {inner.x, hueR.y + hueH + bGap, inner.w, alphaH};
+					_FillGradientRect(alphaR,
+					    {d->currentColor.r, d->currentColor.g, d->currentColor.b, 0}, GradientAnchor::Left,
+					    {d->currentColor.r, d->currentColor.g, d->currentColor.b, 255}, GradientAnchor::Right, op);
+					_StrokeRR(alphaR, s.bdColor, {1,1,1,1}, FCorners(2.f), op);
+					// Alpha cursor
+					float acx = alphaR.x + (d->currentColor.a / 255.f) * alphaR.w;
+					SDL::Color acc = {255,255,255,200}; acc.a = SDL::Clamp8(acc.a * op);
+					m_renderer.SetDrawColor(acc);
+					m_renderer.RenderFillRect(FRect{acx - 2.f, alphaR.y, 4.f, alphaR.h});
+				}
+
+				// SV cursor (small square)
+				float cvx = svR.x + d->sat * svR.w;
+				float cvy = svR.y + (1.f - d->val) * svR.h;
+				float cr2 = 5.f;
+				SDL::Color inner_c = (d->val > 0.5f) ? SDL::Color{0,0,0,200} : SDL::Color{255,255,255,200};
+				inner_c.a = SDL::Clamp8(inner_c.a * op);
+				SDL::Color outer_c = {255,255,255,220}; outer_c.a = SDL::Clamp8(outer_c.a * op);
+				m_renderer.SetDrawColor(outer_c);
+				m_renderer.RenderFillRect(FRect{cvx - cr2, cvy - cr2, cr2*2.f, cr2*2.f});
+				m_renderer.SetDrawColor(inner_c);
+				m_renderer.RenderFillRect(FRect{cvx - cr2+1.5f, cvy - cr2+1.5f, cr2*2.f-3.f, cr2*2.f-3.f});
+
+				// Hue cursor
+				float hcx = hueR.x + d->hue * hueR.w;
+				SDL::Color hcc = {255,255,255,220}; hcc.a = SDL::Clamp8(hcc.a * op);
+				m_renderer.SetDrawColor(hcc);
+				m_renderer.RenderFillRect(FRect{hcx - 2.f, hueR.y, 4.f, hueR.h});
+			}
+
+			// Current colour swatch at the bottom
+			FRect swatchR = {inner.x, inner.y + inner.h - 8.f, inner.w, 8.f};
+			SDL::Color sc = d->currentColor; sc.a = SDL::Clamp8(sc.a * op);
+			m_renderer.SetDrawColor(sc);
+			m_renderer.RenderFillRect(swatchR);
+			_StrokeRR(swatchR, s.bdColor, {1,1,1,1}, FCorners(2.f), op);
+		}
+
+		// ── Popup ──────────────────────────────────────────────────────────────────
+
+		void _DrawPopup(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+			auto *d = m_ctx.Get<PopupData>(e);
+			if (!d || !d->open) return;
+			float op = s.opacity;
+
+			// Window background & outer border
+			_DrawBg(e, r, s, st, w);
+			_StrokeRR(r, s.bdColor, s.borders, s.radius, op);
+
+			// Header bar
+			FRect hdrR = {r.x, r.y, r.w, d->headerH};
+			SDL::Color hdrBg = {s.bgPressedColor.r, s.bgPressedColor.g, s.bgPressedColor.b, s.bgPressedColor.a};
+			hdrBg.a = SDL::Clamp8(hdrBg.a * op);
+			m_renderer.SetDrawColor(hdrBg);
+			m_renderer.RenderFillRect(hdrR);
+
+			// Header border-bottom (separator line)
+			SDL::Color sep = s.bdColor; sep.a = SDL::Clamp8(sep.a * op);
+			m_renderer.SetDrawColor(sep);
+			m_renderer.RenderLine({r.x, r.y + d->headerH}, {r.x + r.w, r.y + d->headerH});
+
+			// Title text
+			float ty = r.y + (d->headerH - _TH(e)) * 0.5f;
+			_Text(e, d->title, r.x + 8.f, ty, s.textColor, op, s);
+
+			// Close button [×]
+			float btnSize = d->headerH;
+			float btnX    = r.x + r.w;
+			if (d->closable) {
+				btnX -= btnSize;
+				FRect closeR = {btnX, r.y, btnSize, btnSize};
+				bool hov = closeR.Contains(m_mousePos);
+				if (hov) {
+					SDL::Color hc = {200, 60, 50, 200}; hc.a = SDL::Clamp8(hc.a * op);
+					m_renderer.SetDrawColor(hc);
+					m_renderer.RenderFillRect(closeR);
+				}
+				float cx = closeR.x + btnSize * 0.5f, cy = r.y + btnSize * 0.5f, cs = 5.f;
+				SDL::Color xc = hov ? SDL::Color{255,255,255,230} : SDL::Color{200,200,200,200};
+				xc.a = SDL::Clamp8(xc.a * op);
+				m_renderer.SetDrawColor(xc);
+				m_renderer.RenderLine({cx-cs, cy-cs}, {cx+cs, cy+cs});
+				m_renderer.RenderLine({cx+cs, cy-cs}, {cx-cs, cy+cs});
+			}
+
+			// Custom header buttons (right to left, before close button)
+			for (int i = (int)d->headerButtons.size() - 1; i >= 0; --i) {
+				btnX -= btnSize;
+				FRect btnR = {btnX, r.y, btnSize, btnSize};
+				bool hov = btnR.Contains(m_mousePos);
+				if (hov) {
+					SDL::Color hc = s.bgHoveredColor; hc.a = SDL::Clamp8(hc.a * op);
+					m_renderer.SetDrawColor(hc);
+					m_renderer.RenderFillRect(btnR);
+				}
+				if (!d->headerButtons[i].iconKey.empty()) {
+					if (auto tex = _EnsureTexture(d->headerButtons[i].iconKey)) {
+						float ip = btnSize * 0.25f;
+						FRect ir = {btnR.x+ip, btnR.y+ip, btnR.w-2*ip, btnR.h-2*ip};
+						tex.SetAlphaMod(SDL::Clamp8((int)(255*op)));
+						m_renderer.RenderTexture(tex, {}, ir);
+						tex.SetAlphaMod(255);
+					}
+				}
+			}
+
+			// Resize grip (bottom-right corner)
+			if (d->resizable) {
+				SDL::Color rc = d->resizing ? s.thumbColor : s.trackColor;
+				rc.a = SDL::Clamp8(rc.a * op);
+				m_renderer.SetDrawColor(rc);
+				for (int i = 0; i < 3; ++i) {
+					float off = 4.f + i * 4.f;
+					m_renderer.RenderLine({r.x + r.w - off, r.y + r.h - 1},
+					                      {r.x + r.w - 1,   r.y + r.h - off});
+				}
+			}
+		}
+
+		// ── Tree ───────────────────────────────────────────────────────────────────
+
+		void _DrawTree(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+			auto *d  = m_ctx.Get<TreeData>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
+			if (!d || !lp) return;
+
+			_DrawBg(e, r, s, st, w);
+			SDL::Color bd = (m_focused==e) ? s.bdFocusedColor : st.hovered ? s.bdHoveredColor : s.bdColor;
+			_StrokeRR(r, bd, s.borders, s.radius, s.opacity);
+
+			float op   = s.opacity;
+			float iH   = d->itemHeight;
+			float padL = lp->padding.left;
+			float padT = lp->padding.top;
+			float padB = lp->padding.bottom;
+			float th   = _TH(e);
+
+			std::vector<int> visible = _GetVisibleTreeNodes(d->nodes);
+			float totalH = (float)visible.size() * iH;
+			float viewH  = r.h - padT - padB;
+
+			d->scrollY = SDL::Clamp(d->scrollY, 0.f, SDL::Max(0.f, totalH - viewH));
+
+			float sbW = 0.f;
+			if (auto *css = m_ctx.Get<ContainerScrollState>(e); css && totalH > viewH) {
+				float t = lp->scrollbarThickness;
+				sbW = t;
+				_DrawScrollbarY({r.x + r.w - t, r.y + padT, t, viewH},
+				                totalH, viewH, d->scrollY, css, s, op);
+			}
+
+			float contentW = r.w - padL - lp->padding.right - sbW;
+			float y0 = r.y + padT - d->scrollY;
+
+			for (int vi = 0; vi < (int)visible.size(); ++vi) {
+				int ni = visible[vi];
+				const auto &node = d->nodes[ni];
+				float iy = y0 + vi * iH;
+
+				// Clip check
+				if (iy + iH < r.y + padT || iy > r.y + r.h - padB) continue;
+
+				FRect itemR = {r.x + padL, iy, contentW, iH};
+				float indent = node.level * d->indentSize;
+
+				// Row background (selected / hovered)
+				if (ni == d->selectedIndex)
+					_FillRR(itemR, s.bgCheckedColor, FCorners(3.f), op);
+				else if (itemR.Contains(m_mousePos))
+					_FillRR(itemR, s.bgHoveredColor, FCorners(3.f), op);
+
+				float tx = itemR.x + indent;
+
+				// Expand/collapse arrow (8×8 triangle)
+				float ax = tx + 3.f, ay = iy + (iH - 8.f) * 0.5f;
+				if (node.hasChildren) {
+					SDL::Color ac = s.textColor; ac.a = SDL::Clamp8(ac.a * op);
+					m_renderer.SetDrawColor(ac);
+					if (node.expanded) {
+						// ▼ down arrow (filled with lines)
+						for (int li = 0; li < 4; ++li)
+							m_renderer.RenderLine({ax + li, ay + li}, {ax + 7 - li, ay + li});
+					} else {
+						// ▶ right arrow
+						for (int li = 0; li < 4; ++li)
+							m_renderer.RenderLine({ax + li, ay + li}, {ax + li, ay + 7 - li});
+					}
+				}
+				tx += 14.f; // arrow slot (present even for leaf nodes)
+
+				// Optional icon
+				if (!node.iconKey.empty()) {
+					if (auto tex = _EnsureTexture(node.iconKey)) {
+						float ip = (iH - d->iconSize) * 0.5f;
+						FRect ir = {tx, iy + ip, d->iconSize, d->iconSize};
+						tex.SetAlphaMod(SDL::Clamp8((int)(255*op)));
+						m_renderer.RenderTexture(tex, {}, ir);
+						tex.SetAlphaMod(255);
+					}
+					tx += d->iconSize + 4.f;
+				}
+
+				// Label
+				SDL::Color tc = (ni == d->selectedIndex) ? s.textCheckedColor : s.textColor;
+				_Text(e, node.label, tx, iy + (iH - th) * 0.5f, tc, op, s);
+			}
+		}
+
+		void _DrawColorButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
 			SDL::Color bd = (m_focused == e) ? s.fillColor : s.bdColor;
-			_FillRR(r, d->color, s.radius, s.opacity);
+			_FillRR(r, s.bgColor, s.radius, s.opacity);
 			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.radius, s.opacity);
 			if (st.hovered) {
 				_FillRR(r, {255,255,255,30}, s.radius, 1.f);

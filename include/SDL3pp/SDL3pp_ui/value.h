@@ -10,6 +10,7 @@ namespace UI {
 	// Value
 	// ==================================================================================
 
+
 	enum class Unit : Uint8 {
 		Px   = 0,  ///< Pixel
 		Ww   = 1,  ///< Percentage of Window Width
@@ -28,6 +29,7 @@ namespace UI {
 		Grow = 14  ///< Grow factor in percentage, take a share of remaining space in the layout direction
 	};
 
+	
 	/**
 	 * @brief Immutable context passed down the widget tree during the Measure pass.
 	 *

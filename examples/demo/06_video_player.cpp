@@ -486,7 +486,7 @@ private:
 				.WithStyle([](Style& s){
 					s.trackColor = {40,40,58,255};
 					s.fillColor  = {70,130,210,255};
-					s.accent = {100,160,235,255};
+					s.thumbColor = {100,160,235,255};
 				})
 				.Radius(SDL::FCorners(4.f))
 				.OnChange([this](float v) {
@@ -529,7 +529,7 @@ private:
 					s.bgColor = {30,30,46,255};
 					s.trackColor   = {40,40,58,255};
 					s.fillColor    = {70,130,210,255};
-					s.accent   = {100,160,235,255};
+					s.thumbColor   = {100,160,235,255};
 				})
 				.Radius(SDL::FCorners(3.f))
 				.Tooltip("Volume")

@@ -2203,6 +2203,8 @@ struct Color : ColorRaw {
 		return res;
 	}
 
+	FColor ToFloat(float opacity = 1.0f);
+
 	/**
 	 * Map an RGBA quadruple to a pixel value for a given pixel format.
 	 *
@@ -2258,8 +2260,8 @@ struct Color : ColorRaw {
 	 * @sa Map()
 	 */
 	static Color Get(Uint32 pixel,
-									 const PixelFormatDetails& format,
-									 PaletteConstRef palette = {});
+					const PixelFormatDetails& format,
+					PaletteConstRef palette = {});
 };
 
 /**
@@ -2965,6 +2967,15 @@ inline Uint32 MapColor(const PixelFormatDetails& format,
 											 ColorRaw c,
 											 PaletteConstRef palette = {}) {
 	return SDL_MapRGBA(&format, palette, c.r, c.g, c.b, c.a);
+}
+
+inline FColor Color::ToFloat(float opacity)  {
+	FColor res;
+	res.r = r / 255.f;
+	res.g = g / 255.f;
+	res.b = b / 255.f;
+	res.a = SDL::Clamp((a / 255.f) * opacity, 0.f, 1.f);
+	return res;
 }
 
 inline Uint32 Color::Map(const PixelFormatDetails& format,

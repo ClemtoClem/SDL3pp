@@ -39,7 +39,9 @@ namespace UI {
 		Splitter,    ///< Resizable split panes — two children divided by a draggable handle.
 		Spinner,     ///< Animated loading indicator (rotating arc, updated by _ProcessAnimate).
 		Badge,       ///< Small notification pill displaying a text count.
-		ColorButton, ///< Color swatch button — shows a color; fires onChange on click.
+		ColorPicker, ///< Color palette picker (Grayscale, RGB8, RGBFloat, GradientAB).
+		Popup,       ///< Floating window with title bar, draggable, resizable, closable.
+		Tree,        ///< Hierarchical tree view with expandable/collapsible nodes.
 	};
 
 	// ==================================================================================
@@ -107,6 +109,39 @@ namespace UI {
 		std::string scrollSound;
 		std::string showSound;
 		std::string hideSound;
+	};
+
+	// ==================================================================================
+	// BgGradient — optional gradient background component
+	// ==================================================================================
+
+	/// @brief Gradient anchor for BgGradient backgrounds.
+	enum class GradientAnchor : Uint8 {
+		Top,
+		Bottom,
+		Left,
+		Right,
+		TopLeft,
+		TopRight,
+		BottomLeft,
+		BottomRight,
+		Center
+	};
+
+	/// @brief Optional ECS component that replaces a widget's solid background with a gradient.
+	///
+	/// When present, each per-state `bgColor` from `Style` is used as the gradient
+	/// start color, and the matching `color2*` field here is the end color.
+	/// Attach via the builder: `.BgGradient(endColor)` or per-state setters.
+	struct BgGradient {
+		SDL::Color color2         = { 40,  40,  60, 255}; ///< Normal state end color.
+		SDL::Color color2Hovered  = { 60,  62,  90, 255}; ///< Hovered end color.
+		SDL::Color color2Pressed  = { 20,  20,  35, 255}; ///< Pressed end color.
+		SDL::Color color2Checked  = { 80, 160, 240, 255}; ///< Checked end color.
+		SDL::Color color2Focused  = { 20,  20,  35, 255}; ///< Focused end color.
+		SDL::Color color2Disabled = { 28,  28,  38, 160}; ///< Disabled end color.
+		GradientAnchor start      = GradientAnchor::Top;  ///< Gradient start.
+		GradientAnchor end		  = GradientAnchor::Bottom; ///< Gradient end.
 	};
 
 	struct LayoutProps {
@@ -290,10 +325,18 @@ namespace UI {
 		bool checked = false;
 	};
 
+	/// @brief Visual style for the Knob widget.
+	enum class KnobShape : Uint8 {
+		Arc,          ///< Circular body with arc track + filled arc indicator (default).
+		Potentiometer ///< Solid dial with a single line/pointer indicator.
+	};
+
 	struct KnobData {
 		float min = 0.f, max = 1.f, step = 0.f, val = 0.f;
 		float dragStartY = 0.f, dragStartVal = 0.f;
-		bool drag = false;
+		float dragStartAngle = 0.f; ///< Angle at drag start (degrees) for arc interaction.
+		bool  drag = false;
+		KnobShape shape = KnobShape::Arc;
 	};
 
 	struct ImageData {
@@ -740,13 +783,86 @@ namespace UI {
 	};
 
 	// ==================================================================================
-	// ColorButtonData
+	// ColorPickerData — ECS component for the ColorPicker widget
 	// ==================================================================================
 
-	/// @brief Color swatch button — fires onChange (packed RGBA as float bits) when clicked.
-	struct ColorButtonData {
-		SDL::Color color     = {70, 130, 210, 255}; ///< Current color to display.
-		bool       showAlpha = true;                ///< Render checker behind transparent colors.
+	/// @brief Palette mode for the ColorPicker widget.
+	enum class ColorPickerPalette : Uint8 {
+		Grayscale,   ///< 1-D horizontal bar: black → white.
+		RGB8,        ///< 2-D HSV square + hue bar (8-bit integer output).
+		RGBFloat,    ///< 2-D HSV square + hue bar with configurable precision step.
+		GradientAB,  ///< 1-D horizontal bar: colorA → colorB.
+	};
+
+	/// @brief State and configuration for the ColorPicker widget.
+	struct ColorPickerData {
+		ColorPickerPalette palette = ColorPickerPalette::RGB8;
+		SDL::Color currentColor    = {255, 100,  50, 255}; ///< Currently selected color.
+		SDL::Color colorA          = {  0,   0,   0, 255}; ///< Start color (GradientAB).
+		SDL::Color colorB          = {255, 255, 255, 255}; ///< End color (GradientAB).
+		float      precisionStep   = 1.f / 255.f;          ///< Quantization step (RGBFloat).
+		bool       showAlpha       = false;                 ///< Show an alpha channel bar.
+		// Internal HSV state (used for RGB8/RGBFloat)
+		float hue    = 0.f;  ///< [0..1] hue.
+		float sat    = 1.f;  ///< [0..1] saturation.
+		float val    = 1.f;  ///< [0..1] value/brightness.
+		float gradT  = 0.f;  ///< [0..1] normalized pick position (Grayscale/GradientAB).
+		bool dragging    = false;
+		bool draggingHue = false;
+	};
+
+	// ==================================================================================
+	// PopupData — ECS component for the Popup widget
+	// ==================================================================================
+
+	/// @brief State and configuration for the Popup (floating window) widget.
+	///
+	/// Position and size are set via the builder: `.Fixed(x,y).W(w).H(h)`.
+	/// Children are placed below the header automatically (like an Expander).
+	struct PopupData {
+		std::string title;            ///< Title bar text.
+		bool  closable   = true;      ///< Show a close (×) button on the right of the header.
+		bool  draggable  = true;      ///< Clicking and dragging the title bar moves the window.
+		bool  resizable  = false;     ///< Bottom-right resize grip.
+		float headerH    = 28.f;      ///< Title bar height (px).
+		bool  open       = true;      ///< Window is visible. Set false to close (widget hidden).
+		// Drag state
+		bool        dragging   = false;
+		SDL::FPoint dragOffset = {};  ///< Mouse offset from top-left at drag start.
+		SDL::FPoint pressPos   = {};  ///< Mouse position at press time (for drag-vs-click detection).
+		// Resize state
+		bool        resizing        = false;
+		SDL::FPoint resizeStart     = {};
+		SDL::FPoint resizeStartSize = {};
+		// Custom header buttons (drawn right of the title, left of the close button)
+		struct HeaderBtn {
+			std::string iconKey;           ///< Resource-pool icon texture key.
+			std::function<void()> onClick; ///< Callback when clicked.
+		};
+		std::vector<HeaderBtn> headerButtons;
+	};
+
+	// ==================================================================================
+	// TreeNodeData / TreeData — ECS components for the Tree widget
+	// ==================================================================================
+
+	/// @brief A single node in the Tree widget.
+	struct TreeNodeData {
+		std::string label;
+		std::string iconKey;       ///< Optional icon resource key.
+		int  level       = 0;      ///< Indent level (0 = root).
+		bool hasChildren = false;  ///< Whether this node can be expanded.
+		bool expanded    = false;  ///< Current expansion state (relevant when hasChildren).
+	};
+
+	/// @brief State and configuration for the Tree widget.
+	struct TreeData {
+		std::vector<TreeNodeData> nodes;      ///< All nodes in display order.
+		int   selectedIndex = -1;            ///< Currently selected node (-1 = none).
+		float itemHeight    = 22.f;          ///< Row height (px).
+		float indentSize    = 16.f;          ///< Horizontal indent per level (px).
+		float iconSize      = 14.f;          ///< Icon width/height (px).
+		float scrollY       = 0.f;           ///< Internal vertical scroll offset (px).
 	};
 
 	struct WidgetState {
