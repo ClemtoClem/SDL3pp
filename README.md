@@ -228,6 +228,17 @@ struct Main {
 
 All widgets are ECS entities driven through a Measure → Place → Clip → Input → Render → Animate pipeline. The builder DSL (`.W()`, `.H()`, `.BgColor()`, `.OnClick()`, …) returns `*this` for method chaining, and `.AsRoot()` sets the layout root.
 
+![image](captures/Capture_13_ui_controls.png)
+![image](captures/Capture_13_ui_text_graph.png)
+![image](captures/Capture_13_ui_grid.png)
+![image](captures/Capture_13_ui_advanced.png)
+
+![image](captures/Capture_03_tile_editor.png)
+![image](captures/Capture_06_media_player.png)
+![image](captures/Capture_06_media_player.png)
+![image](captures/Capture_05_spectrum_analyzer.png)
+![image](captures/Capture_06_signal_generator.png)
+
 #### Widgets
 
 | Widget | Factory | Description |
@@ -616,6 +627,17 @@ struct Main {
 ### SDL3pp UI — Référence des widgets
 
 Chaque widget est une entité ECS pilotée par le pipeline Mesure → Placement → Découpe → Entrées → Rendu → Animation. Le DSL builder (`.W()`, `.H()`, `.BgColor()`, `.OnClick()`, …) renvoie `*this` pour le chaînage, et `.AsRoot()` définit la racine de mise en page.
+
+![image](captures/Capture_13_ui_controls.png)
+![image](captures/Capture_13_ui_text_graph.png)
+![image](captures/Capture_13_ui_grid.png)
+![image](captures/Capture_13_ui_advanced.png)
+
+![image](captures/Capture_03_tile_editor.png)
+![image](captures/Capture_06_media_player.png)
+![image](captures/Capture_06_media_player.png)
+![image](captures/Capture_05_spectrum_analyzer.png)
+![image](captures/Capture_06_signal_generator.png)
 
 #### Widgets
 

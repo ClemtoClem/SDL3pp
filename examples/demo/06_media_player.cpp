@@ -187,7 +187,7 @@ struct Main {
 			if (arg == "--debug")   SDL::SetLogPriorities(SDL::LOG_PRIORITY_DEBUG);
 		}
 		SDL::SetAppMetadata("SDL3pp Media Player", VIDEO_PLAYER_VERSION,
-							"com.example.video_player");
+							"com.example.media_player");
 		SDL::Init(SDL::INIT_VIDEO | SDL::INIT_AUDIO);
 		SDL::TTF::Init();
 		SDL::MIX::Init();
