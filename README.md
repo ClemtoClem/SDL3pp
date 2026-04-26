@@ -235,7 +235,7 @@ All widgets are ECS entities driven through a Measure → Place → Clip → Inp
 
 ![image](captures/Capture_03_tile_editor.png)
 ![image](captures/Capture_06_media_player.png)
-![image](captures/Capture_06_media_player.png)
+![image](captures/Capture_09_builder_manager.png)
 ![image](captures/Capture_05_spectrum_analyzer.png)
 ![image](captures/Capture_06_signal_generator.png)
 
@@ -635,7 +635,7 @@ Chaque widget est une entité ECS pilotée par le pipeline Mesure → Placement 
 
 ![image](captures/Capture_03_tile_editor.png)
 ![image](captures/Capture_06_media_player.png)
-![image](captures/Capture_06_media_player.png)
+![image](captures/Capture_09_builder_manager.png)
 ![image](captures/Capture_05_spectrum_analyzer.png)
 ![image](captures/Capture_06_signal_generator.png)
 
