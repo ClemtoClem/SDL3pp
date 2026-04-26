@@ -1048,9 +1048,9 @@ struct Main {
     SDL::RendererRef     renderer{ window.GetRenderer() };
     SDL::ResourceManager rm;
     SDL::ResourcePool&   pool{ *rm.CreatePool("ui") };
-    SDL::ECS::Context    ecs_ctx;
-    SDL::UI::System      ui{ ecs_ctx, renderer, {}, pool };
-    SDL::FrameTimer      m_frameTimer{ 60.f };
+    SDL::ECS::Context    ecs;
+    SDL::UI::System      ui{ ecs, renderer, {}, pool };
+    SDL::FrameTimer      timer{ 60.f };
     std::string          dataPath;
     std::string          assetsPath;
 
@@ -1125,7 +1125,7 @@ struct Main {
         window.StartTextInput();
         _LoadResources();
         _BuildUI();
-        m_frameTimer.Begin();
+        timer.Begin();
         if      (forcedMode == Mode::Server) _StartServer();
         else if (forcedMode == Mode::Client) {
             _LoadClientConfig();
@@ -1832,8 +1832,8 @@ struct Main {
     // ─────────────────────────────────────────────────────────────────────────
 
     SDL::AppResult Iterate() {
-        m_frameTimer.Begin();
-        const float dt = m_frameTimer.GetDelta();
+        timer.Begin();
+        const float dt = timer.GetDelta();
 
         if (m_mode == Mode::Server) _UpdateServer();
         if (m_mode == Mode::Client) _UpdateClient();
@@ -1843,7 +1843,7 @@ struct Main {
         renderer.RenderClear();
         ui.Iterate(dt);
         renderer.Present();
-        m_frameTimer.End();
+        timer.End();
         return SDL::APP_CONTINUE;
     }
 

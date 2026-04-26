@@ -989,6 +989,12 @@ namespace UI {
 			return *this;
 		}
 
+		/// Register a callback fired when a Tree node is selected (nodeIndex, hasChildren).
+		Builder &OnTreeSelect(std::function<void(int, bool)> cb) {
+			sys.OnTreeSelect(id, std::move(cb));
+			return *this;
+		}
+
 		// Children
 		/** @brief Append a child entity to this container. */
 		Builder &Child(ECS::EntityId c) {

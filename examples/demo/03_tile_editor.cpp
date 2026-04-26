@@ -384,7 +384,9 @@ struct EditorState {
 	int    selTileW = 1,  selTileH = 1;
 	bool   tsDragging    = false;
 	SDL::FPoint tsDragStart = {};
+	float  tsScrollX     = 0.f;
 	float  tsScrollY     = 0.f;
+	float  tsTileZoom    = 0.f;  // 0 = auto-fit; positive = explicit zoom scale
 	float  tsScale       = 1.0f;
 
 	// Object layer drag
@@ -955,6 +957,11 @@ struct Main {
 	SDL::ECS::EntityId eLayerContent   = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId toolBtns[kToolCount] = {};
 	SDL::ECS::EntityId eGridBtn        = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eMapTileW       = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eMapTileH       = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eTsTileW        = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eTsTileH        = SDL::ECS::NullEntity;
+	int                m_syncedTs      = -2;
 
 	struct LayerSlot {
 		SDL::ECS::EntityId row     = SDL::ECS::NullEntity;
@@ -1077,6 +1084,21 @@ struct Main {
 					ts.rows      = SDL::Max(1, (sz.y - 2*ts.margin) / (ts.tileH + (sp ? sp : 1)));
 					ts.tileCount = ts.columns * ts.rows;
 				}
+			}
+		}
+
+		// Sync tileset spinboxes and reset zoom/scroll when active tileset changes
+		if (m_syncedTs != state.activeTileset) {
+			m_syncedTs = state.activeTileset;
+			// Auto-fit the new tileset in the palette view
+			state.tsTileZoom = 0.f;
+			state.tsScrollX  = 0.f;
+			state.tsScrollY  = 0.f;
+			if (eTsTileW != SDL::ECS::NullEntity &&
+				!map.tilesets.empty() && state.activeTileset < (int)map.tilesets.size()) {
+				const auto& ts = map.tilesets[state.activeTileset];
+				ui.SetValue(eTsTileW, float(ts.tileW));
+				ui.SetValue(eTsTileH, float(ts.tileH));
 			}
 		}
 
@@ -1220,6 +1242,16 @@ struct Main {
 			eGridBtn = flat(b).Id();
 		}
 
+		// Map zoom reset (1:1) button
+		SDL::ECS::EntityId btnZoomReset;
+		{
+			auto b = ui.Button("btn_zoom_reset", "1:1").W(34).H(32).Padding(2.f)
+				.Tooltip("Reset map zoom to 100% (0)", 0.6f)
+				.ClickSound(res_key::CLICK)
+				.OnClick([this]{ state.zoom=1.f; state.viewX=0.f; state.viewY=0.f; });
+			btnZoomReset = flat(b).Id();
+		}
+
 		bar.Children(
 			// File ops
 			mkBtn("btn_new",     icon_key::NEW,     "New Map  (Ctrl+N)",       [this]{ _NewMap();    }),
@@ -1244,7 +1276,8 @@ struct Main {
 			mkBtn("btn_zoom_in",  icon_key::ZOOM_IN,  "Zoom In  (+)",
 				  [this]{ _ZoomAt(1.25f, {kWinSz.x / 2.f, kWinSz.y / 2.f}); }),
 			mkBtn("btn_zoom_out", icon_key::ZOOM_OUT, "Zoom Out (-)",
-				  [this]{ _ZoomAt(0.8f,  {kWinSz.x / 2.f, kWinSz.y / 2.f}); })
+				  [this]{ _ZoomAt(0.8f,  {kWinSz.x / 2.f, kWinSz.y / 2.f}); }),
+			btnZoomReset
 		);
 
 		// Spacer + title
@@ -1320,11 +1353,14 @@ struct Main {
 				.W(SDL::UI::Value::Pw(100.f)).H(26.f)
 				.PaddingH(4.f).PaddingV(2.f)
 				.WithStyle([](auto& s){
-					s.bgColor     = SDL::Color(0,0,0,0);
-					s.borders     = SDL::FBox(0.f, 0.f, 1.f, 0.f);
-					s.bdColor = pal::BORDER;
-					s.radius      = SDL::FCorners(0.f);
+					s.bgColor        = SDL::Color(0,0,0,0);
+					s.bgHoveredColor = SDL::Color(32, 48, 76, 140);
+					s.borders        = SDL::FBox(0.f, 0.f, 1.f, 0.f);
+					s.bdColor        = pal::BORDER;
+					s.radius         = SDL::FCorners(0.f);
 				})
+				.Hoverable(true).Selectable(true)
+				.OnClick([this, i]{ _SelectLayer(i); })
 				.Visible(false);
 			slot.row = row;
 
@@ -1342,6 +1378,7 @@ struct Main {
 			slot.lblName = ui.Label(std::format("ls_name{}", i), "Layer")
 				.Grow(100.f).TextColor(pal::WHITE)
 				.PaddingH(4).PaddingV(0)
+				.Hoverable(true).Selectable(true)
 				.OnClick([this, i]{ _SelectLayer(i); });
 
 			// Lock icon button — tint/bg updated by _UpdateLayerSlots()
@@ -1383,6 +1420,41 @@ struct Main {
 					mkLayerOpBtn("btn_lyr_dn",  icon_key::DOWN,      "Move Layer Down", pal::ACCENT, [this]{ _MoveActiveLayer(+1);    }),
 					mkLayerOpBtn("btn_lyr_add", icon_key::LAYER_ADD, "Add Tile Layer",  pal::GREEN,  [this]{ _AddTileLayer();         }),
 					mkLayerOpBtn("btn_lyr_del", icon_key::LAYER_DEL, "Delete Layer",    pal::RED,    [this]{ _DeleteActiveLayer();    })
+				)
+		);
+
+		// Map tile size controls
+		eMapTileW = ui.SpinBox("spin_map_tw", 1.f, 512.f, float(map.tileW), true)
+			.Grow(100.f).H(22.f).SpinStep(1.f)
+			.OnChange([this](float v){ map.tileW = SDL::Max(1,(int)v); map.dirty=true; })
+			.Id();
+		eMapTileH = ui.SpinBox("spin_map_th", 1.f, 512.f, float(map.tileH), true)
+			.Grow(100.f).H(22.f).SpinStep(1.f)
+			.OnChange([this](float v){ map.tileH = SDL::Max(1,(int)v); map.dirty=true; })
+			.Id();
+		panel.Child(
+			ui.Column("map_tsize_sect", 2.f, 0.f)
+				.W(SDL::UI::Value::Pw(100.f))
+				.WithStyle([](auto& s){
+					s.bgColor = SDL::Color(0,0,0,0);
+					s.borders = SDL::FBox(1.f,0.f,0.f,0.f);
+					s.bdColor = pal::BORDER;
+					s.radius  = SDL::FCorners(0.f);
+				})
+				.Children(
+					ui.Label("lbl_map_tsize_hdr", "Map tile size")
+						.W(SDL::UI::Value::Pw(100.f))
+						.TextColor(pal::GREY).Font(res_key::FONT, 11.f)
+						.PaddingH(6).PaddingV(2),
+					ui.Row("map_tsize_row", 4.f, 4.f)
+						.W(SDL::UI::Value::Pw(100.f)).H(26.f)
+						.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
+						.Children(
+							ui.Label("lbl_mtW","W").W(14).TextColor(pal::GREY),
+							eMapTileW,
+							ui.Label("lbl_mtH","H").W(14).TextColor(pal::GREY),
+							eMapTileH
+						)
 				)
 		);
 
@@ -1431,41 +1503,103 @@ struct Main {
 			.TextColor(pal::GREY).PaddingH(8).PaddingV(2);
 		panel.Child(eTileInfo);
 
-		// Tileset navigation (prev / next when multiple tilesets)
+		// Tileset tile size controls
+		{
+			float initW = map.tilesets.empty() ? 16.f : float(map.tilesets[0].tileW);
+			float initH = map.tilesets.empty() ? 16.f : float(map.tilesets[0].tileH);
+			eTsTileW = ui.SpinBox("spin_ts_tw", 1.f, 512.f, initW, true)
+				.Grow(100.f).H(22.f).SpinStep(1.f)
+				.OnChange([this](float v){
+					if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
+					auto& ts = map.tilesets[state.activeTileset];
+					ts.tileW = SDL::Max(1,(int)v);
+					if (ts.imageW > 0) {
+						int sp = SDL::Max(ts.spacing, 0);
+						ts.columns   = SDL::Max(1, (ts.imageW - 2*ts.margin) / (ts.tileW + (sp ? sp : 1)));
+						ts.tileCount = ts.columns * ts.rows;
+					}
+					map.dirty = true;
+				})
+				.Id();
+			eTsTileH = ui.SpinBox("spin_ts_th", 1.f, 512.f, initH, true)
+				.Grow(100.f).H(22.f).SpinStep(1.f)
+				.OnChange([this](float v){
+					if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
+					auto& ts = map.tilesets[state.activeTileset];
+					ts.tileH = SDL::Max(1,(int)v);
+					if (ts.imageH > 0) {
+						int sp = SDL::Max(ts.spacing, 0);
+						ts.rows      = SDL::Max(1, (ts.imageH - 2*ts.margin) / (ts.tileH + (sp ? sp : 1)));
+						ts.tileCount = ts.columns * ts.rows;
+					}
+					map.dirty = true;
+				})
+				.Id();
+			panel.Child(
+				ui.Row("ts_tsize_row", 4.f, 4.f)
+					.W(SDL::UI::Value::Pw(100.f)).H(26.f)
+					.WithStyle([](auto& s){
+						s.bgColor = SDL::Color(0,0,0,0);
+						s.borders = SDL::FBox(0.f);
+					})
+					.Children(
+						ui.Label("lbl_tstW","Tile W").W(40).TextColor(pal::GREY).Font(res_key::FONT, 11.f),
+						eTsTileW,
+						ui.Label("lbl_tstH","H").W(10).TextColor(pal::GREY),
+						eTsTileH
+					)
+			);
+		}
+
+		// Tileset navigation (prev / next) + zoom controls
+		auto mkTsBtn = [&](const char* id, const char* icon, const char* tip, std::function<void()> cb) {
+			return ui.Button(id).W(26).H(26)
+				.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
+				.Icon(icon, 5.f).ClickSound(res_key::CLICK)
+				.Tooltip(tip, 0.6f)
+				.WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
+				.OnClick(std::move(cb));
+		};
 		panel.Child(
 			ui.Row("ts_nav", 4.f, 4.f)
 				.W(SDL::UI::Value::Pw(100.f)).H(30.f)
 				.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
 				.Children(
-					ui.Button("btn_ts_prev").W(26).H(26)
+					mkTsBtn("btn_ts_prev", icon_key::LEFT,  "Previous Tileset", [this]{
+						if (state.activeTileset > 0) --state.activeTileset;
+					}),
+					mkTsBtn("btn_ts_next", icon_key::RIGHT, "Next Tileset", [this]{
+						if (state.activeTileset < (int)map.tilesets.size()-1) ++state.activeTileset;
+					}),
+					ui.Button("btn_ts_smart", "Smart").W(38).H(26)
 						.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-						.Icon(icon_key::LEFT, 5.f)
-						.ClickSound(res_key::CLICK)
-						.Tooltip("Previous Tileset", 0.6f)
-						.WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
-						.OnClick([this]{
-							if (state.activeTileset > 0) --state.activeTileset;
-						}),
-					ui.Button("btn_ts_next").W(26).H(26)
-						.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-						.Icon(icon_key::RIGHT, 5.f)
-						.ClickSound(res_key::CLICK)
-						.Tooltip("Next Tileset", 0.6f)
-						.WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
-						.OnClick([this]{
-							if (state.activeTileset < (int)map.tilesets.size()-1)
-								++state.activeTileset;
-						}),
-					ui.Button("btn_ts_smart", "Smart").Grow(100.f).H(26)
-						.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
-						.Font(res_key::FONT, 11.f)
-						.ClickSound(res_key::CLICK)
+						.Font(res_key::FONT, 11.f).ClickSound(res_key::CLICK)
 						.Tooltip("Toggle Smart Tileset", 0.6f)
 						.WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
 						.OnClick([this]{
 							if (state.activeTileset < (int)map.tilesets.size())
 								map.tilesets[state.activeTileset].smart =
 									!map.tilesets[state.activeTileset].smart;
+						}),
+					mkTsBtn("btn_ts_zi", icon_key::ZOOM_IN, "Zoom In (Ctrl+Wheel)", [this]{
+						float cx = state.tilesetRect.x + state.tilesetRect.w * 0.5f;
+						float cy = state.tilesetRect.y + state.tilesetRect.h * 0.5f;
+						_ZoomTileset(1.25f, cx, cy);
+					}),
+					mkTsBtn("btn_ts_zo", icon_key::ZOOM_OUT, "Zoom Out (Ctrl+Wheel)", [this]{
+						float cx = state.tilesetRect.x + state.tilesetRect.w * 0.5f;
+						float cy = state.tilesetRect.y + state.tilesetRect.h * 0.5f;
+						_ZoomTileset(1.f / 1.25f, cx, cy);
+					}),
+					ui.Button("btn_ts_fit", "Fit").W(28).H(26)
+						.Style(SDL::UI::Theme::PrimaryButton(pal::NEUTRAL))
+						.Font(res_key::FONT, 11.f).ClickSound(res_key::CLICK)
+						.Tooltip("Reset zoom to fit panel", 0.6f)
+						.WithStyle([](auto& s){ s.radius=SDL::FCorners(3.f); })
+						.OnClick([this]{
+							state.tsTileZoom = 0.f;
+							state.tsScrollX  = 0.f;
+							state.tsScrollY  = 0.f;
 						})
 				)
 		);
@@ -1715,22 +1849,27 @@ struct Main {
 		if (!texH) return;
 		if (ts.imageW <= 0) return;
 
-		// Scale to fit width of panel
-		state.tsScale = SDL::Min(1.f, (rect.w - 4.f) / float(ts.imageW));
+		// Auto-fit on first render of this tileset (tsTileZoom == 0)
+		if (state.tsTileZoom <= 0.f)
+			state.tsTileZoom = SDL::Min(1.f, (rect.w - 4.f) / float(ts.imageW));
+		state.tsScale = state.tsTileZoom;
+
 		float dispW = ts.imageW * state.tsScale;
 		float dispH = ts.imageH * state.tsScale;
+		float imgX  = rect.x + 2.f - state.tsScrollX;
+		float imgY  = rect.y + 2.f - state.tsScrollY;
 
-		float imgX = rect.x + 2.f;
-		float imgY = rect.y + 2.f - state.tsScrollY;
+		float tw  = ts.tileW   * state.tsScale;
+		float th  = ts.tileH   * state.tsScale;
+		float spH = ts.spacing * state.tsScale;
+		float spV = spH;
+
+		// Clip all rendering to the panel rectangle
+		r.SetClipRect(SDL::Rect{(int)rect.x, (int)rect.y, (int)rect.w, (int)rect.h});
 
 		// Draw image
 		r.RenderTexture(SDL::TextureRef{*texH}, {},
 						SDL::FRect{imgX, imgY, dispW, dispH});
-
-		float tw  = ts.tileW    * state.tsScale;
-		float th  = ts.tileH    * state.tsScale;
-		float spH = ts.spacing  * state.tsScale;
-		float spV = spH;
 
 		// Grid overlay
 		if (tw > 3.f) {
@@ -1770,9 +1909,13 @@ struct Main {
 			r.RenderRect(SDL::FRect{px, py, sw, sh});
 		}
 
-		// Clamp scroll
-		float maxScroll = SDL::Max(0.f, dispH + 4.f - rect.h);
-		state.tsScrollY = SDL::Clamp(state.tsScrollY, 0.f, maxScroll);
+		r.ResetClipRect();
+
+		// Clamp scroll to content bounds
+		float maxScrollX = SDL::Max(0.f, dispW + 4.f - rect.w);
+		float maxScrollY = SDL::Max(0.f, dispH + 4.f - rect.h);
+		state.tsScrollX = SDL::Clamp(state.tsScrollX, 0.f, maxScrollX);
+		state.tsScrollY = SDL::Clamp(state.tsScrollY, 0.f, maxScrollY);
 	}
 
 	// =========================================================================
@@ -1976,7 +2119,27 @@ struct Main {
 	// Tileset panel events
 	// =========================================================================
 
+	// Zoom the tileset palette at a given screen pivot point.
+	void _ZoomTileset(float factor, float pivotX, float pivotY) {
+		if (state.tsTileZoom <= 0.f) {
+			if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
+			const auto& ts = map.tilesets[state.activeTileset];
+			if (ts.imageW <= 0 || state.tilesetRect.w <= 4.f) return;
+			state.tsTileZoom = SDL::Min(1.f, (state.tilesetRect.w - 4.f) / float(ts.imageW));
+		}
+		float newZoom = SDL::Clamp(state.tsTileZoom * factor, 0.1f, 8.f);
+		if (newZoom == state.tsTileZoom) return;
+		float imgX = state.tilesetRect.x + 2.f - state.tsScrollX;
+		float imgY = state.tilesetRect.y + 2.f - state.tsScrollY;
+		float ratio = newZoom / state.tsTileZoom;
+		state.tsScrollX  = state.tilesetRect.x + 2.f - pivotX + (pivotX - imgX) * ratio;
+		state.tsScrollY  = state.tilesetRect.y + 2.f - pivotY + (pivotY - imgY) * ratio;
+		state.tsTileZoom = newZoom;
+	}
+
 	void _OnTilesetEvent(SDL::Event& ev) {
+		SDL::Keymod keymod = SDL::GetModState();
+
 		if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
 		const auto& ts = map.tilesets[state.activeTileset];
 		if (ts.imageW <= 0 || ts.columns <= 0 || ts.rows <= 0) return;
@@ -1985,7 +2148,7 @@ struct Main {
 		float th  = ts.tileH   * state.tsScale;
 		float spH = ts.spacing * state.tsScale;
 		float spV = spH;
-		float imgX = state.tilesetRect.x + 2.f;
+		float imgX = state.tilesetRect.x + 2.f - state.tsScrollX;
 		float imgY = state.tilesetRect.y + 2.f - state.tsScrollY;
 
 		auto screenToCell = [&](float sx, float sy, int& cx, int& cy) {
@@ -1997,7 +2160,11 @@ struct Main {
 			float mx = ev.wheel.mouse_x, my = ev.wheel.mouse_y;
 			if (mx < state.tilesetRect.x || mx > state.tilesetRect.x + state.tilesetRect.w) return;
 			if (my < state.tilesetRect.y || my > state.tilesetRect.y + state.tilesetRect.h) return;
-			state.tsScrollY -= ev.wheel.y * 28.f;
+			bool ctrl = (keymod & SDL::KMOD_CTRL) != 0;
+			if (ctrl)
+				_ZoomTileset((ev.wheel.y > 0) ? 1.2f : (1.f / 1.2f), mx, my);
+			else
+				state.tsScrollY -= ev.wheel.y * 28.f;
 			return;
 		}
 		if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN &&
@@ -2160,6 +2327,11 @@ struct Main {
 	void _NewMap()    { state.pendingNew = true; }
 	void _DoNewMap() {
 		map.Init(); state = EditorState{}; ur = UndoRedo{};
+		m_syncedTs = -2;
+		if (eMapTileW != SDL::ECS::NullEntity) {
+			ui.SetValue(eMapTileW, float(map.tileW));
+			ui.SetValue(eMapTileH, float(map.tileH));
+		}
 		_UpdateTitle();
 	}
 
@@ -2178,6 +2350,11 @@ struct Main {
 		if (!LoadMap(nm, path)) return;
 		map = std::move(nm);
 		state = EditorState{}; ur = UndoRedo{};
+		m_syncedTs = -2;
+		if (eMapTileW != SDL::ECS::NullEntity) {
+			ui.SetValue(eMapTileW, float(map.tileW));
+			ui.SetValue(eMapTileH, float(map.tileH));
+		}
 		for (size_t i = 0; i < map.tilesets.size(); ++i) {
 			auto& ts = map.tilesets[i];
 			ts.key = "tileset_" + std::to_string(i);

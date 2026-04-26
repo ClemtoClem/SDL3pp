@@ -224,6 +224,66 @@ struct Main {
 
 ---
 
+### SDL3pp UI — Widget reference
+
+All widgets are ECS entities driven through a Measure → Place → Clip → Input → Render → Animate pipeline. The builder DSL (`.W()`, `.H()`, `.BgColor()`, `.OnClick()`, …) returns `*this` for method chaining, and `.AsRoot()` sets the layout root.
+
+#### Widgets
+
+| Widget | Factory | Description |
+|---|---|---|
+| `Container` | `ui.Column()` / `ui.Row()` / `ui.Card()` / `ui.Stack()` / `ui.ScrollView()` / `ui.Grid()` | Generic layout box. Hosts child widgets in one of four layout modes. Supports automatic or always-visible scrollbars on X and/or Y axes (`AutoScrollableX/Y`, `ScrollableX/Y`). |
+| `Label` | `ui.Label(name, text)` | Static text with optional word-wrap. Inherits font from the widget tree or can override with `.Font(key, ptsize)`. |
+| `Input` | `ui.Input(name, placeholder)` | Single-line text editor: cursor, selection (mouse + keyboard), copy/paste, password placeholder char, `OnTextChange` callback. |
+| `Button` | `ui.Button(name, text)` | Clickable control with normal / hovered / pressed / disabled visual states. Supports an optional icon (`IconData`), `OnClick` and `OnDoubleClick` callbacks. |
+| `Toggle` | `ui.Toggle(name, text)` | Binary on/off switch with a slide animation. `OnToggle(bool)` callback. |
+| `RadioButton` | `ui.Radio(name, group, text)` | Toggle that belongs to a named group; checking one auto-unchecks all others in the same group. `OnToggle(bool)` callback. |
+| `Knob` | `ui.Knob(name, min, max, value)` | Circular dial with configurable shape (Arc, Circle, Dot). Drag vertically to change value. `OnChange(float)` callback. |
+| `Slider` | `ui.Slider(name, min, max, value)` | Horizontal or vertical track + thumb. `OnChange(float)` callback. |
+| `ScrollBar` | `ui.ScrollBar(name, contentSize, viewSize)` | Standalone scrollbar (H or V). `OnScroll(float)` callback returns normalised offset. |
+| `Progress` | `ui.Progress(name, value, max)` | Read-only progress bar (H or V). Value set programmatically via `ui.SetValue()`. |
+| `Separator` | `ui.Separator(name)` | Non-interactive 1 px divider line (H or V depending on parent layout). |
+| `Image` | `ui.ImageWidget(name, textureKey, fit)` | Displays a texture from the resource pool. Fit modes: `Contain`, `Cover`, `Fill`, `Tile`, `None`. |
+| `Canvas` | `ui.CanvasWidget(name, onEvent, onUpdate, onRender)` | Custom draw area. The render callback receives the `RendererRef` and the widget's screen `FRect`. |
+| `TextArea` | `ui.TextArea(name, text)` | Multi-line rich text editor: cursor, selection, copy/paste, drag-to-select, vertical scroll. Supports styled spans (`AddTextAreaSpan`) with bold, italic and per-character colour. Can be set read-only. `OnTextChange` callback. |
+| `ListBox` | `ui.ListBoxWidget(name, items)` | Scrollable list of text items; keyboard navigation (↑↓, Home, End). `OnClick` callback; `ui.GetListBoxSelection()` returns current index. |
+| `Graph` | `ui.GradedGraph(name)` | Data plot with graduated X/Y axes, optional grid, fill area, bar or line mode, log-frequency axis. |
+| `ComboBox` | `ui.ComboBox(name, items, selectedIndex)` | Dropdown selector: click to open a floating list, click item to close. `OnChange(float)` callback returns selected index. |
+| `SpinBox` | `ui.SpinBox(name, min, max, value)` | Numeric input with ▲/▼ buttons; also supports vertical drag on the value. Integer or float mode. `OnChange(float)` callback. |
+| `TabView` | `ui.TabView(name)` | Tabbed container; each tab shows one child. Tab bar can be at the top or bottom. `OnChange(float)` callback returns active tab index. Tabs can be closable. |
+| `Expander` | `ui.Expander(name, label)` | Collapsible section: clicking the header animates children in/out. `OnToggle(bool)` callback. |
+| `Splitter` | `ui.Splitter(name, orientation, ratio)` | Resizable split panes with a draggable handle dividing two children. `OnChange(float)` callback returns the split ratio. |
+| `Spinner` | `ui.Spinner(name)` | Animated loading arc (speed, arc span and thickness configurable). Updated by the animation pass; no callback. |
+| `Badge` | `ui.Badge(name, text)` | Small notification pill with a customisable background and text colour. Typically overlaid on a Button or icon. |
+| `ColorPicker` | `ui.ColorPicker(name)` | Colour palette picker with four palette modes: `Grayscale`, `RGB8`, `RGBFloat`, `GradientAB`. `OnChange` callback; value readable via `ui.GetPickedColor()`. |
+| `Popup` | `ui.Popup(name, title)` | Floating modal window with title bar. Optionally draggable, resizable and closable. Supports custom header buttons. |
+| `Tree` | `ui.Tree(name)` | Hierarchical tree view with expandable / collapsible nodes. Nodes carry a label, optional icon, indent level, and `hasChildren` / `expanded` flags. `OnChange(float)` fires with the selected node index; `OnTreeSelect(int index, bool hasChildren)` additionally reports whether the node is a branch or a leaf. |
+
+#### Layout modes
+
+| Mode | Factory shortcut | Behaviour |
+|---|---|---|
+| `Layout::InColumn` | `ui.Column()` | Children stacked vertically (default). |
+| `Layout::InLine` | `ui.Row()` | Children placed horizontally, no wrap. |
+| `Layout::Stack` | `ui.Stack()` | Horizontal with line wrap. |
+| `Layout::InGrid` | `ui.Grid()` | Children placed on a configurable 2-D grid (`GridSizing::Fixed` / `Content`, `GridLines::None` / `Rows` / `Columns` / `Both`). |
+
+#### Value system (resolution-independent dimensions)
+
+| Value | Meaning |
+|---|---|
+| `Value::Px(v)` | Absolute pixels. |
+| `Value::Pw(v)` | `v`% of the parent's resolved width. |
+| `Value::Ph(v)` | `v`% of the parent's resolved height. |
+| `Value::Pcw(v)` / `Value::Pch(v)` | `v`% of the parent's *content* width / height (padding excluded). |
+| `Value::Rw(v)` / `Value::Rh(v)` | `v`% of the root widget's resolved width / height. |
+| `Value::Rcw(v)` / `Value::Rch(v)` | `v`% of the root widget's content width / height. |
+| `Value::Ww(v)` / `Value::Wh(v)` | `v`% of the live window width / height. |
+| `Value::Auto()` | Shrink to content size (plus optional px offset). |
+| `Value::Grow(f)` | Absorb a share `f` of the remaining space in the main axis. |
+
+---
+
 ### Examples
 
 #### `examples/renderer/` — 2D rendering
@@ -306,6 +366,9 @@ struct Main {
 | `04_text.cpp` | Interactive text canvas using `RenderDebugText` |
 | `05_hexedit.cpp` | Full hex editor built with `SDL3pp_ui.h`: toolbar, scrollable hex/ASCII canvas rendered via `Canvas` widget, `TextArea` with rich-text spans (bold / italic / colour), file-open dialog, drag-and-drop |
 | `06_video_player.cpp` | VLC-like video player using FFmpeg: MP4 / MKV / AVI / WebM / MP3 / FLAC playback via streaming texture, multi-track audio & subtitle selection, seek bar, volume control, loop mode, subtitle overlay, metadata viewer, stream info panel, collapsible side panel, immersive fullscreen |
+| `07_weather.cpp` | 7-day weather forecast viewer: geocoding + forecast via Open-Meteo HTTP API on a background thread, city search, current conditions card (temperature, humidity, wind, weather icon), 7-day forecast row |
+| `08_chat.cpp` | Real-time chat application using SDL3\_net: multi-user TCP server/client architecture, message history with rich-text timestamps, online user list, emoji support, notification sounds |
+| `09_build_manager.cpp` | C/C++ build manager: lazy-loading directory tree (`SDL3pp_filesystem`), source file selection list, compiler settings (g++/clang++, C++11–23, extra libraries, include paths), background compilation thread with live output, error/warning count, filter buttons (All / Errors / Warnings), JSON config persistence via `SDL3pp_dataScripts` |
 
 #### `examples/` — Standalone examples
 
@@ -550,6 +613,66 @@ struct Main {
 
 ---
 
+### SDL3pp UI — Référence des widgets
+
+Chaque widget est une entité ECS pilotée par le pipeline Mesure → Placement → Découpe → Entrées → Rendu → Animation. Le DSL builder (`.W()`, `.H()`, `.BgColor()`, `.OnClick()`, …) renvoie `*this` pour le chaînage, et `.AsRoot()` définit la racine de mise en page.
+
+#### Widgets
+
+| Widget | Fabrique | Description |
+|---|---|---|
+| `Container` | `ui.Column()` / `ui.Row()` / `ui.Card()` / `ui.Stack()` / `ui.ScrollView()` / `ui.Grid()` | Boîte de mise en page générique. Héberge des enfants selon l'un des quatre modes de layout. Prend en charge des barres de défilement automatiques ou permanentes sur les axes X et/ou Y (`AutoScrollableX/Y`, `ScrollableX/Y`). |
+| `Label` | `ui.Label(nom, texte)` | Texte statique avec retour à la ligne optionnel. Hérite la police de l'arbre ou peut la surcharger avec `.Font(clé, ptsize)`. |
+| `Input` | `ui.Input(nom, placeholder)` | Éditeur de texte monoligne : curseur, sélection (souris + clavier), copier/coller, caractère de substitution pour les mots de passe. Callback `OnTextChange`. |
+| `Button` | `ui.Button(nom, texte)` | Contrôle cliquable avec états visuels normal / survolé / pressé / désactivé. Supporte une icône optionnelle (`IconData`), callbacks `OnClick` et `OnDoubleClick`. |
+| `Toggle` | `ui.Toggle(nom, texte)` | Interrupteur binaire avec animation de glissement. Callback `OnToggle(bool)`. |
+| `RadioButton` | `ui.Radio(nom, groupe, texte)` | Toggle appartenant à un groupe nommé ; en cocher un décoche automatiquement tous les autres du même groupe. Callback `OnToggle(bool)`. |
+| `Knob` | `ui.Knob(nom, min, max, valeur)` | Cadran circulaire à forme configurable (Arc, Circle, Dot). Déplacer verticalement pour changer la valeur. Callback `OnChange(float)`. |
+| `Slider` | `ui.Slider(nom, min, max, valeur)` | Piste + pouce horizontal ou vertical. Callback `OnChange(float)`. |
+| `ScrollBar` | `ui.ScrollBar(nom, tailleContenu, tailleVue)` | Barre de défilement autonome (H ou V). Callback `OnScroll(float)` retournant le décalage normalisé. |
+| `Progress` | `ui.Progress(nom, valeur, max)` | Barre de progression en lecture seule (H ou V). Valeur définie par `ui.SetValue()`. |
+| `Separator` | `ui.Separator(nom)` | Ligne de séparation non interactive de 1 px (H ou V selon le layout parent). |
+| `Image` | `ui.ImageWidget(nom, clé, fit)` | Affiche une texture issue du pool de ressources. Modes de fit : `Contain`, `Cover`, `Fill`, `Tile`, `None`. |
+| `Canvas` | `ui.CanvasWidget(nom, onEvent, onUpdate, onRender)` | Zone de dessin personnalisée. Le callback de rendu reçoit le `RendererRef` et le `FRect` écran du widget. |
+| `TextArea` | `ui.TextArea(nom, texte)` | Éditeur de texte riche multi-lignes : curseur, sélection, copier/coller, glisser pour sélectionner, défilement vertical. Supporte les spans stylisés (`AddTextAreaSpan`) avec gras, italique et couleur par caractère. Peut être mis en lecture seule. Callback `OnTextChange`. |
+| `ListBox` | `ui.ListBoxWidget(nom, items)` | Liste défilante d'éléments texte ; navigation clavier (↑↓, Début, Fin). Callback `OnClick` ; `ui.GetListBoxSelection()` retourne l'index courant. |
+| `Graph` | `ui.GradedGraph(nom)` | Tracé de données avec axes X/Y gradués, grille optionnelle, zone de remplissage, mode lignes ou barres, axe à fréquence logarithmique. |
+| `ComboBox` | `ui.ComboBox(nom, items, index)` | Sélecteur déroulant : cliquer pour ouvrir une liste flottante, cliquer un élément pour fermer. Callback `OnChange(float)` retournant l'index sélectionné. |
+| `SpinBox` | `ui.SpinBox(nom, min, max, valeur)` | Saisie numérique avec boutons ▲/▼ ; supporte aussi le glisser vertical sur la valeur. Mode entier ou flottant. Callback `OnChange(float)`. |
+| `TabView` | `ui.TabView(nom)` | Conteneur à onglets ; chaque onglet affiche un enfant. La barre d'onglets peut être en haut ou en bas. Callback `OnChange(float)` retournant l'index de l'onglet actif. Onglets fermables. |
+| `Expander` | `ui.Expander(nom, libellé)` | Section repliable : cliquer l'en-tête anime les enfants à l'intérieur/l'extérieur. Callback `OnToggle(bool)`. |
+| `Splitter` | `ui.Splitter(nom, orientation, ratio)` | Panneaux redimensionnables séparés par une poignée glissable divisant deux enfants. Callback `OnChange(float)` retournant le ratio de partage. |
+| `Spinner` | `ui.Spinner(nom)` | Arc animé de chargement (vitesse, étendue d'arc et épaisseur configurables). Mis à jour par la passe d'animation ; pas de callback. |
+| `Badge` | `ui.Badge(nom, texte)` | Pastille de notification avec fond et couleur de texte personnalisables. Généralement superposée à un Button ou une icône. |
+| `ColorPicker` | `ui.ColorPicker(nom)` | Sélecteur de couleur avec quatre modes de palette : `Grayscale`, `RGB8`, `RGBFloat`, `GradientAB`. Callback `OnChange` ; valeur lisible via `ui.GetPickedColor()`. |
+| `Popup` | `ui.Popup(nom, titre)` | Fenêtre modale flottante avec barre de titre. Optionnellement déplaçable, redimensionnable et fermable. Supporte des boutons d'en-tête personnalisés. |
+| `Tree` | `ui.Tree(nom)` | Vue arborescente hiérarchique avec nœuds dépliables / repliables. Chaque nœud porte un libellé, une icône optionnelle, un niveau d'indentation et les drapeaux `hasChildren` / `expanded`. `OnChange(float)` se déclenche avec l'index du nœud sélectionné ; `OnTreeSelect(int index, bool hasChildren)` indique en plus si le nœud est une branche ou une feuille. |
+
+#### Modes de mise en page
+
+| Mode | Raccourci fabrique | Comportement |
+|---|---|---|
+| `Layout::InColumn` | `ui.Column()` | Enfants empilés verticalement (par défaut). |
+| `Layout::InLine` | `ui.Row()` | Enfants disposés horizontalement, sans retour à la ligne. |
+| `Layout::Stack` | `ui.Stack()` | Horizontal avec retour à la ligne automatique. |
+| `Layout::InGrid` | `ui.Grid()` | Enfants placés sur une grille 2D configurable (`GridSizing::Fixed` / `Content`, `GridLines::None` / `Rows` / `Columns` / `Both`). |
+
+#### Système de valeurs (dimensions indépendantes de la résolution)
+
+| Valeur | Signification |
+|---|---|
+| `Value::Px(v)` | Pixels absolus. |
+| `Value::Pw(v)` | `v`% de la largeur résolue du parent. |
+| `Value::Ph(v)` | `v`% de la hauteur résolue du parent. |
+| `Value::Pcw(v)` / `Value::Pch(v)` | `v`% de la largeur / hauteur de *contenu* du parent (rembourrage exclu). |
+| `Value::Rw(v)` / `Value::Rh(v)` | `v`% de la largeur / hauteur résolue du widget racine. |
+| `Value::Rcw(v)` / `Value::Rch(v)` | `v`% de la largeur / hauteur de contenu du widget racine. |
+| `Value::Ww(v)` / `Value::Wh(v)` | `v`% de la largeur / hauteur courante de la fenêtre. |
+| `Value::Auto()` | Rétrécit à la taille du contenu (plus un décalage px optionnel). |
+| `Value::Grow(f)` | Absorbe une part `f` de l'espace restant sur l'axe principal. |
+
+---
+
 ### Exemples
 
 #### `examples/renderer/` — Rendu 2D
@@ -632,6 +755,9 @@ struct Main {
 | `04_text.cpp` | Canevas de texte interactif basé sur `RenderDebugText` |
 | `05_hexedit.cpp` | Éditeur hexadécimal complet construit avec `SDL3pp_ui.h` : barre d'outils, canevas hex/ASCII défilant rendu via widget `Canvas`, `TextArea` avec texte riche (gras / italique / couleur), boîte de dialogue d'ouverture de fichier, glisser-déposer |
 | `06_video_player.cpp` | Lecteur vidéo de type VLC via FFmpeg : lecture MP4 / MKV / AVI / WebM / MP3 / FLAC par texture de flux, sélection de pistes audio et sous-titres, barre de défilement temporel, contrôle du volume, mode boucle, superposition de sous-titres, visionneuse de métadonnées, panneau d'informations sur les flux, panneau latéral repliable, plein écran immersif |
+| `07_weather.cpp` | Visionneuse météo 7 jours : géocodage + prévisions via l'API HTTP Open-Meteo dans un thread de fond, recherche de ville, carte des conditions actuelles (température, humidité, vent, icône météo), ligne de prévision sur 7 jours |
+| `08_chat.cpp` | Application de chat en temps réel via SDL3\_net : architecture TCP serveur/client multi-utilisateur, historique des messages avec horodatages en texte riche, liste des utilisateurs connectés, support emoji, sons de notification |
+| `09_build_manager.cpp` | Gestionnaire de compilation C/C++ : arbre de répertoires à chargement différé (`SDL3pp_filesystem`), liste de sélection des fichiers sources, paramètres compilateur (g++/clang++, C++11–23, bibliothèques supplémentaires, chemins d'inclusion), thread de compilation en arrière-plan avec sortie en direct, comptage erreurs/avertissements, boutons de filtre (Tout / Erreurs / Avertissements), persistance de la configuration JSON via `SDL3pp_dataScripts` |
 
 #### `examples/` — Exemples autonomes
 

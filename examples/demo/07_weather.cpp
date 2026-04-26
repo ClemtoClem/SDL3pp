@@ -354,8 +354,8 @@ struct Main {
     SDL::ResourceManager rm;
     SDL::ResourcePool&   pool{ *rm.CreatePool("ui") };
 
-    SDL::ECS::Context ecs_ctx;
-    SDL::UI::System   ui{ ecs_ctx, renderer, {}, pool };
+    SDL::ECS::Context ecs;
+    SDL::UI::System   ui{ ecs, renderer, {}, pool };
 
     SDL::FrameTimer m_frameTimer{ 60.f };
 

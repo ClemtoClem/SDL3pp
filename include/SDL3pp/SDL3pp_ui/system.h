@@ -503,6 +503,9 @@ namespace UI {
 			return -1;
 		}
 
+		/** @brief Force a full layout recompute on the next frame (e.g. after inserting tree nodes). */
+		void MarkLayoutDirty() { m_layoutDirty = true; }
+
 		// ── BgGradient accessors ──────────────────────────────────────────────────────
 
 		/** @brief Attach or replace the BgGradient component on entity @p e. */
@@ -1211,6 +1214,8 @@ namespace UI {
 		void OnFocusGain(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onFocusGain = std::move(cb); }
 		/** @brief Register (or replace) the focus-lose callback on widget @p e. */
 		void OnFocusLose(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onFocusLose = std::move(cb); }
+		/// Register a callback fired when a Tree node is selected (nodeIndex, hasChildren).
+		void OnTreeSelect(ECS::EntityId e, std::function<void(int, bool)> cb) { m_ctx.Get<Callbacks>(e)->onTreeSelect = std::move(cb); }
 
 		/** @brief Return a reference to the underlying ECS context (for advanced use). */
 		[[nodiscard]] ECS::Context &GetECSContext() { return m_ctx; }
@@ -5539,8 +5544,9 @@ namespace UI {
 					}
 				}
 				d->selectedIndex = ni;
-				if (cb && cb->onChange) cb->onChange((float)ni);
-				if (cb && cb->onClick)  cb->onClick();
+				if (cb && cb->onChange)    cb->onChange((float)ni);
+				if (cb && cb->onClick)     cb->onClick();
+				if (cb && cb->onTreeSelect) cb->onTreeSelect(ni, node.hasChildren);
 				break;
 			}
 		}

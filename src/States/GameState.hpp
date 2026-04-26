@@ -31,7 +31,7 @@ namespace game {
 //     Root → entitiesGroup → entity nodes
 //     SignalBus for mob-died / teleport / player-spawned
 //
-//   m_ecs_ctx  ← separate ECS::Context  (UI only)
+//   m_ecs  ← separate ECS::Context  (UI only)
 //   m_ui       ← SDL::UI::System
 //     HUD row (health bar, polypoints, map name)
 //     Canvas widget  ← game world rendered here
@@ -106,9 +106,9 @@ public:
 		_LoadTileset(ctx);
 
 		// ── UI (separate world) ────────────────────────────────────────────
-		m_ecs_ctx = std::make_unique<SDL::ECS::Context>();
+		m_ecs = std::make_unique<SDL::ECS::Context>();
 		m_ui      = std::make_unique<SDL::UI::System>(
-			*m_ecs_ctx, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
+			*m_ecs, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
 		_BuildUI();
 
 		// ── Signal bus ─────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ public:
 	}
 
 	void Leave() override {
-		m_ui.reset(); m_ecs_ctx.reset();
+		m_ui.reset(); m_ecs.reset();
 		m_scene.reset();
 		m_gameWorld = {};
 		LOG_GAME(core::LogLevel::Info) << "GameState::Leave";
@@ -236,7 +236,7 @@ private:
 	int             m_tilesetCols = 1;
 
 	// ── UI (separate ECS world) ───────────────────────────────────────────────
-	std::unique_ptr<SDL::ECS::Context>  m_ecs_ctx;
+	std::unique_ptr<SDL::ECS::Context>  m_ecs;
 	std::unique_ptr<SDL::UI::System>  m_ui;
 	SDL::ECS::EntityId  m_pausePanel = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId  m_msgPanel   = SDL::ECS::NullEntity;
@@ -543,7 +543,7 @@ private:
 				std::format("HP: {:.0f}/{:.0f}", h.hp, h.maxHp));
 
 			// Update progress bar: val + max via uiWorld's SliderData
-			if (auto* sd = m_ecs_ctx->Get<SDL::UI::SliderData>(m_healthBar)) {
+			if (auto* sd = m_ecs->Get<SDL::UI::SliderData>(m_healthBar)) {
 				sd->max = h.maxHp;
 				sd->val = SDL::Clamp(h.hp, 0.f, h.maxHp);
 			}

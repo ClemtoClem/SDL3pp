@@ -31,15 +31,15 @@ public:
 		m_hasSave = !ctx.savePath.empty() &&
 					core::SaveManager(ctx.savePath).Exists();
 
-		m_ecs_ctx = std::make_unique<SDL::ECS::Context>();
+		m_ecs = std::make_unique<SDL::ECS::Context>();
 		m_ui      = std::make_unique<SDL::UI::System>(
-			*m_ecs_ctx, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
+			*m_ecs, ctx.renderer, SDL::MixerRef{nullptr}, *ctx.pool);
 		_BuildUI();
 	}
 
 	void Leave() override {
 		m_ui.reset();
-		m_ecs_ctx.reset();
+		m_ecs.reset();
 		LOG_INFO << "MenuState::Leave";
 	}
 
@@ -59,7 +59,7 @@ private:
 	AppContext* m_ctx     = nullptr;
 	float       m_time   = 0.f;
 	bool        m_hasSave = false;
-	std::unique_ptr<SDL::ECS::Context> m_ecs_ctx;
+	std::unique_ptr<SDL::ECS::Context> m_ecs;
 	std::unique_ptr<SDL::UI::System>   m_ui;
 
 	void _BuildUI() {

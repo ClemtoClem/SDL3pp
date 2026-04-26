@@ -877,6 +877,8 @@ namespace UI {
 		std::function<void(bool)>  onToggle;
 		std::function<void(float)> onScroll;
 		std::function<void()> onHoverEnter, onHoverLeave, onFocusGain, onFocusLose;
+		/// Tree-specific: called when a node is selected. Parameters: node index, hasChildren.
+		std::function<void(int, bool)> onTreeSelect;
 	};
 
 } // namespace UI

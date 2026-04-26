@@ -176,7 +176,7 @@ struct Main {
 
 	void _LoadResources() {
 		const std::string base = std::string(SDL::GetBasePath()) + "../../../assets/";
-		ui.LoadFont   (key::FONT,     base + "fonts/DejaVuSans.ttf");
+		ui.LoadFont   (key::FONT,     base + "fonts/Roboto-Regular.ttf");
 		ui.LoadTexture(key::CRATE,    base + "textures/crate.jpg");
 		ui.LoadAudio  (key::CLICK,    base + "sounds/effect-click.mp3");
 		ui.LoadAudio  (key::HOVER,    base + "sounds/effect-hover.mp3");
@@ -563,13 +563,18 @@ struct Main {
 							.W(64).H(64)
 							.FillColor(pal::GREEN).ThumbColor(pal::GREEN)
 							.Tooltip("Knob 3 — drag or scroll [0–100]")
-							.OnChange([this](float v){ ui.SetText(lblKnob2, std::format("Knob 3: {:.1f}", v)); }),
+							.OnChange([this](float v){ ui.SetText(lblKnob3, std::format("Knob 3: {:.1f}", v)); }),
 						lblKnob3
 					),
-				ui.Column("k_dis_col", 4.f, 0.f).AlignH(SDL::UI::Align::Center).Children(
-					ui.Knob("knob_dis", 0, 1, .3f).W(64).H(64).Enable(false)
-						.Tooltip("Disabled knob"),
-					ui.Label("lbl_kdis","Disabled").TextColor(pal::GREY))
+				ui.Column("k_dis_col", 4.f, 0.f)
+					.AlignH(SDL::UI::Align::Center)
+					.Children(
+						ui.Knob("knob_dis", 0, 1, .3f, SDL::UI::KnobShape::Potentiometer)
+							.W(64).H(64)
+							.Enable(false)
+							.Tooltip("Disabled knob"),
+						ui.Label("lbl_kdis","Disabled").TextColor(pal::GREY)
+					)
 			);
 		cardKnob.Child(knobRow);
 
