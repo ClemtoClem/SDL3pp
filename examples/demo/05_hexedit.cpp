@@ -6,7 +6,7 @@
  *   │  Toolbar: [Open] [Save] [Go to addr…] [Search…]  │
  *   ├──────────────────────────────────────────────────┤
  *   │                  HEX CANVAS                      │
- *   │  (address col | hex bytes | ASCII col | scrollbar│
+ *   │ address col | hex bytes | ASCII col | scrollbar  │
  *   ├──────────────────────────────────────────────────┤
  *   │  Status bar: filename + cursor info              │
  *   └──────────────────────────────────────────────────┘

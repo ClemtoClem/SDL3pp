@@ -176,7 +176,7 @@ struct Main {
 
 	void _LoadResources() {
 		const std::string base = std::string(SDL::GetBasePath()) + "../../../assets/";
-		ui.LoadFont   (key::FONT,     base + "fonts/Roboto-Regular.ttf");
+		ui.LoadFont   (key::FONT,     base + "fonts/DejaVuSans.ttf");
 		ui.LoadTexture(key::CRATE,    base + "textures/crate.jpg");
 		ui.LoadAudio  (key::CLICK,    base + "sounds/effect-click.mp3");
 		ui.LoadAudio  (key::HOVER,    base + "sounds/effect-hover.mp3");

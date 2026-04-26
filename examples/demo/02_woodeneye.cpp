@@ -43,7 +43,7 @@
 // Game constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-static constexpr int MAX_PLAYERS = 4;
+static constexpr int   MAX_PLAYERS = 4;
 static constexpr float kCapsuleRadius = 0.5f;
 static constexpr float kCapsuleHeight = 1.5f;
 static constexpr float kMaxHP = 100.f;
