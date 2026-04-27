@@ -907,6 +907,24 @@ namespace UI {
 			return *this;
 		}
 
+		// ── MenuBar setters ────────────────────────────────────────────────────────
+		/** @brief Append a top-level menu to a MenuBar widget. */
+		Builder &AddMenu(MenuBarMenu menu) {
+			if (auto *d = sys.GetMenuBarData(id)) d->menus.push_back(std::move(menu));
+			return *this;
+		}
+		/** @brief Append a top-level menu (label + items) to a MenuBar widget. */
+		Builder &AddMenu(const std::string &label, std::vector<MenuBarItem> items, bool enabled = true) {
+			if (auto *d = sys.GetMenuBarData(id)) d->menus.push_back({label, std::move(items), enabled});
+			return *this;
+		}
+		/** @brief Set MenuBar height. */
+		Builder &MenuBarH(float h) {
+			if (auto *d = sys.GetMenuBarData(id)) (void)d;
+			sys.GetECSContext().Get<LayoutProps>(id)->height = Value::Px(h);
+			return *this;
+		}
+
 		// ── Badge setters ──────────────────────────────────────────────────────────
 		Builder &BadgeText(const std::string &text) {
 			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->text = text;
@@ -1183,6 +1201,9 @@ namespace UI {
 	}
 	inline Builder System::Tree(const std::string &n) {
 		return Builder(*this, MakeTree(n));
+	}
+	inline Builder System::MenuBar(const std::string &n) {
+		return Builder(*this, MakeMenuBar(n));
 	}
 
 } // namespace UI

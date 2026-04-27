@@ -856,7 +856,7 @@ struct Main {
 		// Pre-colour the first word of each bullet in a different colour
 		if (auto* td = ecs_context.Get<SDL::UI::TextAreaData>(ta.Id())) {
 			auto addSpan = [&](int start, int end, SDL::Color col){
-				td->spans.push_back({start, end, {false, false, col}});
+				td->spans.push_back({start, end, {false, false, false, false, false, col, pal::WHITE}});
 			};
 			addSpan(4,  12, pal::ACCENT);   // "TextArea"
 			addSpan(13, 20, pal::GREEN);    // "Multi-l"... let's colour "supports"

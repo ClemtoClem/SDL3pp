@@ -42,6 +42,7 @@ namespace UI {
 		ColorPicker, ///< Color palette picker (Grayscale, RGB8, RGBFloat, GradientAB).
 		Popup,       ///< Floating window with title bar, draggable, resizable, closable.
 		Tree,        ///< Hierarchical tree view with expandable/collapsible nodes.
+		MenuBar,     ///< Horizontal application-style menu bar with dropdown sub-menus.
 	};
 
 	// ==================================================================================
@@ -433,9 +434,13 @@ namespace UI {
 	 * default `textColor`.
 	 */
 	struct TextSpanStyle {
-		bool       bold   = false;      ///< Bold weight (requires TTF bold font variant).
-		bool       italic = false;      ///< Italic slant (requires TTF italic font variant).
-		SDL::Color color  = {0,0,0,0}; ///< Text color; {0,0,0,0} = use widget default.
+		bool       bold          = false;      ///< Bold weight (requires TTF bold font variant).
+		bool       italic        = false;      ///< Italic slant (requires TTF italic font variant).
+		bool       underline     = false;      ///< Draw a line below the text run.
+		bool       strikethrough = false;      ///< Draw a line through the middle of the text run.
+		bool       highlight     = false;      ///< Fill background behind the text run with highlightColor.
+		SDL::Color color         = {0,0,0,0}; ///< Text color; {0,0,0,0} = use widget default.
+		SDL::Color highlightColor = {255,255,100,80}; ///< Background fill color when highlight==true.
 	};
 
 	// ==================================================================================
@@ -863,6 +868,39 @@ namespace UI {
 		float indentSize    = 16.f;          ///< Horizontal indent per level (px).
 		float iconSize      = 14.f;          ///< Icon width/height (px).
 		float scrollY       = 0.f;           ///< Internal vertical scroll offset (px).
+	};
+
+	// ==================================================================================
+	// MenuBarData — ECS component for the MenuBar widget
+	// ==================================================================================
+
+	struct MenuBarItem {
+		std::string label;          ///< Display text.
+		std::string shortcutText;   ///< Keyboard shortcut label shown on the right (e.g. "Ctrl+Z").
+		std::string iconKey;        ///< Resource-pool key for an icon texture (empty = none).
+		std::function<void()> action; ///< Callback fired when the item is activated.
+		std::vector<MenuBarItem> sub; ///< Child items for a sub-menu (empty = leaf item).
+		bool separator = false;     ///< When true renders a horizontal rule; other fields ignored.
+		bool enabled   = true;      ///< Non-interactive and greyed-out when false.
+		bool checkable = false;     ///< Item displays a checkmark glyph when checked.
+		bool checked   = false;     ///< Current checked state (meaningful only when checkable).
+		static MenuBarItem Sep() { MenuBarItem i; i.separator = true; return i; }
+	};
+	struct MenuBarMenu {
+		std::string label;
+		std::vector<MenuBarItem> items;
+		bool enabled = true;
+	};
+	struct MenuBarData {
+		std::vector<MenuBarMenu> menus;
+		int openMenu = -1; ///< Index of the currently-open top-level menu; -1 = none.
+		int hovMenu  = -1; ///< Hovered top-level button; -1 = none.
+		int hovItem  = -1; ///< Hovered item inside the open dropdown; -1 = none.
+		// Computed every render frame — used for hit-testing.
+		struct MenuBtnRect { float x = 0.f, w = 0.f; };
+		std::vector<MenuBtnRect> menuBtnRects;
+		FRect dropRect = {};
+		std::vector<FRect> itemRects;
 	};
 
 	struct WidgetState {

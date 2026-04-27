@@ -92,7 +92,7 @@ examples: $(EXAMPLE_BINS)
 
 # 1. Compilation des objets pour les exemples (génère aussi les .d)
 # Règle spécifique : video player (nécessite les flags FFmpeg)
-$(BUILDDIR)/examples/demo/06_video_player.o: examples/demo/06_video_player.cpp | $(BUILDDIR)
+$(BUILDDIR)/examples/demo/06_media_player.o: examples/demo/06_media_player.cpp | $(BUILDDIR)
 	@mkdir -p $(dir $@)
 	$(call print_yellow,"Compiling FFmpeg $<")
 	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FFMPEG_CFLAGS) -c $< -o $@
@@ -105,7 +105,7 @@ $(BUILDDIR)/examples/%.o: examples/%.cpp | $(BUILDDIR)
 
 # 2. Édition de liens (linking) des exemples
 # Règle spécifique : video player (link avec FFmpeg)
-$(BUILDDIR)/examples/demo/06_video_player$(EXE): $(BUILDDIR)/examples/demo/06_video_player.o $(LIB_TARGET)
+$(BUILDDIR)/examples/demo/06_media_player$(EXE): $(BUILDDIR)/examples/demo/06_media_player.o $(LIB_TARGET)
 	$(call print_green,"Linking FFmpeg $@")
 	@$(CXX) $< -L$(BUILDDIR) -l$(LIB_NAME) $(LDLIBS) $(FFMPEG_LIBS) -o $@
 

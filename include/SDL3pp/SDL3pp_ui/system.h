@@ -448,6 +448,29 @@ namespace UI {
 			return e;
 		}
 
+		/** @brief Create a MenuBar entity.  Populate it with menus via GetMenuBarData()->menus. */
+		ECS::EntityId MakeMenuBar(const std::string &n = "menubar") {
+			ECS::EntityId e = _Make(n, WidgetType::MenuBar);
+			m_ctx.Add<MenuBarData>(e);
+			auto &lp = *m_ctx.Get<LayoutProps>(e);
+			lp.height = Value::Px(26.f);
+			lp.padding = {0.f, 0.f, 0.f, 0.f};
+			return e;
+		}
+
+		// ── MenuBar accessors ─────────────────────────────────────────────────────────
+
+		/** @brief Returns the MenuBarData of entity @p e, or nullptr. */
+		MenuBarData* GetMenuBarData(ECS::EntityId e) { return m_ctx.Get<MenuBarData>(e); }
+		/** @brief Close the currently-open dropdown of a MenuBar, if any. */
+		void CloseMenuBar(ECS::EntityId e) {
+			if (auto *d = m_ctx.Get<MenuBarData>(e)) {
+				d->openMenu = -1;
+				d->hovItem  = -1;
+			}
+			if (m_menuBarOpen == e) m_menuBarOpen = ECS::NullEntity;
+		}
+
 		// ── ColorPicker accessors ─────────────────────────────────────────────────────
 
 		/** @brief Returns the ColorPickerData of entity @p e, or nullptr. */
@@ -579,6 +602,8 @@ namespace UI {
 		                     bool closable = true, bool draggable = true, bool resizable = false);
 		/** @brief Create a Tree widget and return a Builder for it. */
 		inline Builder Tree(const std::string &n);
+		/** @brief Create a MenuBar widget and return a Builder for it. */
+		inline Builder MenuBar(const std::string &n = "menubar");
 		
 		/** @brief Create a vertical Column container (InColumn layout) and return a Builder for it. */
 		inline Builder Column(const std::string &n = "col", float gap = 4.f, float pad = 8.f, float marg = 0.f);
@@ -1343,7 +1368,8 @@ namespace UI {
 		FPoint m_mousePos = {}, m_mouseDelta = {};
 		bool m_mouseDown = false, m_mousePressed = false, m_mouseReleased = false;
 		bool m_layoutDirty = true; ///< true whenever a resize or structural change requires a full re-layout
-		ECS::EntityId m_comboOpen = ECS::NullEntity; ///< Currently-open ComboBox overlay (or NullEntity).
+		ECS::EntityId m_comboOpen   = ECS::NullEntity; ///< Currently-open ComboBox overlay (or NullEntity).
+		ECS::EntityId m_menuBarOpen = ECS::NullEntity; ///< MenuBar entity with an open dropdown (or NullEntity).
 		void _ResetOneShots() { m_mousePressed = m_mouseReleased = false; }
 
 		// ── Texture ──────────────────────────────────────────────────────────────────
@@ -1571,6 +1597,9 @@ namespace UI {
 					break;
 				case WidgetType::Popup:
 					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Resizable | BehaviorFlag::Draggable;
+					break;
+				case WidgetType::MenuBar:
+					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable;
 					break;
 				case WidgetType::Container:
 					beh |= BehaviorFlag::AutoScrollableX | BehaviorFlag::AutoScrollableY;
@@ -2265,6 +2294,8 @@ namespace UI {
 			}
 			case WidgetType::Tree:
 				return {160.f, SDL::Max(80.f, ch * 4.f + 8.f)};
+			case WidgetType::MenuBar:
+				return {400.f, ch + 8.f};
 			default:
 				return {};
 			}
@@ -2844,6 +2875,8 @@ namespace UI {
 
 			// ── Press ─────────────────────────────────────────────────────────────
 			if (m_mousePressed) {
+				// MenuBar dropdown intercept — must run before normal hit-test.
+				if (_CheckMenuBarOverlayPress()) goto end_press;
 				// ComboBox overlay intercept — must run before normal hit-test.
 				if (_CheckComboOverlayPress()) goto end_press;
 				// Vérifier d'abord si le clic tombe sur un thumb de scrollbar inline.
@@ -3282,6 +3315,9 @@ namespace UI {
 				}
 				case WidgetType::Tree:
 					_OnClickTree(e);
+					break;
+				case WidgetType::MenuBar:
+					_OnClickMenuBar(e);
 					break;
 				default:
 					if (cb && cb->onClick)
@@ -3881,6 +3917,7 @@ namespace UI {
 			_RenderNode(m_root);
 			m_renderer.ResetClipRect();
 			_DrawComboOverlay();
+			_DrawMenuBarOverlay();
 			_DrawTooltip();
 		}
 
@@ -4425,6 +4462,9 @@ namespace UI {
 				case WidgetType::Tree:
 					_DrawTree(e, r, *s, *st, *w);
 					break;
+				case WidgetType::MenuBar:
+					_DrawMenuBar(e, r, *s, *st, *w);
+					break;
 			}
 		}
 
@@ -4942,10 +4982,33 @@ namespace UI {
 							}
 						}
 						if (!run.empty()) {
+							float runX = xOff;
+							float runW = _TW(run, e);
 							SDL::Color tc = enabled ? s.textColor : s.textDisabledColor;
 							if (spanStyle && spanStyle->color.a > 0) tc = spanStyle->color;
+							// Highlight background
+							if (spanStyle && spanStyle->highlight) {
+								SDL::Color hc = spanStyle->highlightColor;
+								hc.a = SDL::Clamp8((int)((float)hc.a * s.opacity));
+								m_renderer.SetDrawColor(hc);
+								m_renderer.RenderFillRect(SDL::FRect{runX, ly, runW, _TH(e)});
+							}
 							_Text(e, run, xOff, ly, tc, s.opacity, s);
-							xOff += _TW(run, e);
+							// Underline
+							if (spanStyle && spanStyle->underline) {
+								SDL::Color uc = tc; uc.a = SDL::Clamp8(uc.a * s.opacity);
+								m_renderer.SetDrawColor(uc);
+								float ulY = ly + _TH(e) + 1.f;
+								m_renderer.RenderLine({runX, ulY}, {runX + runW, ulY});
+							}
+							// Strikethrough
+							if (spanStyle && spanStyle->strikethrough) {
+								SDL::Color sc2 = tc; sc2.a = SDL::Clamp8(sc2.a * s.opacity);
+								m_renderer.SetDrawColor(sc2);
+								float stY = ly + _TH(e) * 0.5f;
+								m_renderer.RenderLine({runX, stY}, {runX + runW, stY});
+							}
+							xOff += runW;
 						}
 						ci = spanEnd;
 					}
@@ -6044,6 +6107,264 @@ namespace UI {
 		// Returns true if consumed.
 		bool _CheckComboOverlayPress() {
 			return _TryComboBoxClick();
+		}
+
+		// ── MenuBar draw ──────────────────────────────────────────────────────────
+
+		void _DrawMenuBar(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &, const Widget &) {
+			auto *d = m_ctx.Get<MenuBarData>(e);
+			if (!d) return;
+
+			// Background bar
+			_FillRR(r, s.bgColor, {}, s.opacity);
+			// Bottom border
+			SDL::Color bdC = s.bdColor; bdC.a = SDL::Clamp8(bdC.a * s.opacity);
+			m_renderer.SetDrawColor(bdC);
+			m_renderer.RenderLine({r.x, r.y + r.h - 1.f}, {r.x + r.w, r.y + r.h - 1.f});
+
+			float th  = _TH(e);
+			float x   = r.x + 4.f;
+			bool  onBar = (m_mousePos.y >= r.y && m_mousePos.y < r.y + r.h - 1.f);
+
+			d->menuBtnRects.resize(d->menus.size());
+			d->hovMenu = -1;
+
+			for (int i = 0; i < (int)d->menus.size(); ++i) {
+				const auto &menu = d->menus[i];
+				float tw  = _TW(menu.label, e) + 18.f;
+				d->menuBtnRects[i] = {x - r.x, tw};
+
+				bool isOpen = (d->openMenu == i);
+				bool isHov  = onBar && m_mousePos.x >= x && m_mousePos.x < x + tw;
+				if (isHov) d->hovMenu = i;
+
+				if (isOpen) {
+					_FillRR({x - 2.f, r.y, tw + 4.f, r.h}, s.bgCheckedColor,
+					        SDL::FCorners{2.f, 2.f, 0.f, 0.f}, s.opacity * 0.6f);
+				} else if (isHov) {
+					_FillRR({x - 2.f, r.y, tw + 4.f, r.h}, s.bgHoveredColor,
+					        SDL::FCorners{2.f, 2.f, 0.f, 0.f}, s.opacity * 0.5f);
+				}
+
+				SDL::Color tc = (menu.enabled) ? s.textColor : s.textDisabledColor;
+				_Text(e, menu.label, x + 4.f, r.y + (r.h - th) * 0.5f, tc, s.opacity, s);
+				x += tw + 2.f;
+			}
+
+			// Live menu-switch: when a menu IS open and the user hovers a different button
+			if (d->openMenu >= 0 && d->hovMenu >= 0 && d->hovMenu != d->openMenu) {
+				if (d->menus[d->hovMenu].enabled) {
+					d->openMenu = d->hovMenu;
+					m_menuBarOpen = e;
+				}
+			}
+		}
+
+		void _DrawMenuBarOverlay() {
+			if (m_menuBarOpen == ECS::NullEntity || !m_ctx.IsAlive(m_menuBarOpen)) return;
+			auto *d  = m_ctx.Get<MenuBarData>(m_menuBarOpen);
+			auto *s  = m_ctx.Get<Style>(m_menuBarOpen);
+			auto *cr = m_ctx.Get<ComputedRect>(m_menuBarOpen);
+			if (!d || !s || !cr || d->openMenu < 0 || d->openMenu >= (int)d->menus.size()) {
+				m_menuBarOpen = ECS::NullEntity;
+				return;
+			}
+			const FRect &barR = cr->screen;
+			const auto &menu  = d->menus[d->openMenu];
+
+			// Dropdown position
+			auto &btn   = d->menuBtnRects[d->openMenu];
+			float dropX = barR.x + btn.x - 2.f;
+			float dropY = barR.y + barR.h;
+
+			float itemH = _TH(m_menuBarOpen) + 8.f;
+			float dropW = 200.f;
+
+			// Compute width from label + shortcut widths
+			for (const auto &item : menu.items) {
+				if (item.separator) continue;
+				float iw = _TW(item.label, m_menuBarOpen) + 40.f;
+				if (!item.shortcutText.empty()) iw += _TW(item.shortcutText, m_menuBarOpen) + 20.f;
+				if (!item.sub.empty()) iw += 12.f;
+				dropW = SDL::Max(dropW, iw);
+			}
+
+			float totalH = 0.f;
+			for (const auto &item : menu.items) totalH += item.separator ? 9.f : itemH;
+
+			d->dropRect = {dropX, dropY, dropW, totalH};
+			d->itemRects.resize(menu.items.size());
+
+			m_renderer.ResetClipRect();
+
+			// Shadow
+			_FillRR({dropX + 3.f, dropY + 3.f, dropW, totalH},
+			        SDL::Color{0, 0, 0, 50}, SDL::FCorners(4.f), 1.f);
+
+			// Panel
+			SDL::Color panelBg{28, 30, 42, 252};
+			_FillRR(d->dropRect, panelBg, SDL::FCorners(4.f), 1.f);
+			_StrokeRR(d->dropRect, s->bdColor, {1.f, 1.f, 1.f, 1.f}, SDL::FCorners(4.f), 1.f);
+
+			float iy = dropY;
+			d->hovItem = -1;
+
+			for (int i = 0; i < (int)menu.items.size(); ++i) {
+				const auto &item = menu.items[i];
+				if (item.separator) {
+					d->itemRects[i] = {};
+					float sy = iy + 4.f;
+					SDL::Color sepC{60, 65, 85, 200};
+					m_renderer.SetDrawColor(sepC);
+					m_renderer.RenderLine({dropX + 8.f, sy}, {dropX + dropW - 8.f, sy});
+					iy += 9.f;
+					continue;
+				}
+
+				FRect ir = {dropX, iy, dropW, itemH};
+				d->itemRects[i] = ir;
+
+				bool isHov = item.enabled && ir.Contains(m_mousePos);
+				if (isHov) d->hovItem = i;
+
+				if (isHov)
+					_FillRR(ir, s->fillColor, SDL::FCorners(2.f), 0.35f);
+
+				float textY = iy + (itemH - _TH(m_menuBarOpen)) * 0.5f;
+
+				// Checkmark
+				if (item.checkable && item.checked) {
+					float cx = dropX + 9.f, cy = iy + itemH * 0.5f;
+					SDL::Color cc = item.enabled ? s->textColor : s->textDisabledColor;
+					cc.a = SDL::Clamp8(cc.a * s->opacity);
+					m_renderer.SetDrawColor(cc);
+					m_renderer.RenderLine({cx,       cy + 1.f}, {cx + 3.f, cy + 4.f});
+					m_renderer.RenderLine({cx + 3.f, cy + 4.f}, {cx + 9.f, cy - 3.f});
+				}
+
+				// Icon (16×16 slot at x+2)
+				if (!item.iconKey.empty()) {
+					if (auto tex = _EnsureTexture(item.iconKey)) {
+						float isz = itemH - 4.f;
+						tex.SetAlphaMod(item.enabled ? 220 : 100);
+						m_renderer.RenderTexture(tex, {}, SDL::FRect(dropX + 2.f, iy + 2.f, isz, isz));
+					}
+				}
+
+				// Label
+				SDL::Color tc = item.enabled ? s->textColor : s->textDisabledColor;
+				_Text(m_menuBarOpen, item.label, dropX + 28.f, textY, tc, s->opacity, *s);
+
+				// Shortcut
+				if (!item.shortcutText.empty()) {
+					float sw = _TW(item.shortcutText, m_menuBarOpen);
+					SDL::Color sc{150, 155, 170, 200};
+					if (!item.enabled) sc = s->textDisabledColor;
+					_Text(m_menuBarOpen, item.shortcutText,
+					      dropX + dropW - sw - 10.f, textY, sc, s->opacity * 0.8f, *s);
+				}
+
+				// Sub-menu arrow
+				if (!item.sub.empty()) {
+					float ax = dropX + dropW - 10.f, ay = iy + itemH * 0.5f;
+					SDL::Color ac = item.enabled ? s->textColor : s->textDisabledColor;
+					ac.a = SDL::Clamp8(ac.a * s->opacity);
+					m_renderer.SetDrawColor(ac);
+					m_renderer.RenderLine({ax, ay - 3.f}, {ax + 5.f, ay});
+					m_renderer.RenderLine({ax, ay + 3.f}, {ax + 5.f, ay});
+				}
+
+				iy += itemH;
+			}
+		}
+
+		// ── MenuBar helpers ───────────────────────────────────────────────────────
+
+		void _OnClickMenuBar(ECS::EntityId e) {
+			auto *d  = m_ctx.Get<MenuBarData>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
+			if (!d || !cr) return;
+			const FRect &barR = cr->screen;
+			float mx = m_mousePos.x - barR.x;
+
+			for (int i = 0; i < (int)d->menuBtnRects.size(); ++i) {
+				const auto &btn = d->menuBtnRects[i];
+				if (mx >= btn.x - 4.f && mx < btn.x + btn.w + 4.f) {
+					if (!d->menus[i].enabled) return;
+					if (d->openMenu == i) {
+						d->openMenu = -1;
+						m_menuBarOpen = ECS::NullEntity;
+					} else {
+						d->openMenu = i;
+						d->hovItem  = -1;
+						m_menuBarOpen = e;
+					}
+					return;
+				}
+			}
+			d->openMenu   = -1;
+			m_menuBarOpen = ECS::NullEntity;
+		}
+
+		/// Intercept a mouse press when a MenuBar dropdown is open.
+		/// Returns true if the event was consumed (caller must goto end_press).
+		bool _CheckMenuBarOverlayPress() {
+			if (m_menuBarOpen == ECS::NullEntity || !m_ctx.IsAlive(m_menuBarOpen)) return false;
+			auto *d  = m_ctx.Get<MenuBarData>(m_menuBarOpen);
+			auto *cr = m_ctx.Get<ComputedRect>(m_menuBarOpen);
+			if (!d || !cr || d->openMenu < 0) {
+				m_menuBarOpen = ECS::NullEntity;
+				return false;
+			}
+			const FRect &barR = cr->screen;
+
+			// Click inside the dropdown?
+			if (d->dropRect.Contains(m_mousePos) && d->hovItem >= 0) {
+				auto &menu = d->menus[d->openMenu];
+				if (d->hovItem < (int)menu.items.size()) {
+					auto &item = menu.items[d->hovItem];
+					if (item.enabled && !item.separator) {
+						if (item.checkable) item.checked = !item.checked;
+						if (item.action) item.action();
+					}
+				}
+				d->openMenu   = -1;
+				d->hovItem    = -1;
+				m_menuBarOpen = ECS::NullEntity;
+				return true;
+			}
+
+			// Click in the bar area — check for menu-switch or close
+			if (barR.Contains(m_mousePos)) {
+				float mx = m_mousePos.x - barR.x;
+				for (int i = 0; i < (int)d->menuBtnRects.size(); ++i) {
+					const auto &btn = d->menuBtnRects[i];
+					if (mx >= btn.x - 4.f && mx < btn.x + btn.w + 4.f) {
+						if (!d->menus[i].enabled) {
+							d->openMenu = -1;
+							m_menuBarOpen = ECS::NullEntity;
+							return true;
+						}
+						if (i == d->openMenu) {
+							d->openMenu   = -1;
+							m_menuBarOpen = ECS::NullEntity;
+						} else {
+							d->openMenu = i;
+							d->hovItem  = -1;
+						}
+						return true;
+					}
+				}
+				d->openMenu   = -1;
+				m_menuBarOpen = ECS::NullEntity;
+				return true;
+			}
+
+			// Click outside everything — close menu but do not consume
+			d->openMenu   = -1;
+			d->hovItem    = -1;
+			m_menuBarOpen = ECS::NullEntity;
+			return false;
 		}
 	};
 
