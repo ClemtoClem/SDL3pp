@@ -1246,28 +1246,25 @@ private:
 
 		// ── Text color ────────────────────────────────────────────────────────
 
-		eSubTextClrPick = ui.MakeColorPicker("subTextClr");
-		ui.SetPickedColor(eSubTextClrPick, subtitleCfg.textColor);
-		ui.GetBuilder(eSubTextClrPick)
-			.GrowW(100.f).H(170.f)
-			.OnChange<float>([this](float) {
-				subtitleCfg.textColor = ui.GetPickedColor(eSubTextClrPick);
+		Builder subTextClr = ui.ColorPicker("subTextClr");
+		eSubTextClrPick = subTextClr.Id();
+		subTextClr.PickedColor(subtitleCfg.textColor);
+		subTextClr.GrowW(100.f).H(170.f)
+			.OnColorChange([this](SDL::Color current) {
+				subtitleCfg.textColor = current;
 			});
 
 		// ── Background color ──────────────────────────────────────────────────
 
-		eSubBgClrPick = ui.MakeColorPicker("subBgClr");
-		ui.SetPickedColor(eSubBgClrPick, {subtitleCfg.bgColor.r,
-		                                   subtitleCfg.bgColor.g,
-		                                   subtitleCfg.bgColor.b, 255});
-		if (auto* d = ui.GetColorPickerData(eSubBgClrPick)) d->showAlpha = false;
-		ui.GetBuilder(eSubBgClrPick)
-			.GrowW(100.f).H(170.f)
-			.OnChange<float>([this](float) {
-				SDL::Color c = ui.GetPickedColor(eSubBgClrPick);
-				subtitleCfg.bgColor.r = c.r;
-				subtitleCfg.bgColor.g = c.g;
-				subtitleCfg.bgColor.b = c.b;
+		Builder subBgClr = ui.ColorPicker("subBgClr");
+		eSubBgClrPick = subBgClr.Id();
+		subBgClr.PickedColor({subtitleCfg.bgColor.r, subtitleCfg.bgColor.g, subtitleCfg.bgColor.b, 255})
+			.PickerShowAlpha(true);
+		subBgClr.GrowW(100.f).H(170.f)
+			.OnColorChange([this](SDL::Color current) {
+				subtitleCfg.bgColor.r = current.r;
+				subtitleCfg.bgColor.g = current.g;
+				subtitleCfg.bgColor.b = current.b;
 			});
 
 		// ── Background alpha ──────────────────────────────────────────────────

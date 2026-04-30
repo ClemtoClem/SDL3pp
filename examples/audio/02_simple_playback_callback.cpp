@@ -20,8 +20,8 @@ struct Main {
 
 	static SDL::AppResult Init(Main** m, SDL::AppArgs args) {
 		SDL::SetAppMetadata("Example Simple Audio Playback Callback",
-												"1.0",
-												"com.example.audio-simple-playback-callback");
+							"1.0",
+							"com.example.audio-simple-playback-callback");
 		SDL::Init(SDL::INIT_VIDEO | SDL::INIT_AUDIO);
 		*m = new Main();
 		return SDL::APP_CONTINUE;

@@ -1000,6 +1000,7 @@ namespace UI {
 		std::function<void()>      onClick;
 		std::function<void()>      onDoubleClick;
 		std::function<void(float)> onChange;
+		std::function<void(SDL::Color)> onColorChange; ///< ColorPicker callback (preferred over onChange).
 		std::function<void(const std::string &)> onTextChange;
 		std::function<void(bool)>  onToggle;
 		std::function<void(float)> onScroll;

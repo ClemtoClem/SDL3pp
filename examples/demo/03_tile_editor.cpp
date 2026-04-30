@@ -217,7 +217,8 @@ struct TileMap {
 		infinite = false;
 		name = "Untitled"; filePath = "";
 		tilesets.clear(); layers.clear(); properties.clear();
-		layers.push_back(MapLayer{.name = "Layer 1"});
+		MapLayer layer; layer.name = "Layer 1";
+		layers.push_back(layer);
 		activeLayer = 0; dirty = false;
 	}
 
@@ -226,6 +227,7 @@ struct TileMap {
 	static ChunkPos TileToChunk(int tx, int ty) noexcept {
 		return {FloorDiv(tx, CHUNK_SIZE), FloorDiv(ty, CHUNK_SIZE)};
 	}
+
 	static int TileLocalIdx(int tx, int ty) noexcept {
 		int lx = ((tx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
 		int ly = ((ty % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;

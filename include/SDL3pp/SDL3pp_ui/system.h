@@ -1297,11 +1297,16 @@ namespace UI {
 		/** @brief Enable or disable event propagation to parent for widget @p e (default: true). */
 		void SetDispatchEvent(ECS::EntityId e, bool b) { if (auto *w = m_ctx.Get<Widget>(e)) w->dispatchEvent = b; }
 		/** @brief Register the value-change callback on widget @p e.
-		 *  Templated on the value type @c T; the callback is wrapped so the
-		 *  internal float-based delivery still works for any arithmetic T. */
+		 *  Templated on the value type @c T:
+		 *   - @c SDL::Color routes to the ColorPicker color callback;
+		 *   - any arithmetic @c T is wrapped so the internal float-based
+		 *     delivery still works regardless of the source type.
+		 */
 		template <typename T>
 		void OnChange(ECS::EntityId e, std::function<void(T)> cb) {
-			if constexpr (std::is_same_v<T, float>) {
+			if constexpr (std::is_same_v<T, SDL::Color>) {
+				m_ctx.Get<Callbacks>(e)->onColorChange = std::move(cb);
+			} else if constexpr (std::is_same_v<T, float>) {
 				m_ctx.Get<Callbacks>(e)->onChange = std::move(cb);
 			} else {
 				auto wrapped = [fn = std::move(cb)](float v) {
@@ -4605,7 +4610,8 @@ namespace UI {
 			}
 
 			if (auto *cb = m_ctx.Get<Callbacks>(e)) {
-				if (cb->onChange) cb->onChange(0.f);
+				if (cb->onColorChange) cb->onColorChange(cp->currentColor);
+				if (cb->onChange)      cb->onChange(0.f);
 			}
 		}
 
