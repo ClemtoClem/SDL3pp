@@ -135,7 +135,7 @@ namespace UI {
 		 */
 		ECS::EntityId MakeLabel(const std::string &n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Label);
-			m_ctx.Get<Content>(e)->text = t;
+			m_ctx.Get<EditableContent>(e)->text = t;
 			auto &l = *m_ctx.Get<LayoutProps>(e);
 			l.padding.top = l.padding.bottom = 2.f;
 			return e;
@@ -148,7 +148,7 @@ namespace UI {
 		ECS::EntityId MakeButton(const std::string &n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Button);
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-			m_ctx.Get<Content>(e)->text = t;
+			m_ctx.Get<EditableContent>(e)->text = t;
 			return e;
 		}
 		/**
@@ -158,7 +158,7 @@ namespace UI {
 		 */
 		ECS::EntityId MakeToggle(const std::string &n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Toggle);
-			m_ctx.Get<Content>(e)->text = t;
+			m_ctx.Get<EditableContent>(e)->text = t;
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(28.f);
 			m_ctx.Add<ToggleData>(e);
@@ -172,7 +172,7 @@ namespace UI {
 		 */
 		ECS::EntityId MakeRadioButton(const std::string &n, const std::string &group, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::RadioButton);
-			m_ctx.Get<Content>(e)->text = t;
+			m_ctx.Get<EditableContent>(e)->text = t;
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(24.f);
 			m_ctx.Add<RadioData>(e, {group, false});
@@ -186,21 +186,26 @@ namespace UI {
 		 * @param v   Initial value (clamped to [mn, mx]).
 		 * @param o   Orientation (Horizontal or Vertical).
 		 */
-		ECS::EntityId MakeSlider(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.f,
-							Orientation o = Orientation::Horizontal) {
+		template<is_numeric_value T>
+		ECS::EntityId MakeSlider(const std::string &n,
+		                         T mn = T(0), T mx = T(1), T v = T(0), T step = T(0),
+		                         Orientation o = Orientation::Horizontal) {
 			ECS::EntityId e = _Make(n, WidgetType::Slider);
 			SliderData sd;
-			sd.min = mn;
-			sd.max = mx;
-			sd.val = SDL::Clamp(v, mn, mx);
 			sd.orientation = o;
+			sd.min  = static_cast<double>(mn);
+			sd.max  = static_cast<double>(mx);
+			sd.val  = std::clamp(static_cast<double>(v), sd.min, sd.max);
+			sd.step = static_cast<double>(step);
+			sd.type = typeid(T);
 			m_ctx.Add<SliderData>(e, sd);
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
+			                                | BehaviorFlag::Selectable
+			                                | BehaviorFlag::Focusable;
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
-			if (o == Orientation::Horizontal)
-				lp.height = Value::Px(24.f);
-			else
-				lp.width = Value::Px(24.f);
+			if (o == Orientation::Horizontal) lp.height = Value::Px(24.f);
+			else                              lp.width  = Value::Px(24.f);
 			return e;
 		}
 		/**
@@ -253,7 +258,7 @@ namespace UI {
 		 */
 		ECS::EntityId MakeInput(const std::string &n, const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Input);
-			m_ctx.Get<Content>(e)->placeholder = ph;
+			m_ctx.Get<EditableContent>(e)->placeholder = ph;
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
 			return e;
@@ -265,26 +270,24 @@ namespace UI {
 		template<is_numeric_value T>
 		ECS::EntityId MakeInputValue(const std::string &n,
 		                             T minValue = T(0), T maxValue = T(100),
-		                             T value = T(0),     T step    = T(1))
+		                             T value    = T(0), T step     = T(1))
 		{
 			ECS::EntityId e = _Make(n, WidgetType::Input);
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
 			                                | BehaviorFlag::Selectable
 			                                | BehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
+
 			InputData d{};
-			d.kind = std::is_integral_v<T> ? InputData::ValueKind::Int
-			                               : InputData::ValueKind::Float;
 			d.type = std::is_integral_v<T> ? InputType::IntegerValue
 			                               : InputType::FloatValue;
-			d.min  = (double)minValue;
-			d.max  = (double)maxValue;
-			d.val  = (double)SDL::Clamp(value, minValue, maxValue);
-			d.step = (double)step;
-			d.decimals = std::is_integral_v<T> ? 0 : 2;
 			m_ctx.Add<InputData>(e, d);
-			// Initial text representation matches val.
-			m_ctx.Get<Content>(e)->text = _FormatInputValue(d);
+
+			// Typed numeric value via the AnyValue<T> wrapper; the data is
+			// stored as NumericValue (uniform double + type_index) so widgets
+			// can dispatch on type without per-T template instantiation.
+			NumericValue &nv = m_ctx.Add<NumericValue>(e, AnyValue<T>(minValue, maxValue, value, step));
+			m_ctx.Get<EditableContent>(e)->text = _FormatNumeric(nv);
 			return e;
 		}
 
@@ -297,7 +300,6 @@ namespace UI {
 			ECS::EntityId e = MakeInput(n, ph);
 			InputData d{};
 			d.type = type;
-			d.kind = InputData::ValueKind::None;
 			m_ctx.Add<InputData>(e, d);
 			return e;
 		}
@@ -395,8 +397,8 @@ namespace UI {
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			lp.padding = {6.f, 6.f, 6.f, 6.f};
 			if (!ph.empty()) {
-				// Store placeholder in Content component
-				m_ctx.Get<Content>(e)->placeholder = ph;
+				// Store placeholder in EditableContent component
+				m_ctx.Get<EditableContent>(e)->placeholder = ph;
 			}
 			return e;
 		}
@@ -596,9 +598,11 @@ namespace UI {
 		inline Builder Toggle(const std::string &n, const std::string &t = "");
 		/** @brief Create a RadioButton and return a Builder for it. */
 		inline Builder Radio(const std::string &n, const std::string &grp, const std::string &t = "");
-		/** @brief Create a Slider and return a Builder for it. */
-		inline Builder Slider(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.f,
-								Orientation o = Orientation::Horizontal);
+		/** @brief Create a Slider and return a Builder for it.
+		 *  Templated on the arithmetic value type @c T (int / float / double …). */
+		template <is_numeric_value T = float>
+		inline Builder Slider(const std::string &n, T mn = T(0), T mx = T(1), T v = T(0),
+		                      Orientation o = Orientation::Horizontal);
 		/** @brief Create a ScrollBar and return a Builder for it. */
 		inline Builder ScrollBar(const std::string &n, float cs = 0.f, float vs = 0.f,
 								   Orientation o = Orientation::Vertical);
@@ -625,11 +629,11 @@ namespace UI {
 		inline Builder GradedGraph(const std::string &n);
 		/** @brief Create a ComboBox and return a Builder for it. */
 		inline Builder ComboBox(const std::string &n, const std::vector<std::string>& items = {}, int sel = 0);
-		/** @brief Create a InputValue and return a Builder for it. */
+		/** @brief Create a numeric Input (replaces SpinBox). Returns a Builder. */
 		template <is_numeric_value T>
-		inline Builder System::InputValue(const std::string &n, T minValue = 0, T maxValue = 100, T value = 0, T step = 1) {
-			return Builder(*this, MakeInputValue<T>(n, minValue, maxValue, value, step));
-		}
+		Builder InputValue(const std::string &n,
+		                   T minValue = T(0), T maxValue = T(100),
+		                   T value    = T(0), T step     = T(1));
 		/** @brief Create a TabView and return a Builder for it. */
 		inline Builder TabView(const std::string &n);
 		/** @brief Create an Expander and return a Builder for it. */
@@ -709,8 +713,8 @@ namespace UI {
 		Style &GetStyle(ECS::EntityId e) { return *m_ctx.Get<Style>(e); }
 		/** @brief Direct access to the LayoutProps component of entity @p e. */
 		LayoutProps &GetLayout(ECS::EntityId e) { return *m_ctx.Get<LayoutProps>(e); }
-		/** @brief Direct access to the Content component of entity @p e. */
-		Content &GetContent(ECS::EntityId e) { return *m_ctx.Get<Content>(e); }
+		/** @brief Direct access to the EditableContent component of entity @p e. */
+		EditableContent &GetContent(ECS::EntityId e) { return *m_ctx.Get<EditableContent>(e); }
 
 		// ── Setters ───────────────────────────────────────────────────────────────────
 
@@ -720,7 +724,7 @@ namespace UI {
 		 * @param t  New text content; cursor is moved to the end.
 		 */
 		void SetText(ECS::EntityId e, const std::string &t) {
-			if (auto *c = m_ctx.Get<Content>(e)) {
+			if (auto *c = m_ctx.Get<EditableContent>(e)) {
 				c->text = t;
 				c->cursor = (int)t.size();
 			}
@@ -731,11 +735,18 @@ namespace UI {
 		 * @param e  Target entity.
 		 * @param v  New value.
 		 */
-		void SetValue(ECS::EntityId e, float v) {
+		template <typename T = float>
+		void SetValue(ECS::EntityId e, T v) {
+			const double dv = static_cast<double>(v);
 			if (auto *s = m_ctx.Get<SliderData>(e))
-				s->val = SDL::Clamp(v, s->min, s->max);
-			if (auto *k = m_ctx.Get<KnobData>(e)) {
-				k->val = SDL::Clamp(v, k->min, k->max);
+				s->val = std::clamp(dv, s->min, s->max);
+			if (auto *k = m_ctx.Get<KnobData>(e))
+				k->val = SDL::Clamp(static_cast<float>(dv), k->min, k->max);
+			if (auto *nv = m_ctx.Get<NumericValue>(e)) {
+				nv->val = std::clamp(dv, nv->min, nv->max);
+				if (nv->isIntegral()) nv->val = std::round(nv->val);
+				if (auto *c = m_ctx.Get<EditableContent>(e); c && m_focused != e)
+					c->text = _FormatNumeric(*nv);
 			}
 		}
 
@@ -1156,7 +1167,7 @@ namespace UI {
 		 */
 		[[nodiscard]] const std::string &GetText(ECS::EntityId e) const {
 			static const std::string empty;
-			const auto *c = m_ctx.Get<Content>(e);
+			const auto *c = m_ctx.Get<EditableContent>(e);
 			return c ? c->text : empty;
 		}
 
@@ -1285,8 +1296,20 @@ namespace UI {
 		void OnDoubleClick(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onDoubleClick = std::move(cb); }
 		/** @brief Enable or disable event propagation to parent for widget @p e (default: true). */
 		void SetDispatchEvent(ECS::EntityId e, bool b) { if (auto *w = m_ctx.Get<Widget>(e)) w->dispatchEvent = b; }
-		/** @brief Register (or replace) the value-change callback on widget @p e (Slider, ScrollBar). */
-		void OnChange(ECS::EntityId e, std::function<void(float)> cb) { m_ctx.Get<Callbacks>(e)->onChange = std::move(cb); }
+		/** @brief Register the value-change callback on widget @p e.
+		 *  Templated on the value type @c T; the callback is wrapped so the
+		 *  internal float-based delivery still works for any arithmetic T. */
+		template <typename T>
+		void OnChange(ECS::EntityId e, std::function<void(T)> cb) {
+			if constexpr (std::is_same_v<T, float>) {
+				m_ctx.Get<Callbacks>(e)->onChange = std::move(cb);
+			} else {
+				auto wrapped = [fn = std::move(cb)](float v) {
+					fn(static_cast<T>(v));
+				};
+				m_ctx.Get<Callbacks>(e)->onChange = std::move(wrapped);
+			}
+		}
 		/** @brief Register (or replace) the text-change callback on widget @p e (Input, TextArea). */
 		void OnTextChange(ECS::EntityId e, std::function<void(const std::string &)> cb) { m_ctx.Get<Callbacks>(e)->onTextChange = std::move(cb); }
 		/** @brief Register (or replace) the toggle callback on widget @p e (Toggle, RadioButton). */
@@ -1354,7 +1377,7 @@ namespace UI {
 							auto processDrop = [&]<typename T>(T* data) {
 								if (data) _InsertText(data, std::string_view(ev.drop.data));
 							};
-							if (w->type == WidgetType::Input) processDrop(m_ctx.Get<Content>(m_focused));
+							if (w->type == WidgetType::Input) processDrop(m_ctx.Get<EditableContent>(m_focused));
 							else if (w->type == WidgetType::TextArea) processDrop(m_ctx.Get<TextAreaData>(m_focused));
 						}
 					}
@@ -1678,7 +1701,7 @@ namespace UI {
 			m_ctx.Add<Widget>(e, {n, k, beh, DirtyFlag::All});
 			auto &style = m_ctx.Add<Style>(e);
 			m_ctx.Add<LayoutProps>(e);
-			m_ctx.Add<Content>(e);
+			m_ctx.Add<EditableContent>(e);
 			m_ctx.Add<WidgetState>(e);
 			m_ctx.Add<Callbacks>(e);
 			m_ctx.Add<ComputedRect>(e);
@@ -1747,7 +1770,7 @@ namespace UI {
 
 		// ── Text Edition Helpers ──────────────────────────────────────────────────────
 
-		/// Unifie l'accès au curseur entre Content et TextAreaData
+		/// Unifie l'accès au curseur entre EditableContent et TextAreaData
 		template <typename T>
 		int& _GetCursor(T* data) {
 			if constexpr (std::is_same_v<T, TextAreaData>) return data->cursorPos;
@@ -1782,25 +1805,26 @@ namespace UI {
 			     : (t == InputType::Mail)         ? reMail
 			     : _GetInputRegex(t);
 		}
-		/// Format an InputData::val into its display string.
-		static std::string _FormatInputValue(const InputData& d) {
+		/// Format a NumericValue into its display string, integer or float
+		/// formatting per the original arithmetic type stored in @c v.type.
+		static std::string _FormatNumeric(const NumericValue& v) {
 			char buf[32];
-			if (d.kind == InputData::ValueKind::Int)
-				std::snprintf(buf, sizeof(buf), "%lld", (long long)std::llround(d.val));
+			if (v.isIntegral())
+				std::snprintf(buf, sizeof(buf), "%lld", (long long)std::llround(v.val));
 			else
-				std::snprintf(buf, sizeof(buf), "%.*f", std::max(0, d.decimals), d.val);
+				std::snprintf(buf, sizeof(buf), "%.*f", std::max(0, v.decimals), v.val);
 			return buf;
 		}
-		/// Parse the given text into d.val. Returns true if a value was
-		/// committed (text was strictly valid). Otherwise leaves val unchanged.
-		static bool _ParseInputValue(InputData& d, const std::string& text) {
+		/// Parse the given text into @c v.val using a strict regex selected
+		/// by @p type. Returns true if a value was committed.
+		static bool _ParseNumeric(NumericValue& v, InputType type, const std::string& text) {
 			if (text.empty() || text == "-" || text == "." || text == "-.") return false;
-			if (!std::regex_match(text, _GetInputStrictRegex(d.type))) return false;
+			if (!std::regex_match(text, _GetInputStrictRegex(type))) return false;
 			try {
-				double v = std::stod(text);
-				if (d.kind == InputData::ValueKind::Int) v = std::round(v);
-				v = std::clamp(v, d.min, d.max);
-				if (v != d.val) { d.val = v; return true; }
+				double d = std::stod(text);
+				if (v.isIntegral()) d = std::round(d);
+				d = std::clamp(d, v.min, v.max);
+				if (d != v.val) { v.val = d; return true; }
 			} catch (...) {}
 			return false;
 		}
@@ -1968,7 +1992,7 @@ namespace UI {
 			if (w->type == WidgetType::TextArea) {
 				if (auto *ta = m_ctx.Get<TextAreaData>(e)) applyHit(ta, _TextAreaHitPos(ta, relX, relY, e));
 			} else if (w->type == WidgetType::Input) {
-				if (auto *c = m_ctx.Get<Content>(e)) applyHit(c, _InputHitPos(c, relX, e));
+				if (auto *c = m_ctx.Get<EditableContent>(e)) applyHit(c, _InputHitPos(c, relX, e));
 			}
 		}
 
@@ -1983,7 +2007,7 @@ namespace UI {
 			if (!w) return;
 
 			if (w->type == WidgetType::Input) {
-				if (auto *c = m_ctx.Get<Content>(e)) {
+				if (auto *c = m_ctx.Get<EditableContent>(e)) {
 					c->SetSelection(0, (int)c->text.size());
 					c->cursor = (int)c->text.size();
 					if (cb && cb->onDoubleClick) cb->onDoubleClick();
@@ -2353,7 +2377,7 @@ namespace UI {
 			switch (w->type) {
 			case WidgetType::Label:
 			case WidgetType::Button: {
-				auto *c = m_ctx.Get<Content>(e);
+				auto *c = m_ctx.Get<EditableContent>(e);
 				if (!c || c->text.empty())
 					return {60.f, ch + 4.f};
 				return {_TW(c->text, e), ch + 4.f};
@@ -2366,8 +2390,13 @@ namespace UI {
 				return {80.f, 24.f};
 			case WidgetType::ScrollBar:
 				return {10.f, 80.f};
-			case WidgetType::Input:
-				return {80.f, SDL::Max(30.f, ch + 8.f)};
+			case WidgetType::Input: {
+				// Numeric Input adds two stacked ↑/↓ arrows on the right
+				// edge — reserve their width here so a row layout sizes the
+				// widget correctly and the text area is not squeezed.
+				const float arrowsW = m_ctx.Get<NumericValue>(e) ? 20.f : 0.f;
+				return {80.f + arrowsW, SDL::Max(30.f, ch + 8.f)};
+			}
 			case WidgetType::TextArea:
 				return {160.f, SDL::Max(80.f, ch * 4.f + 8.f)};
 			case WidgetType::ListBox:
@@ -2924,7 +2953,7 @@ namespace UI {
 		// ── Input ─────────────────────────────────────────────────────────────────────
 		
 		/// Convertit une position pixel X (relative à la zone de texte) en index de caractère pour Input
-		[[nodiscard]] int _InputHitPos(const Content *c, float px, ECS::EntityId e) {
+		[[nodiscard]] int _InputHitPos(const EditableContent *c, float px, ECS::EntityId e) {
 			if (!c || c->text.empty() || px <= 0.f) return 0;
 
 			// Use prefix-width measurement to match exactly how the cursor is drawn
@@ -3083,10 +3112,46 @@ namespace UI {
 									spl->dragRatio = spl->ratio;
 								}
 							} else if (pw->type == WidgetType::TextArea || pw->type == WidgetType::Input) {
-								if (m_clickCount >= 2)
-									_HandleMultiClick(m_pressed, m_clickCount);
-								else
-									_ProcessTextClickOrDrag(m_pressed, false);
+								// Numeric Input: check for arrow-button click before
+								// falling through to text edit click handling.
+								bool consumed = false;
+								if (pw->type == WidgetType::Input) {
+									auto *d  = m_ctx.Get<InputData>(m_pressed);
+									auto *nv = m_ctx.Get<NumericValue>(m_pressed);
+									if (d && nv) {
+										auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
+										auto *st2 = m_ctx.Get<Style>(m_pressed);
+										if (cr2 && st2) {
+											const float bw = 20.f;
+											const float br = SDL::Max(0.f, st2->borders.right);
+											const float bt = SDL::Max(0.f, st2->borders.top);
+											const float bb = SDL::Max(0.f, st2->borders.bottom);
+											const float innerH = SDL::Max(0.f, cr2->screen.h - bt - bb);
+											const float upH    = std::floor(innerH * 0.5f);
+											const float downH  = innerH - upH;
+											FRect up   = {cr2->screen.x + cr2->screen.w - bw - br,
+											              cr2->screen.y + bt, bw, upH};
+											FRect down = {up.x, up.y + up.h, bw, downH};
+											auto bump = [&](double dir){
+												double nx = std::clamp(nv->val + dir * nv->step, nv->min, nv->max);
+												if (nv->isIntegral()) nx = std::round(nx);
+												nv->val = nx;
+												if (auto *c = m_ctx.Get<EditableContent>(m_pressed))
+													c->text = _FormatNumeric(*nv);
+												if (auto *cb = m_ctx.Get<Callbacks>(m_pressed); cb && cb->onChange)
+													cb->onChange((float)nv->val);
+											};
+											if (up.Contains(m_mousePos))   { d->pressUp   = true; bump(+1.0); consumed = true; }
+											else if (down.Contains(m_mousePos)) { d->pressDown = true; bump(-1.0); consumed = true; }
+										}
+									}
+								}
+								if (!consumed) {
+									if (m_clickCount >= 2)
+										_HandleMultiClick(m_pressed, m_clickCount);
+									else
+										_ProcessTextClickOrDrag(m_pressed, false);
+								}
 							} else if (pw->type == WidgetType::ColorPicker) {
 								auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
 								if (auto *cp = m_ctx.Get<ColorPickerData>(m_pressed); cp && cr2) {
@@ -3193,19 +3258,6 @@ namespace UI {
 							kd->dragStartVal   = kd->val;
 						}
 						
-					} else if (pw->type == WidgetType::InputValue) {
-						if (auto *sp = m_ctx.Get<InputData>(m_pressed); sp && sp->drag) {
-							float range = sp->max - sp->min;
-							if (range <= 0.f) range = 1.f;
-							float dy = sp->dragStartY - m_mousePos.y;
-							float nv2 = SDL::Clamp(sp->dragStartVal + dy * 0.01f * range, sp->min, sp->max);
-							if (sp->intMode) nv2 = std::round(nv2);
-							if (nv2 != sp->val) {
-								sp->val = nv2;
-								auto *cb2 = m_ctx.Get<Callbacks>(m_pressed);
-								if (cb2 && cb2->onChange) cb2->onChange(nv2);
-							}
-						}
 					} else if (pw->type == WidgetType::Splitter) {
 						if (auto *spl = m_ctx.Get<SplitterData>(m_pressed); spl && spl->dragging) {
 							auto *cr = m_ctx.Get<ComputedRect>(m_pressed);
@@ -3304,7 +3356,11 @@ namespace UI {
 					if (auto *sd  = m_ctx.Get<SliderData>(m_pressed))    sd->drag  = false;
 					if (auto *sb  = m_ctx.Get<ScrollBarData>(m_pressed)) sb->drag  = false;
 					if (auto *kd  = m_ctx.Get<KnobData>(m_pressed))      kd->drag  = false;
-					if (auto *sp  = m_ctx.Get<InputData>(m_pressed))   sp->drag  = false;
+					if (auto *sp  = m_ctx.Get<InputData>(m_pressed)) {
+						sp->drag      = false;
+						sp->pressUp   = false;
+						sp->pressDown = false;
+					}
 					if (auto *spl = m_ctx.Get<SplitterData>(m_pressed))  spl->dragging = false;
 					if (auto *ta  = m_ctx.Get<TextAreaData>(m_pressed))  ta->selectDragging = false;
 					if (auto *cp  = m_ctx.Get<ColorPickerData>(m_pressed)) { cp->dragging = false; cp->draggingHue = false; }
@@ -3329,7 +3385,7 @@ namespace UI {
 					}
 					m_pressed = ECS::NullEntity;
 				}
-				if (auto *c = m_ctx.Get<Content>(m_pressed)) {
+				if (auto *c = m_ctx.Get<EditableContent>(m_pressed)) {
 					c->selectDragging = false;
 				}
 			}
@@ -3493,17 +3549,45 @@ namespace UI {
 		void _SetFocus(ECS::EntityId nf) {
 			if (nf == m_focused)
 				return;
-			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) { 
+			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
 				if (auto *st = m_ctx.Get<WidgetState>(m_focused))
 					st->focused = false;
+				// Numeric Input: on blur, reformat text from the canonical value
+				// (commits any in-progress edit that was strictly valid).
+				if (auto *w2 = m_ctx.Get<Widget>(m_focused);
+				    w2 && w2->type == WidgetType::Input) {
+					auto *id = m_ctx.Get<InputData>(m_focused);
+					auto *nv = m_ctx.Get<NumericValue>(m_focused);
+					auto *c  = m_ctx.Get<EditableContent>(m_focused);
+					if (id && nv && c) {
+						double prev = nv->val;
+						if (_ParseNumeric(*nv, id->type, c->text) && nv->val != prev)
+							if (auto *cb2 = m_ctx.Get<Callbacks>(m_focused); cb2 && cb2->onChange)
+								cb2->onChange((float)nv->val);
+						c->text = _FormatNumeric(*nv);
+						c->cursor = (int)c->text.size();
+						c->ClearSelection();
+					}
+				}
 				auto *cb = m_ctx.Get<Callbacks>(m_focused);
 				if (cb && cb->onFocusLose)
 					cb->onFocusLose();
 			}
-			m_focused = nf; 
+			m_focused = nf;
 			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
 				if (auto *st = m_ctx.Get<WidgetState>(m_focused))
 					st->focused = true;
+				// On focus-gain of a numeric Input, prime the text from val.
+				if (auto *w2 = m_ctx.Get<Widget>(m_focused);
+				    w2 && w2->type == WidgetType::Input) {
+					auto *nv = m_ctx.Get<NumericValue>(m_focused);
+					auto *c  = m_ctx.Get<EditableContent>(m_focused);
+					if (nv && c) {
+						c->text = _FormatNumeric(*nv);
+						c->cursor = (int)c->text.size();
+						c->ClearSelection();
+					}
+				}
 				auto *cb = m_ctx.Get<Callbacks>(m_focused);
 				if (cb && cb->onFocusGain)
 					cb->onFocusGain();
@@ -3530,19 +3614,52 @@ namespace UI {
 		}
 
 		void _HandleTextInput(const char *txt) {
-			if (m_focused == ECS::NullEntity || !m_ctx.IsAlive(m_focused)) return; 
+			if (m_focused == ECS::NullEntity || !m_ctx.IsAlive(m_focused)) return;
 			auto *w = m_ctx.Get<Widget>(m_focused);
 			if (!w || !Has(w->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) return;
 
+			// Filter against the InputType regex if a typed-Input filter is set.
+			std::string_view tv{txt};
+			if (w->type == WidgetType::Input) {
+				if (auto *id = m_ctx.Get<InputData>(m_focused);
+				    id && id->type != InputType::Text) {
+					if (auto *c = m_ctx.Get<EditableContent>(m_focused)) {
+						// Build the prospective text (replacing selection if any).
+						std::string prospective = c->text;
+						int a = c->HasSelection() ? c->SelMin() : c->cursor;
+						int b = c->HasSelection() ? c->SelMax() : c->cursor;
+						a = std::clamp(a, 0, (int)prospective.size());
+						b = std::clamp(b, 0, (int)prospective.size());
+						prospective.replace(a, b - a, txt);
+						if (!std::regex_match(prospective, _GetInputRegex(id->type)))
+							return; // reject the keystroke
+					}
+				}
+			}
+
 			auto processInput = [&]<typename T>(T* data) {
 				if (data) {
-					_InsertText(data, std::string_view(txt));
-					if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onTextChange) 
+					_InsertText(data, tv);
+					if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onTextChange)
 						cb->onTextChange(data->text);
 				}
 			};
 
-			if (w->type == WidgetType::Input) processInput(m_ctx.Get<Content>(m_focused));
+			if (w->type == WidgetType::Input) {
+				auto *c = m_ctx.Get<EditableContent>(m_focused);
+				processInput(c);
+				// For numeric Input, try to parse and sync val + onChange.
+				auto *id = m_ctx.Get<InputData>(m_focused);
+				auto *nv = m_ctx.Get<NumericValue>(m_focused);
+				if (id && nv && c) {
+					double prev = nv->val;
+					if (_ParseNumeric(*nv, id->type, c->text)) {
+						if (nv->val != prev)
+							if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onChange)
+								cb->onChange((float)nv->val);
+					}
+				}
+			}
 			else if (w->type == WidgetType::TextArea) {
 				auto* ta = m_ctx.Get<TextAreaData>(m_focused);
 				if (ta && !ta->readOnly) processInput(ta);
@@ -3550,13 +3667,56 @@ namespace UI {
 		}
 
 		void _HandleKeyDownInput(SDL::Keycode k, SDL::Keymod mod) {
-			auto *c = m_ctx.Get<Content>(m_focused);
+			auto *c = m_ctx.Get<EditableContent>(m_focused);
 			if (!c) return;
-			
+
 			if (k == SDL::KEYCODE_ESCAPE) { _SetFocus(ECS::NullEntity); return; }
 
-			// Laisse le Helper s'occuper de tout
+			// Numeric Input: arrow keys nudge by step; Enter commits and blurs.
+			{
+				auto *id = m_ctx.Get<InputData>(m_focused);
+				auto *nv = m_ctx.Get<NumericValue>(m_focused);
+				if (id && nv) {
+					if (k == SDL::KEYCODE_UP || k == SDL::KEYCODE_DOWN) {
+						double prev = nv->val;
+						double delta = (k == SDL::KEYCODE_UP) ? nv->step : -nv->step;
+						nv->val = std::clamp(nv->val + delta, nv->min, nv->max);
+						if (nv->isIntegral()) nv->val = std::round(nv->val);
+						c->text = _FormatNumeric(*nv);
+						c->cursor = (int)c->text.size();
+						c->ClearSelection();
+						if (nv->val != prev)
+							if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onChange)
+								cb->onChange((float)nv->val);
+						return;
+					}
+					if (k == SDL::KEYCODE_RETURN || k == SDL::KEYCODE_RETURN2
+					    || k == SDL::KEYCODE_KP_ENTER) {
+						double prev = nv->val;
+						if (_ParseNumeric(*nv, id->type, c->text) && nv->val != prev)
+							if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onChange)
+								cb->onChange((float)nv->val);
+						c->text = _FormatNumeric(*nv);
+						c->cursor = (int)c->text.size();
+						_SetFocus(ECS::NullEntity);
+						return;
+					}
+				}
+			}
+
 			_HandleCommonTextKeys(c, k, mod, m_ctx.Get<Callbacks>(m_focused));
+
+			// After common-key edits (backspace, paste, etc.), re-validate numeric.
+			{
+				auto *id = m_ctx.Get<InputData>(m_focused);
+				auto *nv = m_ctx.Get<NumericValue>(m_focused);
+				if (id && nv) {
+					double prev = nv->val;
+					if (_ParseNumeric(*nv, id->type, c->text) && nv->val != prev)
+						if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onChange)
+							cb->onChange((float)nv->val);
+				}
+			}
 		}
 
 		void _HandleKeyDownTextArea(SDL::Keycode k, SDL::Keymod mod) {
@@ -3766,7 +3926,7 @@ namespace UI {
 			auto *w = m_ctx.Get<Widget>(m_focused);
 			if (!w || w->type != WidgetType::Input || !Has(w->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) return;
 
-			auto *c = m_ctx.Get<Content>(m_focused);
+			auto *c = m_ctx.Get<EditableContent>(m_focused);
 			auto *cb = m_ctx.Get<Callbacks>(m_focused);
 			if (!c) return;
 
@@ -3987,7 +4147,7 @@ namespace UI {
 			});
 			
 			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
-				if (auto *c = m_ctx.Get<Content>(m_focused)) {
+				if (auto *c = m_ctx.Get<EditableContent>(m_focused)) {
 					c->blinkTimer += dt;
 					if (c->blinkTimer > 1.f) c->blinkTimer -= 1.f;
 				} 
@@ -4596,9 +4756,6 @@ namespace UI {
 				case WidgetType::ComboBox:
 					_DrawComboBox(e, r, *s, *st, *w);
 					break;
-				case WidgetType::InputValue:
-					_DrawInputValue(e, r, *s, *st, *w);
-					break;
 				case WidgetType::TabView:
 					_DrawTabView(e, r, *s, *st);
 					break;
@@ -4792,7 +4949,7 @@ namespace UI {
 		}
 		
 		void _DrawLabel(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
-			auto *c = m_ctx.Get<Content>(e);
+			auto *c = m_ctx.Get<EditableContent>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!c)
 				return;
@@ -4810,7 +4967,7 @@ namespace UI {
 			_DrawBg(e, r, s, st, w);
 			_StrokeRR(r, bdColor, s.borders, s.radius, s.opacity);
 
-			auto *c  = m_ctx.Get<Content>(e);
+			auto *c  = m_ctx.Get<EditableContent>(e);
 			auto *ic = m_ctx.Get<IconData>(e);
 
 			// ── Icon ─────────────────────────────────────────────────────────
@@ -4857,7 +5014,7 @@ namespace UI {
 
 		void _DrawToggle(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) { 
 			auto *t = m_ctx.Get<ToggleData>(e);
-			auto *c = m_ctx.Get<Content>(e);
+			auto *c = m_ctx.Get<EditableContent>(e);
 			auto *w = m_ctx.Get<Widget>(e);
 			if (!t)
 				return;
@@ -4877,7 +5034,7 @@ namespace UI {
 
 		void _DrawRadio(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) { 
 			auto *rd = m_ctx.Get<RadioData>(e);
-			auto *c = m_ctx.Get<Content>(e);
+			auto *c = m_ctx.Get<EditableContent>(e);
 			auto *w = m_ctx.Get<Widget>(e);
 			if (!rd)
 				return;
@@ -4984,13 +5141,16 @@ namespace UI {
 			_FillRect({r.x, r.y + r.h * 0.5f, r.w, 1.f}, s.separatorColor, s.opacity);
 		}
 		
-		void _DrawInput(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
-			auto *c = m_ctx.Get<Content>(e);
+		void _DrawInput(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+			auto *c  = m_ctx.Get<EditableContent>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!c || !lp) return;
-			
-			bool foc = (m_focused == e);
-			bool enabled = Has(w.behavior, BehaviorFlag::Enable);
+
+			const bool foc     = (m_focused == e);
+			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
+			auto *d            = m_ctx.Get<InputData>(e);     // text filter mode
+			auto *nv           = m_ctx.Get<NumericValue>(e);  // numeric value
+			const bool hasArrows = (d != nullptr && nv != nullptr);
 
 			// Fond et bordures
 			SDL::Color bdColor = !enabled ? s.bdDisabledColor : foc ? s.bdFocusedColor
@@ -4998,15 +5158,62 @@ namespace UI {
 															 : s.bdColor;
 			_DrawBg(e, r, s, st, w);
 			_StrokeRR(r, bdColor, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
-			
+
+			// ── Arrow buttons (numeric mode only) ───────────────────────────
+			// Sit fully inside the Input's borders and inherit its right-edge
+			// corner radii so they don't poke out of a rounded Input.
+			float bw = 0.f;
+			if (hasArrows) {
+				bw = 20.f;
+				const float br = SDL::Max(0.f, s.borders.right);
+				const float bt = SDL::Max(0.f, s.borders.top);
+				const float bb = SDL::Max(0.f, s.borders.bottom);
+				const float innerH = SDL::Max(0.f, r.h - bt - bb);
+				const float upH    = std::floor(innerH * 0.5f);
+				const float downH  = innerH - upH;
+				FRect up   = {r.x + r.w - bw - br, r.y + bt,        bw, upH};
+				FRect down = {up.x,                up.y + up.h,     bw, downH};
+				const bool inUp   = up.Contains(m_mousePos);
+				const bool inDown = down.Contains(m_mousePos);
+				SDL::Color upBg   = (d->pressUp   ? SDL::Color{40,45,60,220}
+				                    : inUp       ? SDL::Color{75,80,100,210}
+				                                 : SDL::Color{55,60,75,200});
+				SDL::Color downBg = (d->pressDown ? SDL::Color{40,45,60,220}
+				                    : inDown     ? SDL::Color{75,80,100,210}
+				                                 : SDL::Color{55,60,75,200});
+				// Mirror the Input's right-edge corner radii (deflated by
+				// border thickness) so the buttons fit cleanly inside the
+				// rounded interior.
+				const float trR = SDL::Max(0.f, s.radius.tr - SDL::Max(bt, br));
+				const float brR = SDL::Max(0.f, s.radius.br - SDL::Max(bb, br));
+				const SDL::FCorners upRad   = {0.f, trR, 0.f, 0.f};
+				const SDL::FCorners downRad = {0.f, 0.f, 0.f, brR};
+				_FillRR(up,   upBg,   upRad,   s.opacity);
+				_FillRR(down, downBg, downRad, s.opacity);
+				m_renderer.SetDrawColor(s.textColor);
+				float mx = up.x + bw * 0.5f, my = up.y + up.h * 0.5f;
+				m_renderer.RenderLine({mx - 4.f, my + 2.f}, {mx, my - 2.f});
+				m_renderer.RenderLine({mx + 4.f, my + 2.f}, {mx, my - 2.f});
+				mx = down.x + bw * 0.5f; my = down.y + down.h * 0.5f;
+				m_renderer.RenderLine({mx - 4.f, my - 2.f}, {mx, my + 2.f});
+				m_renderer.RenderLine({mx + 4.f, my - 2.f}, {mx, my + 2.f});
+				// Account for the right-border inset so the text clip below
+				// stops short of the arrow zone (no text-bleed).
+				bw += br;
+			}
+
+			// Text rendering region (clamped to leave room for arrows)
 			float tx_ = r.x + lp->padding.left;
 			float ty_ = r.y + (r.h - _TH(e)) * 0.5f;
+			SDL::Rect prevClip = _PushClip(FRect{
+				r.x, r.y,
+				SDL::Max(0.f, r.w - bw - 1.f), r.h
+			});
 
-			// ── Dessin de la sélection ──
+			// ── Selection background ──
 			if (c->HasSelection() && !c->text.empty()) {
 				float selStartX = tx_ + _TW(c->text.substr(0, c->SelMin()), e);
 				float selWidth  = _TW(c->GetSelectedText(), e);
-
 				SDL::Color hlC = c->highlightColor;
 				hlC.a = SDL::Clamp8((int)((float)hlC.a * s.opacity));
 				m_renderer.SetDrawColor(hlC);
@@ -5014,25 +5221,33 @@ namespace UI {
 				m_renderer.RenderFillRect(SDL::FRect{selStartX, ty_, selWidth, _TH(e)});
 			}
 
-			// ── Texte et Curseur ──
-			bool showPH = c->text.empty() && !c->placeholder.empty() && !foc;
+			// ── Text + cursor ──
+			// In numeric mode, when not focused show the formatted value rather
+			// than the raw text (the user may have an in-progress unparsed edit).
+			std::string display;
+			if (hasArrows && !foc) display = _FormatNumeric(*nv);
+			else                   display = c->text;
+
+			const bool showPH = display.empty() && !c->placeholder.empty() && !foc;
 			if (showPH) {
 				_Text(e, c->placeholder, tx_, ty_, s.textPlaceholderColor, s.opacity, s);
 			} else {
-				_Text(e, c->text, tx_, ty_, enabled ? s.textColor : s.textDisabledColor, s.opacity, s);
-
+				_Text(e, display, tx_, ty_,
+				      enabled ? s.textColor : s.textDisabledColor, s.opacity, s);
 				if (foc && c->blinkTimer < 0.5f) {
 					float cx_ = tx_ + _TW(c->text.substr(0, (size_t)SDL::Max(0, c->cursor)), e);
 					_FillRect({cx_, ty_, 1.5f, _TH(e)}, s.textColor, s.opacity);
 				}
 			}
+
+			_PopClip(prevClip);
 		}
 
 		// ── TextArea ────────────────────────────────────────────────────────
 		void _DrawTextArea(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
 			auto *ta  = m_ctx.Get<TextAreaData>(e);
 			auto *lp  = m_ctx.Get<LayoutProps>(e);
-			auto *cnt = m_ctx.Get<Content>(e);
+			auto *cnt = m_ctx.Get<EditableContent>(e);
 			if (!ta || !lp) return;
 
 			const bool foc     = (m_focused == e);
@@ -5897,40 +6112,6 @@ namespace UI {
 					  s->textColor, 1.f, *s);
 				iy += d->itemHeight;
 			}
-		}
-
-		void _DrawInputValue(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
-			auto *d = m_ctx.Get<InputData>(e);
-			if (!d) return;
-			const bool hover = st.hovered;
-			const bool focus = (m_focused == e);
-			SDL::Color bg  = hover ? s.bgHoveredColor  : s.bgColor;
-			SDL::Color bd  = focus ? s.bdFocusedColor : s.bdColor;
-			_FillRR(r, bg, s.radius, s.opacity);
-			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.radius, s.opacity);
-			// Button area
-			float bw = 20.f, bh = r.h * 0.5f;
-			FRect up   = {r.x + r.w - bw, r.y,       bw, bh};
-			FRect down = {r.x + r.w - bw, r.y + bh,  bw, bh};
-			_FillRR(up,   {60,65,80,200}, {}, s.opacity);
-			_FillRR(down, {60,65,80,200}, {}, s.opacity);
-			// Arrow up
-			float mx = up.x + bw * 0.5f, my = up.y + bh * 0.5f;
-			m_renderer.SetDrawColor(s.textColor);
-			m_renderer.RenderLine({mx - 4.f, my + 2.f}, {mx, my - 2.f});
-			m_renderer.RenderLine({mx + 4.f, my + 2.f}, {mx, my - 2.f});
-			// Arrow down
-			mx = down.x + bw * 0.5f; my = down.y + bh * 0.5f;
-			m_renderer.RenderLine({mx - 4.f, my - 2.f}, {mx, my + 2.f});
-			m_renderer.RenderLine({mx + 4.f, my - 2.f}, {mx, my + 2.f});
-			// Value text
-			char buf[32];
-			if (d->kind == InputData::ValueKind::Int)
-				std::snprintf(buf, sizeof(buf), "%d", (int)std::round(d->val));
-			else if (d->kind == InputData::ValueKind::Float)
-				std::snprintf(buf, sizeof(buf), "%.*f", d->decimals, (double)d->val);
-			float tw = _TW(buf, e);
-			_Text(e, buf, r.x + (r.w - bw - tw) * 0.5f, r.y + (r.h - _TH(e)) * 0.5f, s.textColor, s.opacity, s);
 		}
 
 		void _DrawTabView(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) {

@@ -425,8 +425,8 @@ struct Main {
 			}
 			auto lb = ui.ListBoxWidget("lbDevices", names)
 				.H(140.f)
-				.OnChange([this](float idx){
-					int i = (int)idx;
+				.OnChange<int>([this](int idx){
+					int i = idx;
 					_OpenDevice(i);
 				});
 			m_lbDevices = lb.Id();
@@ -466,7 +466,7 @@ struct Main {
 			.TextColor(pal::WHITE).FontSize(13.f).Id();
 		auto sldGain = ui.Slider("sld_gain", 0.5f, 20.f, m_gain)
 			.H(18.f).FillColor(pal::GREEN)
-			.OnChange([this](float v){
+			.OnChange<float>([this](float v){
 				m_gain = v;
 				ui.SetText(m_lblGain, std::format("Gain: {:.1f}x", v));
 			});
@@ -479,7 +479,7 @@ struct Main {
 			.TextColor(pal::WHITE).FontSize(13.f).Id();
 		auto sldFMin = ui.Slider("sld_fmin", 0.f, 4000.f, m_freqMin)
 			.H(18.f).FillColor(pal::ACCENT)
-			.OnChange([this](float v){
+			.OnChange<float>([this](float v){
 				m_freqMin = v;
 				if (m_freqMin >= m_freqMax - 200.f)
 					m_freqMin = SDL::Max(0.f, m_freqMax - 200.f);
@@ -492,7 +492,7 @@ struct Main {
 			.TextColor(pal::WHITE).FontSize(13.f).Id();
 		auto sldFMax = ui.Slider("sld_fmax", 1000.f, 20000.f, m_freqMax)
 			.H(18.f).FillColor(pal::ACCENT)
-			.OnChange([this](float v){
+			.OnChange<float>([this](float v){
 				m_freqMax = v;
 				if (m_freqMax <= m_freqMin + 200.f)
 					m_freqMax = SDL::Min(20000.f, m_freqMin + 200.f);

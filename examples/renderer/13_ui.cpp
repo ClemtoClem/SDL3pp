@@ -498,7 +498,7 @@ struct Main {
 				.W(50).TextColor(pal::GREY);
 			auto sld = ui.Slider(id, mn, mx, v).W(SDL::UI::Value::Grow(100.f)).FillColor(fill)
 				.Tooltip(tip)
-				.OnChange([this, vLbl](float val){
+				.OnChange<float>([this, vLbl](float val){
 					ui.SetText(vLbl, std::format("{:.2f}", val)); });
 			cardSld.Child(
 				ui.Row(std::string(id) + "_row", 10.f, 0.f)
@@ -517,7 +517,7 @@ struct Main {
 				.Style(SDL::UI::Theme::Transparent()).AlignH(SDL::UI::Align::Center)
 				.Children(
 					ui.Label("sld_dis_lbl","Disabled").W(110),
-					ui.Slider("sld_dis", 0, 1, .3f).W(SDL::UI::Value::Grow(100.f)).Enable(false)
+					ui.Slider("sld_dis", 0.f, 1.f, .3f).W(SDL::UI::Value::Grow(100.f)).Enable(false)
 						.Tooltip("Disabled slider — read-only"))
 		);
 
@@ -528,7 +528,7 @@ struct Main {
 		lblKnob2 = ui.Label("lbl_k2", "Knob 2: 50.0").TextColor(pal::GREY);
 		lblKnob3 = ui.Label("lbl_k3", "Knob 3: 50.0").TextColor(pal::GREY);
 
-		auto sldV = ui.Slider("sld_v", 0, 1, .5f, SDL::UI::Orientation::Vertical)
+		auto sldV = ui.Slider("sld_v", 0.f, 1.f, .5f, SDL::UI::Orientation::Vertical)
 			.H(120).W(24).AlignH(SDL::UI::Align::Center).FillColor(pal::ACCENT)
 			.Tooltip("Vertical slider [0–1]");
 
@@ -543,7 +543,7 @@ struct Main {
 							.W(64).H(64)
 							.FillColor(pal::ACCENT).ThumbColor(pal::ACCENT)
 							.Tooltip("Knob 1 — drag or scroll [0–1]")
-							.OnChange([this](float v){ ui.SetText(lblKnob1, std::format("Knob 1: {:.2f}", v)); }),
+							.OnChange<float>([this](float v){ ui.SetText(lblKnob1, std::format("Knob 1: {:.2f}", v)); }),
 						lblKnob1
 					),
 				ui.Column("k2_col", 4.f, 0.f)
@@ -553,7 +553,7 @@ struct Main {
 							.W(64).H(64)
 							.FillColor(pal::PURPLE).ThumbColor(pal::PURPLE)
 							.Tooltip("Knob 2 — drag or scroll [0–100]")
-							.OnChange([this](float v){ ui.SetText(lblKnob2, std::format("Knob 2: {:.1f}", v)); }),
+							.OnChange<float>([this](float v){ ui.SetText(lblKnob2, std::format("Knob 2: {:.1f}", v)); }),
 						lblKnob2
 					),
 				ui.Column("k3_col", 4.f, 0.f)
@@ -563,7 +563,7 @@ struct Main {
 							.W(64).H(64)
 							.FillColor(pal::GREEN).ThumbColor(pal::GREEN)
 							.Tooltip("Knob 3 — drag or scroll [0–100]")
-							.OnChange([this](float v){ ui.SetText(lblKnob3, std::format("Knob 3: {:.1f}", v)); }),
+							.OnChange<float>([this](float v){ ui.SetText(lblKnob3, std::format("Knob 3: {:.1f}", v)); }),
 						lblKnob3
 					),
 				ui.Column("k_dis_col", 4.f, 0.f)
@@ -602,7 +602,7 @@ struct Main {
 		});
 		auto sldSpd = ui.Slider("sld_aspd", 0.05f, 2.f, m_animSpeed).W(SDL::UI::Value::Grow(100.f))
 			.Tooltip("Animation speed")
-			.OnChange([this](float v){ m_animSpeed = v; });
+			.OnChange<float>([this](float v){ m_animSpeed = v; });
 
 		cardProg.Children(
 			ui.Row("anim_row", 10.f, 0.f)
@@ -1135,23 +1135,25 @@ struct Main {
 				 "Fig", "Grape", "Honeydew"}, 0)
 				.W(Value::Pcw(100)).H(32.f)
 				.Tooltip("Click to open dropdown")
-				.OnChange([this](float idx){
+				.OnChange<float>([this](float idx){
 					const char* items[] = {"Apple","Banana","Cherry","Date","Elderberry","Fig","Grape","Honeydew"};
 					ui.SetText(lblCombo, std::string("Selected: ") + items[(int)idx]);
 				});
 
 			lblSpin = ui.Label("lbl_spin_val", "Value: 0")
 				.TextColor(pal::GREY);
-			auto spin = ui.InputValue("spin1", 0.f, 100.f, 42.f, /*intMode=*/true)
+			auto spin = ui.InputValue<int>("spin1", 0, 100, 42, 1)
 				.W(Value::Pcw(100)).H(32.f)
 				.Tooltip("Drag up/down to change value, or click +/– buttons")
-				.OnChange([this](float v){
-					ui.SetText(lblSpin, std::format("Value: {:.0f}", v));
+				.OnChange<int>([this](int v){
+					ui.SetText(lblSpin, std::format("Value: {}", v));
 				});
-			auto spinFloat = ui.InputValue("spin_float", 0.f, 1.f, 0.5f, false)
+			auto spinFloat = ui.InputValue<float>("spin_float", 0.f, 1.f, 0.5f, 0.5f)
 				.InputDecimals(3).W(Value::Pcw(100)).H(32.f)
 				.Tooltip("Float spin box — drag or +/– buttons")
-				.OnChange([](float v){ (void)v; });
+				.OnChange<float>([this](float v){
+					ui.SetText(lblSpin, std::format("Value: {}", v));
+				});
 
 			card.Children(
 				combo, lblCombo,
@@ -1319,7 +1321,7 @@ struct Main {
 				.W(220).H(200)
 				.PickedColor(pal::ACCENT)
 				.PickerShowAlpha(false)
-				.OnChange([this](float){
+				.OnChange<float>([this](float){
 					auto c = ui.GetPickedColor(colorPickerRgb);
 					ui.SetText(lblPickedColor,
 						std::format("RGB: {:3d} {:3d} {:3d}", c.r, c.g, c.b));

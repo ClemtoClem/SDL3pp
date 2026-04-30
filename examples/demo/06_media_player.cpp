@@ -592,7 +592,7 @@ private:
 					s.thumbColor = {100,160,235,255};
 				})
 				.Radius(SDL::FCorners(4.f))
-				.OnChange([this](float v) {
+				.OnChange<float>([this](float v) {
 					double dur = player.GetDuration();
 					if (dur > 0.0) player.Seek((double)v * dur);
 				});
@@ -644,7 +644,7 @@ private:
 				})
 				.Radius(SDL::FCorners(3.f))
 				.Tooltip("Volume")
-				.OnChange([this](float v) {
+				.OnChange<float>([this](float v) {
 					player.SetVolume(v);
 					_RefreshMuteBtn();
 					if (eVolPctLabel != SDL::ECS::NullEntity)
@@ -778,7 +778,7 @@ private:
 				.BgColor({18,18,30,255})
 				.TextColor({200,202,220,255})
 				.Font(res_key::FONT, 11.f)
-				.OnChange([this](float idx){ _OnAudioTrackSelected((int)idx); });
+				.OnChange<int>([this](int idx){ _OnAudioTrackSelected((int)idx); });
 
 		eAudCountLabel =
 			ui.Label("audCountLbl", "0")
@@ -805,7 +805,7 @@ private:
 				.BgColor({18,18,30,255})
 				.TextColor({200,202,220,255})
 				.Font(res_key::FONT, 11.f)
-				.OnChange([this](float idx){ _OnSubTrackSelected((int)idx); });
+				.OnChange<int>([this](int idx){ _OnSubTrackSelected((int)idx); });
 
 		eSubCountLabel =
 			ui.Label("subCountLbl", "0")
@@ -1198,10 +1198,10 @@ private:
 		// ── Typography ────────────────────────────────────────────────────────
 
 		eSubFontSzBox =
-			ui.InputValue("subFontSz", 8.f, 72.f, subtitleCfg.fontSize, true)
+			ui.InputValue<float>("subFontSz", 8.f, 72.f, subtitleCfg.fontSize, 1.f)
 				.GrowW(100.f).H(26.f)
 				.Font(res_key::FONT, 13.f)
-				.OnChange([this](float v) {
+				.OnChange<float>([this](float v) {
 					subtitleCfg.fontSize = v;
 					_RefreshSubFont();
 				});
@@ -1211,7 +1211,7 @@ private:
 				{"Normal", "Gras", "Italique", "Gras + Italique"}, 0)
 				.GrowW(100.f).H(26.f)
 				.Font(res_key::FONT, 13.f)
-				.OnChange([this](float v) {
+				.OnChange<int>([this](int v) {
 #ifdef SDL3PP_ENABLE_TTF
 					const Uint32 styles[] = {
 						SDL::STYLE_NORMAL,
@@ -1232,15 +1232,15 @@ private:
 			ui.ComboBox("subPos", {"Bas", "Haut"}, 0)
 				.GrowW(100.f).H(26.f)
 				.Font(res_key::FONT, 13.f)
-				.OnChange([this](float v) {
-					subtitleCfg.posBottom = ((int)v == 0);
+				.OnChange<int>([this](int v) {
+					subtitleCfg.posBottom = (v == 0);
 				});
 
 		eSubMarginBox =
-			ui.InputValue("subMargin", 0.f, 200.f, subtitleCfg.marginV, true)
+			ui.InputValue<float>("subMargin", 0.f, 200.f, subtitleCfg.marginV, 1.f)
 				.GrowW(100.f).H(26.f)
 				.Font(res_key::FONT, 13.f)
-				.OnChange([this](float v) {
+				.OnChange<float>([this](float v) {
 					subtitleCfg.marginV = v;
 				});
 
@@ -1250,7 +1250,7 @@ private:
 		ui.SetPickedColor(eSubTextClrPick, subtitleCfg.textColor);
 		ui.GetBuilder(eSubTextClrPick)
 			.GrowW(100.f).H(170.f)
-			.OnChange([this](float) {
+			.OnChange<float>([this](float) {
 				subtitleCfg.textColor = ui.GetPickedColor(eSubTextClrPick);
 			});
 
@@ -1263,7 +1263,7 @@ private:
 		if (auto* d = ui.GetColorPickerData(eSubBgClrPick)) d->showAlpha = false;
 		ui.GetBuilder(eSubBgClrPick)
 			.GrowW(100.f).H(170.f)
-			.OnChange([this](float) {
+			.OnChange<float>([this](float) {
 				SDL::Color c = ui.GetPickedColor(eSubBgClrPick);
 				subtitleCfg.bgColor.r = c.r;
 				subtitleCfg.bgColor.g = c.g;
@@ -1290,7 +1290,7 @@ private:
 					s.fillColor  = {70,130,210,255};
 					s.thumbColor = {100,160,235,255};
 				})
-				.OnChange([this](float v) {
+				.OnChange<float>([this](float v) {
 					subtitleCfg.bgColor.a = (Uint8)(v * 255.f);
 					ui.SetText(eSubBgAlphaLabel,
 						std::format("{:.0f}%", v * 100.f));
@@ -1429,7 +1429,7 @@ private:
 					else if (from > m_playlistIdx && to <= m_playlistIdx)
 						++m_playlistIdx;
 			  })
-			  .OnChange([this](float idx) {
+			  .OnChange<float>([this](float idx) {
 					if ((int)idx == m_playlistIdx) return;
 			  });
 

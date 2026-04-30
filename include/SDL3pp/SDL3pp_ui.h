@@ -18,7 +18,7 @@
  * | `LayoutProps`    | Value w/h/x/y, margins, padding, layout mode, grow, gap    |
  * | `LayoutGridProps`| columns, rows, GridSizing, GridLines, line color/thickness |
  * | `GridCell`       | col, row, colSpan, rowSpan (child position in InGrid)      |
- * | `Content`        | Text, placeholder, cursor (Input)                          |
+ * | `EditableContent`        | Text, placeholder, cursor (Input)                          |
  * | `SliderData`     | min/max/value + drag (Slider, Progress, horizontal SB)     |
  * | `ScrollBarData`  | contentSize, viewSize, offset + drag                       |
  * | `ToggleData`     | checked + animT (Toggle)                                   |

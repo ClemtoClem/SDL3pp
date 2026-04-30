@@ -609,8 +609,9 @@ namespace UI {
 			return *this;
 		}
 		/** @brief Set the numeric value of a Slider or Knob widget at runtime (clamped). */
-		Builder &SetValue(float v) {
-			sys.SetValue(id, v);
+		template <typename T>
+		Builder &SetValue(T v) {
+			sys.SetValue<T>(id, v);
 			return *this;
 		}
 		/** @brief Set the checked state of a Toggle or RadioButton widget at runtime. */
@@ -741,17 +742,21 @@ namespace UI {
 			return *this;
 		}
 
-		// ── InputValue setters ────────────────────────────────────────────────────────
-		Builder &InputRange(float mn, float mx) {
-			if (auto *d = sys.GetECSContext().Get<InputData>(id)) { d->min = mn; d->max = mx; }
+		// ── InputValue setters (operate on the NumericValue component) ─────
+		Builder &InputRange(double mn, double mx) {
+			if (auto *nv = sys.GetECSContext().Get<NumericValue>(id)) { nv->min = mn; nv->max = mx; }
 			return *this;
 		}
-		Builder &InputStep(float step) {
-			if (auto *d = sys.GetECSContext().Get<InputData>(id)) d->step = step;
+		Builder &InputStep(double step) {
+			if (auto *nv = sys.GetECSContext().Get<NumericValue>(id)) nv->step = step;
 			return *this;
 		}
 		Builder &InputDecimals(int dec) {
-			if (auto *d = sys.GetECSContext().Get<InputData>(id)) d->decimals = dec;
+			if (auto *nv = sys.GetECSContext().Get<NumericValue>(id)) nv->decimals = dec;
+			return *this;
+		}
+		Builder &InputType(UI::InputType t) {
+			if (auto *d = sys.GetECSContext().Get<InputData>(id)) d->type = t;
 			return *this;
 		}
 
@@ -954,8 +959,9 @@ namespace UI {
 		 * @brief Register a callback invoked when the widget's numeric value changes.
 		 * @param cb  Receives the new value (Slider, Knob, ScrollBar, etc.).
 		 */
-		Builder &OnChange(std::function<void(float)> cb) {
-			sys.OnChange(id, std::move(cb));
+		template <typename T>
+		Builder &OnChange(std::function<void(T)> cb) {
+			sys.OnChange<T>(id, std::move(cb));
 			return *this;
 		}
 		/**
@@ -1099,11 +1105,18 @@ namespace UI {
 	inline Builder System::Button(const std::string &n, const std::string &t) { return {*this, MakeButton(n, t)}; }
 	inline Builder System::Toggle(const std::string &n, const std::string &t) { return {*this, MakeToggle(n, t)}; }
 	inline Builder System::Radio(const std::string &n, const std::string &g, const std::string &t) { return {*this, MakeRadioButton(n, g, t)}; }
-	inline Builder System::Slider(const std::string &n, float mn, float mx, float v, Orientation o) { return {*this, MakeSlider(n, mn, mx, v, o)}; }
+	template<is_numeric_value T>
+	inline Builder System::Slider(const std::string &n, T mn, T mx, T v, Orientation o) {
+		return {*this, MakeSlider<T>(n, mn, mx, v, T(0), o)};
+	}
 	inline Builder System::ScrollBar(const std::string &n, float cs, float vs, Orientation o) { return {*this, MakeScrollBar(n, cs, vs, o)}; }
 	inline Builder System::Progress(const std::string &n, float v, float mx) { return {*this, MakeProgress(n, v, mx)}; }
 	inline Builder System::Separator(const std::string &n) { return {*this, MakeSeparator(n)}; }
 	inline Builder System::Input(const std::string &n, const std::string &ph) { return {*this, MakeInput(n, ph)}; }
+	template <is_numeric_value T>
+	inline Builder System::InputValue(const std::string &n, T mn, T mx, T v, T step) {
+		return Builder(*this, MakeInputValue<T>(n, mn, mx, v, step));
+	}
 	inline Builder System::Knob(const std::string &n, float mn, float mx, float v, KnobShape shape) { return {*this, MakeKnob(n, mn, mx, v, shape)}; }
 	inline Builder System::ImageWidget(const std::string &n, const std::string &p, ImageFit f) { return {*this, MakeImage(n, p, f)}; }
 	inline Builder System::CanvasWidget(const std::string &n,

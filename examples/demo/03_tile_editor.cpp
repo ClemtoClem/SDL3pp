@@ -1424,13 +1424,13 @@ struct Main {
 		);
 
 		// Map tile size controls
-		eMapTileW = ui.InputValue("spin_map_tw", 1.f, 512.f, float(map.tileW), true)
-			.Grow(100.f).H(22.f).InputStep(1.f)
-			.OnChange([this](float v){ map.tileW = SDL::Max(1,(int)v); map.dirty=true; })
+		eMapTileW = ui.InputValue<int>("input_map_tw", 1, 512, map.tileW, 1)
+			.Grow(100.f).H(22.f)
+			.OnChange<int>([this](int v){ map.tileW = SDL::Max(1,v); map.dirty=true; })
 			.Id();
-		eMapTileH = ui.InputValue("spin_map_th", 1.f, 512.f, float(map.tileH), true)
-			.Grow(100.f).H(22.f).InputStep(1.f)
-			.OnChange([this](float v){ map.tileH = SDL::Max(1,(int)v); map.dirty=true; })
+		eMapTileH = ui.InputValue<int>("input_map_th", 1, 512, map.tileH, 1)
+			.Grow(100.f).H(22.f)
+			.OnChange<int>([this](int v){ map.tileH = SDL::Max(1,v); map.dirty=true; })
 			.Id();
 		panel.Child(
 			ui.Column("map_tsize_sect", 2.f, 0.f)
@@ -1505,14 +1505,14 @@ struct Main {
 
 		// Tileset tile size controls
 		{
-			float initW = map.tilesets.empty() ? 16.f : float(map.tilesets[0].tileW);
-			float initH = map.tilesets.empty() ? 16.f : float(map.tilesets[0].tileH);
-			eTsTileW = ui.InputValue("spin_ts_tw", 1.f, 512.f, initW, true)
-				.Grow(100.f).H(22.f).InputStep(1.f)
-				.OnChange([this](float v){
+			int initW = map.tilesets.empty() ? 16.f : map.tilesets[0].tileW;
+			int initH = map.tilesets.empty() ? 16.f : map.tilesets[0].tileH;
+			eTsTileW = ui.InputValue<int>("input_ts_tw", 1, 512, initW, 1)
+				.Grow(100.f).H(22.f)
+				.OnChange<int>([this](int v){
 					if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
 					auto& ts = map.tilesets[state.activeTileset];
-					ts.tileW = SDL::Max(1,(int)v);
+					ts.tileW = SDL::Max(1,v);
 					if (ts.imageW > 0) {
 						int sp = SDL::Max(ts.spacing, 0);
 						ts.columns   = SDL::Max(1, (ts.imageW - 2*ts.margin) / (ts.tileW + (sp ? sp : 1)));
@@ -1521,12 +1521,13 @@ struct Main {
 					map.dirty = true;
 				})
 				.Id();
-			eTsTileH = ui.InputValue("spin_ts_th", 1.f, 512.f, initH, true)
-				.Grow(100.f).H(22.f).InputStep(1.f)
-				.OnChange([this](float v){
+			
+			eTsTileH = ui.InputValue<int>("input_ts_th", 1, 512, initH, 1)
+				.Grow(100.f).H(22.f)
+				.OnChange<int>([this](int v){
 					if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
 					auto& ts = map.tilesets[state.activeTileset];
-					ts.tileH = SDL::Max(1,(int)v);
+					ts.tileH = SDL::Max(1, v);
 					if (ts.imageH > 0) {
 						int sp = SDL::Max(ts.spacing, 0);
 						ts.rows      = SDL::Max(1, (ts.imageH - 2*ts.margin) / (ts.tileH + (sp ? sp : 1)));
@@ -1535,6 +1536,7 @@ struct Main {
 					map.dirty = true;
 				})
 				.Id();
+			
 			panel.Child(
 				ui.Row("ts_tsize_row", 4.f, 4.f)
 					.W(SDL::UI::Value::Pw(100.f)).H(26.f)
@@ -1620,9 +1622,10 @@ struct Main {
 				.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
 				.Children(
 					ui.Label("lbl_brush_sz", "Brush:").W(44).TextColor(pal::GREY),
-					ui.Slider("sld_brush", 1.f, 9.f, float(state.brushSize)).Grow(100.f)
+					ui.Slider("sld_brush", 1.f, 9.f, float(state.brushSize))
+						.Grow(100.f)
 						.FillColor(pal::ACCENT)
-						.OnChange([this](float v){
+						.OnChange<float>([this](float v){
 							int b = 1 + 2 * (int)((v - 1.f) / 2.f + 0.5f);
 							state.brushSize = SDL::Clamp(b, 1, 9);
 						})

@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <functional>
 #include <string>
+#include <type_traits>
+#include <typeindex>
 #include <vector>
 
 namespace SDL {
@@ -225,7 +227,7 @@ namespace UI {
 		ECS::EntityId id = ECS::NullEntity;
 	};
 
-	struct Content {
+	struct EditableContent {
 		std::string text, placeholder;
 		int cursor = 0;
 		float blinkTimer = 0.f;
@@ -278,13 +280,109 @@ namespace UI {
 		}
 	};
 
+	/// @brief Numeric value component shared by Slider, Input (numeric mode),
+	///        Knob, Progress and any other widget that needs a bounded scalar.
+	///
+	/// All values are stored as @c double internally so a single
+	/// NumericValue component covers every arithmetic type. The original
+	/// C++ type is remembered via @ref type so callbacks can deliver the
+	/// right typed value back to the application.
+	struct NumericValue {
+		std::type_index type = typeid(double);
+		double min      = 0.0;   ///< Lower bound.
+		double max      = 100.0; ///< Upper bound.
+		double val      = 0.0;   ///< Current value.
+		double step     = 1.0;   ///< Increment per arrow / key step.
+		int    decimals = 2;     ///< Decimals shown when formatted.
+
+		/// Read the current value as type @c U (any arithmetic type).
+		template <typename U> [[nodiscard]] U as() const { return static_cast<U>(val); }
+		
+		/// Write the current value from a typed input. Integer types round.
+		template <typename U> void set(U v) {
+			double d = static_cast<double>(v);
+			if constexpr (std::is_integral_v<std::decay_t<U>>) d = std::round(d);
+			val = std::clamp(d, min, max);
+		}
+
+		/// Did the stored type originally come from an integral C++ type?
+		[[nodiscard]] bool isIntegral() const noexcept {
+			return type == typeid(int)         || type == typeid(unsigned int)
+			    || type == typeid(short)       || type == typeid(unsigned short)
+			    || type == typeid(long)        || type == typeid(unsigned long)
+			    || type == typeid(long long)   || type == typeid(unsigned long long)
+			    || type == typeid(char)        || type == typeid(unsigned char)
+			    || type == typeid(signed char);
+		}
+	};
+
+	/// @brief Typed wrapper around @ref NumericValue used as a builder-side
+	///        helper and to construct a @c NumericValue from a specific
+	///        arithmetic type.
+	template <typename T>
+	struct AnyValue : NumericValue {
+		AnyValue() {
+			type     = typeid(T);
+			decimals = std::is_integral_v<T> ? 0 : 2;
+		}
+		AnyValue(T mn, T mx, T v, T st = T(1)) : AnyValue() {
+			min  = static_cast<double>(mn);
+			max  = static_cast<double>(mx);
+			val  = std::clamp(static_cast<double>(v), min, max);
+			step = static_cast<double>(st);
+		}
+		[[nodiscard]] T value() const { return as<T>(); }
+		void setValue(T v) { set<T>(v); }
+	};
+	
+	// ==================================================================================
+	// SliderData
+	// ==================================================================================
+
 	struct SliderData {
-		float min = 0.f, max = 1.f, val = 0.f;
+		double min  = 0.0;
+		double max  = 1.0;
+		double val  = 0.0;
+		double step = 0.0; ///< 0 = continuous; > 0 snaps to multiples of step.
+		std::type_index type = typeid(float); ///< Original arithmetic type T from MakeSlider<T>.
+		float dragStartPos = 0.f;
+		double dragStartVal = 0.0;
 		bool drag = false;
-		float dragStartPos = 0.f, dragStartVal = 0.f;
 		Orientation orientation = Orientation::Horizontal;
 		std::vector<float> markers; ///< Normalized marker positions [0,1] (e.g. chapters).
 	};
+
+	// ==================================================================================
+	// InputData — numeric / typed-input mode for the Input widget
+	// ==================================================================================
+
+	/// @brief Per-Input numeric / filter state. Attached only when an Input
+	///        widget is configured with a non-Text @ref InputType. Plain text
+	///        Inputs do not carry this component.
+	///
+	/// When attached, the Input widget renders stacked ↑/↓ arrow buttons on
+	/// its right edge (for numeric modes), supports vertical drag-to-adjust
+	/// from those arrows, and filters typed characters via a regex selected
+	/// by @ref type.
+	struct InputData {
+		InputType type      = InputType::Text;   ///< Filter / value mode.
+
+		// ── Optional child button entity IDs (for layouts that wire the
+		//     increment/decrement arrows as separate Button widgets).
+		ECS::EntityId incrementButton = ECS::NullEntity;
+		ECS::EntityId decrementButton = ECS::NullEntity;
+
+		// ── Internal interaction state (managed by System) ────────────────
+		bool   drag         = false;
+		float  dragStartY   = 0.f;
+		double dragStartVal = 0.0;
+		bool   pressUp      = false;
+		bool   pressDown    = false;
+	};
+	
+	// ==================================================================================
+	// ScrollBarData
+	// ==================================================================================
 
 	struct ScrollBarData {
 		float contentSize = 0.f, viewSize = 0.f, offset = 0.f;
@@ -707,38 +805,6 @@ namespace UI {
 		float  scrollOffset  = 0.f;         ///< Scroll position inside the dropdown.
 		FRect  dropRect      = {};           ///< Screen-space dropdown rect (computed each frame).
 		std::vector<float> tabWidths;        ///< (unused — for future use)
-	};
-
-	// ==================================================================================
-	// InputData — numeric / typed-input mode for the Input widget
-	// ==================================================================================
-
-	/// @brief Per-Input numeric / filter state. Attached only when an Input
-	///        widget is configured with a non-Text @ref InputType. Plain text
-	///        Inputs do not carry this component.
-	///
-	/// When attached, the Input widget renders stacked ↑/↓ arrow buttons on
-	/// its right edge (for numeric modes), supports vertical drag-to-adjust
-	/// from those arrows, and filters typed characters via a regex selected
-	/// by @ref type.
-	struct InputData {
-		/// @brief Whether @ref val should be treated as an integer or a float.
-		enum class ValueKind : Uint8 { None, Int, Float };
-
-		InputType type      = InputType::Text;       ///< Filter / value mode.
-		ValueKind kind      = ValueKind::None;       ///< Numeric kind (or None for non-numeric).
-		double    min       = 0.0;                   ///< Lower bound (numeric modes).
-		double    max       = 100.0;                 ///< Upper bound (numeric modes).
-		double    val       = 0.0;                   ///< Current numeric value.
-		double    step      = 1.0;                   ///< Increment per arrow click / Up-Down key.
-		int       decimals  = 2;                     ///< Decimals shown for FloatValue mode.
-
-		// ── Internal interaction state (managed by System) ────────────────
-		bool   drag         = false;
-		float  dragStartY   = 0.f;
-		double dragStartVal = 0.0;
-		bool   pressUp      = false;
-		bool   pressDown    = false;
 	};
 
 	// ==================================================================================

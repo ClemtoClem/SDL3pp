@@ -415,13 +415,13 @@ struct Main {
         auto rowSpeed = ui.Row("RSpeed").W(SDL::UI::Value::Pw(100)).AttachTo(uiSettings);
         auto lblSpd = ui.Label("LblSpd", std::format("Vitesse : {} ms", config.speed_ms)).W(150).AttachTo(rowSpeed);
         ui.Slider("SldSpd", 50.f, 400.f, (float)config.speed_ms).Grow(100.f)
-            .OnChange([this, lblSpd](float v){ config.speed_ms = (int)v; ui.SetText(lblSpd, std::format("Vitesse : {} ms", config.speed_ms)); })
+            .OnChange<float>([this, lblSpd](float v){ config.speed_ms = (int)v; ui.SetText(lblSpd, std::format("Vitesse : {} ms", config.speed_ms)); })
             .AttachTo(rowSpeed);
 
         auto rowD = ui.Row("RD").W(SDL::UI::Value::Pw(100)).AttachTo(uiSettings);
         auto lblD = ui.Label("LblD", std::format("Niveau tous les : {}", config.difficulty)).W(150).AttachTo(rowD);
         ui.Slider("SldD", 10.f, 200.f, (float)config.difficulty).Grow(100.f)
-            .OnChange([this, lblD](float v){ config.difficulty = (int)v; ui.SetText(lblD, std::format("Niveau tous les : {}", config.difficulty)); })
+            .OnChange<float>([this, lblD](float v){ config.difficulty = (int)v; ui.SetText(lblD, std::format("Niveau tous les : {}", config.difficulty)); })
             .AttachTo(rowD);
 
         ui.Button("BtnBack", "SAUVEGARDER & RETOUR").W(250).H(45).MarginTop(20)

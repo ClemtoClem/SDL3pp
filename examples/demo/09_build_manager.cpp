@@ -823,7 +823,7 @@ struct Main {
             {"g++", "clang++", "Android NDK"}, m_compilerIdx)
             .W(SDL::UI::Value::Pw(100.f)).H(28.f)
             .BgColor(pal::CARD)
-            .OnChange([this](float v){ m_compilerIdx = (int)v; });
+            .OnChange<float>([this](float v){ m_compilerIdx = (int)v; });
         panel.Child(id_compilerBox);
 
         // C++ version
@@ -832,7 +832,7 @@ struct Main {
             {"C++11", "C++14", "C++17", "C++20", "C++23"}, m_cppVerIdx)
             .W(SDL::UI::Value::Pw(100.f)).H(28.f)
             .BgColor(pal::CARD)
-            .OnChange([this](float v){ m_cppVerIdx = (int)v; });
+            .OnChange<float>([this](float v){ m_cppVerIdx = (int)v; });
         panel.Child(id_cppVerBox);
 
         // Output target name

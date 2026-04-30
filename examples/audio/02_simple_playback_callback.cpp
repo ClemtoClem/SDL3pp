@@ -41,8 +41,8 @@ struct Main {
 	Main() { stream.ResumeDevice(); }
 
 	void FeedTheAudioStreamMore(SDL::AudioStreamRef stream,
-															int additional_amount,
-															int total_amount) {
+								int additional_amount,
+								int total_amount) {
 		/* total_amount is how much data the audio stream is eating right now,
 			 additional_amount is how much more it needs than what it currently has
 			 queued (which might be zero!). You can supply any amount of data here; it

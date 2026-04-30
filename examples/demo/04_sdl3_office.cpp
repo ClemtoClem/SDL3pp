@@ -461,12 +461,12 @@ struct Main {
         ui.SetPopupTitle(eFilePopup, isSaveAs ? "Save As" : "Open File");
         ui.SetPopupOpen(eFilePopup, true);
         // Pre-fill the input with the current path
-        auto *cnt = ui.GetECSContext().Get<SDL::UI::Content>(eFileInput);
+        auto *cnt = ui.GetECSContext().Get<SDL::UI::EditableContent>(eFileInput);
         if (cnt) { cnt->text = m_filePath; cnt->cursor = (int)cnt->text.size(); }
     }
 
     void _OnFileOK() {
-        auto *cnt = ui.GetECSContext().Get<SDL::UI::Content>(eFileInput);
+        auto *cnt = ui.GetECSContext().Get<SDL::UI::EditableContent>(eFileInput);
         if (!cnt || cnt->text.empty()) return;
         std::string path = cnt->text;
         ui.SetPopupOpen(eFilePopup, false);

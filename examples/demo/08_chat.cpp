@@ -1322,7 +1322,7 @@ struct Main {
         id_srvMaxClients = ui.Slider("srv_max_clients",
             1.f, 64.f, static_cast<float>(m_server.m_maxClients))
             .W(SDL::UI::Value::Pw(100.f)).H(22.f)
-            .OnChange([this](float v){
+            .OnChange<float>([this](float v){
                 m_server.m_maxClients = static_cast<int>(v);
                 ui.SetText(id_srvMaxCliLabel, std::format("Max clients: {}", m_server.m_maxClients));
             });
@@ -1334,7 +1334,7 @@ struct Main {
         id_srvMaxPerRoom = ui.Slider("srv_max_per_room",
             1.f, 32.f, static_cast<float>(m_server.m_maxPerRoom))
             .W(SDL::UI::Value::Pw(100.f)).H(22.f)
-            .OnChange([this](float v){
+            .OnChange<float>([this](float v){
                 m_server.m_maxPerRoom = static_cast<int>(v);
                 ui.SetText(id_srvMaxRoomLabel, std::format("Max per room: {}", m_server.m_maxPerRoom));
             });

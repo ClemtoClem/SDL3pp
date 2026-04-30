@@ -487,10 +487,9 @@ struct Main {
 
 		auto lb = ui.ListBoxWidget("lbDevices")
 			.H(90.f)
-			.OnChange([this](float idx){
-				int i = static_cast<int>(idx);
-				if (i == 0) _OpenDefaultDevice();
-				else        _OpenDevice(i - 1);  // offset by the "Défaut" entry
+			.OnChange<int>([this](int idx){
+				if (idx == 0) _OpenDefaultDevice();
+				else _OpenDevice(idx - 1);  // offset by the "Défaut" entry
 			});
 		m_lbDevices = lb.Id();
 		card.Child(lb);
@@ -569,7 +568,7 @@ struct Main {
 
 		auto sldFreq = ui.Slider(idBase + "_sfreq", 20.f, 4000.f, osc.freq)
 			.H(16.f).FillColor(accent)
-			.OnChange([this, idx](float v){
+			.OnChange<float>([this, idx](float v){
 				m_osc[idx].freq = v;
 				ui.SetText(m_oscUI[idx].lblFreq, std::format("Fréq: {:.0f} Hz", v));
 			});
@@ -584,7 +583,7 @@ struct Main {
 
 		auto sldAmp = ui.Slider(idBase + "_samp", 0.f, 1.f, osc.amplitude)
 			.H(16.f).FillColor(accent)
-			.OnChange([this, idx](float v){
+			.OnChange<float>([this, idx](float v){
 				m_osc[idx].amplitude = v;
 				ui.SetText(m_oscUI[idx].lblAmp, std::format("Amp: {:.2f}", v));
 			});
@@ -627,7 +626,7 @@ struct Main {
 
 		auto sld = ui.Slider("sld_master", 0.f, 1.f, m_master)
 			.Grow(100.f).H(16.f).FillColor(pal::ACCENT)
-			.OnChange([this](float v){
+			.OnChange<float>([this](float v){
 				m_master = v;
 				ui.SetText(m_lblMaster, std::format("Volume: {:.0f}%", v * 100.f));
 			});

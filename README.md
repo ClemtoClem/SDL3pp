@@ -249,8 +249,8 @@ All widgets are ECS entities driven through a Measure → Place → Clip → Inp
 | `Button` | `ui.Button(name, text)` | Clickable control with normal / hovered / pressed / disabled visual states. Supports an optional icon (`IconData`), `OnClick` and `OnDoubleClick` callbacks. |
 | `Toggle` | `ui.Toggle(name, text)` | Binary on/off switch with a slide animation. `OnToggle(bool)` callback. |
 | `RadioButton` | `ui.Radio(name, group, text)` | Toggle that belongs to a named group; checking one auto-unchecks all others in the same group. `OnToggle(bool)` callback. |
-| `Knob` | `ui.Knob(name, min, max, value)` | Circular dial with configurable shape (Arc, Circle, Dot). Drag vertically to change value. `OnChange(float)` callback. |
-| `Slider` | `ui.Slider(name, min, max, value)` | Horizontal or vertical track + thumb. `OnChange(float)` callback. |
+| `Knob` | `ui.Knob(name, min, max, value)` | Circular dial with configurable shape (Arc, Circle, Dot). Drag vertically to change value. `OnChange<T>(T)` callback. |
+| `Slider` | `ui.Slider(name, min, max, value)` | Horizontal or vertical track + thumb. `OnChange<T>(T)` callback. |
 | `ScrollBar` | `ui.ScrollBar(name, contentSize, viewSize)` | Standalone scrollbar (H or V). `OnScroll(float)` callback returns normalised offset. |
 | `Progress` | `ui.Progress(name, value, max)` | Read-only progress bar (H or V). Value set programmatically via `ui.SetValue()`. |
 | `Separator` | `ui.Separator(name)` | Non-interactive 1 px divider line (H or V depending on parent layout). |
