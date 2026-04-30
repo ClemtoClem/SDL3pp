@@ -9,9 +9,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <concepts>
 #include <cstdio>
 #include <memory>
 #include <numbers>
+#include <regex>
 #include <type_traits>
 #include <unordered_map>
 
@@ -28,6 +30,12 @@
 
 namespace SDL {
 namespace UI {
+
+	/// @brief Concept matching arithmetic types (excluding @c bool) usable as
+	///        the value type of a numeric Input widget.
+	template<class T>
+	concept is_numeric_value =
+		std::is_arithmetic_v<T> && !std::is_same_v<T, bool>;
 
 	// ==================================================================================
 	// System
@@ -226,7 +234,7 @@ namespace UI {
 		 */
 		ECS::EntityId MakeProgress(const std::string &n, float v = 0.f, float mx = 1.f) {
 			ECS::EntityId e = _Make(n, WidgetType::Progress);
-			m_ctx.Add<SliderData>(e, {0.f, mx, SDL::Clamp(v, 0.f, mx)});
+			m_ctx.Add<SliderData>(e, SliderData{.min=0.f, .max=mx, .val=SDL::Clamp(v, 0.f, mx), .markers={}});
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(18.f);
 			return e;
 		}
@@ -248,6 +256,49 @@ namespace UI {
 			m_ctx.Get<Content>(e)->placeholder = ph;
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
+			return e;
+		}
+		/// @brief Create a numeric Input entity (replaces InputValue).
+		///        @c T may be any integral or floating-point type.
+		///        Selects @ref InputType::IntegerValue for integers and
+		///        @ref InputType::FloatValue for floating-point.
+		template<is_numeric_value T>
+		ECS::EntityId MakeInputValue(const std::string &n,
+		                             T minValue = T(0), T maxValue = T(100),
+		                             T value = T(0),     T step    = T(1))
+		{
+			ECS::EntityId e = _Make(n, WidgetType::Input);
+			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
+			                                | BehaviorFlag::Selectable
+			                                | BehaviorFlag::Focusable;
+			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
+			InputData d{};
+			d.kind = std::is_integral_v<T> ? InputData::ValueKind::Int
+			                               : InputData::ValueKind::Float;
+			d.type = std::is_integral_v<T> ? InputType::IntegerValue
+			                               : InputType::FloatValue;
+			d.min  = (double)minValue;
+			d.max  = (double)maxValue;
+			d.val  = (double)SDL::Clamp(value, minValue, maxValue);
+			d.step = (double)step;
+			d.decimals = std::is_integral_v<T> ? 0 : 2;
+			m_ctx.Add<InputData>(e, d);
+			// Initial text representation matches val.
+			m_ctx.Get<Content>(e)->text = _FormatInputValue(d);
+			return e;
+		}
+
+		/// @brief Create a text Input restricted to the given @ref InputType
+		///        (Mail or Url filtering, etc.). Numeric types should use
+		///        @ref MakeInputValue instead.
+		ECS::EntityId MakeInputFiltered(const std::string &n, InputType type,
+		                                const std::string &ph = "")
+		{
+			ECS::EntityId e = MakeInput(n, ph);
+			InputData d{};
+			d.type = type;
+			d.kind = InputData::ValueKind::None;
+			m_ctx.Add<InputData>(e, d);
 			return e;
 		}
 		/**
@@ -356,13 +407,6 @@ namespace UI {
 			auto &d = m_ctx.Add<ComboBoxData>(e);
 			d.items         = items;
 			d.selectedIndex = items.empty() ? -1 : SDL::Clamp(sel, 0, (int)items.size() - 1);
-			return e;
-		}
-		/** @brief Create a SpinBox entity. */
-		ECS::EntityId MakeSpinBox(const std::string &n, float mn = 0.f, float mx = 100.f, float v = 0.f, bool intMode = true) {
-			ECS::EntityId e = _Make(n, WidgetType::SpinBox);
-			auto &d = m_ctx.Add<SpinBoxData>(e);
-			d.min = mn; d.max = mx; d.val = SDL::Clamp(v, mn, mx); d.intMode = intMode;
 			return e;
 		}
 		/** @brief Create a TabView entity. */
@@ -581,8 +625,11 @@ namespace UI {
 		inline Builder GradedGraph(const std::string &n);
 		/** @brief Create a ComboBox and return a Builder for it. */
 		inline Builder ComboBox(const std::string &n, const std::vector<std::string>& items = {}, int sel = 0);
-		/** @brief Create a SpinBox and return a Builder for it. */
-		inline Builder SpinBox(const std::string &n, float mn = 0.f, float mx = 100.f, float v = 0.f, bool intMode = true);
+		/** @brief Create a InputValue and return a Builder for it. */
+		template <is_numeric_value T>
+		inline Builder System::InputValue(const std::string &n, T minValue = 0, T maxValue = 100, T value = 0, T step = 1) {
+			return Builder(*this, MakeInputValue<T>(n, minValue, maxValue, value, step));
+		}
 		/** @brief Create a TabView and return a Builder for it. */
 		inline Builder TabView(const std::string &n);
 		/** @brief Create an Expander and return a Builder for it. */
@@ -692,6 +739,12 @@ namespace UI {
 			}
 		}
 
+		/// Set normalized marker positions [0,1] on a Slider (e.g. chapter positions).
+		void SetSliderMarkers(ECS::EntityId e, std::vector<float> markers) {
+			if (auto *sd = m_ctx.Get<SliderData>(e))
+				sd->markers = std::move(markers);
+		}
+
 		// ── ListBox accessors ─────────────────────────────────────────────────────────
 
 		/**
@@ -730,6 +783,15 @@ namespace UI {
 		}
 		/** @brief Return a pointer to the ListBoxData component of @p e, or nullptr. */
 		ListBoxData* GetListBoxData(ECS::EntityId e) { return m_ctx.Get<ListBoxData>(e); }
+
+		/** @brief Enable or disable drag-to-reorder on a ListBox. */
+		void SetListBoxReorderable(ECS::EntityId e, bool v) {
+			if (auto *lb = m_ctx.Get<ListBoxData>(e)) lb->reorderable = v;
+		}
+		/** @brief Set the reorder callback (called with fromIdx, toIdx after a drag-reorder). */
+		void SetListBoxOnReorder(ECS::EntityId e, std::function<void(int,int)> cb) {
+			if (auto *lb = m_ctx.Get<ListBoxData>(e)) lb->onReorder = std::move(cb);
+		}
 
 		// ── Tooltip accessors ─────────────────────────────────────────────────────────
 
@@ -1584,7 +1646,6 @@ namespace UI {
 				case WidgetType::ScrollBar:
 				case WidgetType::Input:
 				case WidgetType::Canvas:
-				case WidgetType::SpinBox:
 				case WidgetType::TabView:
 				case WidgetType::Expander:
 				case WidgetType::ColorPicker:
@@ -1691,6 +1752,57 @@ namespace UI {
 		int& _GetCursor(T* data) {
 			if constexpr (std::is_same_v<T, TextAreaData>) return data->cursorPos;
 			else return data->cursor;
+		}
+
+		// ── Input filtering / numeric helpers ─────────────────────────────────
+		/// Returns the per-frame "permissive" regex used to validate the
+		/// prospective text after an insertion. Compiled once per pattern.
+		static const std::regex& _GetInputRegex(InputType t) {
+			static const std::regex reText(".*", std::regex::optimize);
+			static const std::regex reInt (R"(-?\d*)",          std::regex::optimize);
+			static const std::regex reFlt (R"(-?\d*\.?\d*)",    std::regex::optimize);
+			static const std::regex reMail(R"([A-Za-z0-9._@+\-]*)",        std::regex::optimize);
+			static const std::regex reUrl (R"([A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%\-]*)", std::regex::optimize);
+			switch (t) {
+				case InputType::IntegerValue: return reInt;
+				case InputType::FloatValue:   return reFlt;
+				case InputType::Mail:         return reMail;
+				case InputType::Url:          return reUrl;
+				case InputType::Text:
+				default:                      return reText;
+			}
+		}
+		/// Strict regex used on commit/blur: requires a fully-formed value.
+		static const std::regex& _GetInputStrictRegex(InputType t) {
+			static const std::regex reInt (R"(-?\d+)",                       std::regex::optimize);
+			static const std::regex reFlt (R"(-?(\d+\.?\d*|\.\d+))",         std::regex::optimize);
+			static const std::regex reMail(R"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", std::regex::optimize);
+			return (t == InputType::IntegerValue) ? reInt
+			     : (t == InputType::FloatValue)   ? reFlt
+			     : (t == InputType::Mail)         ? reMail
+			     : _GetInputRegex(t);
+		}
+		/// Format an InputData::val into its display string.
+		static std::string _FormatInputValue(const InputData& d) {
+			char buf[32];
+			if (d.kind == InputData::ValueKind::Int)
+				std::snprintf(buf, sizeof(buf), "%lld", (long long)std::llround(d.val));
+			else
+				std::snprintf(buf, sizeof(buf), "%.*f", std::max(0, d.decimals), d.val);
+			return buf;
+		}
+		/// Parse the given text into d.val. Returns true if a value was
+		/// committed (text was strictly valid). Otherwise leaves val unchanged.
+		static bool _ParseInputValue(InputData& d, const std::string& text) {
+			if (text.empty() || text == "-" || text == "." || text == "-.") return false;
+			if (!std::regex_match(text, _GetInputStrictRegex(d.type))) return false;
+			try {
+				double v = std::stod(text);
+				if (d.kind == InputData::ValueKind::Int) v = std::round(v);
+				v = std::clamp(v, d.min, d.max);
+				if (v != d.val) { d.val = v; return true; }
+			} catch (...) {}
+			return false;
 		}
 
 		/// Insère du texte en écrasant la sélection éventuelle
@@ -2270,8 +2382,6 @@ namespace UI {
 				return {56.f, 56.f};
 			case WidgetType::ComboBox:
 				return {120.f, SDL::Max(28.f, ch + 8.f)};
-			case WidgetType::SpinBox:
-				return {100.f, SDL::Max(28.f, ch + 8.f)};
 			case WidgetType::TabView: {
 				auto *tvd = m_ctx.Get<TabViewData>(e);
 				return {200.f, tvd ? tvd->tabHeight : 32.f};
@@ -2948,11 +3058,22 @@ namespace UI {
 									float cy_ = cr2->screen.y + cr2->screen.h * 0.5f;
 									kd->dragStartAngle = SDL::Atan2(m_mousePos.y - cy_, m_mousePos.x - cx_) * (180.f / SDL::PI_F);
 								}
-							} else if (pw->type == WidgetType::SpinBox) {
-								if (auto *sp = m_ctx.Get<SpinBoxData>(m_pressed)) {
-									sp->drag = true;
-									sp->dragStartY   = m_mousePos.y;
-									sp->dragStartVal = sp->val;
+							} else if (pw->type == WidgetType::ListBox) {
+								if (auto *lb2 = m_ctx.Get<ListBoxData>(m_pressed); lb2 && lb2->reorderable) {
+									auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
+									auto *lp2 = m_ctx.Get<LayoutProps>(m_pressed);
+									if (cr2 && lp2) {
+										float iy = cr2->screen.y + lp2->padding.top;
+										int   idx = (int)((m_mousePos.y - iy + lp2->scrollY) / lb2->itemHeight);
+										if (idx >= 0 && idx < (int)lb2->items.size()) {
+											lb2->dragSrcIdx  = idx;
+											lb2->dragDstIdx  = idx;
+											lb2->dragY       = m_mousePos.y;
+											lb2->dragStartY  = m_mousePos.y;
+											lb2->dragMoved   = false;
+											lb2->dragActive  = false; // activated after threshold
+										}
+									}
 								}
 							} else if (pw->type == WidgetType::Splitter) {
 								if (auto *spl = m_ctx.Get<SplitterData>(m_pressed)) {
@@ -3072,8 +3193,8 @@ namespace UI {
 							kd->dragStartVal   = kd->val;
 						}
 						
-					} else if (pw->type == WidgetType::SpinBox) {
-						if (auto *sp = m_ctx.Get<SpinBoxData>(m_pressed); sp && sp->drag) {
+					} else if (pw->type == WidgetType::InputValue) {
+						if (auto *sp = m_ctx.Get<InputData>(m_pressed); sp && sp->drag) {
 							float range = sp->max - sp->min;
 							if (range <= 0.f) range = 1.f;
 							float dy = sp->dragStartY - m_mousePos.y;
@@ -3127,6 +3248,22 @@ namespace UI {
 								}
 							}
 						}
+					} else if (pw->type == WidgetType::ListBox) {
+						if (auto *lb2 = m_ctx.Get<ListBoxData>(m_pressed); lb2 && lb2->reorderable && lb2->dragSrcIdx >= 0) {
+							auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
+							auto *lp2 = m_ctx.Get<LayoutProps>(m_pressed);
+							if (cr2 && lp2) {
+								float dy = m_mousePos.y - lb2->dragStartY;
+								if (!lb2->dragMoved && dy * dy > 16.f)
+									lb2->dragMoved = lb2->dragActive = true;
+								if (lb2->dragActive) {
+									lb2->dragY = m_mousePos.y;
+									float iy = cr2->screen.y + lp2->padding.top;
+									int dst = (int)((m_mousePos.y - iy + lp2->scrollY + lb2->itemHeight * 0.5f) / lb2->itemHeight);
+									lb2->dragDstIdx = SDL::Clamp(dst, 0, (int)lb2->items.size() - 1);
+								}
+							}
+						}
 					} else if (pw->type == WidgetType::Tree) {
 						if (auto *css = m_ctx.Get<ContainerScrollState>(m_pressed); css && css->dragY) {
 							auto *d  = m_ctx.Get<TreeData>(m_pressed);
@@ -3154,18 +3291,42 @@ namespace UI {
 						st->pressed = false;
 					if (m_pressed == m_hovered) {
 						auto *pw = m_ctx.Get<Widget>(m_pressed);
-						if (pw && Has(pw->behavior, BehaviorFlag::Enable)
+						// Suppress click for reorderable ListBox that was actively dragged.
+						bool suppressClick = false;
+						if (pw && pw->type == WidgetType::ListBox)
+							if (auto *lb2 = m_ctx.Get<ListBoxData>(m_pressed))
+								suppressClick = lb2->dragActive;
+						if (pw && !suppressClick
+						       && Has(pw->behavior, BehaviorFlag::Enable)
 							   && Has(pw->behavior, BehaviorFlag::Selectable))
 							_OnClick(m_pressed, *pw);
 					}
 					if (auto *sd  = m_ctx.Get<SliderData>(m_pressed))    sd->drag  = false;
 					if (auto *sb  = m_ctx.Get<ScrollBarData>(m_pressed)) sb->drag  = false;
 					if (auto *kd  = m_ctx.Get<KnobData>(m_pressed))      kd->drag  = false;
-					if (auto *sp  = m_ctx.Get<SpinBoxData>(m_pressed))   sp->drag  = false;
+					if (auto *sp  = m_ctx.Get<InputData>(m_pressed))   sp->drag  = false;
 					if (auto *spl = m_ctx.Get<SplitterData>(m_pressed))  spl->dragging = false;
 					if (auto *ta  = m_ctx.Get<TextAreaData>(m_pressed))  ta->selectDragging = false;
 					if (auto *cp  = m_ctx.Get<ColorPickerData>(m_pressed)) { cp->dragging = false; cp->draggingHue = false; }
 					if (auto *pd  = m_ctx.Get<PopupData>(m_pressed))     { pd->dragging = false; pd->resizing = false; }
+					if (auto *lb2 = m_ctx.Get<ListBoxData>(m_pressed)) {
+						if (lb2->dragActive && lb2->dragSrcIdx >= 0
+						    && lb2->dragDstIdx != lb2->dragSrcIdx
+						    && lb2->dragDstIdx >= 0 && lb2->dragDstIdx < (int)lb2->items.size()) {
+							int src = lb2->dragSrcIdx, dst = lb2->dragDstIdx;
+							auto it = lb2->items.begin();
+							std::string item = lb2->items[(size_t)src];
+							lb2->items.erase(it + src);
+							lb2->items.insert(lb2->items.begin() + dst, item);
+							lb2->selectedIndex = dst;
+							if (lb2->onReorder) lb2->onReorder(src, dst);
+							auto *cb2 = m_ctx.Get<Callbacks>(m_pressed);
+							if (cb2 && cb2->onChange) cb2->onChange((float)dst);
+						}
+						lb2->dragActive = false;
+						lb2->dragMoved  = false;
+						lb2->dragSrcIdx = -1;
+					}
 					m_pressed = ECS::NullEntity;
 				}
 				if (auto *c = m_ctx.Get<Content>(m_pressed)) {
@@ -4435,8 +4596,8 @@ namespace UI {
 				case WidgetType::ComboBox:
 					_DrawComboBox(e, r, *s, *st, *w);
 					break;
-				case WidgetType::SpinBox:
-					_DrawSpinBox(e, r, *s, *st, *w);
+				case WidgetType::InputValue:
+					_DrawInputValue(e, r, *s, *st, *w);
 					break;
 				case WidgetType::TabView:
 					_DrawTabView(e, r, *s, *st);
@@ -4757,6 +4918,11 @@ namespace UI {
 				_FillRR({tx, mid - TH * 0.5f, tw, TH}, s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				if (norm > 0.f)
 					_FillRR({tx, mid - TH * 0.5f, tw * norm, TH}, Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
+				// Chapter markers
+				for (float mk : sd->markers) {
+					float mx = tx + tw * SDL::Clamp(mk, 0.f, 1.f);
+					_FillRect({mx - 1.f, mid - TH * 2.f, 2.f, TH * 4.f}, {220, 185, 80, 210}, s.opacity);
+				}
 				float tcx = tx + tw * norm;
 				SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabledColor : (m_focused == e || sd->drag || st.hovered) ? s.thumbColor
 																										 : SDL::Color{160, 170, 190, 255};
@@ -4770,6 +4936,11 @@ namespace UI {
 				if (norm > 0.f) {
 					float fH = th_ * norm;
 					_FillRR({mid - TH * 0.5f, by_ - fH, TH, fH}, Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
+				}
+				// Chapter markers (vertical)
+				for (float mk : sd->markers) {
+					float my = ty_ + th_ * SDL::Clamp(mk, 0.f, 1.f);
+					_FillRect({mid - TH * 2.f, my - 1.f, TH * 4.f, 2.f}, {220, 185, 80, 210}, s.opacity);
 				}
 				float tcy = ty_ + th_ * (1.f - norm);
 				SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabledColor : (m_focused == e || sd->drag || st.hovered) ? s.thumbColor
@@ -5189,7 +5360,7 @@ namespace UI {
 			m_renderer.SetViewport({});
 		}
 
-		// ── ListBox draw ──────────────────────────────────────────────       
+		// ── ListBox draw ──────────────────────────────────────────────
 		void _DrawListBox(ECS::EntityId e, const FRect &r, const Style &s,
 						  const WidgetState &st, const Widget &w) {
 			auto *lb  = m_ctx.Get<ListBoxData>(e);
@@ -5224,10 +5395,12 @@ namespace UI {
 									firstIdx + (int)(viewH / ih) + 2);
 
 			for (int i = firstIdx; i < lastIdx; ++i) {
+				if (lb->dragActive && i == lb->dragSrcIdx) continue; // drawn as ghost
 				float ry    = iy + (float)i * ih - lp->scrollY;
 				FRect itemR = {r.x + s.borders.left, ry, itemW, ih};
 				bool  isSel = (i == lb->selectedIndex);
-				bool  isHov = (m_mousePos.y >= ry && m_mousePos.y < ry + ih
+				bool  isHov = (!lb->dragActive
+							   && m_mousePos.y >= ry && m_mousePos.y < ry + ih
 							   && m_mousePos.x >= r.x && m_mousePos.x < r.x + r.w - (showY ? t : 0.f));
 
 				if (isSel) {
@@ -5248,7 +5421,37 @@ namespace UI {
 					  tc, s.opacity, s);
 			}
 
+			// Drop indicator line at dragDstIdx
+			if (lb->dragActive && lb->dragDstIdx >= 0) {
+				float lineY = iy + (float)lb->dragDstIdx * ih - lp->scrollY + ih - 1.f;
+				lineY = SDL::Clamp(lineY, iy, iy + viewH - 1.f);
+				m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
+				m_renderer.SetDrawColor({100, 160, 235, 220});
+				FRect lineR = {r.x + s.borders.left + 2.f, lineY, itemW - 4.f, 2.f};
+				m_renderer.RenderFillRect(lineR);
+			}
+
 			_PopClip(prevClip);
+
+			// Drag ghost: draw the dragged item floating under the cursor (outside clip)
+			if (lb->dragActive && lb->dragSrcIdx >= 0
+			    && lb->dragSrcIdx < (int)lb->items.size()) {
+				float ghostY = lb->dragY - ih * 0.5f;
+				FRect ghostR = {r.x + s.borders.left, ghostY, itemW, ih};
+				m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
+				SDL::Color gc = s.bgCheckedColor;
+				gc.a = SDL::Clamp8((int)((float)gc.a * 0.85f));
+				m_renderer.SetDrawColor(gc);
+				m_renderer.RenderFillRect(ghostR);
+				// ghost border
+				SDL::Color bc = {100, 160, 235, 200};
+				m_renderer.SetDrawColor(bc);
+				m_renderer.RenderRect(ghostR);
+				// ghost text
+				_Text(e, lb->items[(size_t)lb->dragSrcIdx],
+				      px, ghostY + (ih - charH) * 0.5f,
+				      s.textCheckedColor, 0.9f, s);
+			}
 
 			// Dessin des scrollbars (désormais pardessus et hors du clip des items)
 			_DrawInlineScrollbars(e, r, s, w);
@@ -5696,8 +5899,8 @@ namespace UI {
 			}
 		}
 
-		void _DrawSpinBox(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
-			auto *d = m_ctx.Get<SpinBoxData>(e);
+		void _DrawInputValue(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
+			auto *d = m_ctx.Get<InputData>(e);
 			if (!d) return;
 			const bool hover = st.hovered;
 			const bool focus = (m_focused == e);
@@ -5722,9 +5925,9 @@ namespace UI {
 			m_renderer.RenderLine({mx + 4.f, my - 2.f}, {mx, my + 2.f});
 			// Value text
 			char buf[32];
-			if (d->intMode)
+			if (d->kind == InputData::ValueKind::Int)
 				std::snprintf(buf, sizeof(buf), "%d", (int)std::round(d->val));
-			else
+			else if (d->kind == InputData::ValueKind::Float)
 				std::snprintf(buf, sizeof(buf), "%.*f", d->decimals, (double)d->val);
 			float tw = _TW(buf, e);
 			_Text(e, buf, r.x + (r.w - bw - tw) * 0.5f, r.y + (r.h - _TH(e)) * 0.5f, s.textColor, s.opacity, s);

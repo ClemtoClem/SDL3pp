@@ -1115,7 +1115,7 @@ struct Main {
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════════
-	// Page 7 — New Widgets: ComboBox, SpinBox, TabView, Expander, Splitter,
+	// Page 7 — New Widgets: ComboBox, InputValue, TabView, Expander, Splitter,
 	//                       Spinner, Badge
 	// ══════════════════════════════════════════════════════════════════════════════
 
@@ -1123,10 +1123,10 @@ struct Main {
 		using namespace SDL::UI;
 		auto page = _Page("page_new");
 
-		// ── ComboBox + SpinBox ─────────────────────────────────────────────────────
+		// ── ComboBox + InputValue ─────────────────────────────────────────────────────
 		{
 			auto card = ui.Card("card_combo_spin");
-			card.Child(ui.SectionTitle("ComboBox & SpinBox"));
+			card.Child(ui.SectionTitle("ComboBox & InputValue"));
 
 			lblCombo = ui.Label("lbl_combo_val", "Selected: (none)")
 				.TextColor(pal::GREY);
@@ -1142,14 +1142,14 @@ struct Main {
 
 			lblSpin = ui.Label("lbl_spin_val", "Value: 0")
 				.TextColor(pal::GREY);
-			auto spin = ui.SpinBox("spin1", 0.f, 100.f, 42.f, /*intMode=*/true)
+			auto spin = ui.InputValue("spin1", 0.f, 100.f, 42.f, /*intMode=*/true)
 				.W(Value::Pcw(100)).H(32.f)
 				.Tooltip("Drag up/down to change value, or click +/– buttons")
 				.OnChange([this](float v){
 					ui.SetText(lblSpin, std::format("Value: {:.0f}", v));
 				});
-			auto spinFloat = ui.SpinBox("spin_float", 0.f, 1.f, 0.5f, false)
-				.SpinDecimals(3).W(Value::Pcw(100)).H(32.f)
+			auto spinFloat = ui.InputValue("spin_float", 0.f, 1.f, 0.5f, false)
+				.InputDecimals(3).W(Value::Pcw(100)).H(32.f)
 				.Tooltip("Float spin box — drag or +/– buttons")
 				.OnChange([](float v){ (void)v; });
 

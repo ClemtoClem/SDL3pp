@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -50,17 +51,18 @@
 namespace pool_key { constexpr const char* UI = "ui"; }
 namespace res_key  { constexpr const char* FONT = "font"; }
 namespace icon_key {
-	constexpr const char* PLAY  = "icon_play";
-	constexpr const char* PAUSE = "icon_pause";
-	constexpr const char* STOP  = "icon_stop";
-	constexpr const char* PREV  = "icon_prev";
-	constexpr const char* NEXT  = "icon_next";
-	constexpr const char* OPEN  = "icon_folder";
-	constexpr const char* MUTE  = "icon_volume_mute";
-	constexpr const char* VOL   = "icon_volume_up";
-	constexpr const char* LOOP  = "icon_repeat";
-	constexpr const char* FULL  = "icon_fullscreen";
-	constexpr const char* PANEL = "icon_minimize";
+	constexpr const char* PLAY     = "icon_play";
+	constexpr const char* PAUSE    = "icon_pause";
+	constexpr const char* STOP     = "icon_stop";
+	constexpr const char* PREV     = "icon_prev";
+	constexpr const char* NEXT     = "icon_next";
+	constexpr const char* OPEN     = "icon_folder";
+	constexpr const char* MUTE     = "icon_volume_mute";
+	constexpr const char* VOL      = "icon_volume_up";
+	constexpr const char* LOOP     = "icon_repeat";
+	constexpr const char* FULL     = "icon_fullscreen";
+	constexpr const char* PANEL    = "icon_flip_h";
+	constexpr const char* PLAYLIST = "icon_find";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,6 +107,49 @@ static std::string StripASS(const std::string& raw) {
 	}
 	return out;
 }
+
+// =============================================================================
+// Playlist
+// =============================================================================
+
+struct PlaylistEntry {
+	std::string path;
+	std::string title;
+};
+
+static std::string PlaylistEntryLabel(const PlaylistEntry& e, int idx) {
+	std::string name = e.title.empty()
+		? e.path.substr(e.path.rfind('/') + 1)
+		: e.title;
+	return std::format("{:3d}. {}", idx + 1, name);
+}
+
+static bool IsMediaFile(const std::string& path) {
+	static const std::array<std::string, 18> exts {{
+		".mp4", ".mkv", ".avi", ".webm", ".mov", ".flv", ".m4v", ".wmv",
+		".mp3", ".flac", ".ogg", ".wav", ".aac", ".m4a", ".opus",
+		".ts",  ".mpg", ".mpeg"
+	}};
+	std::string lo = path;
+	for (char& c : lo) c = (char)std::tolower((unsigned char)c);
+	for (const auto& e : exts)
+		if (lo.size() >= e.size() && lo.substr(lo.size() - e.size()) == e)
+			return true;
+	return false;
+}
+
+// =============================================================================
+// Subtitle configuration
+// =============================================================================
+
+struct SubtitleConfig {
+	float      fontSize  = 18.f;
+	SDL::Color textColor = {255, 255, 210, 255};
+	SDL::Color bgColor   = {  0,   0,   0, 180};
+	Uint32     fontStyle = 0; // TTF_STYLE_NORMAL = 0
+	bool       posBottom = true;
+	float      marginV   = 50.f;
+};
 
 // =============================================================================
 // Main application
@@ -156,6 +201,7 @@ struct Main {
 	SDL::ECS::EntityId eVolumeSlider   = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eMuteBtn        = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eLoopBtn        = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eChapterLabel   = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eTitleLabel     = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eStatusBar      = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eSidePanel      = SDL::ECS::NullEntity;
@@ -163,20 +209,53 @@ struct Main {
 	SDL::ECS::EntityId eSubTrackList   = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eMetadataArea   = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eInfoLabel      = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId eSubtitleLabel  = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eVolPctLabel    = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eAudCountLabel  = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eSubCountLabel  = SDL::ECS::NullEntity;
 
+	// ── Subtitle config popup entities ────────────────────────────────────────
+
+	SDL::ECS::EntityId eSubPopup         = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubFontSzBox     = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubStyleCombo    = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubPosCombo      = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubMarginBox     = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubTextClrPick   = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubBgClrPick     = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubBgAlphaSlider = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubBgAlphaLabel  = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eSubPreview       = SDL::ECS::NullEntity;
+
+	// ── Playlist popup entities ───────────────────────────────────────────────
+
+	SDL::ECS::EntityId ePlaylistPopup    = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePlaylistList     = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePlaylistCountLbl = SDL::ECS::NullEntity;
+
 	// ── App state ─────────────────────────────────────────────────────────────
 
 	std::string pendingOpenPath;
+	std::string pendingDropPath;  // file dropped via OS drag-and-drop
 	bool        showSidePanel  = true;
 	bool        fullscreen     = false;
-	
+
 	// Ergonomie / Plein écran
 	float       mouseIdleTimer = 0.f;
 	bool        cursorVisible  = true;
+
+	// ── Playlist state ────────────────────────────────────────────────────────
+
+	std::vector<PlaylistEntry> m_playlist;
+	int                        m_playlistIdx = -1;
+
+	// ── Subtitle config + rendering resources ─────────────────────────────────
+
+	SubtitleConfig subtitleCfg;
+	std::string    m_fontPath;
+#ifdef SDL3PP_ENABLE_TTF
+	std::unique_ptr<SDL::RendererTextEngine> m_subEngine;
+	SDL::Font                                m_subFont;
+#endif
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -207,10 +286,18 @@ struct Main {
 		player.Init(renderer);
 		_LoadResources();
 		_BuildUI();
+#ifdef SDL3PP_ENABLE_TTF
+		m_subEngine = std::make_unique<SDL::RendererTextEngine>(renderer);
+		if (!m_fontPath.empty())
+			m_subFont = SDL::Font(m_fontPath, subtitleCfg.fontSize);
+#endif
 	}
 
 	~Main() {
 		player.Shutdown();
+#ifdef SDL3PP_ENABLE_TTF
+		m_subEngine.reset();
+#endif
 		resources.ReleaseAll();
 	}
 
@@ -266,6 +353,18 @@ struct Main {
 			pendingOpenPath.clear();
 		}
 
+		// OS drag-and-drop: add media files to the playlist
+		if (ev.type == SDL::EVENT_DROP_FILE && ev.drop.data) {
+			_AddToPlaylist(std::string(ev.drop.data), true);
+			return SDL::APP_CONTINUE;
+		}
+
+		// OS drag-and-drop: add media files to the playlist
+		if (ev.type == SDL::EVENT_DROP_FILE && ev.drop.data) {
+			_AddToPlaylist(std::string(ev.drop.data), true);
+			return SDL::APP_CONTINUE;
+		}
+
 		ui.ProcessEvent(ev);
 		return SDL::APP_CONTINUE;
 	}
@@ -293,6 +392,15 @@ struct Main {
 		resources.UpdateAll();
 		player.Update(dt);
 
+		// ── Playlist auto-advance ─────────────────────────────────────────────
+		if (player.GetState() == SDL::Media::PlaybackState::EndOfFile
+		    && !player.IsLooping() && !m_playlist.empty()) {
+			int next = m_playlistIdx + 1;
+			if (next < (int)m_playlist.size()) {
+				_PlayFromPlaylist(next);
+			}
+		}
+
 		// ── Seek bar sync (skip if user is hovering to avoid feedback) ────────
 		if (!ui.IsHovered(eSeekSlider)) {
 			double t = player.GetCurrentTime();
@@ -305,13 +413,20 @@ struct Main {
 			std::format("{} / {}", FormatTime(player.GetCurrentTime()),
 								   FormatTime(player.GetDuration())));
 
-		// ── Subtitle overlay ──────────────────────────────────────────────────
-		if (eSubtitleLabel != SDL::ECS::NullEntity) {
-			std::string sub = player.GetCurrentSubtitle();
-			if (!sub.empty() && (sub.find("Dialogue:") == 0 || sub.find(",,") != std::string::npos))
-				sub = StripASS(sub);
-			ui.SetText(eSubtitleLabel, sub);
-			ui.SetVisible(eSubtitleLabel, !sub.empty());
+		// ── Chapter label ─────────────────────────────────────────────────────
+		if (eChapterLabel != SDL::ECS::NullEntity) {
+			auto chapters = player.GetChapters();
+			if (!chapters.empty()) {
+				int ci = player.GetCurrentChapter();
+				if (ci >= 0 && ci < (int)chapters.size()) {
+					const std::string& title = chapters[ci].title;
+					ui.SetText(eChapterLabel,
+						title.empty() ? std::format("Chapitre {}", ci + 1) : title);
+					ui.SetVisible(eChapterLabel, true);
+				}
+			} else {
+				ui.SetVisible(eChapterLabel, false);
+			}
 		}
 
 		// ── Status bar ────────────────────────────────────────────────────────
@@ -360,20 +475,22 @@ private:
 		const std::string base  = std::string(SDL::GetBasePath()) + "../../../assets/";
 		const std::string icons = base + "textures/icons/";
 
-		ui.LoadFont(res_key::FONT, base + "fonts/Roboto-Regular.ttf");
+		m_fontPath = base + "fonts/Roboto-Regular.ttf";
+		ui.LoadFont(res_key::FONT, m_fontPath);
 		ui.SetDefaultFont(res_key::FONT, 14.f);
 
-		ui.LoadTexture(icon_key::PLAY,  icons + "icon_play.png");
-		ui.LoadTexture(icon_key::PAUSE, icons + "icon_pause.png");
-		ui.LoadTexture(icon_key::STOP,  icons + "icon_stop.png");
-		ui.LoadTexture(icon_key::PREV,  icons + "icon_prev.png");
-		ui.LoadTexture(icon_key::NEXT,  icons + "icon_next.png");
-		ui.LoadTexture(icon_key::OPEN,  icons + "icon_folder.png");
-		ui.LoadTexture(icon_key::MUTE,  icons + "icon_volume_mute.png");
-		ui.LoadTexture(icon_key::VOL,   icons + "icon_volume_up.png");
-		ui.LoadTexture(icon_key::LOOP,  icons + "icon_repeat.png");
-		ui.LoadTexture(icon_key::FULL,  icons + "icon_fullscreen.png");
-		ui.LoadTexture(icon_key::PANEL, icons + "icon_minimize.png");
+		ui.LoadTexture(icon_key::PLAY,		std::format("{}{}.png", icons, icon_key::PLAY));
+		ui.LoadTexture(icon_key::PAUSE,		std::format("{}{}.png", icons, icon_key::PAUSE));
+		ui.LoadTexture(icon_key::STOP,		std::format("{}{}.png", icons, icon_key::STOP));
+		ui.LoadTexture(icon_key::PREV,		std::format("{}{}.png", icons, icon_key::PREV));
+		ui.LoadTexture(icon_key::NEXT,		std::format("{}{}.png", icons, icon_key::NEXT));
+		ui.LoadTexture(icon_key::OPEN,		std::format("{}{}.png", icons, icon_key::OPEN));
+		ui.LoadTexture(icon_key::MUTE,		std::format("{}{}.png", icons, icon_key::MUTE));
+		ui.LoadTexture(icon_key::VOL,		std::format("{}{}.png", icons, icon_key::VOL));
+		ui.LoadTexture(icon_key::LOOP,		std::format("{}{}.png", icons, icon_key::LOOP));
+		ui.LoadTexture(icon_key::FULL,		std::format("{}{}.png", icons, icon_key::FULL));
+		ui.LoadTexture(icon_key::PANEL,		std::format("{}{}.png", icons, icon_key::PANEL));
+		ui.LoadTexture(icon_key::PLAYLIST,	std::format("{}{}.png", icons, icon_key::PLAYLIST));
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -452,20 +569,7 @@ private:
 					.OnClick([this]{ _ToggleSidePanel(); })
 				);
 
-		// ── Media canvas + subtitle overlay ───────────────────────────────────
-
-		eSubtitleLabel =
-			ui.Label("subtitleLabel", "")
-			  .BgColor({0,0,0,180})
-			  .TextColor({255,255,210,255})
-			  .Font(res_key::FONT, 15.f)
-			  .Radius(SDL::FCorners(4.f))
-			  .PaddingH(14.f).PaddingV(6.f)
-			  .AlignH(Align::Center)
-			  .X(Value::Pw(50.f, 0.f))
-			  .Y(Value::Ph(100.f, -54.f))
-			  .Attach(AttachLayout::Absolute);
-		ui.SetVisible(eSubtitleLabel, false);
+		// ── Media canvas ──────────────────────────────────────────────────────
 
 		eMediaCanvas =
 			ui.CanvasWidget("videoCanvas", nullptr, nullptr,
@@ -473,8 +577,7 @@ private:
 					_DrawMediaCanvas(r, rect);
 				})
 				.Grow(100.f)
-				.BgColor(pal::BG)
-				.Child(eSubtitleLabel);
+				.BgColor(pal::BG);
 
 		// ── Seek bar ──────────────────────────────────────────────────────────
 
@@ -501,12 +604,20 @@ private:
 			  .Font(res_key::FONT, 12.f)
 			  .PaddingH(8.f);
 
+		eChapterLabel =
+			ui.Label("chapterLabel", "")
+			  .BgColor(pal::TRANSP)
+			  .TextColor({180, 150, 60, 255})
+			  .Font(res_key::FONT, 11.f)
+			  .PaddingH(8.f);
+		ui.SetVisible(eChapterLabel, false);
+
 		eSeekRow =
 			ui.Row("seekRow", 0.f, 4.f)
 			  .H(kSeekH + 8.f)
 			  .BgColor(pal::PANEL)
 			  .AlignChildrenV(Align::Center)
-			  .Children(eSeekSlider, eTimeLabel);
+			  .Children(eSeekSlider, eTimeLabel, eChapterLabel);
 
 		// ── Control bar ───────────────────────────────────────────────────────
 
@@ -558,13 +669,17 @@ private:
 				.BorderTop(1).BorderColor(pal::BORDER)
 				.AlignChildrenV(Align::Center)
 				.Children(
-					makeIconBtn("btnPrev", icon_key::PREV, "", "Reculer de 10 secondes")
+					makeIconBtn("btnChapPrev", icon_key::PREV, "", "Chapitre précédent")
+						.OnClick([this]{ _SeekPrevChapter(); }),
+					makeIconBtn("btnPrev", "", "-10s", "Reculer de 10 secondes")
 						.OnClick([this]{ player.SeekRelative(-10.0); }),
 					ePlayBtn,
 					makeIconBtn("btnStop", icon_key::STOP, "", "Arrêter")
 						.OnClick([this]{ player.Stop(); _RefreshPlayBtn(); }),
-					makeIconBtn("btnNext", icon_key::NEXT, "", "Avancer de 10 secondes")
+					makeIconBtn("btnNext", "", "+10s", "Avancer de 10 secondes")
 						.OnClick([this]{ player.SeekRelative(+10.0); }),
+					makeIconBtn("btnChapNext", icon_key::NEXT, "", "Chapitre suivant")
+						.OnClick([this]{ _SeekNextChapter(); }),
 					// spacer via growing container
 					ui.Container("ctrlSpacer1")
 						.W(4.f).H(1.f).BgColor(pal::TRANSP),
@@ -575,6 +690,10 @@ private:
 					ui.Container("ctrlSpacerR")
 						.GrowW(100.f).BgColor(pal::TRANSP),
 					eLoopBtn,
+					makeIconBtn("btnSubCfg", "", "SUB", "Configurer les sous-titres")
+						.OnClick([this]{ _ShowSubtitlePopup(); }),
+					makeIconBtn("btnPlaylist", icon_key::PLAYLIST, "", "Playlist")
+						.OnClick([this]{ _ShowPlaylistPopup(); }),
 					makeIconBtn("btnFullCtrl", icon_key::FULL, "", "Plein écran")
 						.OnClick([this]{ _ToggleFullscreen(); })
 				);
@@ -602,6 +721,14 @@ private:
 
 		_BuildSidePanel();
 
+		// ── Subtitle config popup ─────────────────────────────────────────────
+
+		_BuildSubtitlePopup();
+
+		// ── Playlist popup ────────────────────────────────────────────────────
+
+		_BuildPlaylistPopup();
+
 		// ── Root ──────────────────────────────────────────────────────────────
 
 		ui.Row("root", 0.f, 0.f)
@@ -610,7 +737,7 @@ private:
 			.H(Value::Wh(100.f))
 			.BgColor(pal::BG)
 			.AlignChildrenV(Align::Stretch)
-			.Children(mainCol, eSidePanel)
+			.Children(mainCol, eSidePanel, eSubPopup, ePlaylistPopup)
 			.AsRoot();
 	}
 
@@ -768,6 +895,7 @@ private:
 		_RefreshMetadata(meta);
 		_RefreshTrackLists();
 		_RefreshInfoLabel();
+		_RefreshChapterMarkers();
 
 		player.Play();
 		_RefreshPlayBtn();
@@ -875,6 +1003,34 @@ private:
 		ui.SetText(eInfoLabel, text.empty() ? "(aucune info)" : text);
 	}
 
+	void _RefreshChapterMarkers() {
+		auto chapters = player.GetChapters();
+		double dur = player.GetDuration();
+		std::vector<float> markers;
+		if (dur > 0.0 && chapters.size() > 1) {
+			for (auto& ch : chapters)
+				markers.push_back((float)(ch.startTime / dur));
+		}
+		ui.SetSliderMarkers(eSeekSlider, std::move(markers));
+	}
+
+	void _SeekPrevChapter() {
+		auto chapters = player.GetChapters();
+		if (chapters.empty()) { player.SeekRelative(-10.0); return; }
+		int ci = player.GetCurrentChapter();
+		double t = player.GetCurrentTime();
+		// If we're more than 2s into the chapter, go back to its start; else go to previous
+		if (ci > 0 && (t - chapters[ci].startTime) < 2.0) --ci;
+		player.SeekToChapter(ci);
+	}
+
+	void _SeekNextChapter() {
+		auto chapters = player.GetChapters();
+		if (chapters.empty()) { player.SeekRelative(+10.0); return; }
+		int ci = player.GetCurrentChapter();
+		player.SeekToChapter(ci + 1);
+	}
+
 	// ─────────────────────────────────────────────────────────────────────────
 	// Track selection callbacks
 	// ─────────────────────────────────────────────────────────────────────────
@@ -911,6 +1067,7 @@ private:
 			};
 			r.SetDrawColor({28,28,44,255});
 			r.RenderFillRect(ph);
+			_DrawSubtitles(r, rect);
 			return;
 		}
 
@@ -925,6 +1082,489 @@ private:
 			tsz.x * scale, tsz.y * scale
 		};
 		r.RenderTexture(tex, std::nullopt, dst);
+		_DrawSubtitles(r, rect);
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Subtitle rendering (direct TTF, multi-line, centered, anti-overflow)
+	// ─────────────────────────────────────────────────────────────────────────
+
+	void _DrawSubtitleText(SDL::RendererRef r, SDL::FRect rect, const std::string& text) {
+#ifdef SDL3PP_ENABLE_TTF
+		if (text.empty() || !m_subEngine || !m_subFont) return;
+
+		// Apply font config
+		m_subFont.SetSize(subtitleCfg.fontSize);
+		m_subFont.SetStyle(subtitleCfg.fontStyle);
+
+		// Split into lines on \n
+		std::vector<std::string> lines;
+		std::istringstream ss(text);
+		std::string ln;
+		while (std::getline(ss, ln))
+			lines.push_back(ln);
+		if (lines.empty()) return;
+
+		// Measure
+		constexpr float kPadH = 14.f, kPadV = 6.f, kLineGap = 3.f;
+		int lineH = 0;
+		std::vector<int> lineW(lines.size(), 0);
+		int maxLineW = 0;
+		for (int i = 0; i < (int)lines.size(); ++i) {
+			int w = 0, h = 0;
+			m_subFont.GetStringSize(lines[i], &w, &h);
+			lineW[i] = w;
+			maxLineW  = std::max(maxLineW, w);
+			lineH     = std::max(lineH, h);
+		}
+		if (lineH == 0) lineH = (int)subtitleCfg.fontSize;
+
+		// Block dimensions — clamp width to canvas
+		float maxAvail = rect.w - 24.f;
+		float blockW   = std::min((float)maxLineW + 2.f * kPadH, maxAvail);
+		float blockH   = (float)lines.size() * (float)lineH
+		               + ((float)lines.size() - 1.f) * kLineGap
+		               + 2.f * kPadV;
+
+		// Vertical position
+		float bx = rect.x + (rect.w - blockW) * 0.5f;
+		float by = subtitleCfg.posBottom
+		         ? rect.y + rect.h - blockH - subtitleCfg.marginV
+		         : rect.y + subtitleCfg.marginV;
+		by = std::clamp(by, rect.y + 4.f, rect.y + rect.h - blockH - 4.f);
+
+		// Background
+		SDL::FRect bgRect{bx, by, blockW, blockH};
+		r.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
+		r.SetDrawColor(subtitleCfg.bgColor);
+		r.RenderFillRect(bgRect);
+
+		// Draw each line centered in the block
+		for (int i = 0; i < (int)lines.size(); ++i) {
+			float lx = bx + kPadH + ((float)maxLineW - (float)lineW[i]) * 0.5f;
+			lx = std::max(lx, bx + kPadH);
+			float ly = by + kPadV + (float)i * ((float)lineH + kLineGap);
+			try {
+				SDL::Text t = m_subEngine->CreateText(m_subFont, lines[i]);
+				t.SetColor(subtitleCfg.textColor);
+				t.DrawRenderer({lx, ly});
+			} catch (...) {}
+		}
+#endif
+	}
+
+	void _DrawSubtitles(SDL::RendererRef r, SDL::FRect rect) {
+		std::string sub = player.GetCurrentSubtitle();
+		if (sub.empty()) return;
+		if (sub.find("Dialogue:") == 0 || sub.find(",,") != std::string::npos)
+			sub = StripASS(sub);
+		if (sub.empty()) return;
+		// Replace \N (ASS soft line break) with \n
+		for (size_t p = 0; (p = sub.find("\\N", p)) != std::string::npos; p += 1)
+			sub.replace(p, 2, "\n");
+		_DrawSubtitleText(r, rect, sub);
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Subtitle config popup
+	// ─────────────────────────────────────────────────────────────────────────
+
+	void _BuildSubtitlePopup() {
+		using namespace SDL::UI;
+
+		constexpr float popW = 300.f, popH = 510.f;
+
+		Style secHdr;
+		secHdr.bgColor   = pal::PANEL2;
+		secHdr.textColor = pal::ACCENT;
+		secHdr.fontKey   = res_key::FONT;
+		secHdr.fontSize  = 11.f;
+
+		auto rowStyle = [&]() -> Style {
+			Style s;
+			s.bgColor   = pal::TRANSP;
+			s.textColor = pal::WHITE;
+			s.fontKey   = res_key::FONT;
+			s.fontSize  = 13.f;
+			return s;
+		};
+		auto makeRowLabel = [&](const std::string& name, const std::string& text) {
+			return ui.Label(name, text)
+				.Style(rowStyle())
+				.W(90.f)
+				.AlignV(Align::Center);
+		};
+
+		// ── Typography ────────────────────────────────────────────────────────
+
+		eSubFontSzBox =
+			ui.InputValue("subFontSz", 8.f, 72.f, subtitleCfg.fontSize, true)
+				.GrowW(100.f).H(26.f)
+				.Font(res_key::FONT, 13.f)
+				.OnChange([this](float v) {
+					subtitleCfg.fontSize = v;
+					_RefreshSubFont();
+				});
+
+		eSubStyleCombo =
+			ui.ComboBox("subStyle",
+				{"Normal", "Gras", "Italique", "Gras + Italique"}, 0)
+				.GrowW(100.f).H(26.f)
+				.Font(res_key::FONT, 13.f)
+				.OnChange([this](float v) {
+#ifdef SDL3PP_ENABLE_TTF
+					const Uint32 styles[] = {
+						SDL::STYLE_NORMAL,
+						SDL::STYLE_BOLD,
+						SDL::STYLE_ITALIC,
+						SDL::STYLE_BOLD | SDL::STYLE_ITALIC
+					};
+					subtitleCfg.fontStyle = styles[std::clamp((int)v, 0, 3)];
+#else
+					subtitleCfg.fontStyle = 0;
+#endif
+					_RefreshSubFont();
+				});
+
+		// ── Position ──────────────────────────────────────────────────────────
+
+		eSubPosCombo =
+			ui.ComboBox("subPos", {"Bas", "Haut"}, 0)
+				.GrowW(100.f).H(26.f)
+				.Font(res_key::FONT, 13.f)
+				.OnChange([this](float v) {
+					subtitleCfg.posBottom = ((int)v == 0);
+				});
+
+		eSubMarginBox =
+			ui.InputValue("subMargin", 0.f, 200.f, subtitleCfg.marginV, true)
+				.GrowW(100.f).H(26.f)
+				.Font(res_key::FONT, 13.f)
+				.OnChange([this](float v) {
+					subtitleCfg.marginV = v;
+				});
+
+		// ── Text color ────────────────────────────────────────────────────────
+
+		eSubTextClrPick = ui.MakeColorPicker("subTextClr");
+		ui.SetPickedColor(eSubTextClrPick, subtitleCfg.textColor);
+		ui.GetBuilder(eSubTextClrPick)
+			.GrowW(100.f).H(170.f)
+			.OnChange([this](float) {
+				subtitleCfg.textColor = ui.GetPickedColor(eSubTextClrPick);
+			});
+
+		// ── Background color ──────────────────────────────────────────────────
+
+		eSubBgClrPick = ui.MakeColorPicker("subBgClr");
+		ui.SetPickedColor(eSubBgClrPick, {subtitleCfg.bgColor.r,
+		                                   subtitleCfg.bgColor.g,
+		                                   subtitleCfg.bgColor.b, 255});
+		if (auto* d = ui.GetColorPickerData(eSubBgClrPick)) d->showAlpha = false;
+		ui.GetBuilder(eSubBgClrPick)
+			.GrowW(100.f).H(170.f)
+			.OnChange([this](float) {
+				SDL::Color c = ui.GetPickedColor(eSubBgClrPick);
+				subtitleCfg.bgColor.r = c.r;
+				subtitleCfg.bgColor.g = c.g;
+				subtitleCfg.bgColor.b = c.b;
+			});
+
+		// ── Background alpha ──────────────────────────────────────────────────
+
+		eSubBgAlphaLabel =
+			ui.Label("subBgAlphaLbl",
+				std::format("{:.0f}%", subtitleCfg.bgColor.a / 255.f * 100.f))
+				.BgColor(pal::TRANSP)
+				.TextColor(pal::GREY)
+				.Font(res_key::FONT, 12.f)
+				.W(38.f)
+				.AlignV(Align::Center);
+
+		eSubBgAlphaSlider =
+			ui.Slider("subBgAlpha", 0.f, 1.f,
+				subtitleCfg.bgColor.a / 255.f, Orientation::Horizontal)
+				.GrowW(100.f).H(20.f)
+				.WithStyle([](Style& s) {
+					s.trackColor = {40,40,58,255};
+					s.fillColor  = {70,130,210,255};
+					s.thumbColor = {100,160,235,255};
+				})
+				.OnChange([this](float v) {
+					subtitleCfg.bgColor.a = (Uint8)(v * 255.f);
+					ui.SetText(eSubBgAlphaLabel,
+						std::format("{:.0f}%", v * 100.f));
+				});
+
+		// ── Preview ───────────────────────────────────────────────────────────
+
+		eSubPreview =
+			ui.CanvasWidget("subPreview", nullptr, nullptr,
+				[this](SDL::RendererRef r, SDL::FRect rect) {
+					r.SetDrawColor({10, 12, 20, 255});
+					r.RenderFillRect(rect);
+					_DrawSubtitleText(r, rect,
+						"Exemple de sous-titre\nSur deux lignes");
+				})
+				.GrowW(100.f).H(90.f)
+				.BgColor({10, 12, 20, 255});
+
+		// ── Assemble popup ────────────────────────────────────────────────────
+
+		auto content =
+			ui.Column("subCfgCol", 0.f, 0.f)
+				.GrowW(100.f)
+				.BgColor(pal::BG)
+				.Children(
+					// Typographie
+					ui.Label("subHdrTypo", "TYPOGRAPHIE")
+						.Style(secHdr).H(20.f).GrowW(100.f).PaddingH(8.f),
+					ui.Row("subRowSz", 4.f, 6.f).H(32.f).GrowW(100.f)
+						.BgColor(pal::BG).AlignChildrenV(Align::Center)
+						.Children(makeRowLabel("subLblSz","Taille"), eSubFontSzBox),
+					ui.Row("subRowSt", 4.f, 6.f).H(32.f).GrowW(100.f)
+						.BgColor(pal::BG).AlignChildrenV(Align::Center)
+						.Children(makeRowLabel("subLblSt","Style"), eSubStyleCombo),
+					ui.Separator("subSep1").BgColor(pal::BORDER),
+					// Position
+					ui.Label("subHdrPos", "POSITION")
+						.Style(secHdr).H(20.f).GrowW(100.f).PaddingH(8.f),
+					ui.Row("subRowPos", 4.f, 6.f).H(32.f).GrowW(100.f)
+						.BgColor(pal::BG).AlignChildrenV(Align::Center)
+						.Children(makeRowLabel("subLblPos","Placement"), eSubPosCombo),
+					ui.Row("subRowMg", 4.f, 6.f).H(32.f).GrowW(100.f)
+						.BgColor(pal::BG).AlignChildrenV(Align::Center)
+						.Children(makeRowLabel("subLblMg","Marge (px)"), eSubMarginBox),
+					ui.Separator("subSep2").BgColor(pal::BORDER),
+					// Couleur texte
+					ui.Label("subHdrTxtClr", "COULEUR DU TEXTE")
+						.Style(secHdr).H(20.f).GrowW(100.f).PaddingH(8.f),
+					ui.GetBuilder(eSubTextClrPick),
+					ui.Separator("subSep3").BgColor(pal::BORDER),
+					// Fond
+					ui.Label("subHdrBgClr", "ARRIÈRE-PLAN")
+						.Style(secHdr).H(20.f).GrowW(100.f).PaddingH(8.f),
+					ui.GetBuilder(eSubBgClrPick),
+					ui.Row("subRowAlpha", 4.f, 6.f).H(28.f).GrowW(100.f)
+						.BgColor(pal::BG).AlignChildrenV(Align::Center)
+						.Children(
+							makeRowLabel("subLblAlpha","Opacité"),
+							eSubBgAlphaSlider,
+							eSubBgAlphaLabel
+						),
+					ui.Separator("subSep4").BgColor(pal::BORDER),
+					// Aperçu
+					ui.Label("subHdrPrev", "APERÇU")
+						.Style(secHdr).H(20.f).GrowW(100.f).PaddingH(8.f),
+					eSubPreview
+				);
+
+		eSubPopup =
+			ui.Popup("subCfgPopup", "Sous-titrage", true, true, false)
+				.W(popW).H(popH)
+				.Fixed(Value::Ww(50.f) - popW * 0.5f,
+				       Value::Wh(50.f) - popH * 0.5f)
+				.BgColor(pal::BG)
+				.Children(
+					ui.ScrollView("subCfgScroll")
+						.Grow(100.f)
+						.BgColor(pal::BG)
+						.Children(content)
+				).Id();
+
+		ui.SetPopupOpen(eSubPopup, false);
+	}
+
+	void _ShowSubtitlePopup() {
+		ui.SetPopupOpen(eSubPopup, true);
+	}
+
+	void _RefreshSubFont() {
+#ifdef SDL3PP_ENABLE_TTF
+		if (m_subFont)
+			m_subFont.SetSize(subtitleCfg.fontSize);
+#endif
+	}
+
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Playlist popup
+	// ─────────────────────────────────────────────────────────────────────────
+
+	void _BuildPlaylistPopup() {
+		using namespace SDL::UI;
+
+		constexpr float popW = 400.f, popH = 480.f;
+
+		Style secHdr;
+		secHdr.bgColor   = pal::PANEL2;
+		secHdr.textColor = pal::ACCENT;
+		secHdr.fontKey   = res_key::FONT;
+		secHdr.fontSize  = 11.f;
+
+		// Count label
+		ePlaylistCountLbl =
+			ui.Label("plCountLbl", "0 fichier(s)")
+			  .Style(secHdr)
+			  .W(Value::Auto());
+
+		// Reorderable list
+		ePlaylistList =
+			ui.ListBoxWidget("playlistList", {})
+			  .Grow(100.f)
+			  .BgColor({18, 18, 30, 255})
+			  .TextColor({200, 202, 220, 255})
+			  .Font(res_key::FONT, 12.f)
+			  .Reorderable(true)
+			  .OnReorder([this](int from, int to) {
+					// Sync m_playlist to match list reorder
+					auto item = m_playlist[(size_t)from];
+					m_playlist.erase(m_playlist.begin() + from);
+					m_playlist.insert(m_playlist.begin() + to, item);
+					// Update playing index
+					if (m_playlistIdx == from)
+						m_playlistIdx = to;
+					else if (from < m_playlistIdx && to >= m_playlistIdx)
+						--m_playlistIdx;
+					else if (from > m_playlistIdx && to <= m_playlistIdx)
+						++m_playlistIdx;
+			  })
+			  .OnChange([this](float idx) {
+					if ((int)idx == m_playlistIdx) return;
+			  });
+
+		// Toolbar buttons
+		auto btnAdd =
+			ui.Button("plBtnAdd", "+ Ajouter")
+			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
+			  .BgColor(pal::NEUTRAL).BgHover({45,45,65,255})
+			  .BorderColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .Radius(SDL::FCorners(4.f))
+			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
+			  .Tooltip("Ajouter un fichier média")
+			  .OnClick([this]{ _ShowOpenDialog(); });
+
+		auto btnRemove =
+			ui.Button("plBtnRemove", "- Supprimer")
+			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
+			  .BgColor(pal::NEUTRAL).BgHover({65,25,25,255})
+			  .BorderColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .Radius(SDL::FCorners(4.f))
+			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
+			  .Tooltip("Supprimer l\'élément sélectionné")
+			  .OnClick([this]{
+					int sel = ui.GetListBoxSelection(ePlaylistList);
+					if (sel >= 0 && sel < (int)m_playlist.size()) {
+						m_playlist.erase(m_playlist.begin() + sel);
+						if (m_playlistIdx == sel) m_playlistIdx = -1;
+						else if (m_playlistIdx > sel) --m_playlistIdx;
+						_RefreshPlaylistUI();
+					}
+			  });
+
+		auto btnClear =
+			ui.Button("plBtnClear", "Vider")
+			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
+			  .BgColor(pal::NEUTRAL).BgHover({65,25,25,255})
+			  .BorderColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .Radius(SDL::FCorners(4.f))
+			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
+			  .Tooltip("Vider la playlist")
+			  .OnClick([this]{
+					m_playlist.clear();
+					m_playlistIdx = -1;
+					_RefreshPlaylistUI();
+			  });
+
+		auto btnPlay =
+			ui.Button("plBtnPlay", "▶ Lire")
+			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
+			  .BgColor(pal::ACCENT).BgHover({90,150,230,255})
+			  .BorderColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .Radius(SDL::FCorners(4.f))
+			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
+			  .Tooltip("Lire l\'élément sélectionné")
+			  .OnClick([this]{
+					int sel = ui.GetListBoxSelection(ePlaylistList);
+					if (sel >= 0 && sel < (int)m_playlist.size())
+						_PlayFromPlaylist(sel);
+			  });
+
+		auto hint =
+			ui.Label("plHint", "Glissez des fichiers ici ou dans la fenêtre")
+			  .H(20.f).GrowW(100.f)
+			  .BgColor(pal::TRANSP)
+			  .TextColor(pal::GREY)
+			  .Font(res_key::FONT, 10.f)
+			  .AlignH(Align::Center).AlignV(Align::Center);
+
+		auto content =
+			ui.Column("plCol", 0.f, 0.f)
+			  .Grow(100.f).BgColor(pal::BG)
+			  .Children(
+					ui.Row("plHdrRow", 4.f, 6.f).H(26.f).BgColor(pal::PANEL2)
+					  .AlignChildrenV(Align::Center)
+					  .Children(
+							ui.Label("plHdrLbl", "PLAYLIST").Style(secHdr).GrowW(100.f),
+							ePlaylistCountLbl
+					  ),
+					ePlaylistList,
+					ui.Separator("plSep").BgColor(pal::BORDER),
+					ui.Row("plToolbar", 4.f, 6.f).H(36.f).BgColor(pal::BG)
+					  .AlignChildrenV(Align::Center)
+					  .Children(btnAdd, btnRemove, btnClear,
+								ui.Container("plSpc").GrowW(100.f).BgColor(pal::TRANSP),
+								btnPlay),
+					hint
+			  );
+
+		ePlaylistPopup =
+			ui.Popup("playlistPopup", "Playlist", true, true, true)
+			  .W(popW).H(popH)
+			  .Fixed(Value::Ww(50.f) - popW * 0.5f,
+			         Value::Wh(50.f) - popH * 0.5f)
+			  .BgColor(pal::BG)
+			  .Children(content).Id();
+
+		ui.SetPopupOpen(ePlaylistPopup, false);
+	}
+
+	void _ShowPlaylistPopup() {
+		ui.SetPopupOpen(ePlaylistPopup, true);
+	}
+
+	void _AddToPlaylist(const std::string& path, bool playIfEmpty) {
+		if (!IsMediaFile(path)) return;
+		PlaylistEntry entry;
+		entry.path  = path;
+		entry.title = path.substr(path.rfind('/') + 1);
+		m_playlist.push_back(entry);
+		_RefreshPlaylistUI();
+		if (playIfEmpty && m_playlist.size() == 1)
+			_PlayFromPlaylist(0);
+	}
+
+	void _PlayFromPlaylist(int idx) {
+		if (idx < 0 || idx >= (int)m_playlist.size()) return;
+		m_playlistIdx = idx;
+		_RefreshPlaylistUI();
+		_OpenFile(m_playlist[(size_t)idx].path);
+	}
+
+	void _RefreshPlaylistUI() {
+		if (ePlaylistList == SDL::ECS::NullEntity) return;
+		std::vector<std::string> labels;
+		for (int i = 0; i < (int)m_playlist.size(); ++i) {
+			std::string lbl = PlaylistEntryLabel(m_playlist[(size_t)i], i);
+			if (i == m_playlistIdx) lbl = "► " + lbl;
+			labels.push_back(lbl);
+		}
+		ui.SetListBoxItems(ePlaylistList, labels);
+		if (m_playlistIdx >= 0 && m_playlistIdx < (int)m_playlist.size())
+			ui.SetListBoxSelection(ePlaylistList, m_playlistIdx);
+		if (ePlaylistCountLbl != SDL::ECS::NullEntity)
+			ui.SetText(ePlaylistCountLbl,
+				std::format("{} fichier(s)", m_playlist.size()));
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────

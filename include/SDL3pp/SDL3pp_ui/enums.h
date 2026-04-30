@@ -109,6 +109,19 @@ namespace UI {
 		Vertical
 	};
 
+	/// @brief Filter / value mode for the Input widget.
+	///
+	/// Selects how typed characters are validated and (for numeric modes) how
+	/// the value is parsed and formatted. Numeric modes also enable the right-
+	/// edge ↑/↓ arrow buttons.
+	enum class InputType : Uint8 {
+		Text,         ///< Plain free-form text (no filter).
+		Mail,         ///< Permissive e-mail character filter while typing.
+		Url,          ///< Permissive URL character filter while typing.
+		IntegerValue, ///< Digits only, optional leading '-'. Stores integer.
+		FloatValue    ///< Digits + single '.', optional leading '-'. Stores float.
+	};
+
 	/*enum class Easing : Uint8 {
 		Linear,
 		EaseIn,

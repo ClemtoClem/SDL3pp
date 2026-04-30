@@ -1424,12 +1424,12 @@ struct Main {
 		);
 
 		// Map tile size controls
-		eMapTileW = ui.SpinBox("spin_map_tw", 1.f, 512.f, float(map.tileW), true)
-			.Grow(100.f).H(22.f).SpinStep(1.f)
+		eMapTileW = ui.InputValue("spin_map_tw", 1.f, 512.f, float(map.tileW), true)
+			.Grow(100.f).H(22.f).InputStep(1.f)
 			.OnChange([this](float v){ map.tileW = SDL::Max(1,(int)v); map.dirty=true; })
 			.Id();
-		eMapTileH = ui.SpinBox("spin_map_th", 1.f, 512.f, float(map.tileH), true)
-			.Grow(100.f).H(22.f).SpinStep(1.f)
+		eMapTileH = ui.InputValue("spin_map_th", 1.f, 512.f, float(map.tileH), true)
+			.Grow(100.f).H(22.f).InputStep(1.f)
 			.OnChange([this](float v){ map.tileH = SDL::Max(1,(int)v); map.dirty=true; })
 			.Id();
 		panel.Child(
@@ -1507,8 +1507,8 @@ struct Main {
 		{
 			float initW = map.tilesets.empty() ? 16.f : float(map.tilesets[0].tileW);
 			float initH = map.tilesets.empty() ? 16.f : float(map.tilesets[0].tileH);
-			eTsTileW = ui.SpinBox("spin_ts_tw", 1.f, 512.f, initW, true)
-				.Grow(100.f).H(22.f).SpinStep(1.f)
+			eTsTileW = ui.InputValue("spin_ts_tw", 1.f, 512.f, initW, true)
+				.Grow(100.f).H(22.f).InputStep(1.f)
 				.OnChange([this](float v){
 					if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
 					auto& ts = map.tilesets[state.activeTileset];
@@ -1521,8 +1521,8 @@ struct Main {
 					map.dirty = true;
 				})
 				.Id();
-			eTsTileH = ui.SpinBox("spin_ts_th", 1.f, 512.f, initH, true)
-				.Grow(100.f).H(22.f).SpinStep(1.f)
+			eTsTileH = ui.InputValue("spin_ts_th", 1.f, 512.f, initH, true)
+				.Grow(100.f).H(22.f).InputStep(1.f)
 				.OnChange([this](float v){
 					if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
 					auto& ts = map.tilesets[state.activeTileset];

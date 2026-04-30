@@ -1158,6 +1158,7 @@ struct Main {
     void _BuildUI() {
         ui.Column("root", 0.f, 0.f)
             .BgColor(pal::BG).Borders(SDL::FBox(0.f)).Radius(SDL::FCorners(0.f))
+            .BgGradient(SDL::Color(pal::BG).Brighten(40))
             .Children(
                 _BuildHeader(),
                 id_launcherPanel = _BuildLauncher(),

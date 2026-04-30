@@ -5,8 +5,8 @@
  *
  * New features vs the original:
  *  - GPU Vulkan/hardware-accelerated renderer  (SDL::GPU_RENDERER)
- *  - Textured floor          (assets/dirt.png  – tiled, wrap mode)
- *  - Textured terrain crates (assets/crate.jpg – per-face, back-face culled)
+ *  - Textured floor          (assets/textures/dirt.png  – per-tile quads)
+ *  - Textured terrain crates (assets/textures/crate.jpg – per-face, depth-tested)
  *  - Physical bullet animation: tracers travel at 120 m/s, collide with
  *    terrain and capsules before applying damage
  *  - Near-plane polygon clipping (Sutherland-Hodgman) for clean geo edges
@@ -114,49 +114,6 @@ struct BulletData
 	float damage;
 	float life; ///< seconds remaining
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Polygon clipping vertex
-// ─────────────────────────────────────────────────────────────────────────────
-
-struct ClipVert
-{
-	SDL::FVector3 view; ///< view-space position
-	SDL::FVector2 uv;   ///< texture coordinates (may tile > 1.0)
-	float shade;        ///< luminance multiplier [0,1]
-};
-
-/// Sutherland-Hodgman clip against the near plane (keep z < -near).
-static std::vector<ClipVert> ClipNear(const std::vector<ClipVert> &poly, float near)
-{
-	if (poly.empty())
-		return {};
-	std::vector<ClipVert> out;
-	out.reserve(poly.size() + 1);
-	const int n = (int)poly.size();
-	for (int i = 0; i < n; ++i)
-	{
-		const ClipVert &a = poly[i];
-		const ClipVert &b = poly[(i + 1) % n];
-		bool aIn = a.view.z < -near;
-		bool bIn = b.view.z < -near;
-		if (aIn)
-			out.push_back(a);
-		if (aIn != bIn)
-		{
-			float t = (-near - a.view.z) / (b.view.z - a.view.z);
-			ClipVert c;
-			c.view = {a.view.x + t * (b.view.x - a.view.x),
-					  a.view.y + t * (b.view.y - a.view.y),
-					  -near};
-			c.uv = {a.uv.x + t * (b.uv.x - a.uv.x),
-					a.uv.y + t * (b.uv.y - a.uv.y)};
-			c.shade = a.shade + t * (b.shade - a.shade);
-			out.push_back(c);
-		}
-	}
-	return out;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GPU vertex layout (world-space pos + UV + RGBA color)
@@ -314,22 +271,23 @@ struct Main
 
 	// ── Textures (loaded after renderer is ready) ─────────────────────────────
 
-	SDL::Texture texDirt;  ///< assets/dirt.png   – floor tile
-	SDL::Texture texCrate; ///< assets/crate.jpg  – obstacle faces
+	SDL::Texture texDirt;  ///< assets/textures/dirt.png  – floor tile
+	SDL::Texture texCrate; ///< assets/textures/crate.jpg – obstacle faces
 
 	// ── GPU resources (borrowed device from renderer) ─────────────────────────
 
 	SDL::GPUDeviceRef         gpuDevice;       ///< non-owning ref from renderer
-	SDL::GPUGraphicsPipeline  pipelineTex;     ///< textured triangle pipeline
-	SDL::GPUGraphicsPipeline  pipelineCol;     ///< solid-color triangle pipeline
+	SDL::GPUGraphicsPipeline  pipelineTex;     ///< textured triangle pipeline (floor, crates)
+	SDL::GPUGraphicsPipeline  pipelineCol;     ///< solid-color triangle pipeline (fallback)
+	SDL::GPUGraphicsPipeline  pipelineLines;   ///< line-list pipeline (arena + crate edges)
 	SDL::GPUSampler           samplerRepeat;   ///< wrapping sampler for floor tile
 	SDL::GPUSampler           samplerClamp;    ///< clamping sampler for crate faces
-	SDL::GPUBuffer            sceneVertBuf;    ///< dynamic vertex buffer
+	SDL::GPUBuffer            sceneVertBuf;    ///< dynamic vertex buffer (triangles + lines)
 	SDL::GPUTexture           sceneColorTex;   ///< offscreen color render target
 	SDL::GPUTexture           sceneDepthTex;   ///< offscreen depth buffer
 	SDL::Texture              sceneSDLTex;     ///< SDL_Texture wrapping sceneColorTex
 	Uint32                    sceneW = 0, sceneH = 0;
-	static constexpr Uint32   kMaxSceneVerts = 4096;
+	static constexpr Uint32   kMaxSceneVerts = 65536;
 
 	// ── Timing ────────────────────────────────────────────────────────────────
 
@@ -342,9 +300,23 @@ struct Main
 	GameConfig config = {};
 	int menuSel = 0; ///< 0=map 1=players 2=enemies (keyboard nav)
 
-	// ── ECS ecs_context (recreated each game) ───────────────────────────────────────
+	// ── UI subsystem ──────────────────────────────────────────────────────────
 
-	SDL::ECS::Context ecs_context;
+	SDL::ResourceManager rm;
+	SDL::ResourcePool &uiPool{*rm.CreatePool("ui")};
+	SDL::ECS::Context ecs;
+	SDL::UI::System ui{ecs, renderer, SDL::MixerRef{}, uiPool};
+
+	// UI entity IDs for dynamic updates
+	SDL::ECS::EntityId eid_mapVal   = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eid_plVal    = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eid_enVal    = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eid_menuPage = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eid_goPage   = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eid_hudPage  = SDL::ECS::NullEntity;
+	std::array<SDL::ECS::EntityId, MAX_PLAYERS> eid_goScore{};
+
+	// ── ECS (recreated each game) ─────────────────────────────────────────────
 
 	int numPlayers = 1;
 	SDL::ECS::EntityId playerIds[MAX_PLAYERS] = {};
@@ -355,8 +327,7 @@ struct Main
 	float mapScale = 16.f;
 	EdgeList arenaEdges;
 
-	struct TerrainCube
-	{
+	struct TerrainCube {
 		SDL::FAABB box;
 		EdgeList edges;
 		float distToCam = 0.f;
@@ -367,60 +338,35 @@ struct Main
 
 	std::vector<BulletData> bullets;
 
-	// ── UI subsystem ──────────────────────────────────────────────────────────
-
-	SDL::ResourceManager rm;
-	SDL::ResourcePool &uiPool{*rm.CreatePool("ui")};
-	SDL::ECS::Context uiWorld;
-	SDL::UI::System ui{uiWorld, renderer, SDL::MixerRef{}, uiPool};
-
-	// UI entity IDs for dynamic updates
-	SDL::ECS::EntityId eid_mapVal = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId eid_plVal = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId eid_enVal = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId eid_menuPage = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId eid_goPage = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId eid_hudPage = SDL::ECS::NullEntity;
-	std::array<SDL::ECS::EntityId, MAX_PLAYERS> eid_goScore{};
-
 	// ─────────────────────────────────────────────────────────────────────────
 	// Constructor
 	// ─────────────────────────────────────────────────────────────────────────
 
-	Main()
-	{
+	Main() {
+		window.StartTextInput();
 		renderer.SetVSync(0);
-		SDL::SetHintWithPriority(SDL_HINT_WINDOWS_RAW_KEYBOARD, "1",
-								 SDL::HINT_OVERRIDE);
-		// Gracefully attempt to load textures
-		try
-		{
-			texDirt = SDL::LoadTexture(renderer, "assets/dirt.png");
+		SDL::SetHintWithPriority(SDL_HINT_WINDOWS_RAW_KEYBOARD, "1", SDL::HINT_OVERRIDE);
+		// Gracefully attempt to load textures (paths are relative to BasePath
+		// so the demo runs from any working directory).
+		const std::string base = std::string(SDL::GetBasePath()) + "../../../assets/textures/";
+		try {
+			texDirt = SDL::LoadTexture(renderer, base + "dirt.png");
+		} catch (...) {
+			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION, "Cannot load %sdirt.png", base.c_str());
 		}
-		catch (...)
-		{
-			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
-						 "Cannot load assets/dirt.png");
-		}
-		try
-		{
-			texCrate = SDL::LoadTexture(renderer, "assets/crate.jpg");
-		}
-		catch (...)
-		{
-			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
-						 "Cannot load assets/crate.jpg");
+		try {
+			texCrate = SDL::LoadTexture(renderer, base + "crate.jpg");
+		} catch (...) {
+			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION, "Cannot load %scrate.jpg", base.c_str());
 		}
 		_BuildUI();
 		_BuildGPU();
 	}
 
-	~Main()
-	{
+	~Main() {
 		// GPU resources must be released before the renderer/window are destroyed
 		sceneSDLTex = {};
-		if (gpuDevice)
-		{
+		if (gpuDevice) {
 			if (static_cast<SDL::GPUTextureRaw>(sceneColorTex))
 				gpuDevice.ReleaseTexture(sceneColorTex);
 			if (static_cast<SDL::GPUTextureRaw>(sceneDepthTex))
@@ -435,6 +381,8 @@ struct Main
 				gpuDevice.ReleaseGraphicsPipeline(pipelineTex);
 			if (static_cast<SDL::GPUGraphicsPipelineRaw>(pipelineCol))
 				gpuDevice.ReleaseGraphicsPipeline(pipelineCol);
+			if (static_cast<SDL::GPUGraphicsPipelineRaw>(pipelineLines))
+				gpuDevice.ReleaseGraphicsPipeline(pipelineLines);
 		}
 	}
 
@@ -452,7 +400,8 @@ struct Main
 		return {
 			cy * r.x - sy * r.z,
 			sy * sp * r.x + cp * r.y + cy * sp * r.z,
-			sy * cp * r.x - sp * r.y + cy * cp * r.z};
+			sy * cp * r.x - sp * r.y + cy * cp * r.z
+		};
 	}
 
 	static bool Project(const SDL::FVector3 &v, float ox, float oy, float fov,
@@ -466,247 +415,107 @@ struct Main
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Render a near-clipped view-space polygon as textured triangles
-	// ─────────────────────────────────────────────────────────────────────────
-
-	void RenderPoly(const std::vector<ClipVert> &poly,
-					float cx, float cy, float fov,
-					SDL::TextureRef tex, float alpha = 1.f)
-	{
-		if ((int)poly.size() < 3)
-			return;
-		// Fan triangulation from vertex 0
-		for (int i = 1; i + 1 < (int)poly.size(); ++i)
-		{
-			SDL::Vertex verts[3];
-			for (int k = 0; k < 3; ++k)
-			{
-				const ClipVert &cv = (k == 0) ? poly[0] : poly[i + k - 1];
-				float s = cv.shade;
-				float sx = cx - fov * cv.view.x / cv.view.z;
-				float sy_ = cy + fov * cv.view.y / cv.view.z;
-				verts[k] = {{sx, sy_}, {s, s, s, alpha}, {cv.uv.x, cv.uv.y}};
-			}
-			renderer.RenderGeometry(tex, std::span{verts, 3});
-		}
-	}
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Draw a single world-space quad face (4 CCW corners viewed from outside).
-	// Performs back-face culling, transforms to view space, clips and renders.
-	// ─────────────────────────────────────────────────────────────────────────
-
-	void DrawFace(const SDL::FVector3 wp[4], const SDL::FVector2 uvs[4],
-				  float shade, const SDL::FVector3 &camPos, const Look &look,
-				  float cx, float cy, float fov, SDL::TextureRef tex)
-	{
-		// Back-face culling: outward normal vs vector to camera
-		SDL::FVector3 fn = (wp[1] - wp[0]).Cross(wp[3] - wp[0]);
-		if (fn.Dot(camPos - wp[0]) <= 0.f)
-			return;
-
-		std::vector<ClipVert> poly(4);
-		for (int i = 0; i < 4; ++i)
-			poly[i] = {ToView(wp[i], camPos, look), uvs[i], shade};
-
-		auto clipped = ClipNear(poly, kNearPlane);
-		RenderPoly(clipped, cx, cy, fov, tex);
-	}
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Textured floor – single large quad with WRAP addressing so dirt tiles
-	// ─────────────────────────────────────────────────────────────────────────
-
-	void DrawFloor(const SDL::FVector3 &cam, const Look &look,
-				   float cx, float cy, float fov)
-	{
-		if (!texDirt.Get())
-		{
-			// Fallback: solid dark-grey fill using 2 triangles
-			SDL::FVector3 fp[4] = {
-				{-mapScale, -mapScale, mapScale},
-				{mapScale, -mapScale, mapScale},
-				{mapScale, -mapScale, -mapScale},
-				{-mapScale, -mapScale, -mapScale}
-			};
-			static constexpr SDL::FVector2 noUV[4] = {};
-			DrawFace(fp, noUV, 0.3f, cam, look, cx, cy, fov, nullptr);
-			return;
-		}
-
-		const float s = mapScale;
-		const float y = -s;
-		const float tiles = s / kFloorTile; // UV scale so dirt tiles naturally
-
-		SDL::FVector3 wp[4] = {
-			{-s, y, s}, // winding CCW viewed from above (+Y)
-			{ s, y,  s},
-			{ s, y, -s},
-			{-s, y, -s},
-		};
-		SDL::FVector2 uvs[4] = {{0, 0}, {tiles, 0}, {tiles, tiles}, {0, tiles}};
-
-		renderer.SetRenderTextureAddressMode(SDL::TEXTURE_ADDRESS_WRAP,
-											 SDL::TEXTURE_ADDRESS_WRAP);
-		DrawFace(wp, uvs, 0.82f, cam, look, cx, cy, fov, texDirt);
-		renderer.SetRenderTextureAddressMode(SDL::TEXTURE_ADDRESS_CLAMP,
-											 SDL::TEXTURE_ADDRESS_CLAMP);
-	}
-
-	// ─────────────────────────────────────────────────────────────────────────
-	// Textured crate box (6 faces, back-face culled, axis-shaded)
-	// ─────────────────────────────────────────────────────────────────────────
-
-	void DrawCrateBox(const SDL::FAABB &box, const SDL::FVector3 &cam,
-					  const Look &look, float cx, float cy, float fov)
-	{
-		const SDL::FVector3 &mn = box.Min;
-		const SDL::FVector3 &mx = box.Max;
-
-		// 8 corners indexed as binary XYZ: index = x<<0 | y<<1 | z<<2
-		const SDL::FVector3 c[8] = {
-			{mn.x, mn.y, mn.z}, // 0: 000
-			{mx.x, mn.y, mn.z}, // 1: 100
-			{mn.x, mx.y, mn.z}, // 2: 010
-			{mx.x, mx.y, mn.z}, // 3: 110
-			{mn.x, mn.y, mx.z}, // 4: 001
-			{mx.x, mn.y, mx.z}, // 5: 101
-			{mn.x, mx.y, mx.z}, // 6: 011
-			{mx.x, mx.y, mx.z}  // 7: 111
-		};
-
-		// face{ corner indices (CCW from outside), shade }
-		struct FD
-		{
-			int v[4];
-			float shade;
-		};
-		static constexpr FD kFaces[6] = {
-			{{0, 2, 3, 1}, 0.65f}, // -Z front
-			{{5, 7, 6, 4}, 0.65f}, // +Z back
-			{{4, 6, 2, 0}, 0.50f}, // -X left
-			{{1, 3, 7, 5}, 0.50f}, // +X right
-			{{2, 6, 7, 3}, 1.00f}, // +Y top   (brightest)
-			{{0, 1, 5, 4}, 0.18f}, // -Y bottom (darkest)
-		};
-
-		static constexpr SDL::FVector2 kUV[4] = {{0, 0}, {0, 1}, {1, 1}, {1, 0}};
-
-		// Only draw if texture is available, otherwise draw as coloured solid
-		SDL::TextureRef tex = texCrate.Get()
-								  ? SDL::TextureRef{texCrate}
-								  : SDL::TextureRef{nullptr};
-		for (const auto &f : kFaces)
-		{
-			SDL::FVector3 wp[4] = {c[f.v[0]], c[f.v[1]], c[f.v[2]], c[f.v[3]]};
-			SDL::FVector2 uvs[4];
-			for (int i = 0; i < 4; ++i)
-				uvs[i] = kUV[i];
-			DrawFace(wp, uvs, f.shade, cam, look, cx, cy, fov, tex);
-		}
-	}
-
-	// ─────────────────────────────────────────────────────────────────────────
 	// GPU pipeline initialisation
 	// ─────────────────────────────────────────────────────────────────────────
 
 	void _BuildGPU()
 	{
-		try
-		{
+		try {
 			gpuDevice = renderer.GetGPUDevice();
-			if (!gpuDevice)
-				return;
+			if (!gpuDevice) return;
 
-		// ── Vertex layout ────────────────────────────────────────────────────
-		SDL::GPUVertexBufferDescription vbDesc{};
-		vbDesc.slot       = 0;
-		vbDesc.pitch      = sizeof(GpuVert);
-		vbDesc.input_rate = SDL::GPU_VERTEXINPUTRATE_VERTEX;
+			// ── Vertex layout ────────────────────────────────────────────────────
+			SDL::GPUVertexBufferDescription vbDesc{};
+			vbDesc.slot       = 0;
+			vbDesc.pitch      = sizeof(GpuVert);
+			vbDesc.input_rate = SDL::GPU_VERTEXINPUTRATE_VERTEX;
 
-		SDL::GPUVertexAttribute attrs[3]{};
-		attrs[0].location    = 0;
-		attrs[0].buffer_slot = 0;
-		attrs[0].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT3;
-		attrs[0].offset      = offsetof(GpuVert, x);
-		attrs[1].location    = 1;
-		attrs[1].buffer_slot = 0;
-		attrs[1].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT2;
-		attrs[1].offset      = offsetof(GpuVert, u);
-		attrs[2].location    = 2;
-		attrs[2].buffer_slot = 0;
-		attrs[2].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT4;
-		attrs[2].offset      = offsetof(GpuVert, r);
+			SDL::GPUVertexAttribute attrs[3]{};
+			attrs[0].location    = 0;
+			attrs[0].buffer_slot = 0;
+			attrs[0].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT3;
+			attrs[0].offset      = offsetof(GpuVert, x);
+			attrs[1].location    = 1;
+			attrs[1].buffer_slot = 0;
+			attrs[1].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT2;
+			attrs[1].offset      = offsetof(GpuVert, u);
+			attrs[2].location    = 2;
+			attrs[2].buffer_slot = 0;
+			attrs[2].format      = SDL::GPU_VERTEXELEMENTFORMAT_FLOAT4;
+			attrs[2].offset      = offsetof(GpuVert, r);
 
-		// ── Colour-target format ─────────────────────────────────────────────
-		SDL::GPUColorTargetDescription ctd{};
-		ctd.format = SDL::GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+			// ── Colour-target format ─────────────────────────────────────────────
+			SDL::GPUColorTargetDescription ctd{};
+			ctd.format = SDL::GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
 
-		// ── Pipeline create info (shared) ────────────────────────────────────
-		SDL::GPUGraphicsPipelineCreateInfo pi{};
-		pi.vertex_input_state.vertex_buffer_descriptions = &vbDesc;
-		pi.vertex_input_state.num_vertex_buffers         = 1;
-		pi.vertex_input_state.vertex_attributes          = attrs;
-		pi.vertex_input_state.num_vertex_attributes      = 3;
-		pi.primitive_type = SDL::GPU_PRIMITIVETYPE_TRIANGLELIST;
+			// ── Pipeline create info (shared) ────────────────────────────────────
+			SDL::GPUGraphicsPipelineCreateInfo pi{};
+			pi.vertex_input_state.vertex_buffer_descriptions = &vbDesc;
+			pi.vertex_input_state.num_vertex_buffers         = 1;
+			pi.vertex_input_state.vertex_attributes          = attrs;
+			pi.vertex_input_state.num_vertex_attributes      = 3;
+			pi.primitive_type = SDL::GPU_PRIMITIVETYPE_TRIANGLELIST;
 
-		pi.rasterizer_state.cull_mode   = SDL::GPU_CULLMODE_NONE; // no cull; depth handles it
-		pi.rasterizer_state.fill_mode   = SDL::GPU_FILLMODE_FILL;
+			pi.rasterizer_state.cull_mode   = SDL::GPU_CULLMODE_NONE; // no cull; depth handles it
+			pi.rasterizer_state.fill_mode   = SDL::GPU_FILLMODE_FILL;
 
-		pi.depth_stencil_state.enable_depth_test  = true;
-		pi.depth_stencil_state.enable_depth_write = true;
-		pi.depth_stencil_state.compare_op         = SDL::GPU_COMPAREOP_LESS;
+			pi.depth_stencil_state.enable_depth_test  = true;
+			pi.depth_stencil_state.enable_depth_write = true;
+			pi.depth_stencil_state.compare_op         = SDL::GPU_COMPAREOP_LESS;
 
-		pi.target_info.color_target_descriptions = &ctd;
-		pi.target_info.num_color_targets         = 1;
-		pi.target_info.depth_stencil_format      = SDL::GPU_TEXTUREFORMAT_D16_UNORM;
-		pi.target_info.has_depth_stencil_target  = true;
+			pi.target_info.color_target_descriptions = &ctd;
+			pi.target_info.num_color_targets         = 1;
+			pi.target_info.depth_stencil_format      = SDL::GPU_TEXTUREFORMAT_D16_UNORM;
+			pi.target_info.has_depth_stencil_target  = true;
 
-		// ── Shaders ──────────────────────────────────────────────────────────
-		auto vertShader = LoadGpuShader(gpuDevice, "woodeneye.vert.spv",
-										SDL::GPU_SHADERSTAGE_VERTEX, 0, 1);
-		auto fragTex    = LoadGpuShader(gpuDevice, "woodeneye_tex.frag.spv",
-										SDL::GPU_SHADERSTAGE_FRAGMENT, 1, 0);
-		auto fragCol    = LoadGpuShader(gpuDevice, "woodeneye_col.frag.spv",
-										SDL::GPU_SHADERSTAGE_FRAGMENT, 0, 0);
+			// ── Shaders ──────────────────────────────────────────────────────────
+			auto vertShader = LoadGpuShader(gpuDevice, "woodeneye.vert.spv",
+											SDL::GPU_SHADERSTAGE_VERTEX, 0, 1);
+			auto fragTex    = LoadGpuShader(gpuDevice, "woodeneye_tex.frag.spv",
+											SDL::GPU_SHADERSTAGE_FRAGMENT, 1, 0);
+			auto fragCol    = LoadGpuShader(gpuDevice, "woodeneye_col.frag.spv",
+											SDL::GPU_SHADERSTAGE_FRAGMENT, 0, 0);
 
-		pi.vertex_shader   = vertShader;
-		pi.fragment_shader = fragTex;
-		pipelineTex = gpuDevice.CreateGraphicsPipeline(pi);
+			pi.vertex_shader   = vertShader;
+			pi.fragment_shader = fragTex;
+			pipelineTex = gpuDevice.CreateGraphicsPipeline(pi);
 
-		pi.fragment_shader = fragCol;
-		pipelineCol = gpuDevice.CreateGraphicsPipeline(pi);
+			pi.fragment_shader = fragCol;
+			pipelineCol = gpuDevice.CreateGraphicsPipeline(pi);
 
-		gpuDevice.ReleaseShader(vertShader);
-		gpuDevice.ReleaseShader(fragTex);
-		gpuDevice.ReleaseShader(fragCol);
+			// Line-list pipeline shares the vertex shader + solid-color fragment
+			// shader. Depth test stays enabled so wireframes are properly hidden
+			// behind opaque crate faces.
+			pi.primitive_type = SDL::GPU_PRIMITIVETYPE_LINELIST;
+			pipelineLines = gpuDevice.CreateGraphicsPipeline(pi);
+			pi.primitive_type = SDL::GPU_PRIMITIVETYPE_TRIANGLELIST;
 
-		// ── Samplers ─────────────────────────────────────────────────────────
-		SDL::GPUSamplerCreateInfo si{};
-		si.min_filter = SDL::GPU_FILTER_LINEAR;
-		si.mag_filter = SDL::GPU_FILTER_LINEAR;
-		si.address_mode_u = SDL::GPU_SAMPLERADDRESSMODE_REPEAT;
-		si.address_mode_v = SDL::GPU_SAMPLERADDRESSMODE_REPEAT;
-		samplerRepeat = gpuDevice.CreateSampler(si);
+			gpuDevice.ReleaseShader(vertShader);
+			gpuDevice.ReleaseShader(fragTex);
+			gpuDevice.ReleaseShader(fragCol);
 
-		si.address_mode_u = SDL::GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-		si.address_mode_v = SDL::GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-		samplerClamp = gpuDevice.CreateSampler(si);
+			// ── Samplers ─────────────────────────────────────────────────────────
+			SDL::GPUSamplerCreateInfo si{};
+			si.min_filter = SDL::GPU_FILTER_LINEAR;
+			si.mag_filter = SDL::GPU_FILTER_LINEAR;
+			si.address_mode_u = SDL::GPU_SAMPLERADDRESSMODE_REPEAT;
+			si.address_mode_v = SDL::GPU_SAMPLERADDRESSMODE_REPEAT;
+			samplerRepeat = gpuDevice.CreateSampler(si);
 
-		// ── Persistent vertex buffer ─────────────────────────────────────────
-		SDL::GPUBufferCreateInfo vbInfo{};
-		vbInfo.usage = SDL::GPU_BUFFERUSAGE_VERTEX;
-		vbInfo.size  = kMaxSceneVerts * sizeof(GpuVert);
-		sceneVertBuf = gpuDevice.CreateBuffer(vbInfo);
-		}
-		catch (const std::exception &e)
-		{
+			si.address_mode_u = SDL::GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+			si.address_mode_v = SDL::GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+			samplerClamp = gpuDevice.CreateSampler(si);
+
+			// ── Persistent vertex buffer ─────────────────────────────────────────
+			SDL::GPUBufferCreateInfo vbInfo{};
+			vbInfo.usage = SDL::GPU_BUFFERUSAGE_VERTEX;
+			vbInfo.size  = kMaxSceneVerts * sizeof(GpuVert);
+			sceneVertBuf = gpuDevice.CreateBuffer(vbInfo);
+		} catch (const std::exception &e) {
 			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
 						 "GPU pipeline init failed (%s) – falling back", e.what());
 			gpuDevice = {};
-		}
-		catch (...)
-		{
+		} catch (...) {
 			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
 						 "GPU pipeline init failed – falling back");
 			gpuDevice = {};
@@ -764,8 +573,8 @@ struct Main
 
 	SDL::FMatrix4 _VPMatrix(int pi, int clipW, int clipH) const
 	{
-		const SDL::FVector3 &cam  = *ecs_context.Get<Pos3>(playerIds[pi]);
-		const Look          &look = *ecs_context.Get<Look>(playerIds[pi]);
+		const SDL::FVector3 &cam  = *ecs.Get<Pos3>(playerIds[pi]);
+		const Look          &look = *ecs.Get<Look>(playerIds[pi]);
 
 		// Forward direction from yaw/pitch (same convention as FireBullet)
 		const SDL::FVector3 fwd = {
@@ -788,7 +597,10 @@ struct Main
 	// Vertex generation helpers
 	// ─────────────────────────────────────────────────────────────────────────
 
-	/// Append the two floor triangles (dirt-tiled, shade = 0.82).
+	/// Append the floor as a single large quad with UVs 0..tiles. Combined
+	/// with the REPEAT sampler (samplerRepeat), the dirt texture tiles
+	/// naturally across the ground — one dirt-image instance per kFloorTile
+	/// world units in each axis.
 	void _AppendFloor(std::vector<GpuVert> &v) const
 	{
 		const float s     = mapScale;
@@ -796,16 +608,41 @@ struct Main
 		const float tiles = s / kFloorTile;
 		const float sh    = 0.82f;
 
-		// CCW quad viewed from above: (-s,y,s), (s,y,s), (s,y,-s), (-s,y,-s)
+		// CCW quad viewed from above (+Y).
 		GpuVert q[4] = {
-			{-s, y,  s,      0.f,   0.f, sh, sh, sh, 1.f},
-			{ s, y,  s,  tiles,   0.f, sh, sh, sh, 1.f},
-			{ s, y, -s,  tiles, tiles, sh, sh, sh, 1.f},
-			{-s, y, -s,      0.f, tiles, sh, sh, sh, 1.f},
+			{-s, y,  s,    0.f,    0.f, sh, sh, sh, 1.f},
+			{ s, y,  s,  tiles,    0.f, sh, sh, sh, 1.f},
+			{ s, y, -s,  tiles,  tiles, sh, sh, sh, 1.f},
+			{-s, y, -s,    0.f,  tiles, sh, sh, sh, 1.f},
 		};
-		// Triangle fan: (0,1,2), (0,2,3)
 		v.push_back(q[0]); v.push_back(q[1]); v.push_back(q[2]);
 		v.push_back(q[0]); v.push_back(q[2]); v.push_back(q[3]);
+	}
+
+	/// Append two GPU vertices forming a colored line segment.
+	static void _AppendSeg(std::vector<GpuVert> &v,
+	                       const SDL::FVector3 &a, const SDL::FVector3 &b,
+	                       float r, float g, float bl, float al)
+	{
+		v.push_back({a.x, a.y, a.z, 0.f, 0.f, r, g, bl, al});
+		v.push_back({b.x, b.y, b.z, 0.f, 0.f, r, g, bl, al});
+	}
+
+	/// Append the arena boundary wireframe + ground grid as line segments.
+	void _AppendArenaLines(std::vector<GpuVert> &v) const
+	{
+		constexpr float kR = 45.f / 255.f, kG = 50.f / 255.f, kB = 70.f / 255.f, kA = 0.7f;
+		for (const auto &[a, b] : arenaEdges)
+			_AppendSeg(v, a, b, kR, kG, kB, kA);
+	}
+
+	/// Append crate edge wireframes as line segments.
+	void _AppendCrateLines(std::vector<GpuVert> &v) const
+	{
+		constexpr float kR = 20.f / 255.f, kG = 12.f / 255.f, kB = 5.f / 255.f, kA = 0.63f;
+		for (const auto &tc : terrain)
+			for (const auto &[a, b] : tc.edges)
+				_AppendSeg(v, a, b, kR, kG, kB, kA);
 	}
 
 	/// Append all visible crate face triangles.
@@ -859,18 +696,29 @@ struct Main
 			return;
 		_EnsureSceneTarget((Uint32)winW, (Uint32)winH);
 
-		// Build CPU-side vertex array (same geometry for all players)
+		// Build CPU-side vertex array. Triangles first, then line segments —
+		// both share the same vertex buffer; draws use first-vertex offsets.
 		std::vector<GpuVert> verts;
-		verts.reserve(512);
+		verts.reserve(2048);
 		const Uint32 floorStart = 0;
 		_AppendFloor(verts);
 		const Uint32 floorCount = (Uint32)verts.size();
 		const Uint32 crateStart = floorCount;
 		_AppendCrateFaces(verts);
 		const Uint32 crateCount = (Uint32)verts.size() - crateStart;
+		const Uint32 lineStart  = (Uint32)verts.size();
+		_AppendArenaLines(verts);
+		_AppendCrateLines(verts);
+		const Uint32 lineCount  = (Uint32)verts.size() - lineStart;
 
 		if (verts.empty())
 			return;
+		if (verts.size() > kMaxSceneVerts) {
+			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
+			             "Scene vertex count (%zu) exceeds buffer (%u)",
+			             verts.size(), kMaxSceneVerts);
+			return;
+		}
 
 		// Upload vertices to the GPU buffer
 		const Uint32 uploadBytes = (Uint32)(verts.size() * sizeof(GpuVert));
@@ -916,7 +764,7 @@ struct Main
 
 		for (int pi = 0; pi < numPlayers; ++pi)
 		{
-			if (playerIds[pi] == SDL::ECS::NullEntity || !ecs_context.IsAlive(playerIds[pi]))
+			if (playerIds[pi] == SDL::ECS::NullEntity || !ecs.IsAlive(playerIds[pi]))
 				continue;
 
 			const int vpX = (pi % partH) * clipW_;
@@ -983,6 +831,13 @@ struct Main
 				pass.DrawPrimitives(crateCount, 1, crateStart, 0);
 			}
 
+			// ── Draw arena + crate edges (depth-tested wireframes) ────────
+			if (lineCount > 0)
+			{
+				pass.BindPipeline(pipelineLines);
+				pass.DrawPrimitives(lineCount, 1, lineStart, 0);
+			}
+
 			pass.End();
 		}
 
@@ -1023,10 +878,10 @@ struct Main
 
 	void FireBullet(SDL::ECS::EntityId shooterId, float damage)
 	{
-		const auto *pPos = ecs_context.Get<Pos3>(shooterId);
-		const auto *pLook = ecs_context.Get<Look>(shooterId);
-		const auto *pCap = ecs_context.Get<Capsule>(shooterId);
-		const auto *pTeam = ecs_context.Get<EntityTeam>(shooterId);
+		const auto *pPos = ecs.Get<Pos3>(shooterId);
+		const auto *pLook = ecs.Get<Look>(shooterId);
+		const auto *pCap = ecs.Get<Capsule>(shooterId);
+		const auto *pTeam = ecs.Get<EntityTeam>(shooterId);
 		if (!pPos || !pLook || !pCap || !pTeam)
 			return;
 
@@ -1074,13 +929,13 @@ struct Main
 			// Entity capsule hit (sphere test at mid-capsule)
 			auto TryHit = [&](SDL::ECS::EntityId eid)
 			{
-				if (eid == b.ownerId || !ecs_context.IsAlive(eid))
+				if (eid == b.ownerId || !ecs.IsAlive(eid))
 					return;
-				const auto *hp = ecs_context.Get<Health>(eid);
+				const auto *hp = ecs.Get<Health>(eid);
 				if (!hp || hp->hp <= 0.f)
 					return;
-				const auto &tp = *ecs_context.Get<Pos3>(eid);
-				const auto &tc = *ecs_context.Get<Capsule>(eid);
+				const auto &tp = *ecs.Get<Pos3>(eid);
+				const auto &tc = *ecs.Get<Capsule>(eid);
 				SDL::FVector3 mid = {tp.x, tp.y - tc.height * 0.5f, tp.z};
 				float r = tc.radius * 1.3f;
 				if ((newPos - mid).LengthSq() < r * r)
@@ -1112,7 +967,7 @@ struct Main
 
 	void ApplyDamage(SDL::ECS::EntityId attacker, SDL::ECS::EntityId target, float dmg)
 	{
-		auto *hp = ecs_context.Get<Health>(target);
+		auto *hp = ecs.Get<Health>(target);
 		if (!hp || hp->hp <= 0.f)
 			return;
 		hp->hp -= dmg;
@@ -1120,15 +975,15 @@ struct Main
 			return;
 		hp->hp = 0.f;
 
-		if (auto *sc = ecs_context.Get<Score>(attacker))
+		if (auto *sc = ecs.Get<Score>(attacker))
 			sc->points++;
 
-		const auto *team = ecs_context.Get<EntityTeam>(target);
+		const auto *team = ecs.Get<EntityTeam>(target);
 		if (team && team->team == Team::Enemy)
 		{
 			// Respawn enemy
-			*ecs_context.Get<Pos3>(target) = RandSpawnPos();
-			*ecs_context.Get<Vel3>(target) = {0, 0, 0};
+			*ecs.Get<Pos3>(target) = RandSpawnPos();
+			*ecs.Get<Vel3>(target) = {0, 0, 0};
 			hp->hp = kMaxHP;
 		}
 		else
@@ -1138,7 +993,7 @@ struct Main
 			{
 				if (playerIds[i] == SDL::ECS::NullEntity)
 					continue;
-				const auto *ph = ecs_context.Get<Health>(playerIds[i]);
+				const auto *ph = ecs.Get<Health>(playerIds[i]);
 				if (ph && ph->hp > 0.f)
 				{
 					anyAlive = true;
@@ -1169,33 +1024,33 @@ struct Main
 
 	void SpawnPlayer(int slot)
 	{
-		SDL::ECS::EntityId id = ecs_context.CreateEntity();
+		SDL::ECS::EntityId id = ecs.CreateEntity();
 		playerIds[slot] = id;
 		float ang = (float)slot * (float)(std::numbers::pi * 0.5);
 		float dist = mapScale * 0.35f;
-		ecs_context.Add<Pos3>(id, {SDL::Cos(ang) * dist,
+		ecs.Add<Pos3>(id, {SDL::Cos(ang) * dist,
 							 kCapsuleHeight - mapScale + 0.01f,
 							 SDL::Sin(ang) * dist});
-		ecs_context.Add<Vel3>(id, {0, 0, 0});
-		ecs_context.Add<Look>(id, {ang + (float)std::numbers::pi, 0.f});
-		ecs_context.Add<Capsule>(id, {kCapsuleRadius, kCapsuleHeight});
-		ecs_context.Add<Health>(id, {kMaxHP, kMaxHP});
-		ecs_context.Add<EntityTeam>(id, {Team::Player});
-		ecs_context.Add<Score>(id, {0});
-		ecs_context.Add<PlayerInput>(id, {0, 0, 0});
+		ecs.Add<Vel3>(id, {0, 0, 0});
+		ecs.Add<Look>(id, {ang + (float)std::numbers::pi, 0.f});
+		ecs.Add<Capsule>(id, {kCapsuleRadius, kCapsuleHeight});
+		ecs.Add<Health>(id, {kMaxHP, kMaxHP});
+		ecs.Add<EntityTeam>(id, {Team::Player});
+		ecs.Add<Score>(id, {0});
+		ecs.Add<PlayerInput>(id, {0, 0, 0});
 	}
 
 	void SpawnEnemy()
 	{
-		SDL::ECS::EntityId id = ecs_context.CreateEntity();
+		SDL::ECS::EntityId id = ecs.CreateEntity();
 		enemyIds.push_back(id);
-		ecs_context.Add<Pos3>(id, RandSpawnPos());
-		ecs_context.Add<Vel3>(id, {0, 0, 0});
-		ecs_context.Add<Look>(id, {0.f, 0.f});
-		ecs_context.Add<Capsule>(id, {kCapsuleRadius, kCapsuleHeight});
-		ecs_context.Add<Health>(id, {kMaxHP, kMaxHP});
-		ecs_context.Add<EntityTeam>(id, {Team::Enemy});
-		ecs_context.Add<EnemyAI>(id, {0.f});
+		ecs.Add<Pos3>(id, RandSpawnPos());
+		ecs.Add<Vel3>(id, {0, 0, 0});
+		ecs.Add<Look>(id, {0.f, 0.f});
+		ecs.Add<Capsule>(id, {kCapsuleRadius, kCapsuleHeight});
+		ecs.Add<Health>(id, {kMaxHP, kMaxHP});
+		ecs.Add<EntityTeam>(id, {Team::Enemy});
+		ecs.Add<EnemyAI>(id, {0.f});
 	}
 
 	void GenerateTerrain()
@@ -1248,12 +1103,12 @@ struct Main
 	void UpdatePhysics(float dt)
 	{
 		const float bound = mapScale;
-		ecs_context.Each<Pos3, Vel3, Look, Capsule, PlayerInput>(
+		ecs.Each<Pos3, Vel3, Look, Capsule, PlayerInput>(
 			[dt, bound, this](SDL::ECS::EntityId eid,
 							  Pos3 &pos, Vel3 &vel, Look &look,
 							  Capsule &cap, PlayerInput &inp)
 			{
-				auto *hp = ecs_context.Get<Health>(eid);
+				auto *hp = ecs.Get<Health>(eid);
 				if (hp && hp->hp <= 0.f)
 					return;
 				const float rate = 6.f, drag = std::exp(-dt * rate), diff = 1.f - drag;
@@ -1301,10 +1156,10 @@ struct Main
 			{
 				if (playerIds[i] == SDL::ECS::NullEntity)
 					continue;
-				const auto *hp = ecs_context.Get<Health>(playerIds[i]);
+				const auto *hp = ecs.Get<Health>(playerIds[i]);
 				if (!hp || hp->hp <= 0.f)
 					continue;
-				const auto *p = ecs_context.Get<Pos3>(playerIds[i]);
+				const auto *p = ecs.Get<Pos3>(playerIds[i]);
 				if (!p)
 					continue;
 				float d = (*p - from).Length();
@@ -1317,14 +1172,14 @@ struct Main
 			return best;
 		};
 
-		ecs_context.Each<Pos3, Vel3, Look, Capsule, EnemyAI>(
+		ecs.Each<Pos3, Vel3, Look, Capsule, EnemyAI>(
 			[&, dt](SDL::ECS::EntityId eid, Pos3 &pos, Vel3 &vel, Look &look,
 					Capsule &cap, EnemyAI &ai)
 			{
 				SDL::ECS::EntityId tid = NearestPlayer(pos);
 				if (tid == SDL::ECS::NullEntity)
 					return;
-				const SDL::FVector3 &tgt = *ecs_context.Get<Pos3>(tid);
+				const SDL::FVector3 &tgt = *ecs.Get<Pos3>(tid);
 				SDL::FVector3 toTgt = tgt - pos;
 				float dist = toTgt.Length();
 				look.yaw = SDL::Atan2(-toTgt.x, -toTgt.z);
@@ -1426,24 +1281,14 @@ struct Main
 		const float cy = (float)clip.y + clip.h * 0.5f;
 		const float fov = 0.5f * SDL::Sqrt((float)(clip.w * clip.w + clip.h * clip.h));
 
-		const SDL::FVector3 &cam = *ecs_context.Get<Pos3>(playerIds[pi]);
-		const Look &look = *ecs_context.Get<Look>(playerIds[pi]);
+		const SDL::FVector3 &cam = *ecs.Get<Pos3>(playerIds[pi]);
+		const Look &look = *ecs.Get<Look>(playerIds[pi]);
 
-		// Floor and crates are rendered by the GPU pipeline (_DrawSceneGPU).
-		// Here we only draw 2D-projected overlays: wireframes, bullets, entities.
+		// Terrain (floor + crates + arena/crate wireframe edges) is rendered
+		// by the GPU pipeline (_DrawSceneGPU). Here we only draw 2D-projected
+		// billboard overlays: bullet tracers, entity capsules, HP bars.
 
-		// ── 1. Arena boundary wireframe ───────────────────────────────────────
-		renderer.SetDrawColor({45, 50, 70, 180});
-		for (const auto &[a, b] : arenaEdges)
-			DrawSeg(ToView(a, cam, look), ToView(b, cam, look), cx, cy, fov);
-
-		// ── 2. Crate wireframe edges ──────────────────────────────────────────
-		renderer.SetDrawColor({20, 12, 5, 160});
-		for (const auto &tc : terrain)
-			for (const auto &[a, b] : tc.edges)
-				DrawSeg(ToView(a, cam, look), ToView(b, cam, look), cx, cy, fov);
-
-		// ── 4. Bullet tracers ─────────────────────────────────────────────────
+		// ── Bullet tracers ────────────────────────────────────────────────────
 		for (const auto &bd : bullets)
 		{
 			SDL::FVector3 v = ToView(bd.pos, cam, look);
@@ -1472,14 +1317,14 @@ struct Main
 			}
 		}
 
-		// ── 5. Entities (wireframe capsule circles + world-space HP bars) ─────
+		// ── Entities (wireframe capsule circles + world-space HP bars) ───────
 		auto DrawEntity = [&](SDL::ECS::EntityId eid, bool isPlayer_)
 		{
-			if (eid == playerIds[pi] || !ecs_context.IsAlive(eid))
+			if (eid == playerIds[pi] || !ecs.IsAlive(eid))
 				return;
-			const SDL::FVector3 &ep = *ecs_context.Get<Pos3>(eid);
-			const Capsule &ec = *ecs_context.Get<Capsule>(eid);
-			const Health *eh = ecs_context.Get<Health>(eid);
+			const SDL::FVector3 &ep = *ecs.Get<Pos3>(eid);
+			const Capsule &ec = *ecs.Get<Capsule>(eid);
+			const Health *eh = ecs.Get<Health>(eid);
 			renderer.SetDrawColor(isPlayer_
 									  ? SDL::Color{50, 100, 255, 255}
 									  : SDL::Color{230, 40, 40, 255});
@@ -1523,7 +1368,7 @@ struct Main
 
 		for (int pi = 0; pi < numPlayers; ++pi)
 		{
-			if (playerIds[pi] == SDL::ECS::NullEntity || !ecs_context.IsAlive(playerIds[pi]))
+			if (playerIds[pi] == SDL::ECS::NullEntity || !ecs.IsAlive(playerIds[pi]))
 				continue;
 			float clipX = ox + (float)(pi % partH) * sizeH;
 			float clipY = oy + (float)(pi / partH) * sizeV;
@@ -1539,7 +1384,7 @@ struct Main
 			renderer.RenderLine({cx - 9.f, cy}, {cx + 9.f, cy});
 
 			// ── Player HP bar (bottom-center of viewport) ───────────────────────
-			const Health *myHp = ecs_context.Get<Health>(playerIds[pi]);
+			const Health *myHp = ecs.Get<Health>(playerIds[pi]);
 			if (myHp)
 			{
 				float bw = sizeH * 0.38f, bh = 13.f;
@@ -1561,7 +1406,7 @@ struct Main
 
 			// ── Score + FPS (top-left of viewport) ──────────────────────────────
 			renderer.SetDrawColor({255, 255, 255, 255});
-			const Score *sc = ecs_context.Get<Score>(playerIds[pi]);
+			const Score *sc = ecs.Get<Score>(playerIds[pi]);
 			renderer.RenderDebugTextFormat({clipX + 4.f, clipY + 4.f},
 										   "P{} Score:{}", pi + 1, sc ? sc->points : 0);
 			if (pi == 0)
@@ -1599,7 +1444,7 @@ struct Main
 		// ── 2D overlays per viewport (wireframes, bullets, entities) ─────────
 		for (int i = 0; i < numPlayers; ++i)
 		{
-			if (playerIds[i] == SDL::ECS::NullEntity || !ecs_context.IsAlive(playerIds[i]))
+			if (playerIds[i] == SDL::ECS::NullEntity || !ecs.IsAlive(playerIds[i]))
 				continue;
 			SDL::Rect clip{(int)((i % partH) * sizeH), (int)((i / partH) * sizeV),
 						   (int)sizeH, (int)sizeV};
@@ -1737,7 +1582,7 @@ struct Main
 		{
 			for (int i = 0; i < numPlayers; ++i)
 			{
-				if (auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
+				if (auto *inp = ecs.Get<PlayerInput>(playerIds[i]))
 					if (inp->mouse == ev.mdevice.which)
 						inp->mouse = 0;
 			}
@@ -1746,7 +1591,7 @@ struct Main
 		{
 			for (int i = 0; i < numPlayers; ++i)
 			{
-				if (auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
+				if (auto *inp = ecs.Get<PlayerInput>(playerIds[i]))
 					if (inp->keyboard == ev.kdevice.which)
 						inp->keyboard = 0;
 			}
@@ -1757,7 +1602,7 @@ struct Main
 			int idx = WhoseMouse(id);
 			if (idx >= 0)
 			{
-				Look &look = *ecs_context.Get<Look>(playerIds[idx]);
+				Look &look = *ecs.Get<Look>(playerIds[idx]);
 				look.yaw -= ev.motion.xrel * kMouseSensitivity;
 				look.pitch = SDL::Clamp(look.pitch - ev.motion.yrel * kMouseSensitivity,
 										-(float)(std::numbers::pi * 0.45),
@@ -1767,7 +1612,7 @@ struct Main
 			{
 				for (int i = 0; i < numPlayers; ++i)
 				{
-					if (auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
+					if (auto *inp = ecs.Get<PlayerInput>(playerIds[i]))
 						if (inp->mouse == 0)
 						{
 							inp->mouse = id;
@@ -1796,7 +1641,7 @@ struct Main
 			int idx = WhoseKeyboard(id);
 			if (idx >= 0)
 			{
-				auto &inp = *ecs_context.Get<PlayerInput>(playerIds[idx]);
+				auto &inp = *ecs.Get<PlayerInput>(playerIds[idx]);
 				if (sym == SDL::KEYCODE_W)
 					inp.wasd |= 1;
 				if (sym == SDL::KEYCODE_A)
@@ -1812,7 +1657,7 @@ struct Main
 			{
 				for (int i = 0; i < numPlayers; ++i)
 				{
-					if (auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
+					if (auto *inp = ecs.Get<PlayerInput>(playerIds[i]))
 						if (inp->keyboard == 0)
 						{
 							inp->keyboard = id;
@@ -1826,7 +1671,7 @@ struct Main
 			int idx = WhoseKeyboard(ev.key.which);
 			if (idx >= 0)
 			{
-				auto &inp = *ecs_context.Get<PlayerInput>(playerIds[idx]);
+				auto &inp = *ecs.Get<PlayerInput>(playerIds[idx]);
 				SDL::Keycode sym = ev.key.key;
 				if (sym == SDL::KEYCODE_W)
 					inp.wasd &= ~1;
@@ -1918,7 +1763,7 @@ struct Main
 			}
 			else
 			{
-				const Score *sc = ecs_context.Get<Score>(playerIds[i]);
+				const Score *sc = ecs.Get<Score>(playerIds[i]);
 				ui.SetText(eid_goScore[i],
 						   std::format("Player {}: {} kill(s)", i + 1, sc ? sc->points : 0));
 				ui.SetVisible(eid_goScore[i], true);
@@ -2144,7 +1989,7 @@ private:
 		{
 			if (playerIds[i] == SDL::ECS::NullEntity)
 				continue;
-			if (const auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
+			if (const auto *inp = ecs.Get<PlayerInput>(playerIds[i]))
 				if (inp->mouse == id)
 					return i;
 		}
@@ -2156,7 +2001,7 @@ private:
 		{
 			if (playerIds[i] == SDL::ECS::NullEntity)
 				continue;
-			if (const auto *inp = ecs_context.Get<PlayerInput>(playerIds[i]))
+			if (const auto *inp = ecs.Get<PlayerInput>(playerIds[i]))
 				if (inp->keyboard == id)
 					return i;
 		}

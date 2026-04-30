@@ -192,6 +192,17 @@ struct SubtitleEvent {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ChapterInfo  –  one chapter entry from the container
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct ChapterInfo {
+	int         index     = 0;
+	double      startTime = 0.0; ///< Chapter start in seconds.
+	double      endTime   = 0.0; ///< Chapter end in seconds.
+	std::string title;           ///< Chapter title tag (may be empty).
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MediaFrame  –  one decoded video frame (RGBA pixels, ready to upload)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -375,7 +386,13 @@ public:
 			return false;
 		}
 		m_fmt.reset(raw);
-		if (avformat_find_stream_info(m_fmt.get(), nullptr) < 0) {
+		// Temporarily raise log level to suppress expected "no codec parameters"
+		// warnings for attachment streams (e.g. embedded fonts in MKV files).
+		int prevLevel = av_log_get_level();
+		av_log_set_level(AV_LOG_ERROR);
+		int findRet = avformat_find_stream_info(m_fmt.get(), nullptr);
+		av_log_set_level(prevLevel);
+		if (findRet < 0) {
 			m_lastError = "Cannot probe stream info in '" + path + "'";
 			m_fmt.reset();
 			return false;
@@ -497,6 +514,24 @@ public:
 	double GetDuration() const noexcept {
 		if (!m_fmt || m_fmt->duration == AV_NOPTS_VALUE) return -1.0;
 		return (double)m_fmt->duration / (double)AV_TIME_BASE;
+	}
+
+	// ── Chapters ──────────────────────────────────────────────────────────────
+
+	std::vector<ChapterInfo> GetChapters() const {
+		std::vector<ChapterInfo> chapters;
+		if (!m_fmt) return chapters;
+		for (unsigned i = 0; i < m_fmt->nb_chapters; ++i) {
+			AVChapter* ch = m_fmt->chapters[i];
+			ChapterInfo ci;
+			ci.index     = (int)i;
+			ci.startTime = (double)ch->start * av_q2d(ch->time_base);
+			ci.endTime   = (double)ch->end   * av_q2d(ch->time_base);
+			if (auto* e = av_dict_get(ch->metadata, "title", nullptr, 0))
+				ci.title = e->value;
+			chapters.push_back(std::move(ci));
+		}
+		return chapters;
 	}
 
 	// ── Subtitle bulk extraction ──────────────────────────────────────────────
@@ -1061,6 +1096,30 @@ public:
 
 	const std::vector<StreamInfo>& GetAllStreams() const { return m_file.GetAllStreams(); }
 
+	// ── Chapters ──────────────────────────────────────────────────────────────
+
+	std::vector<ChapterInfo> GetChapters() const { return m_file.GetChapters(); }
+
+	/// Seek to the start of chapter `chapterIdx` (0-based).
+	bool SeekToChapter(int chapterIdx) {
+		auto chapters = GetChapters();
+		if (chapterIdx < 0 || chapterIdx >= (int)chapters.size()) return false;
+		return Seek(chapters[chapterIdx].startTime);
+	}
+
+	/// Returns the index of the chapter currently playing, or -1 if none.
+	int GetCurrentChapter() const {
+		auto chapters = GetChapters();
+		if (chapters.empty()) return -1;
+		double t = GetCurrentTime();
+		int result = 0;
+		for (int i = 0; i < (int)chapters.size(); ++i) {
+			if (t >= chapters[i].startTime) result = i;
+			else break;
+		}
+		return result;
+	}
+
 	bool SetMediaTrack(int streamIndex) {
 		bool wasPlaying = (m_state == PlaybackState::Playing);
 		if (wasPlaying) _StopDecode();
@@ -1082,10 +1141,15 @@ public:
 
 	bool SetAudioTrack(int streamIndex) {
 		bool wasPlaying = (m_state == PlaybackState::Playing);
+		double savedPts = m_currentPts.load();
 		if (wasPlaying) _StopDecode();
 		_CloseAudio();
 		bool ok = m_file.SwitchAudioTrack(streamIndex);
-		if (ok) _InitAudio();
+		if (ok) {
+			_InitAudio();
+			m_clockOffset.store(savedPts);
+			m_file.Seek(savedPts);
+		}
 		if (wasPlaying) {
 			if (m_audioStream) m_audioStream.ResumeDevice();
 			_StartDecode();
@@ -1094,11 +1158,16 @@ public:
 	}
 
 	bool SetSubtitleTrack(int streamIndex) {
+		bool wasPlaying = (m_state == PlaybackState::Playing);
+		double savedPts = m_currentPts.load();
+		if (wasPlaying) _StopDecode();
 		bool ok = m_file.SelectSubtitleTrack(streamIndex);
 		if (ok) {
-			m_subtitles   = m_file.ExtractSubtitles(streamIndex);
+			m_subtitles = m_file.ExtractSubtitles(streamIndex);
 			m_file.SelectSubtitleTrack(streamIndex);
+			m_file.Seek(savedPts);
 		}
+		if (wasPlaying) _StartDecode();
 		return ok;
 	}
 

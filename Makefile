@@ -95,7 +95,7 @@ examples: $(EXAMPLE_BINS)
 $(BUILDDIR)/examples/demo/06_media_player.o: examples/demo/06_media_player.cpp | $(BUILDDIR)
 	@mkdir -p $(dir $@)
 	$(call print_yellow,"Compiling FFmpeg $<")
-	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FFMPEG_CFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FFMPEG_CFLAGS) -DSDL3PP_ENABLE_TTF -c $< -o $@
 
 # Règle générique pour tous les autres exemples
 $(BUILDDIR)/examples/%.o: examples/%.cpp | $(BUILDDIR)

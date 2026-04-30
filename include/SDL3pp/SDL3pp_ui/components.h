@@ -33,7 +33,6 @@ namespace UI {
 		ListBox,   ///< Scrollable list of selectable text items with keyboard navigation.
 		Graph,     ///< Graduated data plot (Excel-style axes, grid, fill, bar or line mode).
 		ComboBox,    ///< Dropdown selector — click to open a popup list of items.
-		SpinBox,     ///< Numeric input with +/- buttons and optional vertical drag.
 		TabView,     ///< Tabbed container — one child visible at a time via a tab bar.
 		Expander,    ///< Collapsible section — header click shows/hides child content.
 		Splitter,    ///< Resizable split panes — two children divided by a draggable handle.
@@ -284,6 +283,7 @@ namespace UI {
 		bool drag = false;
 		float dragStartPos = 0.f, dragStartVal = 0.f;
 		Orientation orientation = Orientation::Horizontal;
+		std::vector<float> markers; ///< Normalized marker positions [0,1] (e.g. chapters).
 	};
 
 	struct ScrollBarData {
@@ -382,6 +382,15 @@ namespace UI {
 		std::vector<std::string> items;      ///< All items in the list.
 		int   selectedIndex = -1;            ///< Currently selected item (-1 = none).
 		float itemHeight    = 22.f;          ///< Pixel height of each row.
+		bool  reorderable   = false;         ///< Enable drag-to-reorder items.
+		// Drag-to-reorder state (managed by System, do not set manually).
+		bool  dragActive  = false;
+		int   dragSrcIdx  = -1;
+		int   dragDstIdx  = -1;
+		float dragY       = 0.f;
+		float dragStartY  = 0.f;             ///< Mouse Y at drag-begin (for threshold).
+		bool  dragMoved   = false;           ///< True once mouse exceeded drag threshold.
+		std::function<void(int, int)> onReorder; ///< Called with (fromIdx, toIdx) after reorder.
 		// Scroll position is stored in LayoutProps::scrollY (shared with container
 		// drag infrastructure). ContainerScrollState::thumbY is updated each frame
 		// by _DrawListBox so that thumb drag works out of the box.
@@ -701,21 +710,35 @@ namespace UI {
 	};
 
 	// ==================================================================================
-	// SpinBoxData
+	// InputData — numeric / typed-input mode for the Input widget
 	// ==================================================================================
 
-	/// @brief Numeric input with increment/decrement controls.
-	struct SpinBoxData {
-		float min      = 0.f;   ///< Minimum value.
-		float max      = 100.f; ///< Maximum value.
-		float step     = 1.f;   ///< Increment/decrement step.
-		float val      = 0.f;   ///< Current value.
-		bool  intMode  = false; ///< Display as integer (no decimal point).
-		int   decimals = 2;     ///< Decimal places when intMode is false.
-		// Drag state
-		bool  drag          = false;
-		float dragStartY    = 0.f;
-		float dragStartVal  = 0.f;
+	/// @brief Per-Input numeric / filter state. Attached only when an Input
+	///        widget is configured with a non-Text @ref InputType. Plain text
+	///        Inputs do not carry this component.
+	///
+	/// When attached, the Input widget renders stacked ↑/↓ arrow buttons on
+	/// its right edge (for numeric modes), supports vertical drag-to-adjust
+	/// from those arrows, and filters typed characters via a regex selected
+	/// by @ref type.
+	struct InputData {
+		/// @brief Whether @ref val should be treated as an integer or a float.
+		enum class ValueKind : Uint8 { None, Int, Float };
+
+		InputType type      = InputType::Text;       ///< Filter / value mode.
+		ValueKind kind      = ValueKind::None;       ///< Numeric kind (or None for non-numeric).
+		double    min       = 0.0;                   ///< Lower bound (numeric modes).
+		double    max       = 100.0;                 ///< Upper bound (numeric modes).
+		double    val       = 0.0;                   ///< Current numeric value.
+		double    step      = 1.0;                   ///< Increment per arrow click / Up-Down key.
+		int       decimals  = 2;                     ///< Decimals shown for FloatValue mode.
+
+		// ── Internal interaction state (managed by System) ────────────────
+		bool   drag         = false;
+		float  dragStartY   = 0.f;
+		double dragStartVal = 0.0;
+		bool   pressUp      = false;
+		bool   pressDown    = false;
 	};
 
 	// ==================================================================================

@@ -260,7 +260,7 @@ All widgets are ECS entities driven through a Measure → Place → Clip → Inp
 | `ListBox` | `ui.ListBoxWidget(name, items)` | Scrollable list of text items; keyboard navigation (↑↓, Home, End). `OnClick` callback; `ui.GetListBoxSelection()` returns current index. |
 | `Graph` | `ui.GradedGraph(name)` | Data plot with graduated X/Y axes, optional grid, fill area, bar or line mode, log-frequency axis. |
 | `ComboBox` | `ui.ComboBox(name, items, selectedIndex)` | Dropdown selector: click to open a floating list, click item to close. `OnChange(float)` callback returns selected index. |
-| `SpinBox` | `ui.SpinBox(name, min, max, value)` | Numeric input with ▲/▼ buttons; also supports vertical drag on the value. Integer or float mode. `OnChange(float)` callback. |
+| `InputValue` | `ui.InputValue(name, min, max, value)` | Numeric input with ▲/▼ buttons; also supports vertical drag on the value. Integer or float mode. `OnChange(float)` callback. |
 | `TabView` | `ui.TabView(name)` | Tabbed container; each tab shows one child. Tab bar can be at the top or bottom. `OnChange(float)` callback returns active tab index. Tabs can be closable. |
 | `Expander` | `ui.Expander(name, label)` | Collapsible section: clicking the header animates children in/out. `OnToggle(bool)` callback. |
 | `Splitter` | `ui.Splitter(name, orientation, ratio)` | Resizable split panes with a draggable handle dividing two children. `OnChange(float)` callback returns the split ratio. |
@@ -660,7 +660,7 @@ Chaque widget est une entité ECS pilotée par le pipeline Mesure → Placement 
 | `ListBox` | `ui.ListBoxWidget(nom, items)` | Liste défilante d'éléments texte ; navigation clavier (↑↓, Début, Fin). Callback `OnClick` ; `ui.GetListBoxSelection()` retourne l'index courant. |
 | `Graph` | `ui.GradedGraph(nom)` | Tracé de données avec axes X/Y gradués, grille optionnelle, zone de remplissage, mode lignes ou barres, axe à fréquence logarithmique. |
 | `ComboBox` | `ui.ComboBox(nom, items, index)` | Sélecteur déroulant : cliquer pour ouvrir une liste flottante, cliquer un élément pour fermer. Callback `OnChange(float)` retournant l'index sélectionné. |
-| `SpinBox` | `ui.SpinBox(nom, min, max, valeur)` | Saisie numérique avec boutons ▲/▼ ; supporte aussi le glisser vertical sur la valeur. Mode entier ou flottant. Callback `OnChange(float)`. |
+| `InputValue` | `ui.InputValue(nom, min, max, valeur)` | Saisie numérique avec boutons ▲/▼ ; supporte aussi le glisser vertical sur la valeur. Mode entier ou flottant. Callback `OnChange(float)`. |
 | `TabView` | `ui.TabView(nom)` | Conteneur à onglets ; chaque onglet affiche un enfant. La barre d'onglets peut être en haut ou en bas. Callback `OnChange(float)` retournant l'index de l'onglet actif. Onglets fermables. |
 | `Expander` | `ui.Expander(nom, libellé)` | Section repliable : cliquer l'en-tête anime les enfants à l'intérieur/l'extérieur. Callback `OnToggle(bool)`. |
 | `Splitter` | `ui.Splitter(nom, orientation, ratio)` | Panneaux redimensionnables séparés par une poignée glissable divisant deux enfants. Callback `OnChange(float)` retournant le ratio de partage. |

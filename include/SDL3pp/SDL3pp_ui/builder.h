@@ -741,21 +741,17 @@ namespace UI {
 			return *this;
 		}
 
-		// ── SpinBox setters ────────────────────────────────────────────────────────
-		Builder &SpinRange(float mn, float mx) {
-			if (auto *d = sys.GetECSContext().Get<SpinBoxData>(id)) { d->min = mn; d->max = mx; }
+		// ── InputValue setters ────────────────────────────────────────────────────────
+		Builder &InputRange(float mn, float mx) {
+			if (auto *d = sys.GetECSContext().Get<InputData>(id)) { d->min = mn; d->max = mx; }
 			return *this;
 		}
-		Builder &SpinStep(float step) {
-			if (auto *d = sys.GetECSContext().Get<SpinBoxData>(id)) d->step = step;
+		Builder &InputStep(float step) {
+			if (auto *d = sys.GetECSContext().Get<InputData>(id)) d->step = step;
 			return *this;
 		}
-		Builder &SpinDecimals(int dec) {
-			if (auto *d = sys.GetECSContext().Get<SpinBoxData>(id)) d->decimals = dec;
-			return *this;
-		}
-		Builder &IntMode(bool v) {
-			if (auto *d = sys.GetECSContext().Get<SpinBoxData>(id)) d->intMode = v;
+		Builder &InputDecimals(int dec) {
+			if (auto *d = sys.GetECSContext().Get<InputData>(id)) d->decimals = dec;
 			return *this;
 		}
 
@@ -986,6 +982,16 @@ namespace UI {
 			sys.OnScroll(id, std::move(cb));
 			return *this;
 		}
+		/** @brief Enable drag-to-reorder on a ListBox widget. */
+		Builder &Reorderable(bool v = true) {
+			sys.SetListBoxReorderable(id, v);
+			return *this;
+		}
+		/** @brief Register a reorder callback for a ListBox (fromIdx, toIdx). */
+		Builder &OnReorder(std::function<void(int,int)> cb) {
+			sys.SetListBoxOnReorder(id, std::move(cb));
+			return *this;
+		}
 		/** @brief Register a callback invoked when the mouse cursor enters the widget. */
 		Builder &OnHoverEnter(std::function<void()> cb) {
 			sys.OnHoverEnter(id, std::move(cb));
@@ -1173,9 +1179,6 @@ namespace UI {
 
 	inline Builder System::ComboBox(const std::string &n, const std::vector<std::string>& items, int sel) {
 		return Builder(*this, MakeComboBox(n, items, sel));
-	}
-	inline Builder System::SpinBox(const std::string &n, float mn, float mx, float v, bool intMode) {
-		return Builder(*this, MakeSpinBox(n, mn, mx, v, intMode));
 	}
 	inline Builder System::TabView(const std::string &n) {
 		return Builder(*this, MakeTabView(n));
