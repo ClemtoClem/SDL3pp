@@ -296,17 +296,17 @@ namespace UI {
 		int    decimals = 2;     ///< Decimals shown when formatted.
 
 		/// Read the current value as type @c U (any arithmetic type).
-		template <typename U> [[nodiscard]] U as() const { return static_cast<U>(val); }
+		template <typename U> [[nodiscard]] U As() const { return static_cast<U>(val); }
 		
 		/// Write the current value from a typed input. Integer types round.
-		template <typename U> void set(U v) {
+		template <typename U> void Set(U v) {
 			double d = static_cast<double>(v);
 			if constexpr (std::is_integral_v<std::decay_t<U>>) d = std::round(d);
 			val = std::clamp(d, min, max);
 		}
 
 		/// Did the stored type originally come from an integral C++ type?
-		[[nodiscard]] bool isIntegral() const noexcept {
+		[[nodiscard]] bool IsIntegral() const noexcept {
 			return type == typeid(int)         || type == typeid(unsigned int)
 			    || type == typeid(short)       || type == typeid(unsigned short)
 			    || type == typeid(long)        || type == typeid(unsigned long)
@@ -314,6 +314,8 @@ namespace UI {
 			    || type == typeid(char)        || type == typeid(unsigned char)
 			    || type == typeid(signed char);
 		}
+
+		template <typename U> [[nodiscard]] U GetNorm() const { return static_cast<U>((max > min) ? (val - min) / (max - min) : 0); }
 	};
 
 	/// @brief Typed wrapper around @ref NumericValue used as a builder-side
@@ -331,23 +333,21 @@ namespace UI {
 			val  = std::clamp(static_cast<double>(v), min, max);
 			step = static_cast<double>(st);
 		}
-		[[nodiscard]] T value() const { return as<T>(); }
-		void setValue(T v) { set<T>(v); }
+		[[nodiscard]] T value() const { return As<T>(); }
+		void SetValue(T v) { Set<T>(v); }
 	};
 	
 	// ==================================================================================
 	// SliderData
 	// ==================================================================================
 
+	/// @brief Slider behavior state. The numeric range/value/step lives in
+	///        the @ref NumericValue component attached to the same entity —
+	///        same model as the Input widget in numeric mode.
 	struct SliderData {
-		double min  = 0.0;
-		double max  = 1.0;
-		double val  = 0.0;
-		double step = 0.0; ///< 0 = continuous; > 0 snaps to multiples of step.
-		std::type_index type = typeid(float); ///< Original arithmetic type T from MakeSlider<T>.
-		float dragStartPos = 0.f;
+		float  dragStartPos = 0.f;
 		double dragStartVal = 0.0;
-		bool drag = false;
+		bool   drag = false;
 		Orientation orientation = Orientation::Horizontal;
 		std::vector<float> markers; ///< Normalized marker positions [0,1] (e.g. chapters).
 	};

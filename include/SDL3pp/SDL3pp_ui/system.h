@@ -193,12 +193,10 @@ namespace UI {
 			ECS::EntityId e = _Make(n, WidgetType::Slider);
 			SliderData sd;
 			sd.orientation = o;
-			sd.min  = static_cast<double>(mn);
-			sd.max  = static_cast<double>(mx);
-			sd.val  = std::clamp(static_cast<double>(v), sd.min, sd.max);
-			sd.step = static_cast<double>(step);
-			sd.type = typeid(T);
 			m_ctx.Add<SliderData>(e, sd);
+
+			// Numeric range/value/step live in NumericValue (same as Input).
+			m_ctx.Add<NumericValue>(e, AnyValue<T>(mn, mx, v, step));
 
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
 			                                | BehaviorFlag::Selectable
@@ -239,7 +237,8 @@ namespace UI {
 		 */
 		ECS::EntityId MakeProgress(const std::string &n, float v = 0.f, float mx = 1.f) {
 			ECS::EntityId e = _Make(n, WidgetType::Progress);
-			m_ctx.Add<SliderData>(e, SliderData{.min=0.f, .max=mx, .val=SDL::Clamp(v, 0.f, mx), .markers={}});
+			m_ctx.Add<SliderData>(e, SliderData{});
+			m_ctx.Add<NumericValue>(e, AnyValue<float>(0.f, mx, v, 0.f));
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(18.f);
 			return e;
 		}
@@ -263,7 +262,7 @@ namespace UI {
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
 			return e;
 		}
-		/// @brief Create a numeric Input entity (replaces InputValue).
+		/// @brief Create a numeric Input entity.
 		///        @c T may be any integral or floating-point type.
 		///        Selects @ref InputType::IntegerValue for integers and
 		///        @ref InputType::FloatValue for floating-point.
@@ -612,6 +611,11 @@ namespace UI {
 		inline Builder Separator(const std::string &n = "sep");
 		/** @brief Create a single-line Input and return a Builder for it. */
 		inline Builder Input(const std::string &n, const std::string &ph = "");
+		/** @brief Create a numeric Input. Returns a Builder. */
+		template <is_numeric_value T = float>
+		inline Builder InputValue(const std::string &n,
+		                   T minValue = T(0), T maxValue = T(100),
+		                   T value    = T(0), T step     = T(1));
 		/** @brief Create a Knob and return a Builder for it. */
 		inline Builder Knob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f, KnobShape shape = KnobShape::Arc);
 		/** @brief Create an Image widget and return a Builder for it. */
@@ -629,11 +633,6 @@ namespace UI {
 		inline Builder GradedGraph(const std::string &n);
 		/** @brief Create a ComboBox and return a Builder for it. */
 		inline Builder ComboBox(const std::string &n, const std::vector<std::string>& items = {}, int sel = 0);
-		/** @brief Create a numeric Input (replaces SpinBox). Returns a Builder. */
-		template <is_numeric_value T>
-		Builder InputValue(const std::string &n,
-		                   T minValue = T(0), T maxValue = T(100),
-		                   T value    = T(0), T step     = T(1));
 		/** @brief Create a TabView and return a Builder for it. */
 		inline Builder TabView(const std::string &n);
 		/** @brief Create an Expander and return a Builder for it. */
@@ -738,13 +737,13 @@ namespace UI {
 		template <typename T = float>
 		void SetValue(ECS::EntityId e, T v) {
 			const double dv = static_cast<double>(v);
-			if (auto *s = m_ctx.Get<SliderData>(e))
-				s->val = std::clamp(dv, s->min, s->max);
 			if (auto *k = m_ctx.Get<KnobData>(e))
 				k->val = SDL::Clamp(static_cast<float>(dv), k->min, k->max);
+			// Slider, Progress, and numeric Input all share the NumericValue
+			// component now — a single update path covers all three.
 			if (auto *nv = m_ctx.Get<NumericValue>(e)) {
 				nv->val = std::clamp(dv, nv->min, nv->max);
-				if (nv->isIntegral()) nv->val = std::round(nv->val);
+				if (nv->IsIntegral()) nv->val = std::round(nv->val);
 				if (auto *c = m_ctx.Get<EditableContent>(e); c && m_focused != e)
 					c->text = _FormatNumeric(*nv);
 			}
@@ -1171,10 +1170,15 @@ namespace UI {
 			return c ? c->text : empty;
 		}
 
-		/** @brief Return the current numeric value of a Slider widget (0 if not found). */
-		[[nodiscard]] float GetValue(ECS::EntityId e) const {
-			const auto *s = m_ctx.Get<SliderData>(e);
-			return s ? s->val : 0.f;
+		/** @brief Return the current numeric value of a Slider, Progress or
+		 *         numeric Input widget (0 if no NumericValue is attached). */
+		template <typename T = float>
+		[[nodiscard]] T GetValue(ECS::EntityId e) const {
+			if (const auto *nv = m_ctx.Get<NumericValue>(e))
+				return nv->As<T>();
+			if (const auto *k = m_ctx.Get<KnobData>(e))
+				return static_cast<T>(k->val);
+			return T(0);
 		}
 
 		/** @brief Return the current scroll offset of a ScrollBar widget (0 if not found). */
@@ -1814,7 +1818,7 @@ namespace UI {
 		/// formatting per the original arithmetic type stored in @c v.type.
 		static std::string _FormatNumeric(const NumericValue& v) {
 			char buf[32];
-			if (v.isIntegral())
+			if (v.IsIntegral())
 				std::snprintf(buf, sizeof(buf), "%lld", (long long)std::llround(v.val));
 			else
 				std::snprintf(buf, sizeof(buf), "%.*f", std::max(0, v.decimals), v.val);
@@ -1827,7 +1831,7 @@ namespace UI {
 			if (!std::regex_match(text, _GetInputStrictRegex(type))) return false;
 			try {
 				double d = std::stod(text);
-				if (v.isIntegral()) d = std::round(d);
+				if (v.IsIntegral()) d = std::round(d);
 				d = std::clamp(d, v.min, v.max);
 				if (d != v.val) { v.val = d; return true; }
 			} catch (...) {}
@@ -3049,30 +3053,32 @@ namespace UI {
 
 							// Begin drag for interactive controls.
 							if (pw->type == WidgetType::Slider) {
-								auto *sd = m_ctx.Get<SliderData>(m_pressed);
+								auto *sd  = m_ctx.Get<SliderData>(m_pressed);
+								auto *nvp = m_ctx.Get<NumericValue>(m_pressed);
 								auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
 								auto *lp2 = m_ctx.Get<LayoutProps>(m_pressed);
-								if (sd && cr2 && lp2) {
+								if (sd && nvp && cr2 && lp2) {
 									sd->drag = true;
-									bool h = (sd->orientation == Orientation::Horizontal);
+									const bool h = (sd->orientation == Orientation::Horizontal);
 									sd->dragStartPos = h ? m_mousePos.x : m_mousePos.y;
 									// Jump thumb to click position immediately
-									float nv;
+									double nv;
 									if (h) {
 										float tx = cr2->screen.x + lp2->padding.left;
 										float tw = cr2->screen.w - lp2->padding.left - lp2->padding.right;
-										nv = SDL::Clamp(sd->min + (m_mousePos.x - tx) / SDL::Max(1.f, tw) * (sd->max - sd->min), sd->min, sd->max);
+										nv = std::clamp(nvp->min + (m_mousePos.x - tx) / SDL::Max(1.f, tw) * (nvp->max - nvp->min), nvp->min, nvp->max);
 									} else {
 										float ty = cr2->screen.y + lp2->padding.top;
 										float th = cr2->screen.h - lp2->padding.top - lp2->padding.bottom;
-										nv = SDL::Clamp(sd->min + (1.f - (m_mousePos.y - ty) / SDL::Max(1.f, th)) * (sd->max - sd->min), sd->min, sd->max);
+										nv = std::clamp(nvp->min + (1.f - (m_mousePos.y - ty) / SDL::Max(1.f, th)) * (nvp->max - nvp->min), nvp->min, nvp->max);
 									}
-									if (nv != sd->val) {
-										sd->val = nv;
+									if (nvp->IsIntegral()) nv = std::round(nv);
+									if (nv != nvp->val) {
+										nvp->val = nv;
 										auto *cb2 = m_ctx.Get<Callbacks>(m_pressed);
-										if (cb2 && cb2->onChange) cb2->onChange(nv);
+										if (cb2 && cb2->onChange) cb2->onChange((float)nv);
 									}
-									sd->dragStartVal = sd->val;
+									sd->dragStartVal = nvp->val;
 								}
 							} else if (pw->type == WidgetType::ScrollBar) {
 								if (auto *sb = m_ctx.Get<ScrollBarData>(m_pressed)) {
@@ -3139,7 +3145,7 @@ namespace UI {
 											FRect down = {up.x, up.y + up.h, bw, downH};
 											auto bump = [&](double dir){
 												double nx = std::clamp(nv->val + dir * nv->step, nv->min, nv->max);
-												if (nv->isIntegral()) nx = std::round(nx);
+												if (nv->IsIntegral()) nx = std::round(nx);
 												nv->val = nx;
 												if (auto *c = m_ctx.Get<EditableContent>(m_pressed))
 													c->text = _FormatNumeric(*nv);
@@ -3204,7 +3210,8 @@ namespace UI {
 						if (auto *sd = m_ctx.Get<SliderData>(m_pressed); sd && sd->drag) {
 							auto *cr = m_ctx.Get<ComputedRect>(m_pressed);
 							auto *lp = m_ctx.Get<LayoutProps>(m_pressed);
-							if (cr && lp) {
+							auto *nv = m_ctx.Get<NumericValue>(m_pressed);
+							if (cr && lp && nv) {
 								bool h = (sd->orientation == Orientation::Horizontal);
 								float tl = h
 									? (cr->screen.w - lp->padding.left - lp->padding.right - 16.f)
@@ -3212,13 +3219,15 @@ namespace UI {
 								if (tl > 0.f) {
 									float cur = h ? m_mousePos.x : m_mousePos.y;
 									float dx  = cur - sd->dragStartPos;
-									float nv  = SDL::Clamp(
-										sd->dragStartVal + dx / tl * (sd->max - sd->min),
-										sd->min, sd->max);
-									if (nv != sd->val) {
-										sd->val = nv;
+									double v = std::clamp(
+										sd->dragStartVal + dx / tl * (nv->max - nv->min),
+										nv->min, nv->max);
+									if (nv->IsIntegral()) v = std::round(v);
+									if (nv->step > 0.0)   v = nv->min + std::round((v - nv->min) / nv->step) * nv->step;
+									if (v != nv->val) {
+										nv->val = v;
 										auto *cb = m_ctx.Get<Callbacks>(m_pressed);
-										if (cb && cb->onChange) cb->onChange(nv);
+										if (cb && cb->onChange) cb->onChange((float)v);
 									}
 								}
 							}
@@ -3686,7 +3695,7 @@ namespace UI {
 						double prev = nv->val;
 						double delta = (k == SDL::KEYCODE_UP) ? nv->step : -nv->step;
 						nv->val = std::clamp(nv->val + delta, nv->min, nv->max);
-						if (nv->isIntegral()) nv->val = std::round(nv->val);
+						if (nv->IsIntegral()) nv->val = std::round(nv->val);
 						c->text = _FormatNumeric(*nv);
 						c->cursor = (int)c->text.size();
 						c->ClearSelection();
@@ -5073,9 +5082,10 @@ namespace UI {
 		void _DrawSlider(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
 			auto *sd = m_ctx.Get<SliderData>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
-			if (!sd || !lp) return;
+			auto *nv = m_ctx.Get<NumericValue>(e);
+			if (!sd || !lp || !nv) return;
 			const float TH = 4.f, TR = 8.f;
-			float norm = (sd->max > sd->min) ? (sd->val - sd->min) / (sd->max - sd->min) : 0.f;
+			float norm = nv->GetNorm<float>();
 			if (sd->orientation == Orientation::Horizontal) {
 				float tx = r.x + lp->padding.left, bx_ = r.x + r.w - lp->padding.right, tw = bx_ - tx, mid = r.y + r.h * 0.5f;
 				_FillRR({tx, mid - TH * 0.5f, tw, TH}, s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
@@ -5134,8 +5144,10 @@ namespace UI {
 		void _DrawProgress(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) { 
 			auto *sd = m_ctx.Get<SliderData>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
-			if (!sd || !lp) return;
-			float tx = r.x + lp->padding.left, tw = r.x + r.w - lp->padding.right - tx, norm = (sd->max > sd->min) ? (sd->val - sd->min) / (sd->max - sd->min) : 0.f;
+			auto *nv = m_ctx.Get<NumericValue>(e);  // numeric value
+			if (!sd || !lp || !nv) return;
+			float tx = r.x + lp->padding.left, tw = r.x + r.w - lp->padding.right - tx;
+			float norm = nv->GetNorm<float>();
 			FRect tr_ = {tx, r.y + (r.h - 8.f) * 0.5f, tw, 8.f};
 			_FillRR(tr_, s.trackColor, FCorners(4.f), s.opacity);
 			if (norm > 0.f)

@@ -543,9 +543,9 @@ private:
 				std::format("HP: {:.0f}/{:.0f}", h.hp, h.maxHp));
 
 			// Update progress bar: val + max via uiWorld's SliderData
-			if (auto* sd = m_ecs->Get<SDL::UI::SliderData>(m_healthBar)) {
-				sd->max = h.maxHp;
-				sd->val = SDL::Clamp(h.hp, 0.f, h.maxHp);
+			if (auto* nv = m_ecs->Get<SDL::UI::NumericValue>(m_healthBar)) {
+				nv->max = h.maxHp;
+				nv->val = SDL::Clamp(h.hp, 0.f, h.maxHp);
 			}
 			m_ui->SetText(m_lblPoints, std::format("★ {} pts", p.polypoints));
 		});

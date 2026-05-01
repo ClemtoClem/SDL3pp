@@ -1250,7 +1250,7 @@ private:
 		eSubTextClrPick = subTextClr.Id();
 		subTextClr.PickedColor(subtitleCfg.textColor);
 		subTextClr.GrowW(100.f).H(170.f)
-			.OnColorChange([this](SDL::Color current) {
+			.OnChange<SDL::Color>([this](SDL::Color current) {
 				subtitleCfg.textColor = current;
 			});
 
@@ -1261,7 +1261,7 @@ private:
 		subBgClr.PickedColor({subtitleCfg.bgColor.r, subtitleCfg.bgColor.g, subtitleCfg.bgColor.b, 255})
 			.PickerShowAlpha(true);
 		subBgClr.GrowW(100.f).H(170.f)
-			.OnColorChange([this](SDL::Color current) {
+			.OnChange<SDL::Color>([this](SDL::Color current) {
 				subtitleCfg.bgColor.r = current.r;
 				subtitleCfg.bgColor.g = current.g;
 				subtitleCfg.bgColor.b = current.b;
