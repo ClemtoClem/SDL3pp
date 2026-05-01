@@ -72,7 +72,7 @@ struct Main {
 		// let's move all our points a little for a new frame.
 		for (int i = 0; i < (int)points.size(); i++) {
 			const float distance = elapsed * point_speeds[i];
-			points[i] += SDL::FPoint{distance, distance};
+			points[i] += SDL::FPoint(distance, distance);
 			if ((points[i].x >= windowSz.x) || (points[i].y >= windowSz.y)) {
 				/* off the screen; restart it elsewhere! */
 				if (SDL_rand(2)) {
