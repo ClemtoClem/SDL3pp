@@ -296,7 +296,7 @@ struct Main {
 		auto header = ui.Row("header", 8.f, 0.f)
 			.W(SDL::UI::Value::Ww(100.f)).H(52.f)
 			.PaddingH(12.f).PaddingV(2.f)
-			.BgColor(pal::HEADER).BorderColor(pal::BORDER)
+			.BgColor(pal::HEADER).BdColor(pal::BORDER)
 			.WithStyle([](auto& s){ s.borders = SDL::FBox(1.f); s.radius = SDL::FCorners(0.f); });
 
 		header.Child(ui.Label("title", "SDL3pp UI — Widget Showcase")

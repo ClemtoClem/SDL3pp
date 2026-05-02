@@ -47,12 +47,12 @@ namespace UI {
 			return *this;
 		}
 		/** @brief Set the background color when the widget is hovered. */
-		Builder &BgHover(SDL::Color c) {
+		Builder &BgHoveredColor(SDL::Color c) {
 			sys.GetStyle(id).bgHoveredColor = c;
 			return *this;
 		}
 		/** @brief Set the background color when the widget is pressed. */
-		Builder &BgPress(SDL::Color c) {
+		Builder &BgPressedColor(SDL::Color c) {
 			sys.GetStyle(id).bgPressedColor = c;
 			return *this;
 		}
@@ -62,7 +62,7 @@ namespace UI {
 			return *this;
 		}
 		/** @brief Set the border color (normal state). */
-		Builder &BorderColor(SDL::Color c) {
+		Builder &BdColor(SDL::Color c) {
 			sys.GetStyle(id).bdColor = c;
 			return *this;
 		}

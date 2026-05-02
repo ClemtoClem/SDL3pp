@@ -89,8 +89,8 @@ private:
 						 SDL::Color bg, SDL::Color bgh, SDL::Color bgp,
 						 std::function<void()> cb) {
 			return m_ui->Button(id, lbl)
-				.BgColor(bg).BgHover(bgh).BgPress(bgp)
-				.BorderColor(kAcc)
+				.BgColor(bg).BgHoveredColor(bgh).BgPressedColor(bgp)
+				.BdColor(kAcc)
 				.TextColor(kTxt)
 				.FontSize(16.f)
 				.Radius(SDL::FCorners(6.f))

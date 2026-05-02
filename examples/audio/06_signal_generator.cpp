@@ -497,8 +497,8 @@ struct Main {
 		card.Child(
 			ui.Button("btn_refresh", "Rafraîchir")
 				.H(24.f).FontSize(11.f)
-				.BgColor({28,32,48,255}).BgHover({40,44,62,255}).BgPress({20,24,36,255})
-				.BorderColor(pal::BORDER).TextColor(pal::GREY)
+				.BgColor({28,32,48,255}).BgHoveredColor({40,44,62,255}).BgPressedColor({20,24,36,255})
+				.BdColor(pal::BORDER).TextColor(pal::GREY)
 				.Radius(SDL::FCorners(3.f))
 				.OnClick([this]{ _Enumerate(); })
 		);
@@ -549,10 +549,10 @@ struct Main {
 			auto btn = ui.Button(std::format("{}sh{}", idBase, s), kShapeLabels[s])
 				.H(22.f).Grow(100.f).FontSize(10.f)
 				.Radius(SDL::FCorners(3.f))
-				.BorderColor(pal::BORDER)
+				.BdColor(pal::BORDER)
 				.BgColor (active ? kShapeColor[s]  : SDL::Color{28, 32, 48, 255})
-				.BgHover (active ? kShapeColorH[s] : SDL::Color{40, 44, 62, 255})
-				.BgPress (active ? kShapeColorP[s] : SDL::Color{20, 24, 36, 255})
+				.BgHoveredColor (active ? kShapeColorH[s] : SDL::Color{40, 44, 62, 255})
+				.BgPressedColor (active ? kShapeColorP[s] : SDL::Color{20, 24, 36, 255})
 				.TextColor(active ? pal::WHITE : pal::GREY)
 				.OnClick([this, idx, s]{ _SelectShape(idx, s); });
 			oi.shapeBtns[s] = btn.Id();

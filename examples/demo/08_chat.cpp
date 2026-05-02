@@ -1174,7 +1174,7 @@ struct Main {
             .W(SDL::UI::Value::Ww(100.f)).H(48.f)
             .PaddingH(16.f).PaddingV(0.f)
             .BgColor(pal::HEADER)
-            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BdColor(pal::BORDER)
             .Children(
                 ui.Label("app_title", "SDL3pp Chat")
                     .TextColor(pal::ACCENT).Font("font", 16.f).Grow(100.f),
@@ -1191,7 +1191,7 @@ struct Main {
         auto box = ui.Column("launcher_box", 12.f, 0.f)
             .Font("font", 14.f)
             .W(380.f).BgColor(pal::PANEL)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(10.f))
             .PaddingH(24.f).PaddingV(20.f);
 
@@ -1367,7 +1367,7 @@ struct Main {
 
         id_srvAnnList = ui.ListBoxWidget("ann_list")
             .W(SDL::UI::Value::Pw(100.f)).H(80.f)
-            .BgColor(pal::CARD).Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .BgColor(pal::CARD).Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(6.f));
         right.Child(id_srvAnnList);
 
@@ -1515,7 +1515,7 @@ struct Main {
             .TextColor({10,10,10,255}).Font("font", 11.f);
         auto invitePanel = ui.Column("invite_panel", 4.f, 0.f)
             .W(SDL::UI::Value::Pw(100.f))
-            .BgColor(pal::ORANGE).Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .BgColor(pal::ORANGE).Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(6.f)).PaddingH(8.f).PaddingV(6.f)
             .Visible(false)
             .Children(
@@ -1563,7 +1563,7 @@ struct Main {
         auto panel = ui.Column("debug_panel", 4.f, 0.f)
             .W(SDL::UI::Value::Ww(100.f)).H(150.f)
             .BgColor({8, 8, 16, 255})
-            .Borders(SDL::FBox(0.f, 1.f, 0.f, 0.f)).BorderColor(pal::YELLOW)
+            .Borders(SDL::FBox(0.f, 1.f, 0.f, 0.f)).BdColor(pal::YELLOW)
             .PaddingH(8.f).PaddingV(4.f)
             .Visible(false);
 
@@ -1572,7 +1572,7 @@ struct Main {
 
         id_debugArea = ui.TextArea("debug_area")
             .Grow(100.f).W(SDL::UI::Value::Pw(100.f))
-            .BgColor({6, 6, 12, 255}).Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .BgColor({6, 6, 12, 255}).Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(4.f)).AutoScrollableY(true).ReadOnly()
             .Font("font", 10.f);
         panel.Child(id_debugArea);

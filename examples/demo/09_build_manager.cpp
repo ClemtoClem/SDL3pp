@@ -688,7 +688,7 @@ struct Main {
             .W(SDL::UI::Value::Ww(100.f)).H(50.f)
             .PaddingH(12.f).PaddingV(7.f)
             .BgColor(pal::HDR)
-            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BorderColor(pal::BORDER);
+            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BdColor(pal::BORDER);
 
         hdr.Child(ui.Label("title", "Build Manager")
             .TextColor(pal::ACCENT).Font("font", 16.f));
@@ -739,7 +739,7 @@ struct Main {
             .W(SDL::UI::Value::Pw(28.f))
             .H(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::PANEL)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(6.f))
             .PaddingH(4.f).PaddingV(6.f);
 
@@ -768,7 +768,7 @@ struct Main {
             .W(SDL::UI::Value::Pw(32.f))
             .H(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::PANEL)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(6.f))
             .PaddingH(8.f).PaddingV(8.f);
 
@@ -779,7 +779,7 @@ struct Main {
             .W(SDL::UI::Value::Pw(100.f))
             .H(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::CARD)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(4.f));
         panel.Child(id_fileList);
 
@@ -809,7 +809,7 @@ struct Main {
             .W(SDL::UI::Value::Grow(100.f))
             .H(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::PANEL)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(6.f))
             .PaddingH(10.f).PaddingV(8.f);
 
@@ -849,7 +849,7 @@ struct Main {
         id_libList = ui.ListBoxWidget("lib_list", {})
             .W(SDL::UI::Value::Pw(100.f)).H(80.f)
             .BgColor(pal::CARD)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER);
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER);
         panel.Child(id_libList);
 
         auto libRow = ui.Row("lib_row", 4.f, 0.f)
@@ -873,7 +873,7 @@ struct Main {
         id_incList = ui.ListBoxWidget("inc_list", {})
             .W(SDL::UI::Value::Pw(100.f)).H(80.f)
             .BgColor(pal::CARD)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER);
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER);
         panel.Child(id_incList);
 
         auto incRow = ui.Row("inc_row", 4.f, 0.f)
@@ -926,14 +926,14 @@ struct Main {
             .W(SDL::UI::Value::Ww(100.f))
             .H(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::BG)
-            .Borders(SDL::FBox(0.f, 1.f, 0.f, 0.f)).BorderColor(pal::BORDER);
+            .Borders(SDL::FBox(0.f, 1.f, 0.f, 0.f)).BdColor(pal::BORDER);
 
         // Toolbar
         auto bar = ui.Row("output_bar", 8.f, 0.f)
             .W(SDL::UI::Value::Pw(100.f)).H(38.f)
             .PaddingH(10.f).PaddingV(4.f)
             .BgColor(pal::HDR)
-            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BorderColor(pal::BORDER);
+            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BdColor(pal::BORDER);
 
         id_compileBtn = ui.Button("compile_btn", "Compile")
             .W(90.f).H(28.f)

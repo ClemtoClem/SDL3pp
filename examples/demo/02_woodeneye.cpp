@@ -1795,7 +1795,7 @@ struct Main
 						 .W(400.f)
 						 .Padding(20, 14)
 						 .BgColor({9, 11, 26, 230})
-						 .BorderColor({55, 75, 135, 255})
+						 .BdColor({55, 75, 135, 255})
 						 .Borders(SDL::FBox(1.f))
 						 .Radius(SDL::FCorners(4.f));
 
@@ -1884,7 +1884,7 @@ struct Main
 						.W(340.f)
 						.Padding(24, 16)
 						.BgColor({22, 4, 4, 240})
-						.BorderColor({90, 20, 20, 255})
+						.BdColor({90, 20, 20, 255})
 						.Borders(SDL::FBox(1.f))
 						.Radius(SDL::FCorners(4.f));
 

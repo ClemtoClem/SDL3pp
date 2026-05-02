@@ -282,8 +282,8 @@ struct Main {
                 .W(28.f).H(28.f).Padding(3.f)
                 .Icon(icon, 3.f)
                 .BgColor({0,0,0,0})
-                .BgHover({55, 65, 90, 200})
-                .BgPress({35, 45, 70, 255})
+                .BgHoveredColor({55, 65, 90, 200})
+                .BgPressedColor({35, 45, 70, 255})
                 .Radius(SDL::FCorners(4.f))
                 .Tooltip(tip, 0.6f)
                 .Enable(enabled);

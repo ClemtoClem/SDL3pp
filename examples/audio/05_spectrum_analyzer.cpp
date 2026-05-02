@@ -437,9 +437,9 @@ struct Main {
 		auto btnRefresh = ui.Button("btn_refresh", "Refresh list")
 			.H(28.f)
 			.BgColor(SDL::Color{30, 34, 52, 255})
-			.BgHover(SDL::Color{42, 46, 68, 255})
-			.BgPress(SDL::Color{20, 24, 38, 255})
-			.BorderColor(pal::BORDER)
+			.BgHoveredColor(SDL::Color{42, 46, 68, 255})
+			.BgPressedColor(SDL::Color{20, 24, 38, 255})
+			.BdColor(pal::BORDER)
 			.TextColor(pal::GREY)
 			.FontSize(13.f)
 			.Radius(SDL::FCorners(4.f))
@@ -517,9 +517,9 @@ struct Main {
 					.FontSize(12.f)
 					.Radius(SDL::FCorners(3.f))
 					.BgColor (active ? pal::ACCENT  : SDL::Color{28, 32, 48, 255})
-					.BgHover (active ? pal::ACCENTH : SDL::Color{40, 44, 62, 255})
-					.BgPress (active ? pal::ACCENTP : SDL::Color{20, 24, 36, 255})
-					.BorderColor(pal::BORDER)
+					.BgHoveredColor (active ? pal::ACCENTH : SDL::Color{40, 44, 62, 255})
+					.BgPressedColor (active ? pal::ACCENTP : SDL::Color{20, 24, 36, 255})
+					.BdColor(pal::BORDER)
 					.TextColor(active ? pal::WHITE : pal::GREY)
 					.OnClick([this, i]{ _SelectSampleSize(i); });
 				m_szBtns[i] = btn.Id();
@@ -547,9 +547,9 @@ struct Main {
 					.FontSize(12.f)
 					.Radius(SDL::FCorners(3.f))
 					.BgColor (active ? pal::ORANGE : SDL::Color{28, 32, 48, 255})
-					.BgHover (active ? SDL::Color{245, 165, 50, 255} : SDL::Color{40, 44, 62, 255})
-					.BgPress (active ? SDL::Color{200, 120, 20, 255} : SDL::Color{20, 24, 36, 255})
-					.BorderColor(pal::BORDER)
+					.BgHoveredColor (active ? SDL::Color{245, 165, 50, 255} : SDL::Color{40, 44, 62, 255})
+					.BgPressedColor (active ? SDL::Color{200, 120, 20, 255} : SDL::Color{20, 24, 36, 255})
+					.BdColor(pal::BORDER)
 					.TextColor(active ? pal::WHITE : pal::GREY)
 					.OnClick([this, i]{ _SelectSampleRate(i); });
 				m_raBtns[i] = btn.Id();
@@ -578,9 +578,9 @@ struct Main {
 					.FontSize(12.f)
 					.Radius(SDL::FCorners(3.f))
 					.BgColor (active ? kActBg  : SDL::Color{ 28,  32,  48, 255})
-					.BgHover (active ? kActBgH : SDL::Color{ 40,  44,  62, 255})
-					.BgPress (active ? kActBgP : SDL::Color{ 20,  24,  36, 255})
-					.BorderColor(pal::BORDER)
+					.BgHoveredColor (active ? kActBgH : SDL::Color{ 40,  44,  62, 255})
+					.BgPressedColor (active ? kActBgP : SDL::Color{ 20,  24,  36, 255})
+					.BdColor(pal::BORDER)
 					.TextColor(active ? pal::WHITE : pal::GREY)
 					.OnClick([this, i]{ _SelectWindowType(i); });
 				m_winBtns[i] = btn.Id();

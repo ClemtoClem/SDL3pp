@@ -319,7 +319,7 @@ private:
 
 		m_msgPanel = m_ui->Column("msgPanel", 0.f, 0.f)
 			.BgColor({10,12,22,220})
-			.BorderColor(kAcc)
+			.BdColor(kAcc)
 			.X(Value::Rw(20.f)).Y(Value::Rh(75.f))
 			.W(Value::Rw(60.f)).H(80.f)
 			.Attach(AttachLayout::Fixed)
@@ -335,7 +335,7 @@ private:
 						  SDL::Color bg, SDL::Color bgh,
 						  std::function<void()> cb) {
 			return m_ui->Button(id, lbl)
-				.BgColor(bg).BgHover(bgh)
+				.BgColor(bg).BgHoveredColor(bgh)
 				.Radius(SDL::FCorners(5.f))
 				.TextColor(kTxt).FontSize(14.f)
 				.H(38.f).MarginV(4.f)
@@ -358,7 +358,7 @@ private:
 		m_pausePanel = m_ui->Column("pausePanel", 4.f, 0.f)
 			.W(280.f)
 			.BgColor({5,7,15,215})
-			.BorderColor(kAcc)
+			.BdColor(kAcc)
 			.Visible(false)
 			.AutoScrollable(false, false)
 			.Attach(AttachLayout::Fixed)

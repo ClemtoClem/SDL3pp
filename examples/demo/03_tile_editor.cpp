@@ -1187,8 +1187,8 @@ struct Main {
 		// Applies the flat/ghost style shared by all icon buttons in the toolbar
 		auto flat = [](SDL::UI::Builder& b) -> SDL::UI::Builder& {
 			return b.BgColor({0,0,0,0})
-					.BgHover({42,54,78,220})
-					.BgPress(pal::ACCENT)
+					.BgHoveredColor({42,54,78,220})
+					.BgPressedColor(pal::ACCENT)
 					.WithStyle([](auto& s){
 						s.borders = SDL::FBox(0.f);
 						s.radius  = SDL::FCorners(4.f);
@@ -1372,7 +1372,7 @@ struct Main {
 				.Icon(icon_key::VISIBILITY, 3.f)
 				.ClickSound(res_key::CLICK)
 				.Tooltip("Toggle Layer Visibility", 0.6f)
-				.BgColor({0,0,0,0}).BgHover({42,54,78,180}).BgPress({42,54,78,220})
+				.BgColor({0,0,0,0}).BgHoveredColor({42,54,78,180}).BgPressedColor({42,54,78,220})
 				.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
 				.OnClick([this, i]{ _ToggleLayerVisible(i); })
 				.Id();
@@ -1387,7 +1387,7 @@ struct Main {
 			slot.btnLock = ui.Button(std::format("ls_lock{}", i))
 				.W(20).H(20).Padding(0.f)
 				.Icon(icon_key::LOCK, 3.f)
-				.BgColor({0,0,0,0}).BgHover({42,54,78,180}).BgPress({42,54,78,220})
+				.BgColor({0,0,0,0}).BgHoveredColor({42,54,78,180}).BgPressedColor({42,54,78,220})
 				.ClickSound(res_key::CLICK)
 				.Tooltip("Lock Layer", 0.6f)
 				.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
@@ -1406,7 +1406,7 @@ struct Main {
 			return ui.Button(id).W(30).H(24).Padding(0.f)
 				.Icon(key, 4.f)
 				.IconTint({255,255,255,255}, tint, tint)
-				.BgColor({0,0,0,0}).BgHover({42,54,78,200}).BgPress(pal::ACCENT)
+				.BgColor({0,0,0,0}).BgHoveredColor({42,54,78,200}).BgPressedColor(pal::ACCENT)
 				.ClickSound(res_key::CLICK)
 				.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(3.f); })
 				.Tooltip(tip, 0.6f)

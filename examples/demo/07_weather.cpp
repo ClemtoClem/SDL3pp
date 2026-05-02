@@ -448,7 +448,7 @@ struct Main {
             .W(SDL::UI::Value::Ww(100.f)).H(56.f)
             .PaddingH(16.f).PaddingV(8.f)
             .BgColor(pal::HEADER)
-            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BorderColor(pal::BORDER);
+            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BdColor(pal::BORDER);
 
         hdr.Child(ui.Label("app_title", "Weather Forecast")
             .TextColor(pal::ACCENT).PaddingV(0));
@@ -485,7 +485,7 @@ struct Main {
             .W(220.f)
             .H(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::PANEL)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(8.f))
             .PaddingH(8.f).PaddingV(8.f);
 
@@ -512,7 +512,7 @@ struct Main {
         auto panel = ui.Column("main_panel", 16.f, 0.f)
             .W(SDL::UI::Value::Grow(100.f))
             .BgColor(pal::PANEL)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(8.f))
             .PaddingH(20.f).PaddingV(16.f);
 
@@ -520,7 +520,7 @@ struct Main {
         auto curCard = ui.Row("current_card", 20.f, 0.f)
             .W(SDL::UI::Value::Pw(100.f)).H(160.f)
             .BgColor(pal::CARD)
-            .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(10.f))
             .PaddingH(24.f).PaddingV(16.f);
 
@@ -581,7 +581,7 @@ struct Main {
                 .W(150.f)
                 .H(150.f)
                 .BgColor(pal::CARD)
-                .Borders(SDL::FBox(1.f)).BorderColor(pal::BORDER)
+                .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
                 .Radius(SDL::FCorners(8.f))
                 .PaddingH(6.f).PaddingV(8.f)
                 .AlignChildrenH(SDL::UI::Align::Center);

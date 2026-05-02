@@ -390,7 +390,7 @@ struct Main {
 		auto toolbar = ui.Row("toolbar", 8.f, 6.f)
 			.W(Value::Ww(100.f)).H(38.f)
 			.BgColor(pal::toolbar_bg)
-			.Borders({0,0,0,1}).BorderColor({50,52,70,255})
+			.Borders({0,0,0,1}).BdColor({50,52,70,255})
 			.Children(
 				ui.Button("btn_open", "Open").W(70).H(26)
 				  .BgColor(pal::accent).Radius(SDL::FCorners{4.f})
@@ -447,7 +447,7 @@ struct Main {
 			"  - Ctrl+A to select all\n",
 			"Type your notes…")
 			.W(260.f).Grow(100.f)
-			.BgColor({22,22,32,255}).BorderColor({55,58,80,255})
+			.BgColor({22,22,32,255}).BdColor({55,58,80,255})
 			.Borders({1,0,0,0})
 			.TextAreaHighlightColor({70,130,210,100})
 			.TextAreaTabSize(2)
@@ -466,7 +466,7 @@ struct Main {
 			.Padding({8,4,8,4})
 			.BgColor(pal::toolbar_bg)
 			.Borders({0,0,0,1})
-			.BorderColor({50,52,70,255});
+			.BdColor({50,52,70,255});
 
 		auto notePanel = ui.Column("notepanel", 0.f, 0.f)
 			.W(260.f).Grow(100.f)
@@ -481,7 +481,7 @@ struct Main {
 		auto statusbar = ui.Row("statusbar", 0.f, 0.f)
 			.W(Value::Ww(100.f)).H(22.f)
 			.BgColor(pal::statusbar_bg)
-			.Borders({0,1,0,0}).BorderColor({40,42,60,255})
+			.Borders({0,1,0,0}).BdColor({40,42,60,255})
 			.Children(
 				ui.Label("status_lbl", "  Ready").Grow(100.f)
 				  .TextColor({160,165,185,255}).Padding({4,3,4,3})

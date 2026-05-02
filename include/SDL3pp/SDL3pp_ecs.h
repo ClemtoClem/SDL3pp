@@ -248,17 +248,17 @@ public:
 
 	EntityRef(EntityRef&& other) noexcept
 		: m_ctx(other.m_ctx), m_id(other.m_id) {
-		other.m_ctx = nullptr;
-		other.m_id    = NullEntity;
+		other.m_ctx	= nullptr;
+		other.m_id	= NullEntity;
 	}
 
 	EntityRef& operator=(EntityRef&& other) noexcept {
 		if (this != &other) {
 			Destroy();
-			m_ctx       = other.m_ctx;
-			m_id          = other.m_id;
+			m_ctx		= other.m_ctx;
+			m_id		= other.m_id;
 			other.m_ctx = nullptr;
-			other.m_id    = NullEntity;
+			other.m_id	= NullEntity;
 		}
 		return *this;
 	}
@@ -273,7 +273,7 @@ public:
 
 	template<Component T> EntityRef& Add(T value = {});
 	template<Component T> T*         Get();
-	template<Component T> bool        Has() const;
+	template<Component T> bool       Has() const;
 	template<Component T> EntityRef& Remove();
 
 	void Destroy();

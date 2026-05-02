@@ -509,9 +509,9 @@ private:
 			Builder btn = ui.Button(name, label)
 				.H(42.f)
 				.BgColor(pal::NEUTRAL)
-				.BgHover({45,45,65,255})
-				.BgPress({25,25,40,255})
-				.BorderColor(pal::BORDER)
+				.BgHoveredColor({45,45,65,255})
+				.BgPressedColor({25,25,40,255})
+				.BdColor(pal::BORDER)
 				.BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
 				.Radius(SDL::FCorners(6.f))
 				.TextColor(pal::WHITE);
@@ -556,7 +556,7 @@ private:
 				.H(kTopBarH)
 				.GrowW(100.f)
 				.BgColor(pal::HEADER)
-				.BorderBottom(1).BorderColor(pal::BORDER)
+				.BorderBottom(1).BdColor(pal::BORDER)
 				.AlignChildrenV(Align::Center)
 				.Children(
 					makeIconBtn("btnOpen", icon_key::OPEN, "", "Ouvrir un fichier média (Ctrl+O)")
@@ -624,8 +624,8 @@ private:
 		ePlayBtn =
 			makeIconBtn("btnPlay", icon_key::PLAY, "", "Lecture / Pause")
 				.BgColor(pal::ACCENT)
-				.BgHover({90,150,230,255})
-				.BgPress({50,110,190,255})
+				.BgHoveredColor({90,150,230,255})
+				.BgPressedColor({50,110,190,255})
 				.Radius(SDL::FCorners(8.f))
 				.OnClick([this]{ player.TogglePlayPause(); _RefreshPlayBtn(); });
 
@@ -666,7 +666,7 @@ private:
 			ui.Row("ctrlBar", 6.f, 10.f)
 				.H(kCtrlH)
 				.BgColor(pal::HEADER)
-				.BorderTop(1).BorderColor(pal::BORDER)
+				.BorderTop(1).BdColor(pal::BORDER)
 				.AlignChildrenV(Align::Center)
 				.Children(
 					makeIconBtn("btnChapPrev", icon_key::PREV, "", "Chapitre précédent")
@@ -848,7 +848,7 @@ private:
 			ui.ScrollView("sidePanel")
 				.W((float)kSidePanelW)
 				.BgColor(pal::PANEL)
-				.BorderLeft(1).BorderColor(pal::BORDER)
+				.BorderLeft(1).BdColor(pal::BORDER)
 				.Children(
 					metaSection,
 					ui.Separator("sp1").BgColor(pal::BORDER),
@@ -1434,8 +1434,8 @@ private:
 		auto btnAdd =
 			ui.Button("plBtnAdd", "+ Ajouter")
 			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
-			  .BgColor(pal::NEUTRAL).BgHover({45,45,65,255})
-			  .BorderColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .BgColor(pal::NEUTRAL).BgHoveredColor({45,45,65,255})
+			  .BdColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
 			  .Radius(SDL::FCorners(4.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Ajouter un fichier média")
@@ -1444,8 +1444,8 @@ private:
 		auto btnRemove =
 			ui.Button("plBtnRemove", "- Supprimer")
 			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
-			  .BgColor(pal::NEUTRAL).BgHover({65,25,25,255})
-			  .BorderColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .BgColor(pal::NEUTRAL).BgHoveredColor({65,25,25,255})
+			  .BdColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
 			  .Radius(SDL::FCorners(4.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Supprimer l\'élément sélectionné")
@@ -1462,8 +1462,8 @@ private:
 		auto btnClear =
 			ui.Button("plBtnClear", "Vider")
 			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
-			  .BgColor(pal::NEUTRAL).BgHover({65,25,25,255})
-			  .BorderColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .BgColor(pal::NEUTRAL).BgHoveredColor({65,25,25,255})
+			  .BdColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
 			  .Radius(SDL::FCorners(4.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Vider la playlist")
@@ -1476,8 +1476,8 @@ private:
 		auto btnPlay =
 			ui.Button("plBtnPlay", "▶ Lire")
 			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
-			  .BgColor(pal::ACCENT).BgHover({90,150,230,255})
-			  .BorderColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .BgColor(pal::ACCENT).BgHoveredColor({90,150,230,255})
+			  .BdColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
 			  .Radius(SDL::FCorners(4.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Lire l\'élément sélectionné")

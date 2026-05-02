@@ -213,11 +213,14 @@
  */
 
 // ── Sub-modules ───────────────────────────────────────────────────────────────────────
-#include "SDL3pp_ui/enums.h"
-#include "SDL3pp_ui/value.h"
-#include "SDL3pp_ui/components.h"
-#include "SDL3pp_ui/theme.h"
-#include "SDL3pp_ui/system.h"
-#include "SDL3pp_ui/builder.h"
+#include "SDL3pp_ui/UIEnums.h"
+#include "SDL3pp_ui/UIValue.h"
+#include "SDL3pp_ui/UIComponents.h"
+#include "SDL3pp_ui/UIFactory.h"
+#include "SDL3pp_ui/UILayoutSystem.h"
+#include "SDL3pp_ui/UIEventSystem.h"
+#include "SDL3pp_ui/UIRenderSystem.h"
+#include "SDL3pp_ui/UISystem.h"
+#include "SDL3pp_ui/UIBuilder.h"
 
 #endif /* SDL3PP_UI_H_ */
