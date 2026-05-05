@@ -1173,8 +1173,8 @@ struct Main {
         return ui.Row("header", 8.f, 0.f)
             .W(SDL::UI::Value::Ww(100.f)).H(48.f)
             .PaddingH(16.f).PaddingV(0.f)
-            .BgColor(pal::HEADER)
-            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f)).BdColor(pal::BORDER)
+            .BgColor(pal::HEADER).BdColor(pal::BORDER)
+            .Borders(SDL::FBox(0.f, 0.f, 0.f, 1.f))
             .Children(
                 ui.Label("app_title", "SDL3pp Chat")
                     .TextColor(pal::ACCENT).Font("font", 16.f).Grow(100.f),
@@ -1190,8 +1190,10 @@ struct Main {
 
         auto box = ui.Column("launcher_box", 12.f, 0.f)
             .Font("font", 14.f)
-            .W(380.f).BgColor(pal::PANEL)
-            .Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
+            .W(380.f)
+            .BgColor(pal::PANEL)
+            .BdColor(pal::BORDER)
+            .Borders(SDL::FBox(1.f))
             .Radius(SDL::FCorners(10.f))
             .PaddingH(24.f).PaddingV(20.f);
 
@@ -1304,7 +1306,7 @@ struct Main {
             .W(SDL::UI::Value::Pw(100.f))
             .H(SDL::UI::Value::Grow(100.f))
             .Style(SDL::UI::Theme::Card())
-            .AutoScrollableY(true)
+            .AutoScrollableY()
             .ReadOnly();
         centre.Child(id_srvLogArea);
 
@@ -1319,11 +1321,10 @@ struct Main {
         id_srvMaxCliLabel = ui.Label("srv_max_cli_lbl",
             std::format("Max clients: {}", m_server.m_maxClients))
             .TextColor(pal::GREY).Font("font", 11.f);
-        id_srvMaxClients = ui.Slider("srv_max_clients",
-            1.f, 64.f, static_cast<float>(m_server.m_maxClients))
+        id_srvMaxClients = ui.Slider<int>("srv_max_clients", 1, 64, m_server.m_maxClients, 1)
             .W(SDL::UI::Value::Pw(100.f)).H(22.f)
-            .OnChange<float>([this](float v){
-                m_server.m_maxClients = static_cast<int>(v);
+            .OnChange<int>([this](int v){
+                m_server.m_maxClients = v;
                 ui.SetText(id_srvMaxCliLabel, std::format("Max clients: {}", m_server.m_maxClients));
             });
         right.Child(id_srvMaxCliLabel).Child(id_srvMaxClients);
@@ -1331,11 +1332,10 @@ struct Main {
         id_srvMaxRoomLabel = ui.Label("srv_max_room_lbl",
             std::format("Max per room: {}", m_server.m_maxPerRoom))
             .TextColor(pal::GREY).Font("font", 11.f);
-        id_srvMaxPerRoom = ui.Slider("srv_max_per_room",
-            1.f, 32.f, static_cast<float>(m_server.m_maxPerRoom))
+        id_srvMaxPerRoom = ui.Slider<int>("srv_max_per_room", 1, 32, m_server.m_maxPerRoom, 1)
             .W(SDL::UI::Value::Pw(100.f)).H(22.f)
-            .OnChange<float>([this](float v){
-                m_server.m_maxPerRoom = static_cast<int>(v);
+            .OnChange<int>([this](int v){
+                m_server.m_maxPerRoom = v;
                 ui.SetText(id_srvMaxRoomLabel, std::format("Max per room: {}", m_server.m_maxPerRoom));
             });
         right.Child(id_srvMaxRoomLabel).Child(id_srvMaxPerRoom);
@@ -1476,7 +1476,7 @@ struct Main {
         centre.Child(ui.SectionTitle("Room Chat", pal::ACCENT));
         id_cliChatArea = ui.TextArea("cli_chat_area")
             .Grow(100.f).W(SDL::UI::Value::Pw(100.f))
-            .Style(SDL::UI::Theme::Card()).AutoScrollableY(true).ReadOnly();
+            .Style(SDL::UI::Theme::Card()).SetAutoScrollableY(true).ReadOnly();
         centre.Child(id_cliChatArea);
 
         id_cliMsgInput = ui.Input("cli_msg_input", "Write a message…").Grow(100.f).H(36.f);
@@ -1507,7 +1507,7 @@ struct Main {
 
         id_cliDmHistory = ui.TextArea("cli_dm_history")
             .Grow(100.f).W(SDL::UI::Value::Pw(100.f))
-            .Style(SDL::UI::Theme::Card()).AutoScrollableY(true).ReadOnly();
+            .Style(SDL::UI::Theme::Card()).SetAutoScrollableY(true).ReadOnly();
         right.Child(id_cliDmHistory);
 
         // DM invite notification (hidden by default)
@@ -1517,7 +1517,7 @@ struct Main {
             .W(SDL::UI::Value::Pw(100.f))
             .BgColor(pal::ORANGE).Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
             .Radius(SDL::FCorners(6.f)).PaddingH(8.f).PaddingV(6.f)
-            .Visible(false)
+            .Hide()
             .Children(
                 id_cliInviteLabel,
                 ui.Button("invite_accept", "Accept")
@@ -1565,7 +1565,7 @@ struct Main {
             .BgColor({8, 8, 16, 255})
             .Borders(SDL::FBox(0.f, 1.f, 0.f, 0.f)).BdColor(pal::YELLOW)
             .PaddingH(8.f).PaddingV(4.f)
-            .Visible(false);
+            .Hide();
 
         panel.Child(ui.Label("debug_title", "Debug — Protocol Traffic")
             .TextColor(pal::YELLOW).Font("font", 11.f));
@@ -1573,7 +1573,7 @@ struct Main {
         id_debugArea = ui.TextArea("debug_area")
             .Grow(100.f).W(SDL::UI::Value::Pw(100.f))
             .BgColor({6, 6, 12, 255}).Borders(SDL::FBox(1.f)).BdColor(pal::BORDER)
-            .Radius(SDL::FCorners(4.f)).AutoScrollableY(true).ReadOnly()
+            .Radius(SDL::FCorners(4.f)).SetAutoScrollableY(true).ReadOnly()
             .Font("font", 10.f);
         panel.Child(id_debugArea);
 

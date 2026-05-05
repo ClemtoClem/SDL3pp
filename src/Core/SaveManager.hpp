@@ -48,7 +48,7 @@ class SaveManager {
 public:
 	// ── Construction ──────────────────────────────────────────────────────────
 
-	/// @param path  Full path to the save file (e.g. "…/res/save.dat").
+	/// @param path  Full path to the save file (e.g. "…/data/save.dat").
 	explicit SaveManager(std::string path) : m_path(std::move(path)) {}
 
 	// ── Public API ────────────────────────────────────────────────────────────

@@ -108,43 +108,57 @@ namespace SDL::UI {
 		// Widget creation — value-bearing widgets (Slider / Knob / Progress)
 		// ──────────────────────────────────────────────────────────────────────
 
-		ECS::EntityId MakeSliderBase(std::string_view n, NumericValue v, Orientation o) {
+		ECS::EntityId MakeSliderBase(std::string_view n, NumericValue v, float thickness, Orientation o) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Slider, _Interactive());
 			m_ctx.Add<NumericValue>(e, std::move(v));
 			SliderData sd;
 			sd.orientation = o;
 			m_ctx.Add<SliderData>(e, sd);
 			auto& lp = *m_ctx.Get<LayoutProps>(e);
-			if (o == Orientation::Horizontal) lp.height = Value::Px(24.f);
-			else                              lp.width  = Value::Px(24.f);
+			if (o == Orientation::Horizontal) lp.height = Value::Px(thickness);
+			else                              lp.width  = Value::Px(thickness);
 			return e;
 		}
 
 		template <typename T=float>
-		ECS::EntityId MakeSlider(std::string_view n, T mn, T mx, T v, T step, Orientation o) {
-			return MakeSliderBase(n, AnyValue<T>(mn, mx, v, step), o);
+		ECS::EntityId MakeSlider(std::string_view n, T mn, T mx, T v, T step, float thickness, Orientation o) {
+			return MakeSliderBase(n, AnyValue<T>(mn, mx, v, step), thickness, o);
 		}
 
-		ECS::EntityId MakeProgress(std::string_view n, NumericValue v) {
+		ECS::EntityId MakeProgressBase(std::string_view n, NumericValue v, float thickness, Orientation o) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Progress);
 			m_ctx.Add<NumericValue>(e, std::move(v));
-			m_ctx.Add<ProgressData>(e);
-			m_ctx.Get<LayoutProps>(e)->height = Value::Px(18.f);
+			ProgressData pd;
+			pd.orientation = o;
+			m_ctx.Add<ProgressData>(e, pd);
+			auto& lp = *m_ctx.Get<LayoutProps>(e);
+			if (o == Orientation::Horizontal) lp.height = Value::Px(thickness);
+			else                              lp.width  = Value::Px(thickness);
 			return e;
 		}
 
-		ECS::EntityId MakeKnob(std::string_view n, NumericValue v, KnobShape shape) {
+		template <typename T=float>
+		ECS::EntityId MakeProgress(std::string_view n, T mn, T mx, T v, T step, float thickness, Orientation o) {
+			return MakeProgressBase(n, AnyValue<T>(mn, mx, v, step), thickness, o);
+		}
+
+		template <typename T=float>
+		ECS::EntityId MakeKnob(std::string_view n, T mn, T mx, T v, KnobShape shape) {
+			return MakeKnob(n, NumericValue{typeid(T), static_cast<double>(mn), static_cast<double>(mx), static_cast<double>(v), 1.0}, 80.f, shape);
+		}
+
+		ECS::EntityId MakeKnob(std::string_view n, NumericValue v, float size, KnobShape shape) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Knob, _Interactive());
 			m_ctx.Add<NumericValue>(e, std::move(v));
 			KnobData kd;
 			kd.shape = shape;
 			m_ctx.Add<KnobData>(e, kd);
 			auto& lp = *m_ctx.Get<LayoutProps>(e);
-			lp.width = lp.height = Value::Px(56.f);
+			lp.width = lp.height = Value::Px(size);
 			return e;
 		}
 
-		ECS::EntityId MakeScrollBar(std::string_view n, float contentSize, float viewSize, Orientation o) {
+		ECS::EntityId MakeScrollBar(std::string_view n, float contentSize, float viewSize, float thickness, Orientation o) {
 			ECS::EntityId e = _Spawn(n, WidgetType::ScrollBar, _Interactive());
 			ScrollBarData sd;
 			sd.contentSize = contentSize;
@@ -152,8 +166,8 @@ namespace SDL::UI {
 			sd.orientation = o;
 			m_ctx.Add<ScrollBarData>(e, sd);
 			auto& lp = *m_ctx.Get<LayoutProps>(e);
-			if (o == Orientation::Vertical) lp.width  = Value::Px(10.f);
-			else                            lp.height = Value::Px(10.f);
+			if (o == Orientation::Vertical) lp.width  = Value::Px(thickness);
+			else                            lp.height = Value::Px(thickness);
 			return e;
 		}
 

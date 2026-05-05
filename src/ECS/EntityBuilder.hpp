@@ -40,7 +40,7 @@ public:
 				  SDL::ECS::SceneBuilder& scene,
 				  SDL::RendererRef        renderer,
 				  SDL::ResourcePool&      pool,
-				  const core::ScriptSectionPtr& infoEntities,
+				  const core::ScriptObjectPtr& infoEntities,
 				  const std::string&      assetsBasePath,
 				  int*                    dispTileSizePtr)
 		: m_world(world), m_scene(scene), m_renderer(renderer),
@@ -195,7 +195,7 @@ private:
 	SDL::ECS::SceneBuilder& m_scene;
 	SDL::RendererRef        m_renderer;
 	SDL::ResourcePool&      m_pool;
-	core::ScriptSectionPtr  m_info;
+	core::ScriptObjectPtr  m_info;
 	std::string             m_base;
 	int*                    m_dts; // live pointer to dispTileSize
 
@@ -219,7 +219,7 @@ private:
 		if (v.IsNull())     { for (int i=0;i<4;++i) out[i]=fallback; return; }
 		if (v.IsRect())     { auto r=v.AsRect(); SDL::FRect b{r.x,r.y,r.w,r.h};
 							  for (int i=0;i<4;++i) { out[i]=b; } return; }
-		if (!v.IsSection()) { for (int i=0;i<4;++i) out[i]=fallback; return; }
+		if (!v.IsObject()) { for (int i=0;i<4;++i) out[i]=fallback; return; }
 		auto d = v.Get("default");
 		SDL::FRect def = fallback;
 		if (d.IsRect()) { auto r=d.AsRect(); def={r.x,r.y,r.w,r.h}; }

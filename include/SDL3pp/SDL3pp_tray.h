@@ -671,7 +671,7 @@ public:
 	 * @sa TrayMenu.InsertEntry
 	 * @sa TrayEntry.GetEnabled
 	 */
-	void SetEnabled(bool enabled);
+	void SetEnable(bool enabled);
 
 	/**
 	 * Gets whether or not an entry is enabled.
@@ -685,7 +685,7 @@ public:
 	 *
 	 * @sa TrayMenu.GetEntries
 	 * @sa TrayMenu.InsertEntry
-	 * @sa TrayEntry.SetEnabled
+	 * @sa TrayEntry.SetEnable
 	 */
 	bool GetEnabled() const;
 
@@ -1158,7 +1158,7 @@ inline void SetTrayEntryEnabled(TrayEntryRef entry, bool enabled) {
 	SDL_SetTrayEntryEnabled(entry, enabled);
 }
 
-inline void TrayEntry::SetEnabled(bool enabled) {
+inline void TrayEntry::SetEnable(bool enabled) {
 	SDL::SetTrayEntryEnabled(m_resource, enabled);
 }
 
@@ -1175,7 +1175,7 @@ inline void TrayEntry::SetEnabled(bool enabled) {
  *
  * @sa TrayMenu.GetEntries
  * @sa TrayMenu.InsertEntry
- * @sa TrayEntry.SetEnabled
+ * @sa TrayEntry.SetEnable
  */
 inline bool GetTrayEntryEnabled(TrayEntryRef entry) {
 	return SDL_GetTrayEntryEnabled(entry);

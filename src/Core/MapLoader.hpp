@@ -71,7 +71,7 @@ struct MapData {
 	int frontLayers = 0;       // layers rendered in front of entities
 	int backgroundTile = 0;
 	bool zeroIsNotTile = false;
-	std::string musicKey;
+	std::vector<std::string> musicsKey;
 
 	// tiles[layer][y * width + x] = tile ID in the tileset image
 	std::vector<std::vector<int>> tiles;
@@ -135,7 +135,7 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 	const std::string cmapPath = basePath + "/" + mapName + ".cmap";
 
 	// ── 1. Parse .script ──────────────────────────────────────────────────────
-	ScriptSectionPtr script;
+	ScriptObjectPtr script;
 	try {
 		script = ParseConfFile(confPath);
 	} catch (const std::exception& e) {
@@ -152,19 +152,27 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 						 ? (*script)["backgroundTile"].AsInt(0) : 0;
 	map.zeroIsNotTile  = script->count("zeroIsNotTile")
 						 ? (*script)["zeroIsNotTile"].AsBool(false) : false;
-	map.musicKey       = script->count("musicName")
-						 ? (*script)["musicName"].AsString("") : "";
+	if (script->count("musics")) {
+		auto musicsArr = (*script)["musics"].AsArray();
+		if (musicsArr) {
+			for (auto& [k, v] : *musicsArr) {
+				if (!v.IsString()) continue;
+				map.musicsKey.push_back(v.AsString());
+				LOG_RESOURCE(core::LogLevel::Debug) << "LoadMap script: music " << k << " " << v.AsString();
+			}
+		}
+	}
 
 	int collisionOffset = script->count("tileCollisionIdOffset")
 						  ? (*script)["tileCollisionIdOffset"].AsInt(0) : 0;
 
 	// ── Entities ──────────────────────────────────────────────────────────────
 	if (script->count("configEntities")) {
-		auto entSec = (*script)["configEntities"].AsSection();
-		if (entSec) {
-			for (auto& [k, v] : *entSec) {
-				auto sec = v.AsSection();
-				if (!sec) continue;
+		auto entObj = (*script)["configEntities"].AsObject();
+		if (entObj) {
+			for (auto& [k, v] : *entObj) {
+				auto obj = v.AsObject();
+				if (!obj) continue;
 				EntitySpawnDef def;
 				// Accept both "type" and "name" fields; normalise to UPPERCASE
 				std::string rawType = v.Get("type").AsString("");
@@ -180,15 +188,15 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 
 	// ── Messages ─────────────────────────────────────────────────────────────
 	if (script->count("messages")) {
-		auto msgSec = (*script)["messages"].AsSection();
-		if (msgSec) {
-			for (auto& [pos, lines] : *msgSec) {
-				auto lineSec = lines.AsSection();
-				if (!lineSec) continue;
+		auto msgObj = (*script)["messages"].AsObject();
+		if (msgObj) {
+			for (auto& [pos, lines] : *msgObj) {
+				auto lineObj = lines.AsObject();
+				if (!lineObj) continue;
 				std::vector<std::string> msgs;
 				for (int i = 1; ; ++i) {
-					auto it = lineSec->find('%' + std::to_string(i));
-					if (it == lineSec->end()) break;
+					auto it = lineObj->find('%' + std::to_string(i));
+					if (it == lineObj->end()) break;
 					msgs.push_back(it->second.AsString(""));
 				}
 				map.messages[pos] = std::move(msgs);
@@ -201,9 +209,9 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 		const char* teleKeys[] = { "transitions", "teleportations" };
 		for (const char* key : teleKeys) {
 			if (!script->count(key)) continue;
-			auto teleSec = (*script)[key].AsSection();
-			if (!teleSec) continue;
-			for (auto& [pos, v] : *teleSec) {
+			auto teleObj = (*script)[key].AsObject();
+			if (!teleObj) continue;
+			for (auto& [pos, v] : *teleObj) {
 				TeleportDef def;
 				def.changeMap = v.Get("changeMap").AsBool(false);
 				// Accept both "name" and "type" as the destination map identifier

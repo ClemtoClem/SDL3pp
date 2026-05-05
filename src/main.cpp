@@ -89,6 +89,22 @@ struct Main {
 	// =========================================================================
 
 	static SDL::AppResult Init(Main** out, SDL::AppArgs args) {
+		SDL::LogPriority priority = SDL::LOG_PRIORITY_WARN;
+		for (auto arg : args) {
+			if (arg == "--verbose") priority = SDL::LOG_PRIORITY_VERBOSE;
+			else if (arg == "--debug") priority = SDL::LOG_PRIORITY_DEBUG;
+			else if (arg == "--info") priority = SDL::LOG_PRIORITY_INFO;
+			else if (arg == "--help") {
+				SDL::Log("Usage: %s [options]", SDL::GetBasePath());
+				SDL::Log("Options:");
+				SDL::Log("  --verbose    Set log priority to VERBOSE");
+				SDL::Log("  --debug      Set log priority to DEBUG");
+				SDL::Log("  --info       Set log priority to INFO");
+				SDL::Log("  --help       Show this help message");
+			}
+		}
+		SDL::SetLogPriorities(priority);
+		
 		SDL::SetAppMetadata(kDefaultTitle, kAppVersion, kAppId);
 		SDL::Init(SDL::INIT_VIDEO | SDL::INIT_GAMEPAD);
 		SDL::TTF::Init();
@@ -153,13 +169,13 @@ struct Main {
 
 		// ── Config ─────────────────────────────────────────────────────────────
 		const std::string assetsBase = std::string(SDL::GetBasePath()) + "assets/";
-		core::ScriptSectionPtr config;
+		core::ScriptObjectPtr config;
 		try {
 			config = core::ParseConfFile(assetsBase + "configs/config.script");
 			LOG_SUCCESS << "config.script loaded";
 		} catch (const std::exception& e) {
 			LOG_WARNING << "config.script: " << e.what() << " — using defaults";
-			config = std::make_shared<core::ScriptSection>();
+			config = std::make_shared<core::ScriptObject>();
 		}
 
 		// ── Apply window settings from config ──────────────────────────────────
@@ -184,7 +200,7 @@ struct Main {
 		m_ctx.pool        = &pool;
 		m_ctx.config      = config;
 		m_ctx.assetsBasePath = assetsBase;
-		m_ctx.savePath    = assetsBase + "saves/save.dat";
+		m_ctx.savePath    = std::string(SDL::GetBasePath()) + "data/game_save.dat";
 
 		m_ctx.quit = [this] {
 			m_wantsQuit = true;

@@ -71,7 +71,7 @@ struct Main {
 				We're being lazy here, but if there's less than the entire wav file left
 			 to play, just shove a whole copy of it into the queue, so we always have
 			 _tons_ of data queued for playback. */
-		if (stream.GetQueued() < wav_data.size()) {
+		if ((size_t)stream.GetQueued() < wav_data.size()) {
 			// feed the new data to the stream. It will queue at the end, and trickle
 			// out as the hardware needs more data.
 			stream.PutData(wav_data);

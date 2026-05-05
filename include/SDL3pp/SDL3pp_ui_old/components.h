@@ -431,9 +431,8 @@ namespace UI {
 	};
 
 	struct KnobData {
-		float min = 0.f, max = 1.f, step = 0.f, val = 0.f;
-		float dragStartY = 0.f, dragStartVal = 0.f;
-		float dragStartAngle = 0.f; ///< Angle at drag start (degrees) for arc interaction.
+		double dragStartY = 0.0, dragStartVal = 0.0;
+		double dragStartAngle = 0.0; ///< Angle at drag start (degrees) for arc interaction.
 		bool  drag = false;
 		KnobShape shape = KnobShape::Arc;
 	};
@@ -724,14 +723,14 @@ namespace UI {
 	};
 
 	// ==================================================================================
-	// TilesetStyle — 9-slice tileset skin for widgets
+	// TilesetData — 9-slice tileset skin for widgets
 	// ==================================================================================
 
 	/**
 	 * @brief Tileset-based 9-slice skin for any widget.
 	 *
-	 * When a `TilesetStyle` component is attached to a widget entity (via
-	 * `System::SetTilesetStyle` or the `.TilesetSkin()` builder), the default
+	 * When a `TilesetData` component is attached to a widget entity (via
+	 * `System::SetTileset` or the `.TilesetSkin()` builder), the default
 	 * solid-colour rendering is replaced by a 9-slice draw using tiles from a
 	 * tileset texture stored in the resource pool.
 	 *
@@ -745,19 +744,19 @@ namespace UI {
 	 *
 	 * Usage:
 	 * ```cpp
-	 * SDL::UI::TilesetStyle skin;
+	 * SDL::UI::TilesetData skin;
 	 * skin.textureKey  = "ui_tileset";
 	 * skin.tileW = skin.tileH = 8;
 	 * skin.tilesPerRow = 3;
 	 * skin.firstTileIdx = 0;
 	 * skin.borderW = skin.borderH = 8.f;   // use full tile as border
-	 * ui.SetTilesetStyle(myButton, skin);
+	 * ui.SetTileset(myButton, skin);
 	 *
 	 * // Or via the builder DSL:
 	 * ui.Button("ok","OK").TilesetSkin(skin);
 	 * ```
 	 */
-	struct TilesetStyle {
+	struct TilesetData {
 		std::string textureKey;   ///< Key in the resource pool (SDL::Texture).
 		int  tileW        = 16;   ///< Width  of one tile in the tileset (px).
 		int  tileH        = 16;   ///< Height of one tile in the tileset (px).

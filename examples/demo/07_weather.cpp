@@ -622,7 +622,7 @@ struct Main {
 
         m_netBusy = true;
         ui.SetText(id_statusLabel, "Searching…");
-        ui.SetEnabled(id_searchBtn, false);
+        ui.SetEnable(id_searchBtn, false);
 
         if (m_netThread.joinable()) m_netThread.join();
         m_netThread = std::thread([this, query]() {
@@ -705,7 +705,7 @@ struct Main {
             if (m_hasPendingCities) {
                 _ApplyCities(m_pendingCities);
                 m_hasPendingCities = false;
-                ui.SetEnabled(id_searchBtn, true);
+                ui.SetEnable(id_searchBtn, true);
             }
             if (m_hasPendingWeather) {
                 if (m_pendingWeather)
@@ -713,7 +713,7 @@ struct Main {
                 else
                     ui.SetText(id_statusLabel, "Failed to load forecast.");
                 m_hasPendingWeather = false;
-                ui.SetEnabled(id_searchBtn, true);
+                ui.SetEnable(id_searchBtn, true);
             }
         }
 

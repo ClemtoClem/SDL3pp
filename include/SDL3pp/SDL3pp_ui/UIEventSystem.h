@@ -257,8 +257,6 @@ namespace SDL::UI {
 		auto *w = m_ctx.Get<Widget>(target);
 		if (!w) return;
 
-		auto *cb = m_ctx.Get<Callbacks>(target);
-
 		// Focus if focusable
 		if (Has(w->behavior, BehaviorFlag::Focusable)) {
 			_SetFocus(target);
@@ -423,7 +421,7 @@ namespace SDL::UI {
 		m_pressed = ECS::NullEntity;
 	}
 
-	inline void UIEventSystem::_DispatchScroll(ECS::EntityId target, float dx, float dy) {
+	inline void UIEventSystem::_DispatchScroll(ECS::EntityId target, [[maybe_unused]] float dx, float dy) {
 		if (!m_ctx.IsAlive(target)) return;
 		auto *cb = m_ctx.Get<Callbacks>(target);
 		if (cb && cb->onScroll) {

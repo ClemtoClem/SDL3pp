@@ -512,7 +512,7 @@ private:
 				.BgHoveredColor({45,45,65,255})
 				.BgPressedColor({25,25,40,255})
 				.BdColor(pal::BORDER)
-				.BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+				.Borders(SDL::FBox(1.f))
 				.Radius(SDL::FCorners(6.f))
 				.TextColor(pal::WHITE);
 			if (label.empty()) {
@@ -582,7 +582,7 @@ private:
 		// ── Seek bar ──────────────────────────────────────────────────────────
 
 		eSeekSlider =
-			ui.Slider("seekSlider", 0.f, 1.f, 0.f, Orientation::Horizontal)
+			ui.Slider<float>("seekSlider", 0.f, 1.f, 0.f, 0.f, Orientation::Horizontal)
 				.GrowW(100.f)
 				.H(kSeekH)
 				.BgColor({30,30,46,255})
@@ -634,7 +634,7 @@ private:
 			  .OnClick([this]{ player.ToggleMute(); _RefreshMuteBtn(); });
 
 		eVolumeSlider =
-			ui.Slider("volSlider", 0.f, 1.f, 1.f, Orientation::Horizontal)
+			ui.Slider<float>("volSlider", 0.f, 1.f, 1.f, 0.1f, Orientation::Horizontal)
 				.W(90.f).H(20.f)
 				.WithStyle([](Style& s){
 					s.bgColor = {30,30,46,255};
@@ -1279,8 +1279,8 @@ private:
 				.AlignV(Align::Center);
 
 		eSubBgAlphaSlider =
-			ui.Slider("subBgAlpha", 0.f, 1.f,
-				subtitleCfg.bgColor.a / 255.f, Orientation::Horizontal)
+			ui.Slider<float>("subBgAlpha", 0.f, 1.f,
+				subtitleCfg.bgColor.a / 255.f, 1 / 255.f, Orientation::Horizontal)
 				.GrowW(100.f).H(20.f)
 				.WithStyle([](Style& s) {
 					s.trackColor = {40,40,58,255};
@@ -1408,34 +1408,34 @@ private:
 		// Reorderable list
 		ePlaylistList =
 			ui.ListBoxWidget("playlistList", {})
-			  .Grow(100.f)
-			  .BgColor({18, 18, 30, 255})
-			  .TextColor({200, 202, 220, 255})
-			  .Font(res_key::FONT, 12.f)
-			  .Reorderable(true)
-			  .OnReorder([this](int from, int to) {
-					// Sync m_playlist to match list reorder
-					auto item = m_playlist[(size_t)from];
-					m_playlist.erase(m_playlist.begin() + from);
-					m_playlist.insert(m_playlist.begin() + to, item);
-					// Update playing index
-					if (m_playlistIdx == from)
-						m_playlistIdx = to;
-					else if (from < m_playlistIdx && to >= m_playlistIdx)
-						--m_playlistIdx;
-					else if (from > m_playlistIdx && to <= m_playlistIdx)
-						++m_playlistIdx;
-			  })
-			  .OnChange<float>([this](float idx) {
-					if ((int)idx == m_playlistIdx) return;
-			  });
+				.Grow(100.f)
+				.BgColor({18, 18, 30, 255})
+				.TextColor({200, 202, 220, 255})
+				.Font(res_key::FONT, 12.f)
+				.Reorderable(true)
+				.OnReorder([this](int from, int to) {
+						// Sync m_playlist to match list reorder
+						auto item = m_playlist[(size_t)from];
+						m_playlist.erase(m_playlist.begin() + from);
+						m_playlist.insert(m_playlist.begin() + to, item);
+						// Update playing index
+						if (m_playlistIdx == from)
+							m_playlistIdx = to;
+						else if (from < m_playlistIdx && to >= m_playlistIdx)
+							--m_playlistIdx;
+						else if (from > m_playlistIdx && to <= m_playlistIdx)
+							++m_playlistIdx;
+				})
+				.OnChange<int>([this](int idx) {
+						if ((int)idx == m_playlistIdx) return;
+				});
 
 		// Toolbar buttons
 		auto btnAdd =
 			ui.Button("plBtnAdd", "+ Ajouter")
 			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
 			  .BgColor(pal::NEUTRAL).BgHoveredColor({45,45,65,255})
-			  .BdColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .BdColor(pal::BORDER).Borders(SDL::FBox(1.f))
 			  .Radius(SDL::FCorners(4.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Ajouter un fichier média")
@@ -1445,7 +1445,7 @@ private:
 			ui.Button("plBtnRemove", "- Supprimer")
 			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
 			  .BgColor(pal::NEUTRAL).BgHoveredColor({65,25,25,255})
-			  .BdColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .BdColor(pal::BORDER).Borders(SDL::FBox(1.f))
 			  .Radius(SDL::FCorners(4.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Supprimer l\'élément sélectionné")
@@ -1463,7 +1463,7 @@ private:
 			ui.Button("plBtnClear", "Vider")
 			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
 			  .BgColor(pal::NEUTRAL).BgHoveredColor({65,25,25,255})
-			  .BdColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .BdColor(pal::BORDER).Borders(SDL::FBox(1.f))
 			  .Radius(SDL::FCorners(4.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Vider la playlist")
@@ -1477,7 +1477,7 @@ private:
 			ui.Button("plBtnPlay", "▶ Lire")
 			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
 			  .BgColor(pal::ACCENT).BgHoveredColor({90,150,230,255})
-			  .BdColor(pal::BORDER).BorderLeft(1).BorderRight(1).BorderTop(1).BorderBottom(1)
+			  .BdColor(pal::BORDER).Borders(SDL::FBox(1.f))
 			  .Radius(SDL::FCorners(4.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Lire l\'élément sélectionné")

@@ -106,10 +106,10 @@ private:
 							m_hasSave ? SDL::Color{50,55,75,255} : SDL::Color{25,28,38,255},
 							m_hasSave ? SDL::Color{20,25,40,255} : SDL::Color{25,28,38,255},
 							[this]{ if (m_hasSave) _StartGame(true); })
-						.Enable(m_hasSave);
+						.SetEnable(m_hasSave);
 		auto bOpts = mkBtn("bOpts", "Options",
 							{35,40,55,255}, {50,55,75,255}, {20,25,40,255}, []{})
-						.Enable(false);
+						.SetEnable(false);
 		auto bQuit = mkBtn("bQuit", "Quitter",
 							kDanger, {175,50,45,255}, {100,25,25,255},
 							[this]{ m_ctx->quit(); });

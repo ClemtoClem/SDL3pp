@@ -71,6 +71,44 @@ namespace SDL::UI {
 
 	class System {
 	public:
+	    struct ResolvedFont {
+			std::string key;
+			float size   = 0.f;
+			bool isDebug = false;
+		};
+
+	private:
+		ECS::Context&  m_ctx;
+		RendererRef    m_renderer;
+		MixerRef       m_mixer;
+		ResourcePool&  m_pool;
+
+		// Owned sub-systems (stored as unique_ptr to keep this header lightweight —
+		// callers don't need to see their full definitions to instantiate System).
+		std::unique_ptr<UIFactory>       m_factory;
+		std::unique_ptr<UILayoutSystem>  m_layout;
+		std::unique_ptr<UIEventSystem>   m_events;
+		std::unique_ptr<UIRenderSystem>  m_render;
+
+		ECS::EntityId  m_root = ECS::NullEntity;
+
+		std::string m_defaultFontPath;
+		float       m_defaultFontSize = 14.f;
+		std::optional<SDL::RendererTextEngine> m_engine;
+		bool        m_usedDebugFontPerDefault = false;
+		
+		// ── Texture ──────────────────────────────────────────────────────────────────
+		SDL::TextureRef _EnsureTexture(const std::string &key, const std::string &path = "");
+		// ── Font ──────────────────────────────────────────────────────────────────────
+		SDL::RendererTextEngine *_EnsureEngine();
+		SDL::FontRef _EnsureFont(const std::string &key, float ptsize, const std::string& path = "");
+		SDL::TextRef _EnsureText(ECS::EntityId e, SDL::FontRef font, const std::string& text);
+		ResolvedFont _ResolveFont(ECS::EntityId e);
+		// ── Audio ─────────────────────────────────────────────────────────────────────
+		SDL::AudioRef _EnsureAudio(const std::string& key, const std::string& path = "");
+		void _PlayAudio(SDL::AudioRef audio);
+
+	public:
 		// ── Construction ─────────────────────────────────────────────────────
 		System(ECS::Context& ctx, RendererRef r, MixerRef m, ResourcePool& pool);
 		~System();
@@ -87,6 +125,7 @@ namespace SDL::UI {
 		[[nodiscard]] ResourcePool& GetPool() noexcept { return m_pool; }
 		[[nodiscard]] RendererRef   GetRenderer() noexcept { return m_renderer; }
 		[[nodiscard]] MixerRef      GetMixer()    noexcept { return m_mixer; }
+		[[nodiscard]] UIFactory&    GetFactory() noexcept { return *m_factory; }
 
 		// ── Default font ─────────────────────────────────────────────────────
 		void                              SetDefaultFont(std::string_view path, float ptsize);
@@ -115,8 +154,9 @@ namespace SDL::UI {
 		                         Orientation o = Orientation::Horizontal);
 
 		ECS::EntityId MakeScrollBar (std::string_view n, float contentSize = 0.f, float viewSize = 0.f,
-		                             Orientation o = Orientation::Vertical);
-		ECS::EntityId MakeProgress  (std::string_view n, float v = 0.f, float mx = 1.f);
+		                             float thickness = 10.f, Orientation o = Orientation::Vertical);
+		ECS::EntityId MakeProgressBase(std::string_view n, NumericValue v, float thickness, Orientation o);
+		ECS::EntityId MakeProgress    (std::string_view n, float v = 0.f, float mx = 1.f);
 		ECS::EntityId MakeSeparator (std::string_view n = "sep");
 		ECS::EntityId MakeInput     (std::string_view n, std::string_view placeholder = "");
 
@@ -215,9 +255,9 @@ namespace SDL::UI {
 		// ──────────────────────────────────────────────────────────────────────
 		// Component accessors
 		// ──────────────────────────────────────────────────────────────────────
-		Style&        GetStyle  (ECS::EntityId e);
-		LayoutProps&  GetLayout (ECS::EntityId e);
-		TextEdit&     GetContent(ECS::EntityId e);
+		[[nodiscard]] Style&        GetStyle  (ECS::EntityId e);
+		[[nodiscard]] LayoutProps&  GetLayout (ECS::EntityId e);
+		[[nodiscard]] TextEdit&     GetContent(ECS::EntityId e);
 
 		// Optional component lookups (return nullptr if absent).
 		[[nodiscard]] MenuBarData*     GetMenuBarData    (ECS::EntityId e);
@@ -227,7 +267,7 @@ namespace SDL::UI {
 		[[nodiscard]] ListBoxData*     GetListBoxData    (ECS::EntityId e);
 		[[nodiscard]] GraphData*       GetGraphData      (ECS::EntityId e);
 		[[nodiscard]] TextAreaData*    GetTextAreaData   (ECS::EntityId e);
-		[[nodiscard]] TilesetStyle*    GetTilesetStyle   (ECS::EntityId e);
+		[[nodiscard]] TilesetData*     GetTilesetStyle   (ECS::EntityId e);
 
 		IconData&     GetOrAddIconData(ECS::EntityId e);
 
@@ -240,9 +280,13 @@ namespace SDL::UI {
 
 		template <typename T = float>
 		void SetValue          (ECS::EntityId e, T v);
+		template <typename T = float>
+		void SetMinValue       (ECS::EntityId e, T v);
+		template <typename T = float>
+		void SetMaxValue       (ECS::EntityId e, T v);
 
 		void SetChecked        (ECS::EntityId e, bool b);
-		void SetEnabled        (ECS::EntityId e, bool b);
+		void SetEnable         (ECS::EntityId e, bool b);
 		void SetVisible        (ECS::EntityId e, bool b);
 		void SetHoverable      (ECS::EntityId e, bool b);
 		void SetSelectable     (ECS::EntityId e, bool b);
@@ -310,8 +354,8 @@ namespace SDL::UI {
 		// ── Backgrounds & skins ──────────────────────────────────────────────
 		void SetBgGradient    (ECS::EntityId e, BgGradient grad);
 		void RemoveBgGradient (ECS::EntityId e);
-		void SetTilesetStyle  (ECS::EntityId e, TilesetStyle ts);
-		void RemoveTilesetStyle(ECS::EntityId e);
+		void SetTileset  (ECS::EntityId e, TilesetData ts);
+		void RemoveTileset(ECS::EntityId e);
 
 		// ── Image ────────────────────────────────────────────────────────────
 		void SetImageKey(ECS::EntityId e, std::string_view key, ImageFit fit = ImageFit::Contain);
@@ -403,46 +447,9 @@ namespace SDL::UI {
 		// ──────────────────────────────────────────────────────────────────────
 		// Resource accessors (public for sub-systems)
 		// ──────────────────────────────────────────────────────────────────────
-		struct ResolvedFont {
-			std::string key;
-			float size   = 0.f;
-			bool isDebug = false;
-		};
-
 		[[nodiscard]] SDL::TextRef  EnsureText(ECS::EntityId e, SDL::FontRef font, const std::string& text);
 		[[nodiscard]] SDL::FontRef  EnsureFont(const std::string& key, float ptsize, const std::string& path = "");
 		[[nodiscard]] ResolvedFont  ResolveFont(ECS::EntityId e);
-
-	private:
-		ECS::Context&  m_ctx;
-		RendererRef    m_renderer;
-		MixerRef       m_mixer;
-		ResourcePool&  m_pool;
-
-		// Owned sub-systems (stored as unique_ptr to keep this header lightweight —
-		// callers don't need to see their full definitions to instantiate System).
-		std::unique_ptr<UIFactory>       m_factory;
-		std::unique_ptr<UILayoutSystem>  m_layout;
-		std::unique_ptr<UIEventSystem>   m_events;
-		std::unique_ptr<UIRenderSystem>  m_render;
-
-		ECS::EntityId  m_root = ECS::NullEntity;
-
-		std::string m_defaultFontPath;
-		float       m_defaultFontSize = 14.f;
-		std::optional<SDL::RendererTextEngine> m_engine;
-		bool        m_usedDebugFontPerDefault = false;
-
-		// ── Texture ──────────────────────────────────────────────────────────────────
-		SDL::TextureRef _EnsureTexture(const std::string &key, const std::string &path = "");
-		// ── Font ──────────────────────────────────────────────────────────────────────
-		SDL::RendererTextEngine *_EnsureEngine();
-		SDL::FontRef _EnsureFont(const std::string &key, float ptsize, const std::string& path = "");
-		SDL::TextRef _EnsureText(ECS::EntityId e, SDL::FontRef font, const std::string& text);
-		ResolvedFont _ResolveFont(ECS::EntityId e);
-		// ── Audio ─────────────────────────────────────────────────────────────────────
-		SDL::AudioRef _EnsureAudio(const std::string& key, const std::string& path = "");
-		void _PlayAudio(SDL::AudioRef audio);
 	};
 
 	// ==================================================================================
@@ -548,8 +555,8 @@ namespace SDL::UI {
 		return m_factory->MakeInputFiltered(n, type, placeholder);
 	}
 
-	inline ECS::EntityId System::MakeScrollBar(std::string_view n, float contentSize, float viewSize, Orientation o) {
-		return m_factory->MakeScrollBar(n, contentSize, viewSize, o);
+	inline ECS::EntityId System::MakeScrollBar(std::string_view n, float contentSize, float viewSize, float thickness, Orientation o) {
+		return m_factory->MakeScrollBar(n, contentSize, viewSize, thickness, o);
 	}
 
 	inline ECS::EntityId System::MakeImage(std::string_view n, std::string_view key, ImageFit fit) {
@@ -599,8 +606,16 @@ namespace SDL::UI {
 		return m_factory->MakeBadge(n, text);
 	}
 
+	inline ECS::EntityId System::MakeProgressBase(std::string_view n, NumericValue v, float thickness, Orientation o) {
+		return m_factory->MakeProgressBase(n, std::move(v), thickness, o);
+	}
+
 	inline ECS::EntityId System::MakeProgress(std::string_view n, float v, float mx) {
-		return m_factory->MakeProgress(n, v, mx);
+		return MakeProgressBase(n, NumericValue{typeid(float), 0.0, static_cast<double>(mx), static_cast<double>(v), 1.0}, 4.f, Orientation::Horizontal);
+	}
+
+	inline ECS::EntityId System::MakeKnob(std::string_view n, float mn, float mx, float v, KnobShape shape) {
+		return m_factory->MakeKnob(n, mn, mx, v, shape);
 	}
 
 	inline ECS::EntityId System::MakeColorPicker(std::string_view n, ColorPickerPalette palette, float step) {
@@ -666,8 +681,8 @@ namespace SDL::UI {
 		return m_ctx.Get<TextAreaData>(e);
 	}
 
-	inline TilesetStyle* System::GetTilesetStyle(ECS::EntityId e) {
-		return m_ctx.Get<TilesetStyle>(e);
+	inline TilesetData* System::GetTilesetStyle(ECS::EntityId e) {
+		return m_ctx.Get<TilesetData>(e);
 	}
 
 	inline IconData& System::GetOrAddIconData(ECS::EntityId e) {
@@ -683,12 +698,27 @@ namespace SDL::UI {
 		}
 	}
 
+	template <typename T>
+	inline void SetValue (ECS::EntityId e, T v) {
+		if (auto *nv = m_ctx.Get<NumericValue>(e)) nv->val = (double)v;
+	}
+	
+	template <typename T>
+	inline void SetMinValue (ECS::EntityId e, T v) {
+		if (auto *nv = m_ctx.Get<NumericValue>(e)) nv->min = (double)v;
+	}
+	
+	template <typename T>
+	inline void SetMaxValue (ECS::EntityId e, T v) {
+		if (auto *nv = m_ctx.Get<NumericValue>(e)) nv->max = (double)v;
+	}
+
 	inline void System::SetChecked(ECS::EntityId e, bool b) {
 		if (auto *tog = m_ctx.Get<ToggleData>(e)) tog->checked = b;
 		if (auto *rad = m_ctx.Get<RadioData>(e)) rad->checked = b;
 	}
 
-	inline void System::SetEnabled(ECS::EntityId e, bool b) {
+	inline void System::SetEnable(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= BehaviorFlag::Enable;
 			else w->behavior &= ~BehaviorFlag::Enable;
@@ -804,7 +834,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void System::SetListBoxOnReorder(ECS::EntityId e, std::function<void(int, int)> cb) {
+	inline void System::SetListBoxOnReorder(ECS::EntityId e, [[maybe_unused]] std::function<void(int, int)> cb) {
 		if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
 			lb->dragActive = false;  // Reset drag state on callback assignment
 		}
@@ -891,7 +921,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void System::AddPopupHeaderButton(ECS::EntityId e, std::string_view iconKey, std::function<void()> cb) {
+	inline void System::AddPopupHeaderButton([[maybe_unused]] ECS::EntityId e, [[maybe_unused]] std::string_view iconKey, [[maybe_unused]] std::function<void()> cb) {
 		// TODO: Implement
 	}
 
@@ -926,22 +956,27 @@ namespace SDL::UI {
 		m_ctx.Remove<BgGradient>(e);
 	}
 
-	inline void System::SetTilesetStyle(ECS::EntityId e, TilesetStyle ts) {
-		if (auto *tss = m_ctx.Get<TilesetStyle>(e)) {
+	inline void System::SetTileset(ECS::EntityId e, std::string_view key, TilesetData ts) {
+		if (auto *tss = m_ctx.Get<TilesetData>(e)) {
 			*tss = ts;
 		} else {
-			m_ctx.Add<TilesetStyle>(e, ts);
+			m_ctx.Add<TilesetData>(e, ts);
 		}
 	}
 
-	inline void System::RemoveTilesetStyle(ECS::EntityId e) {
-		m_ctx.Remove<TilesetStyle>(e);
+	inline void System::RemoveTileset(ECS::EntityId e) {
+		m_ctx.Remove<TilesetData>(e);
 	}
 
 	inline void System::SetImageKey(ECS::EntityId e, std::string_view key, ImageFit fit) {
 		if (auto *id = m_ctx.Get<ImageData>(e)) {
 			id->key = std::string(key);
 			id->fit = fit;
+		} else {
+			ImageData img;
+			img.key = std::string(key);
+			img.fit = fit;
+			m_ctx.Add<ImageData>(e, img);
 		}
 	}
 
@@ -1005,7 +1040,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void System::SetTextAreaHighlightColor(ECS::EntityId e, SDL::Color c) {
+	inline void System::SetTextAreaHighlightColor([[maybe_unused]] ECS::EntityId e, [[maybe_unused]] SDL::Color c) {
 		// TODO: Implement
 	}
 
@@ -1447,7 +1482,7 @@ namespace SDL::UI {
 
 	template <typename T>
 	inline ECS::EntityId System::MakeSlider(std::string_view n, T mn, T mx, T v, T step, Orientation o) {
-		ECS::EntityId e = m_factory->MakeSlider(n, mn, mx, v, step, o);
+		ECS::EntityId e = m_factory->MakeSlider(n, mn, mx, v, step, 0.f, o);
 		return e;
 	}
 
@@ -1546,43 +1581,65 @@ namespace SDL::UI {
 	}
 
 	inline ContainerBuilder System::Column(std::string_view n, float gap, float pad, float marg) {
-		return ContainerBuilder{*this, MakeContainer(n)};
+		ECS::EntityId e = MakeContainer(n);
+		GetLayout(e).gap = gap;
+		GetLayout(e).padding = SDL::FBox(pad);
+		GetLayout(e).margin = SDL::FBox(marg);
+		return ContainerBuilder{*this, e};
 	}
 
 	inline ContainerBuilder System::Row(std::string_view n, float gap, float pad, float marg) {
-		return ContainerBuilder{*this, MakeContainer(n)};
+		ECS::EntityId e = MakeContainer(n);
+		GetLayout(e).gap = gap;
+		GetLayout(e).padding = SDL::FBox(pad);
+		GetLayout(e).margin = SDL::FBox(marg);
+		return ContainerBuilder{*this, e};
 	}
 
 	inline ContainerBuilder System::Card(std::string_view n, float gap, float marg) {
-		return ContainerBuilder{*this, MakeContainer(n)};
+		ECS::EntityId e = MakeContainer(n);
+		GetLayout(e).gap = gap;
+		GetLayout(e).margin = SDL::FBox(marg);
+		return ContainerBuilder{*this, e};
 	}
 
 	inline ContainerBuilder System::Stack(std::string_view n, float gap, float pad, float marg) {
-		return ContainerBuilder{*this, MakeContainer(n)};
+		ECS::EntityId e = MakeContainer(n);
+		GetLayout(e).gap = gap;
+		GetLayout(e).padding = SDL::FBox(pad);
+		GetLayout(e).margin = SDL::FBox(marg);
+		return ContainerBuilder{*this, e};
 	}
 
 	inline ContainerBuilder System::ScrollView(std::string_view n, float gap) {
-		return ContainerBuilder{*this, MakeContainer(n)};
+		auto b = Column(n, gap, 0.f);
+		b.SetAutoScrollable(false, true).Padding(0);
+		return b;
 	}
 
-	inline ContainerBuilder System::Grid(std::string_view n, int columns, float gap, float pad) {
-		return ContainerBuilder{*this, MakeContainer(n)};
+	inline ContainerBuilder System::Grid(std::string_view n, [[maybe_unused]] int columns, float gap, float pad) {
+		ECS::EntityId e = MakeContainer(n);
+		GetLayout(e).gap = gap;
+		GetLayout(e).padding = SDL::FBox(pad);
+		return ContainerBuilder{*this, e};
 	}
 
 	inline Builder System::SectionTitle(std::string_view text, SDL::Color color) {
-		return Builder{*this, MakeLabel("section", text)};
+		ECS::EntityId e = MakeLabel("section", text);
+		GetStyle(e).textColor = color;
+		return Builder{*this, e};
 	}
 
 	template <typename T>
 	inline SliderBuilder System::Slider(std::string_view n, T mn, T mx, T v, Orientation o) {
 		ECS::EntityId e = MakeSlider(n, mn, mx, v, T(0), o);
-		return SliderBuilder{e, this};
+		return SliderBuilder{*this, e};
 	}
 
 	template <typename T>
 	inline InputBuilder System::InputValue(std::string_view n, T minValue, T maxValue, T value, T step) {
 		ECS::EntityId e = MakeInputValue(n, minValue, maxValue, value, step);
-		return InputBuilder{e, this};
+		return InputBuilder{*this, e};
 	}
 
 	inline Builder System::GetBuilder(ECS::EntityId e) {

@@ -140,7 +140,7 @@ struct Main {
 	SDL::ECS::EntityId lblCombo     = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId lblSpin      = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId lblColor     = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId spinnerWidget= SDL::ECS::NullEntity;
+	SDL::ECS::EntityId inputnerWidget= SDL::ECS::NullEntity;
 	SDL::ECS::EntityId badgeWidget  = SDL::ECS::NullEntity;
 	int  m_badgeCount = 0;
 
@@ -343,28 +343,28 @@ struct Main {
 		return content;
 	}
 
-	SDL::UI::Builder _Page(const std::string& n) {
+	SDL::UI::Builder _Page(std::string_view n) {
 		return ui.Column(n, 12.f, 0.f)
 			.Style(SDL::UI::Theme::Transparent())
 			.H(SDL::UI::Value::Grow(100.f))
 			.BgColor(pal::BG)
-			.AutoScrollable(true)
+			.AutoScrollable()
 			.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); });
 	}
 
 	// ── 2-column row helper ───────────────────────────────────────────────────────
 
-	SDL::UI::Builder _TwoColRow(const std::string& n) {
+	SDL::UI::Builder _TwoColRow(std::string_view n) {
 		return ui.Row(n, 12.f, 0.f)
 			.H(SDL::UI::Value::Grow(100.f)).Style(SDL::UI::Theme::Transparent())
 			.AlignH(SDL::UI::Align::Left);
 	}
-	SDL::UI::Builder _LeftCol(const std::string& n) {
+	SDL::UI::Builder _LeftCol(std::string_view n) {
 		return ui.Column(n, 12.f, 0.f)
 			.W(SDL::UI::Value::Pcw(50.f) - 6.f)
 			.Style(SDL::UI::Theme::Transparent());
 	}
-	SDL::UI::Builder _RightCol(const std::string& n) {
+	SDL::UI::Builder _RightCol(std::string_view n) {
 		return ui.Column(n, 12.f, 0.f)
 			.W(SDL::UI::Value::Pcw(50.f) - 6.f)
 			.Style(SDL::UI::Theme::Transparent());
@@ -387,7 +387,7 @@ struct Main {
 			ui.Label("l_orange", "Warning (orange)" ).TextColor(pal::ORANGE),
 			ui.Label("l_red",    "Error (red)"      ).TextColor(pal::RED),
 			ui.Label("l_teal",   "Info (teal)"      ).TextColor(pal::TEAL),
-			ui.Label("l_dis",    "Disabled label"   ).Enable(false)
+			ui.Label("l_dis",    "Disabled label"   ).Disable()
 		);
 
 		// ── Buttons ───────────────────────────────────────────────────────────────
@@ -426,7 +426,7 @@ struct Main {
 				.ClickSound(key::CLICK),
 			ui.Button("b_dis", "Disabled").W(100).H(34)
 				.Style(SDL::UI::Theme::PrimaryButton({80,80,90,255}))
-				.Enable(false).Tooltip("Disabled — cannot click")
+				.Disable().Tooltip("Disabled — cannot click")
 		);
 		cardBtn.Children(ui.SectionTitle("Buttons"), btnRow, btnRow2, lblClick);
 
@@ -436,14 +436,14 @@ struct Main {
 			.Tooltip("Toggle feature A on/off");
 		tog2 = ui.Toggle("tog_b", "Enable feature B")
 			.Tooltip("Toggle feature B on/off");
-		tog3 = ui.Toggle("tog_c", "Feature C (starts ON)").Check(true)
+		tog3 = ui.Toggle("tog_c", "Feature C (starts ON)").Checked()
 			.Tooltip("Toggle feature C — starts enabled");
 		lblTogStatus = ui.Label("lbl_tog", "Toggles: A=off B=off C=ON")
 			.TextColor(pal::GREY);
 		cardTog.Children(
 			ui.SectionTitle("Toggle switches"),
 			tog1, tog2, tog3,
-			ui.Toggle("tog_dis", "Disabled toggle").Enable(false),
+			ui.Toggle("tog_dis", "Disabled toggle").Disable(),
 			lblTogStatus
 		);
 
@@ -496,7 +496,7 @@ struct Main {
 		{
 			auto vLbl = ui.Label(std::string(id) + "_v", std::format("{:.2f}", v))
 				.W(50).TextColor(pal::GREY);
-			auto sld = ui.Slider(id, mn, mx, v).W(SDL::UI::Value::Grow(100.f)).FillColor(fill)
+			auto sld = ui.Slider<float>(id, mn, mx, v, .01f).W(SDL::UI::Value::Grow(100.f)).FillColor(fill)
 				.Tooltip(tip)
 				.OnChange<float>([this, vLbl](float val){
 					ui.SetText(vLbl, std::format("{:.2f}", val)); });
@@ -517,7 +517,9 @@ struct Main {
 				.Style(SDL::UI::Theme::Transparent()).AlignH(SDL::UI::Align::Center)
 				.Children(
 					ui.Label("sld_dis_lbl","Disabled").W(110),
-					ui.Slider("sld_dis", 0.f, 1.f, .3f).W(SDL::UI::Value::Grow(100.f)).Enable(false)
+					ui.Slider<float>("sld_dis", 0.f, 1.f, .3f, 0.1f)
+						.W(SDL::UI::Value::Grow(100.f))
+						.Disable()
 						.Tooltip("Disabled slider — read-only"))
 		);
 
@@ -528,7 +530,7 @@ struct Main {
 		lblKnob2 = ui.Label("lbl_k2", "Knob 2: 50.0").TextColor(pal::GREY);
 		lblKnob3 = ui.Label("lbl_k3", "Knob 3: 50.0").TextColor(pal::GREY);
 
-		auto sldV = ui.Slider("sld_v", 0.f, 1.f, .5f, SDL::UI::Orientation::Vertical)
+		auto sldV = ui.Slider<float>("sld_v", 0.f, 1.f, .5f, 0.1f, SDL::UI::Orientation::Vertical)
 			.H(120).W(24).AlignH(SDL::UI::Align::Center).FillColor(pal::ACCENT)
 			.Tooltip("Vertical slider [0–1]");
 
@@ -539,7 +541,7 @@ struct Main {
 				ui.Column("k1_col", 4.f, 0.f)
 					.AlignH(SDL::UI::Align::Center)
 					.Children(
-						ui.Knob("knob1", 0, 1, .5f)
+						ui.Knob<float>("knob1", 0.f, 1.f, .5f, .1f)
 							.W(64).H(64)
 							.FillColor(pal::ACCENT).ThumbColor(pal::ACCENT)
 							.Tooltip("Knob 1 — drag or scroll [0–1]")
@@ -549,7 +551,7 @@ struct Main {
 				ui.Column("k2_col", 4.f, 0.f)
 					.AlignH(SDL::UI::Align::Center)
 					.Children(
-						ui.Knob("knob2", 0, 100, 50.f)
+						ui.Knob<float>("knob2", 0.f, 100.f, 50.f, 1.f)
 							.W(64).H(64)
 							.FillColor(pal::PURPLE).ThumbColor(pal::PURPLE)
 							.Tooltip("Knob 2 — drag or scroll [0–100]")
@@ -559,7 +561,7 @@ struct Main {
 				ui.Column("k3_col", 4.f, 0.f)
 					.AlignH(SDL::UI::Align::Center)
 					.Children(
-						ui.Knob("knob3", 0, 100, 50.f, SDL::UI::KnobShape::Potentiometer)
+						ui.Knob<float>("knob3", 0, 100, 50.f, 1.f, SDL::UI::KnobShape::Potentiometer)
 							.W(64).H(64)
 							.FillColor(pal::GREEN).ThumbColor(pal::GREEN)
 							.Tooltip("Knob 3 — drag or scroll [0–100]")
@@ -569,9 +571,9 @@ struct Main {
 				ui.Column("k_dis_col", 4.f, 0.f)
 					.AlignH(SDL::UI::Align::Center)
 					.Children(
-						ui.Knob("knob_dis", 0, 1, .3f, SDL::UI::KnobShape::Potentiometer)
+						ui.Knob<float>("knob_dis", 0, 1, .3f, 0.1f, SDL::UI::KnobShape::Potentiometer)
 							.W(64).H(64)
-							.Enable(false)
+							.Disable()
 							.Tooltip("Disabled knob"),
 						ui.Label("lbl_kdis","Disabled").TextColor(pal::GREY)
 					)
@@ -600,7 +602,7 @@ struct Main {
 			m_animRunning = !m_animRunning;
 			ui.SetText(btnPause, m_animRunning ? "Pause" : "Resume");
 		});
-		auto sldSpd = ui.Slider("sld_aspd", 0.05f, 2.f, m_animSpeed).W(SDL::UI::Value::Grow(100.f))
+		auto sldSpd = ui.Slider<float>("sld_aspd", 0.05f, 2.f, m_animSpeed, 0.05f).W(SDL::UI::Value::Grow(100.f))
 			.Tooltip("Animation speed")
 			.OnChange<float>([this](float v){ m_animSpeed = v; });
 
@@ -643,7 +645,7 @@ struct Main {
 			ui.Input("inp_city",  "City name…")   .Tooltip("City input"),
 			ui.Input("inp_email", "user@example.com").Tooltip("Email address"),
 			ui.Input("inp_pre",   "").SetText("Pre-filled content").Tooltip("Pre-filled field"),
-			ui.Input("inp_dis",   "Cannot edit…").Enable(false)
+			ui.Input("inp_dis",   "Cannot edit…").Disable()
 				.Tooltip("Disabled — read-only"),
 			ui.Label("inp_hint",
 				"← → move  Backspace/Del delete  Ctrl+A select all  Esc unfocus")
@@ -679,7 +681,7 @@ struct Main {
 		auto cardSV = ui.Card("card_sv");
 		cardSV.Child(ui.SectionTitle("Scrollable container (mouse wheel / drag)"));
 		auto svBuilder = ui.ScrollView("sv", 6.f)
-			.H(180).AutoScrollable(true, true).Padding(4);
+			.H(180).AutoScrollable().Padding(4);
 		scrollContent = svBuilder.Id();
 		static const char* kColors[] = {
 			"Alice Blue","Aquamarine","Chartreuse","Coral","Crimson",
@@ -847,7 +849,7 @@ struct Main {
 
 		auto ta = ui.TextArea("ta_main", initialText)
 			.H(SDL::UI::Value::Grow(100.f))
-			.AutoScrollable(true, true)
+			.AutoScrollable()
 			.Tooltip("Multi-line rich text editor — click, type, select, copy/paste")
 			.OnTextChange([this](const std::string& t){
 				ui.SetText(lblTaLen, std::format("Characters: {}", (int)t.size()));
@@ -1125,7 +1127,7 @@ struct Main {
 
 		// ── ComboBox + InputValue ─────────────────────────────────────────────────────
 		{
-			auto card = ui.Card("card_combo_spin");
+			auto card = ui.Card("card_combo_input");
 			card.Child(ui.SectionTitle("ComboBox & InputValue"));
 
 			lblCombo = ui.Label("lbl_combo_val", "Selected: (none)")
@@ -1140,17 +1142,17 @@ struct Main {
 					ui.SetText(lblCombo, std::string("Selected: ") + items[(int)idx]);
 				});
 
-			lblSpin = ui.Label("lbl_spin_val", "Value: 0")
+			lblSpin = ui.Label("lbl_input_val", "Value: 0")
 				.TextColor(pal::GREY);
-			auto spin = ui.InputValue<int>("spin1", 0, 100, 42, 1)
+			auto input = ui.InputValue<int>("input1", 0, 100, 42, 1)
 				.W(Value::Pcw(100)).H(32.f)
 				.Tooltip("Drag up/down to change value, or click +/– buttons")
 				.OnChange<int>([this](int v){
 					ui.SetText(lblSpin, std::format("Value: {}", v));
 				});
-			auto spinFloat = ui.InputValue<float>("spin_float", 0.f, 1.f, 0.5f, 0.5f)
-				.InputDecimals(3).W(Value::Pcw(100)).H(32.f)
-				.Tooltip("Float spin box — drag or +/– buttons")
+			auto inputFloat = ui.InputValue<float>("input_float", 0.f, 1.f, 0.5f, 0.1f)
+				.ValueDecimals(3).W(Value::Pcw(100)).H(32.f)
+				.Tooltip("Float input box — drag or +/– buttons")
 				.OnChange<float>([this](float v){
 					ui.SetText(lblSpin, std::format("Value: {}", v));
 				});
@@ -1158,18 +1160,18 @@ struct Main {
 			card.Children(
 				combo, lblCombo,
 				ui.Separator("sep_cs"),
-				spin, lblSpin,
-				spinFloat
+				input, lblSpin,
+				inputFloat
 			);
 			page.Child(card);
 		}
 
 		// ── Spinner + Badge ───────────────────────────────────────────────────────
 		{
-			auto card = ui.Card("card_spin_badge");
+			auto card = ui.Card("card_input_badge");
 			card.Child(ui.SectionTitle("Spinner (animated) & Badge"));
 
-			spinnerWidget = ui.Spinner("sp1", 4.f)
+			inputnerWidget = ui.Spinner("sp1", 4.f)
 				.W(48.f).H(48.f)
 				.Tooltip("Animated loading indicator (auto-rotates each frame)");
 
@@ -1181,18 +1183,18 @@ struct Main {
 				.W(Value::Pcw(100)).H(32.f)
 				.OnClick([this]{
 					++m_badgeCount;
-					ui.GetECSContext().Get<SDL::UI::BadgeData>(badgeWidget)->text =
+					ui.GetCtx().Get<SDL::UI::BadgeData>(badgeWidget)->text =
 						std::to_string(m_badgeCount);
 				});
 			auto btnReset = ui.Button("btn_badge_reset", "Reset badge")
 				.W(Value::Pcw(100)).H(32.f)
 				.OnClick([this]{
 					m_badgeCount = 0;
-					ui.GetECSContext().Get<SDL::UI::BadgeData>(badgeWidget)->text = "0";
+					ui.GetCtx().Get<SDL::UI::BadgeData>(badgeWidget)->text = "0";
 				});
 
 			card.Children(
-				ui.Row("spin_row", 8.f, 0.f).H(60.f).Children(spinnerWidget, badgeWidget),
+				ui.Row("input_row", 8.f, 0.f).H(60.f).Children(inputnerWidget, badgeWidget),
 				btnInc, btnReset
 			);
 			page.Child(card);
@@ -1256,7 +1258,8 @@ struct Main {
 			// Child 2 — Settings tab
 			auto tab2 = ui.Column("tv1_t2", 6.f, 8.f)
 				.Children(
-					ui.Slider("tv1_slider", 0.f, 1.f, 0.5f).W(Value::Pcw(100)),
+					ui.Slider<float>("tv1_slider", 0.f, 1.f, 0.5f, 0.01f)
+					.W(Value::Pcw(100)),
 					ui.Toggle("tv1_tog", "Enable feature")
 				);
 			tv.Children(tab0, tab1, tab2);
@@ -1466,7 +1469,7 @@ struct Main {
 
 		popup.Children(
 			ui.Label("pop_l1", "Floating popup window").TextColor(pal::WHITE),
-			ui.Slider("pop_sld", 0.f, 1.f, 0.5f)
+			ui.Slider<float>("pop_sld", 0.f, 1.f, 0.5f, 0.01f)
 				.W(Value::Pw(100)).FillColor(pal::ACCENT)
 				.Tooltip("Slider inside the popup"),
 			ui.Toggle("pop_tog", "Enable option")

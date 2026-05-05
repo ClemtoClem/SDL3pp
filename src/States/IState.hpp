@@ -17,7 +17,7 @@ struct IState;
 struct AppContext {
 	SDL::RendererRef     renderer;
 	SDL::ResourcePool*   pool        = nullptr;   // pointer – never null in practice
-	core::ScriptSectionPtr config;
+	core::ScriptObjectPtr config;
 	std::string          assetsBasePath;
 	std::string          savePath;                // full path to the save file
 

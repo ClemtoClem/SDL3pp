@@ -386,8 +386,8 @@ struct Main {
 			.W(SDL::UI::Value::Ww(100.f))
 			.H(SDL::UI::Value::Wh(100.f))
 			.BgColor(pal::BG)
-			.Scrollable(false, false)
-			.AutoScrollable(false, false)
+			.SetScrollable(false, false)
+			.SetAutoScrollable(false, false)
 			.WithStyle([](auto& s){
 				s.borders = SDL::FBox(0.f);
 				s.radius  = SDL::FCorners(0.f);
@@ -464,7 +464,7 @@ struct Main {
 		// ── Gain ──────────────────────────────────────────────────────────────
 		m_lblGain = ui.Label("lbl_gain", std::format("Gain: {:.1f}x", m_gain))
 			.TextColor(pal::WHITE).FontSize(13.f).Id();
-		auto sldGain = ui.Slider("sld_gain", 0.5f, 20.f, m_gain)
+		auto sldGain = ui.Slider<float>("sld_gain", 0.5f, 20.f, m_gain, 0.1f)
 			.H(18.f).FillColor(pal::GREEN)
 			.OnChange<float>([this](float v){
 				m_gain = v;
@@ -477,7 +477,7 @@ struct Main {
 		// ── Freq Min ─────────────────────────────────────────────────────────
 		m_lblFMin = ui.Label("lbl_fmin", std::format("Freq min: {:.0f} Hz", m_freqMin))
 			.TextColor(pal::WHITE).FontSize(13.f).Id();
-		auto sldFMin = ui.Slider("sld_fmin", 0.f, 4000.f, m_freqMin)
+		auto sldFMin = ui.Slider<float>("sld_fmin", 0.f, 4000.f, m_freqMin, 0.1f)
 			.H(18.f).FillColor(pal::ACCENT)
 			.OnChange<float>([this](float v){
 				m_freqMin = v;
@@ -490,7 +490,7 @@ struct Main {
 		// ── Freq Max ─────────────────────────────────────────────────────────
 		m_lblFMax = ui.Label("lbl_fmax", std::format("Freq max: {:.0f} Hz", m_freqMax))
 			.TextColor(pal::WHITE).FontSize(13.f).Id();
-		auto sldFMax = ui.Slider("sld_fmax", 1000.f, 20000.f, m_freqMax)
+		auto sldFMax = ui.Slider<float>("sld_fmax", 1000.f, 20000.f, m_freqMax, 0.1f)
 			.H(18.f).FillColor(pal::ACCENT)
 			.OnChange<float>([this](float v){
 				m_freqMax = v;
@@ -516,9 +516,9 @@ struct Main {
 					.Grow(100.f)
 					.FontSize(12.f)
 					.Radius(SDL::FCorners(3.f))
-					.BgColor (active ? pal::ACCENT  : SDL::Color{28, 32, 48, 255})
-					.BgHoveredColor (active ? pal::ACCENTH : SDL::Color{40, 44, 62, 255})
-					.BgPressedColor (active ? pal::ACCENTP : SDL::Color{20, 24, 36, 255})
+					.BgColor(active ? pal::ACCENT  : SDL::Color{28, 32, 48, 255})
+					.BgHoveredColor(active ? pal::ACCENTH : SDL::Color{40, 44, 62, 255})
+					.BgPressedColor(active ? pal::ACCENTP : SDL::Color{20, 24, 36, 255})
 					.BdColor(pal::BORDER)
 					.TextColor(active ? pal::WHITE : pal::GREY)
 					.OnClick([this, i]{ _SelectSampleSize(i); });

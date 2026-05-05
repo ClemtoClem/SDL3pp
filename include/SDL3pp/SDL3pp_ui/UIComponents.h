@@ -295,6 +295,7 @@ namespace SDL::UI {
 	struct TooltipData {
 		std::string text;
 		float       delay = 1.f; ///< Hover duration before the bubble appears (seconds).
+		bool        visible = true;
 	};
 
 	// ── BgGradient ────────────────────────────────────────────────────────────────
@@ -324,7 +325,7 @@ namespace SDL::UI {
 		GradientAnchor end   = GradientAnchor::Bottom;
 	};
 
-	// ── TilesetStyle ──────────────────────────────────────────────────────────────
+	// ── TilesetData ──────────────────────────────────────────────────────────────
 	/// @brief 9-slice tileset skin — when present, replaces the default
 	///        solid/border/radius drawing with sliced tiles from a tileset texture.
 	///
@@ -334,15 +335,13 @@ namespace SDL::UI {
 	///  ml  mc  mr   →    3  4  5
 	///  bl  bc  br        6  7  8
 	/// ```
-	struct TilesetStyle {
-		std::string textureKey;
+	struct TilesetData {
 		int  tileW        = 16;
 		int  tileH        = 16;
 		int  tilesPerRow  = 3;
 		int  firstTileIdx = 0;
 		float borderW = 0.f; ///< Border thickness when slicing; 0 → use full tileW.
 		float borderH = 0.f; ///< Border thickness when slicing; 0 → use full tileH.
-		float opacity = 1.f;
 
 		[[nodiscard]] FRect TileRect(int rel) const noexcept {
 			int abs = firstTileIdx + rel;

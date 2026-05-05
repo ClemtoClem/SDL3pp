@@ -356,10 +356,10 @@ public:
 	 * Add (or replace) component T on entity `e`.
 	 * @returns Reference to the stored component.
 	 */
-	template<Component T>
-	T& Add(EntityId e, T value = {}) {
+	template<Component T, typename U = T>
+	T& Add(EntityId e, U&& value = {}) {
 		assert(IsAlive(e) && "Add<T>: entity is not alive");
-		return GetStorage<T>().Add(e, std::move(value));
+		return GetStorage<T>().Add(e, std::forward<U>(value));
 	}
 
 	/**

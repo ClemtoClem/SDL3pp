@@ -286,7 +286,7 @@ struct Main {
                 .BgPressedColor({35, 45, 70, 255})
                 .Radius(SDL::FCorners(4.f))
                 .Tooltip(tip, 0.6f)
-                .Enable(enabled);
+                .SetEnable(enabled);
             if (fn) b.OnClick(std::move(fn));
             return b;
         };
@@ -346,7 +346,7 @@ struct Main {
                 s.radius         = {};
                 s.borders        = {0.f, 0.f, 1.f, 0.f};
             })
-            .AutoScrollable(true, true)
+            .SetAutoScrollable(true, true)
             .Padding(14.f)
             .Font(res::FONT, 14.f)
             .OnTextChange([this](const std::string &){ m_modified = true; })
@@ -461,12 +461,12 @@ struct Main {
         ui.SetPopupTitle(eFilePopup, isSaveAs ? "Save As" : "Open File");
         ui.SetPopupOpen(eFilePopup, true);
         // Pre-fill the input with the current path
-        auto *cnt = ui.GetECSContext().Get<SDL::UI::EditableContent>(eFileInput);
+        auto *cnt = ui.GetCtx().Get<SDL::UI::EditableContent>(eFileInput);
         if (cnt) { cnt->text = m_filePath; cnt->cursor = (int)cnt->text.size(); }
     }
 
     void _OnFileOK() {
-        auto *cnt = ui.GetECSContext().Get<SDL::UI::EditableContent>(eFileInput);
+        auto *cnt = ui.GetCtx().Get<SDL::UI::EditableContent>(eFileInput);
         if (!cnt || cnt->text.empty()) return;
         std::string path = cnt->text;
         ui.SetPopupOpen(eFilePopup, false);

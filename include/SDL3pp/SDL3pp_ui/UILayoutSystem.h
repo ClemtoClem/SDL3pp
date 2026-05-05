@@ -110,9 +110,18 @@ namespace SDL::UI {
 		bool always_y = Has(w.behavior, BehaviorFlag::ScrollableY);
 		bool auto_x   = Has(w.behavior, BehaviorFlag::AutoScrollableX);
 		bool auto_y   = Has(w.behavior, BehaviorFlag::AutoScrollableY);
+		bool want_x   = always_x || auto_x;
+		bool want_y   = always_y || auto_y;
 
+		// First pass: basic check without cross-axis compensation
 		outShowX = always_x || (auto_x && lp.contentW > cW);
 		outShowY = always_y || (auto_y && lp.contentH > cH);
+
+		// Second pass: if one scrollbar is visible, it reduces space for the other axis
+		if (outShowY && !outShowX && want_x)
+			outShowX = !auto_x || (lp.contentW > cW);
+		if (outShowX && !outShowY && want_y)
+			outShowY = !auto_y || (lp.contentH > cH);
 	}
 
 	inline LayoutContext UILayoutSystem::_MakeRootCtx(FRect viewport) const noexcept {
@@ -237,7 +246,7 @@ namespace SDL::UI {
 				lp->contentW = maxW;
 			}
 		} else if (w->type == WidgetType::TextArea) {
-			if (auto *ta = m_ctx.Get<TextAreaData>(e)) {
+			if (m_ctx.Has<TextAreaData>(e)) {
 				auto *te = m_ctx.Get<TextEdit>(e);
 				if (te) {
 					float lineH = _TextHeight(e) + 2.f;
@@ -386,6 +395,15 @@ namespace SDL::UI {
 			}
 
 		} else if (ch && lp->layout == Layout::InGrid) {
+			// Measure all children first (like the old system does in the 'else' block)
+			for (ECS::EntityId cid : ch->ids) {
+				if (!m_ctx.IsAlive(cid)) continue;
+				auto *cw2 = m_ctx.Get<Widget>(cid);
+				auto *cl  = m_ctx.Get<LayoutProps>(cid);
+				if (!cw2 || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+				_Measure(cid, cc);
+			}
+
 			auto *gp     = m_ctx.Get<LayoutGridProps>(e);
 			int numCols  = gp ? SDL::Max(1, gp->columns) : 2;
 			float gap    = lp->gap;
@@ -701,7 +719,6 @@ namespace SDL::UI {
 			// Apply secondary axis alignment
 			for (int i = 0; i < vis; ++i) {
 				auto *cl = m_ctx.Get<LayoutProps>(flowChildren[i]);
-				auto *cc = m_ctx.Get<ComputedRect>(flowChildren[i]);
 
 				if (isCol) {
 					float px = cx + cl->margin.left;
@@ -917,10 +934,12 @@ namespace SDL::UI {
 
 		auto *w = m_ctx.Get<Widget>(e);
 		auto *lp = m_ctx.Get<LayoutProps>(e);
+		auto *s = m_ctx.Get<Style>(e);
 		auto *cr = m_ctx.Get<ComputedRect>(e);
 		if (!w || !lp || !cr) return;
 
 		cr->clip = cr->screen.GetIntersection(parentClip);
+		if (s) cr->outer_clip = cr->clip.Extend(s->borders);
 
 		FRect childClip = cr->clip;
 
@@ -940,7 +959,7 @@ namespace SDL::UI {
 		} else if (w->type == WidgetType::Expander) {
 			if (auto *exd = m_ctx.Get<ExpanderData>(e)) {
 				childClip = cr->screen;
-				childClip.y += exd->headerH;
+				childClip.y += exd->headerH + (s ? s->borders.GetH() : 0.f);
 				childClip.h = SDL::Max(0.f, childClip.h - exd->headerH);
 				childClip = childClip.GetIntersection(parentClip);
 			}
@@ -948,7 +967,7 @@ namespace SDL::UI {
 			if (auto *tvd = m_ctx.Get<TabViewData>(e)) {
 				childClip = cr->screen;
 				if (!tvd->tabsBottom) {
-					childClip.y += tvd->tabHeight;
+					childClip.y += tvd->tabHeight + (s ? s->borders.GetH() : 0.f);
 					childClip.h = SDL::Max(0.f, childClip.h - tvd->tabHeight);
 				} else {
 					childClip.h = SDL::Max(0.f, childClip.h - tvd->tabHeight);

@@ -8,14 +8,14 @@
 //        tree. Registered with SDL::DataScriptFactory for ".script"/".conf".
 //
 //   2. Bridge  (detail::BridgeValue / detail::BridgeSection)
-//        Converts the SDL DataNode tree to ScriptSection / ScriptValue, the
+//        Converts the SDL DataNode tree to ScriptObject / ScriptValue, the
 //        lightweight, game-friendly typed-value API used by MapLoader,
 //        EntityBuilder and GameState.
 //
 // Public surface:
-//   core::ParseConfFile(path) → ScriptSectionPtr
-//   core::ScriptValue  — IsNull/IsSection/IsRect + As…/Get(key)
-//   core::ScriptSection — count/operator[]/find/range-for
+//   core::ParseConfFile(path) → ScriptObjectPtr
+//   core::ScriptValue  — IsNull/IsObject/IsRect + As…/Get(key)
+//   core::ScriptObject — count/operator[]/find/range-for
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include <SDL3pp/SDL3pp_dataScripts.h>
@@ -32,8 +32,8 @@
 
 namespace core {
 
-struct ScriptSection;
-using ScriptSectionPtr = std::shared_ptr<ScriptSection>;
+struct ScriptObject;
+using ScriptObjectPtr = std::shared_ptr<ScriptObject>;
 
 /// Axis-aligned rectangle stored as four floats.
 struct ScriptRect { float x = 0.f, y = 0.f, w = 0.f, h = 0.f; };
@@ -51,7 +51,7 @@ public:
 		float,
 		std::string,
 		ScriptRect,
-		ScriptSectionPtr
+		ScriptObjectPtr
 	>;
 
 	ScriptValue()                          noexcept = default;
@@ -60,7 +60,7 @@ public:
 	explicit ScriptValue(float v)          noexcept : m_v(v) {}
 	explicit ScriptValue(std::string v)             : m_v(std::move(v)) {}
 	explicit ScriptValue(ScriptRect v)     noexcept : m_v(v) {}
-	explicit ScriptValue(ScriptSectionPtr v)        : m_v(std::move(v)) {}
+	explicit ScriptValue(ScriptObjectPtr v, bool isArray = false) : m_v(std::move(v)), m_is_array(isArray) {}
 
 	[[nodiscard]] bool IsNull()    const noexcept { return std::holds_alternative<std::monostate>(m_v); }
 	[[nodiscard]] bool IsBool()    const noexcept { return std::holds_alternative<bool>(m_v); }
@@ -69,8 +69,14 @@ public:
 														|| std::holds_alternative<int>(m_v); }
 	[[nodiscard]] bool IsString()  const noexcept { return std::holds_alternative<std::string>(m_v); }
 	[[nodiscard]] bool IsRect()    const noexcept { return std::holds_alternative<ScriptRect>(m_v); }
-	[[nodiscard]] bool IsSection() const noexcept {
-		if (auto* p = std::get_if<ScriptSectionPtr>(&m_v)) return *p != nullptr;
+	[[nodiscard]] bool IsObject() const noexcept {
+		if (auto* p = std::get_if<ScriptObjectPtr>(&m_v)) return *p != nullptr;
+		return false;
+	}
+	[[nodiscard]] bool IsArray() const noexcept {
+		if (m_is_array) {
+			if (auto* p = std::get_if<ScriptObjectPtr>(&m_v)) return *p != nullptr;
+		}
 		return false;
 	}
 
@@ -100,8 +106,12 @@ public:
 		if (auto* p = std::get_if<ScriptRect>(&m_v)) return *p;
 		return {};
 	}
-	[[nodiscard]] ScriptSectionPtr AsSection() const noexcept {
-		if (auto* p = std::get_if<ScriptSectionPtr>(&m_v)) return *p;
+	[[nodiscard]] ScriptObjectPtr AsObject() const noexcept {
+		if (auto* p = std::get_if<ScriptObjectPtr>(&m_v)) return *p;
+		return nullptr;
+	}
+	[[nodiscard]] ScriptObjectPtr AsArray() const noexcept {
+		if (m_is_array) { if (auto* p = std::get_if<ScriptObjectPtr>(&m_v)) return *p; }
 		return nullptr;
 	}
 
@@ -110,13 +120,14 @@ public:
 
 private:
 	Var m_v;
+	bool m_is_array{false};
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ScriptSection — insertion-ordered key→value map
+// ScriptObject — insertion-ordered key→value map
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct ScriptSection {
+struct ScriptObject {
 	using Pair    = std::pair<std::string, ScriptValue>;
 	using Entries = std::vector<Pair>;
 	using Index   = std::map<std::string, std::size_t>;
@@ -172,7 +183,7 @@ struct ScriptSection {
 };
 
 inline ScriptValue ScriptValue::Get(const std::string& key) const noexcept {
-	if (auto* p = std::get_if<ScriptSectionPtr>(&m_v))
+	if (auto* p = std::get_if<ScriptObjectPtr>(&m_v))
 		if (*p) return (**p)[key];
 	return ScriptValue{};
 }
@@ -448,10 +459,10 @@ inline bool _registerGameScript() {
 }
 inline const bool kGameScriptRegistered = _registerGameScript();
 
-// ── Bridge: DataNode tree → ScriptSection / ScriptValue ──────────────────────
+// ── Bridge: DataNode tree → ScriptObject / ScriptValue ──────────────────────
 
 inline ScriptValue     BridgeValue  (const std::shared_ptr<SDL::DataNode>&        n);
-inline ScriptSectionPtr BridgeSection(const std::shared_ptr<SDL::ObjectDataNode>& n);
+inline ScriptObjectPtr BridgeSection(const std::shared_ptr<SDL::ObjectDataNode>& n);
 
 inline ScriptValue BridgeValue(const std::shared_ptr<SDL::DataNode>& n) {
 	if (!n) return ScriptValue{};
@@ -472,10 +483,10 @@ inline ScriptValue BridgeValue(const std::shared_ptr<SDL::DataNode>& n) {
 		case DT::STRING:  return ScriptValue(std::dynamic_pointer_cast<SDL::StringDataNode>(n)->getValue());
 		case DT::ARRAY: {
 			auto arr = std::dynamic_pointer_cast<SDL::ArrayDataNode>(n);
-			auto sec = std::make_shared<ScriptSection>();
+			auto sec = std::make_shared<ScriptObject>();
 			for (std::size_t i = 0; i < arr->getSize(); ++i)
 				sec->Set(std::to_string(i), BridgeValue(arr->get(i)));
-			return ScriptValue(sec);
+			return ScriptValue(sec, true);
 		}
 		case DT::OBJECT: {
 			auto obj = std::dynamic_pointer_cast<SDL::ObjectDataNode>(n);
@@ -496,8 +507,8 @@ inline ScriptValue BridgeValue(const std::shared_ptr<SDL::DataNode>& n) {
 	}
 }
 
-inline ScriptSectionPtr BridgeSection(const std::shared_ptr<SDL::ObjectDataNode>& n) {
-	auto sec = std::make_shared<ScriptSection>();
+inline ScriptObjectPtr BridgeSection(const std::shared_ptr<SDL::ObjectDataNode>& n) {
+	auto sec = std::make_shared<ScriptObject>();
 	if (!n) return sec;
 	for (const auto& [k, v] : n->getValues())
 		sec->Set(k, BridgeValue(v));
@@ -512,7 +523,7 @@ inline ScriptSectionPtr BridgeSection(const std::shared_ptr<SDL::ObjectDataNode>
 
 /// Parse a .script config file via the registered GameScriptDocument.
 /// Throws std::runtime_error on open failure or parse error.
-[[nodiscard]] inline ScriptSectionPtr ParseConfFile(const std::string& path) {
+[[nodiscard]] inline ScriptObjectPtr ParseConfFile(const std::string& path) {
 	std::ifstream f(path);
 	if (!f.is_open())
 		throw std::runtime_error("ScriptParser: cannot open '" + path + "'");

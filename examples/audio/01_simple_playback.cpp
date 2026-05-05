@@ -15,7 +15,7 @@
 struct Main {
 	static constexpr SDL::Point windowSz = {640, 480};
 
-	static SDL::AppResult Init(Main** m, SDL::AppArgs args) {
+	static SDL::AppResult Init(Main** m, SDL::AppArgs /*args*/) {
 		SDL::SetAppMetadata("Example Simple Audio Simple Playback",
 												"1.0",
 												"com.example.audio-simple-playback");
@@ -45,7 +45,7 @@ struct Main {
 			// this will feed 512 samples each frame until we get to our maximum.
 			static float samples[512];
 			/* generate a 440Hz pure tone */
-			for (int i = 0; i < SDL_arraysize(samples); i++) {
+			for (size_t i = 0; i < SDL_arraysize(samples); i++) {
 				const int freq = 440;
 				const float phase = current_sine_sample * freq / 8000.0f;
 				samples[i] = SDL::Sin(phase * 2 * SDL_PI_F);

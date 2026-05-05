@@ -126,14 +126,14 @@ namespace UI {
 		// ── Entity factories ──────────────────────────────────────────────────────────
 
 		/** @brief Create a Container entity and return its ID. */
-		ECS::EntityId MakeContainer(const std::string &n = "Container") { return _Make(n, WidgetType::Container); }
+		ECS::EntityId MakeContainer(std::string_view n = "Container") { return _Make(n, WidgetType::Container); }
 
 		/**
 		 * @brief Create a Label entity with the given display text.
 		 * @param n  Widget name (for debugging).
 		 * @param t  Initial text content.
 		 */
-		ECS::EntityId MakeLabel(const std::string &n, const std::string &t = "") {
+		ECS::EntityId MakeLabel(std::string_view n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Label);
 			m_ctx.Get<EditableContent>(e)->text = t;
 			auto &l = *m_ctx.Get<LayoutProps>(e);
@@ -145,7 +145,7 @@ namespace UI {
 		 * @param n  Widget name.
 		 * @param t  Button label text.
 		 */
-		ECS::EntityId MakeButton(const std::string &n, const std::string &t = "") {
+		ECS::EntityId MakeButton(std::string_view n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Button);
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 			m_ctx.Get<EditableContent>(e)->text = t;
@@ -156,7 +156,7 @@ namespace UI {
 		 * @param n  Widget name.
 		 * @param t  Label text displayed beside the switch.
 		 */
-		ECS::EntityId MakeToggle(const std::string &n, const std::string &t = "") {
+		ECS::EntityId MakeToggle(std::string_view n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Toggle);
 			m_ctx.Get<EditableContent>(e)->text = t;
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
@@ -170,7 +170,7 @@ namespace UI {
 		 * @param group  Named group; only one radio button per group can be checked.
 		 * @param t      Label text displayed beside the button.
 		 */
-		ECS::EntityId MakeRadioButton(const std::string &n, const std::string &group, const std::string &t = "") {
+		ECS::EntityId MakeRadioButton(std::string_view n, const std::string &group, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::RadioButton);
 			m_ctx.Get<EditableContent>(e)->text = t;
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
@@ -186,9 +186,9 @@ namespace UI {
 		 * @param v   Initial value (clamped to [mn, mx]).
 		 * @param o   Orientation (Horizontal or Vertical).
 		 */
-		template<is_numeric_value T>
-		ECS::EntityId MakeSlider(const std::string &n,
-		                         T mn = T(0), T mx = T(1), T v = T(0), T step = T(0),
+		template<is_numeric_value T=float>
+		ECS::EntityId MakeSlider(std::string_view n,
+		                         T mn = T(0), T mx = T(100), T v = T(0), T step = T(1),
 		                         Orientation o = Orientation::Horizontal) {
 			ECS::EntityId e = _Make(n, WidgetType::Slider);
 			SliderData sd;
@@ -213,7 +213,7 @@ namespace UI {
 		 * @param vs  Visible viewport size.
 		 * @param o   Orientation (Vertical by default).
 		 */
-		ECS::EntityId MakeScrollBar(const std::string &n, float cs = 0.f, float vs = 0.f,
+		ECS::EntityId MakeScrollBar(std::string_view n, float cs = 0.f, float vs = 0.f,
 							   Orientation o = Orientation::Vertical) {
 			ECS::EntityId e = _Make(n, WidgetType::ScrollBar);
 			ScrollBarData sd;
@@ -235,7 +235,7 @@ namespace UI {
 		 * @param v   Initial value (clamped to [0, mx]).
 		 * @param mx  Maximum value.
 		 */
-		ECS::EntityId MakeProgress(const std::string &n, float v = 0.f, float mx = 1.f) {
+		ECS::EntityId MakeProgress(std::string_view n, float v = 0.f, float mx = 1.f) {
 			ECS::EntityId e = _Make(n, WidgetType::Progress);
 			m_ctx.Add<SliderData>(e, SliderData{});
 			m_ctx.Add<NumericValue>(e, AnyValue<float>(0.f, mx, v, 0.f));
@@ -243,7 +243,7 @@ namespace UI {
 			return e;
 		}
 		/** @brief Create a 1-pixel horizontal separator entity. */
-		ECS::EntityId MakeSeparator(const std::string &n = "sep") {
+		ECS::EntityId MakeSeparator(std::string_view n = "sep") {
 			ECS::EntityId e = _Make(n, WidgetType::Separator);
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			lp.height = Value::Px(1.f);
@@ -255,7 +255,7 @@ namespace UI {
 		 * @param n   Widget name.
 		 * @param ph  Placeholder text shown when empty and unfocused.
 		 */
-		ECS::EntityId MakeInput(const std::string &n, const std::string &ph = "") {
+		ECS::EntityId MakeInput(std::string_view n, const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Input);
 			m_ctx.Get<EditableContent>(e)->placeholder = ph;
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
@@ -266,8 +266,8 @@ namespace UI {
 		///        @c T may be any integral or floating-point type.
 		///        Selects @ref InputType::IntegerValue for integers and
 		///        @ref InputType::FloatValue for floating-point.
-		template<is_numeric_value T>
-		ECS::EntityId MakeInputValue(const std::string &n,
+		template<is_numeric_value T = float>
+		ECS::EntityId MakeInputValue(std::string_view n,
 		                             T minValue = T(0), T maxValue = T(100),
 		                             T value    = T(0), T step     = T(1))
 		{
@@ -293,7 +293,7 @@ namespace UI {
 		/// @brief Create a text Input restricted to the given @ref InputType
 		///        (Mail or Url filtering, etc.). Numeric types should use
 		///        @ref MakeInputValue instead.
-		ECS::EntityId MakeInputFiltered(const std::string &n, InputType type,
+		ECS::EntityId MakeInputFiltered(std::string_view n, InputType type,
 		                                const std::string &ph = "")
 		{
 			ECS::EntityId e = MakeInput(n, ph);
@@ -309,19 +309,18 @@ namespace UI {
 		 * @param mx  Maximum value.
 		 * @param v   Initial value (clamped to [mn, mx]).
 		 */
-		ECS::EntityId MakeKnob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f, KnobShape shape = KnobShape::Arc) {
+		template <is_numeric_value T=float>
+		ECS::EntityId MakeKnob(std::string_view n, T mn = T(0), T mx = T(100), T v = T(50), T step = T(1), KnobShape shape = KnobShape::Arc) {
 			ECS::EntityId e = _Make(n, WidgetType::Knob);
 			
 			// Initialisation explicite de tous les champs pour éviter le garbage memory
 			KnobData kd;
-			kd.min = mn;
-			kd.max = mx;
-			kd.val = SDL::Clamp(v, mn, mx);
 			kd.drag = false;
 			kd.dragStartY = 0.f;
 			kd.dragStartVal = 0.f;
 			kd.shape = shape;
 			m_ctx.Add<KnobData>(e, kd);
+			m_ctx.Add<NumericValue>(e, AnyValue<T>(mn, mx, v, step));
 			
 			auto *w = m_ctx.Get<Widget>(e);
 			if (w) w->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
@@ -336,7 +335,7 @@ namespace UI {
 		 * @param key  Resource-pool key of the texture to display.
 		 * @param fit  How the image is scaled to fit the widget rect.
 		 */
-		ECS::EntityId MakeImage(const std::string &n, const std::string &key = "", ImageFit fit = ImageFit::Contain) {
+		ECS::EntityId MakeImage(std::string_view n, const std::string &key = "", ImageFit fit = ImageFit::Contain) {
 			ECS::EntityId e = _Make(n, WidgetType::Image);
 			m_ctx.Add<ImageData>(e, {key, fit});
 			return e;
@@ -348,7 +347,7 @@ namespace UI {
 		 * @param cb_update Called every frame before layout with the frame delta time.
 		 * @param cb_render Called during the render pass with the renderer and screen rect.
 		 */
-		ECS::EntityId MakeCanvas(const std::string &n,
+		ECS::EntityId MakeCanvas(std::string_view n,
 			std::function<void(SDL::Event&)> cb_event = nullptr,
 			std::function<void(float)> cb_update = nullptr,
 			std::function<void(RendererRef, FRect)> cb_render = nullptr) {
@@ -362,7 +361,7 @@ namespace UI {
 		 * @param n      Widget name.
 		 * @param items  Initial list of text items.
 		 */
-		ECS::EntityId MakeListBox(const std::string &n,
+		ECS::EntityId MakeListBox(std::string_view n,
 								  const std::vector<std::string>& items = {}) {
 			ECS::EntityId e = _Make(n, WidgetType::ListBox);
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
@@ -376,7 +375,7 @@ namespace UI {
 			return e;
 		}
 		/** @brief Create an empty Graph (graduated data plot) entity. */
-		ECS::EntityId MakeGraph(const std::string &n) {
+		ECS::EntityId MakeGraph(std::string_view n) {
 			ECS::EntityId e = _Make(n, WidgetType::Graph);
 			m_ctx.Add<GraphData>(e);
 			m_ctx.Get<LayoutProps>(e)->padding = {0.f, 0.f, 0.f, 0.f};
@@ -388,7 +387,7 @@ namespace UI {
 		 * @param text  Initial document content.
 		 * @param ph    Placeholder text shown when the document is empty and unfocused.
 		 */
-		ECS::EntityId MakeTextArea(const std::string &n, const std::string &text = "", const std::string &ph = "") {
+		ECS::EntityId MakeTextArea(std::string_view n, const std::string &text = "", const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::TextArea);
 			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
 			auto &ta = m_ctx.Add<TextAreaData>(e);
@@ -403,7 +402,7 @@ namespace UI {
 		}
 
 		/** @brief Create a ComboBox entity with a list of items. */
-		ECS::EntityId MakeComboBox(const std::string &n, const std::vector<std::string>& items = {}, int sel = 0) {
+		ECS::EntityId MakeComboBox(std::string_view n, const std::vector<std::string>& items = {}, int sel = 0) {
 			ECS::EntityId e = _Make(n, WidgetType::ComboBox);
 			auto &d = m_ctx.Add<ComboBoxData>(e);
 			d.items         = items;
@@ -411,13 +410,13 @@ namespace UI {
 			return e;
 		}
 		/** @brief Create a TabView entity. */
-		ECS::EntityId MakeTabView(const std::string &n) {
+		ECS::EntityId MakeTabView(std::string_view n) {
 			ECS::EntityId e = _Make(n, WidgetType::TabView);
 			m_ctx.Add<TabViewData>(e);
 			return e;
 		}
 		/** @brief Create an Expander entity with a header label. */
-		ECS::EntityId MakeExpander(const std::string &n, const std::string &label = "", bool expanded = false) {
+		ECS::EntityId MakeExpander(std::string_view n, const std::string &label = "", bool expanded = false) {
 			ECS::EntityId e = _Make(n, WidgetType::Expander);
 			auto &d = m_ctx.Add<ExpanderData>(e);
 			d.label    = label;
@@ -426,21 +425,21 @@ namespace UI {
 			return e;
 		}
 		/** @brief Create a Splitter entity (horizontal or vertical). */
-		ECS::EntityId MakeSplitter(const std::string &n, Orientation o = Orientation::Horizontal, float ratio = 0.5f) {
+		ECS::EntityId MakeSplitter(std::string_view n, Orientation o = Orientation::Horizontal, float ratio = 0.5f) {
 			ECS::EntityId e = _Make(n, WidgetType::Splitter);
 			auto &d = m_ctx.Add<SplitterData>(e);
 			d.orientation = o; d.ratio = SDL::Clamp(ratio, d.minRatio, d.maxRatio);
 			return e;
 		}
 		/** @brief Create an animated Spinner entity. */
-		ECS::EntityId MakeSpinner(const std::string &n, float speed = 3.f) {
+		ECS::EntityId MakeSpinner(std::string_view n, float speed = 3.f) {
 			ECS::EntityId e = _Make(n, WidgetType::Spinner);
 			auto &d = m_ctx.Add<SpinnerData>(e);
 			d.speed = speed;
 			return e;
 		}
 		/** @brief Create a Badge entity displaying a short text count. */
-		ECS::EntityId MakeBadge(const std::string &n, const std::string &text = "0") {
+		ECS::EntityId MakeBadge(std::string_view n, const std::string &text = "0") {
 			ECS::EntityId e = _Make(n, WidgetType::Badge);
 			auto &d = m_ctx.Add<BadgeData>(e);
 			d.text = text;
@@ -449,7 +448,7 @@ namespace UI {
 		/** @brief Create a ColorPicker entity.
 		 *  @param palette  Palette type (Grayscale, RGB8, RGBFloat, GradientAB).
 		 *  @param step     Quantization step used in RGBFloat mode (default 1/255). */
-		ECS::EntityId MakeColorPicker(const std::string &n,
+		ECS::EntityId MakeColorPicker(std::string_view n,
 		                              ColorPickerPalette palette = ColorPickerPalette::RGB8,
 		                              float step = 1.f / 255.f) {
 			ECS::EntityId e = _Make(n, WidgetType::ColorPicker);
@@ -463,7 +462,7 @@ namespace UI {
 		 *  Position it via builder: `.Fixed(x,y).W(w).H(h)`.
 		 *  Children added via `.Child(...)` or `.Children(...)` appear in the content area.
 		 */
-		ECS::EntityId MakePopup(const std::string &n,
+		ECS::EntityId MakePopup(std::string_view n,
 		                        const std::string &title = "",
 		                        bool closable  = true,
 		                        bool draggable = true,
@@ -485,7 +484,7 @@ namespace UI {
 		 *
 		 *  Populate it with nodes via `GetTreeData(e)->nodes.push_back(...)` or the
 		 *  builder helpers `.TreeNode(...)`. */
-		ECS::EntityId MakeTree(const std::string &n) {
+		ECS::EntityId MakeTree(std::string_view n) {
 			ECS::EntityId e = _Make(n, WidgetType::Tree);
 			m_ctx.Add<TreeData>(e);
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
@@ -494,7 +493,7 @@ namespace UI {
 		}
 
 		/** @brief Create a MenuBar entity.  Populate it with menus via GetMenuBarData()->menus. */
-		ECS::EntityId MakeMenuBar(const std::string &n = "menubar") {
+		ECS::EntityId MakeMenuBar(std::string_view n = "menubar") {
 			ECS::EntityId e = _Make(n, WidgetType::MenuBar);
 			m_ctx.Add<MenuBarData>(e);
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
@@ -588,89 +587,93 @@ namespace UI {
 		// ── Builder factories (defined after Builder) ─────────────────────────────────
 
 		/** @brief Create a Container and return a Builder for it. */
-		inline Builder Container(const std::string &n = "Container");
+		inline Builder Container(std::string_view n = "Container");
 		/** @brief Create a Label and return a Builder for it. */
-		inline Builder Label(const std::string &n, const std::string &t = "");
+		inline Builder Label(std::string_view n, const std::string &t = "");
 		/** @brief Create a Button and return a Builder for it. */
-		inline Builder Button(const std::string &n, const std::string &t = "");
+		inline Builder Button(std::string_view n, const std::string &t = "");
 		/** @brief Create a Toggle switch and return a Builder for it. */
-		inline Builder Toggle(const std::string &n, const std::string &t = "");
+		inline Builder Toggle(std::string_view n, const std::string &t = "");
 		/** @brief Create a RadioButton and return a Builder for it. */
-		inline Builder Radio(const std::string &n, const std::string &grp, const std::string &t = "");
+		inline Builder Radio(std::string_view n, const std::string &grp, const std::string &t = "");
 		/** @brief Create a Slider and return a Builder for it.
 		 *  Templated on the arithmetic value type @c T (int / float / double …). */
 		template <is_numeric_value T = float>
-		inline Builder Slider(const std::string &n, T mn = T(0), T mx = T(1), T v = T(0),
-		                      Orientation o = Orientation::Horizontal);
+		inline Builder Slider(std::string_view n, T mn = T(0), T mx = T(100), T v = T(0), T step = T(1), Orientation o = Orientation::Horizontal);
 		/** @brief Create a ScrollBar and return a Builder for it. */
-		inline Builder ScrollBar(const std::string &n, float cs = 0.f, float vs = 0.f,
+		inline Builder ScrollBar(std::string_view n, float cs = 0.f, float vs = 0.f,
 								   Orientation o = Orientation::Vertical);
 		/** @brief Create a Progress bar and return a Builder for it. */
-		inline Builder Progress(const std::string &n, float v = 0.f, float mx = 1.f);
+		inline Builder Progress(std::string_view n, float v = 0.f, float mx = 1.f);
 		/** @brief Create a Separator and return a Builder for it. */
-		inline Builder Separator(const std::string &n = "sep");
+		inline Builder Separator(std::string_view n = "sep");
 		/** @brief Create a single-line Input and return a Builder for it. */
-		inline Builder Input(const std::string &n, const std::string &ph = "");
-		/** @brief Create a numeric Input. Returns a Builder. */
+		inline Builder Input(std::string_view n, const std::string &ph = "");
+		/** @brief Create a numeric Input. Returns a Builder.
+		 *  Templated on the arithmetic value type @c T (int / float / double …). */
 		template <is_numeric_value T = float>
-		inline Builder InputValue(const std::string &n,
+		inline Builder InputValue(std::string_view n,
 		                   T minValue = T(0), T maxValue = T(100),
 		                   T value    = T(0), T step     = T(1));
-		/** @brief Create a Knob and return a Builder for it. */
-		inline Builder Knob(const std::string &n, float mn = 0.f, float mx = 1.f, float v = 0.5f, KnobShape shape = KnobShape::Arc);
+		/** @brief Create a Knob and return a Builder for it.
+		 *  Templated on the arithmetic value type @c T (int / float / double …). */
+		template <is_numeric_value T = float>
+		inline Builder Knob(std::string_view n,
+		                   T minValue = T(0), T maxValue = T(100),
+		                   T value    = T(0), T step     = T(1), KnobShape shape = KnobShape::Arc);
 		/** @brief Create an Image widget and return a Builder for it. */
-		inline Builder ImageWidget(const std::string &n, const std::string &p = "", ImageFit f = ImageFit::Contain);
+		inline Builder ImageWidget(std::string_view n, const std::string &p = "", ImageFit f = ImageFit::Contain);
 		/** @brief Create a Canvas widget and return a Builder for it. */
-		inline Builder CanvasWidget(const std::string &n,
+		inline Builder CanvasWidget(std::string_view n,
 			std::function<void(SDL::Event&)> cb_event = nullptr,
 			std::function<void(float)> cb_update = nullptr,
 			std::function<void(RendererRef, FRect)> cb_render = nullptr);
 		/** @brief Create a multi-line TextArea and return a Builder for it. */
-		inline Builder TextArea(const std::string &n, const std::string &text = "", const std::string &ph = "");
+		inline Builder TextArea(std::string_view n, const std::string &text = "", const std::string &ph = "");
 		/** @brief Create a ListBox and return a Builder for it. */
-		inline Builder ListBoxWidget(const std::string &n, const std::vector<std::string>& items = {});
+		inline Builder ListBoxWidget(std::string_view n, const std::vector<std::string>& items = {});
 		/** @brief Create a Graph (graduated data plot) and return a Builder for it. */
-		inline Builder GradedGraph(const std::string &n);
+		inline Builder GradedGraph(std::string_view n);
 		/** @brief Create a ComboBox and return a Builder for it. */
-		inline Builder ComboBox(const std::string &n, const std::vector<std::string>& items = {}, int sel = 0);
+		inline Builder ComboBox(std::string_view n, const std::vector<std::string>& items = {}, int sel = 0);
 		/** @brief Create a TabView and return a Builder for it. */
-		inline Builder TabView(const std::string &n);
+		inline Builder TabView(std::string_view n);
 		/** @brief Create an Expander and return a Builder for it. */
-		inline Builder Expander(const std::string &n, const std::string &label = "", bool expanded = false);
+		inline Builder Expander(std::string_view n, const std::string &label = "", bool expanded = false);
 		/** @brief Create a Splitter and return a Builder for it. */
-		inline Builder Splitter(const std::string &n, Orientation o = Orientation::Horizontal, float ratio = 0.5f);
+		inline Builder Splitter(std::string_view n, Orientation o = Orientation::Horizontal, float ratio = 0.5f);
 		/** @brief Create a Spinner and return a Builder for it. */
-		inline Builder Spinner(const std::string &n, float speed = 3.f);
+		inline Builder Spinner(std::string_view n, float speed = 3.f);
 		/** @brief Create a Badge and return a Builder for it. */
-		inline Builder Badge(const std::string &n, const std::string &text = "0");
+		inline Builder Badge(std::string_view n, const std::string &text = "0");
 		/** @brief Create a ColorPicker and return a Builder for it. */
-		inline Builder ColorPicker(const std::string &n,
+		inline Builder ColorPicker(std::string_view n,
 		                           ColorPickerPalette palette = ColorPickerPalette::RGB8,
 		                           float step = 1.f / 255.f);
 		/** @brief Create a Popup window and return a Builder for it. */
-		inline Builder Popup(const std::string &n, const std::string &title = "",
+		inline Builder Popup(std::string_view n, const std::string &title = "",
 		                     bool closable = true, bool draggable = true, bool resizable = false);
 		/** @brief Create a Tree widget and return a Builder for it. */
-		inline Builder Tree(const std::string &n);
+		inline Builder Tree(std::string_view n);
 		/** @brief Create a MenuBar widget and return a Builder for it. */
-		inline Builder MenuBar(const std::string &n = "menubar");
+		inline Builder MenuBar(std::string_view n = "menubar");
 		
 		/** @brief Create a vertical Column container (InColumn layout) and return a Builder for it. */
-		inline Builder Column(const std::string &n = "col", float gap = 4.f, float pad = 8.f, float marg = 0.f);
+		inline Builder Column(std::string_view n = "col", float gap = 4.f, float pad = 8.f, float marg = 0.f);
 		/** @brief Create a horizontal Row container (InLine layout) and return a Builder for it. */
-		inline Builder Row(const std::string &n = "row", float gap = 8.f, float pad = 0.f, float marg = 0.f);
+		inline Builder Row(std::string_view n = "row", float gap = 8.f, float pad = 0.f, float marg = 0.f);
 		/** @brief Create a Card container (Column with card styling) and return a Builder for it. */
-		inline Builder Card(const std::string &n = "card", float gap = 8.f, float marg = 0.f);
+		inline Builder Card(std::string_view n = "card", float gap = 8.f, float marg = 0.f);
 		/** @brief Create a wrapping Stack container and return a Builder for it. */
-		inline Builder Stack(const std::string &n = "stack", float gap = 0.f, float pad = 0.f, float marg = 0.f);
+		inline Builder Stack(std::string_view n = "stack", float gap = 0.f, float pad = 0.f, float marg = 0.f);
 		/** @brief Create an accent-colored section title Label and return a Builder for it. */
 		inline Builder SectionTitle(const std::string &text, SDL::Color color = {70, 130, 210, 255});
 		/** @brief Create a vertical ScrollView (Column with auto vertical scrollbar) and return a Builder for it. */
-		inline Builder ScrollView(const std::string &n, float gap = 4.f);
+		inline Builder ScrollView(std::string_view n, float gap = 4.f);
 		/// Grid container: children placed on a `columns × auto-rows` grid.
 		/// Use `.GridCols(n)`, `.GridRows(n)`, `.GridColSizing(...)` etc. on the returned Builder
 		/// to customise, and `.Cell(col, row)` on each child to set its grid position.
-		inline Builder Grid(const std::string &n = "grid", int columns = 2, float gap = 4.f, float pad = 8.f);
+		inline Builder Grid(std::string_view n = "grid", int columns = 2, float gap = 4.f, float pad = 8.f);
 
 		// ── Tree management ───────────────────────────────────────────────────────────
 
@@ -720,12 +723,12 @@ namespace UI {
 		/**
 		 * @brief Set the display text of a Label, Button, or Input widget.
 		 * @param e  Target entity.
-		 * @param t  New text content; cursor is moved to the end.
+		 * @param view  New text view content; cursor is moved to the end.
 		 */
-		void SetText(ECS::EntityId e, const std::string &t) {
+		void SetText(ECS::EntityId e, const std::string_view view) {
 			if (auto *c = m_ctx.Get<EditableContent>(e)) {
-				c->text = t;
-				c->cursor = (int)t.size();
+				c->text = std::string(view);
+				c->cursor = (int)view.size();
 			}
 		}
 
@@ -737,10 +740,6 @@ namespace UI {
 		template <typename T = float>
 		void SetValue(ECS::EntityId e, T v) {
 			const double dv = static_cast<double>(v);
-			if (auto *k = m_ctx.Get<KnobData>(e))
-				k->val = SDL::Clamp(static_cast<float>(dv), k->min, k->max);
-			// Slider, Progress, and numeric Input all share the NumericValue
-			// component now — a single update path covers all three.
 			if (auto *nv = m_ctx.Get<NumericValue>(e)) {
 				nv->val = std::clamp(dv, nv->min, nv->max);
 				if (nv->IsIntegral()) nv->val = std::round(nv->val);
@@ -877,7 +876,7 @@ namespace UI {
 		 * @param e  Target entity.
 		 * @param b  True to enable, false to disable.
 		 */
-		void SetEnabled(ECS::EntityId e, bool b) {
+		void SetEnable(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
 				if (b) w->behavior |= BehaviorFlag::Enable;
 				else w->behavior &= (~BehaviorFlag::Enable);
@@ -1053,22 +1052,21 @@ namespace UI {
 
 		/**
 		 * Attach (or replace) a tileset 9-slice skin on widget `e`.
-		 * Pass a default-constructed `TilesetStyle` with an empty `textureKey`
+		 * Pass a default-constructed `TilesetData` with an empty `textureKey`
 		 * to remove the skin.
 		 */
-		void SetTilesetStyle(ECS::EntityId e, TilesetStyle ts) {
-			if (!m_ctx.IsAlive(e)) return;
-			m_ctx.Add<TilesetStyle>(e, std::move(ts));
+		void SetTileset(ECS::EntityId e, TilesetData ts) {
+			m_ctx.Add<TilesetData>(e, std::move(ts));
 		}
 
-		/** @brief Return a pointer to the TilesetStyle component of @p e, or nullptr. */
-		[[nodiscard]] TilesetStyle* GetTilesetStyle(ECS::EntityId e) {
-			return m_ctx.Get<TilesetStyle>(e);
+		/** @brief Return a pointer to the TilesetData component of @p e, or nullptr. */
+		[[nodiscard]] TilesetData* GetTilesetStyle(ECS::EntityId e) {
+			return m_ctx.Get<TilesetData>(e);
 		}
 
-		/** @brief Remove the TilesetStyle component from @p e (restores default rendering). */
-		void RemoveTilesetStyle(ECS::EntityId e) {
-			m_ctx.Remove<TilesetStyle>(e);
+		/** @brief Remove the TilesetData component from @p e (restores default rendering). */
+		void RemoveTileset(ECS::EntityId e) {
+			m_ctx.Remove<TilesetData>(e);
 		}
 
 		/**
@@ -1077,9 +1075,9 @@ namespace UI {
 		 * @param key  New resource-pool key.
 		 * @param f    New fit mode.
 		 */
-		void SetImageKey(ECS::EntityId e, const std::string &key, ImageFit f = ImageFit::Contain) {
+		void SetImageKey(ECS::EntityId e, std::string_view key, ImageFit f = ImageFit::Contain) {
 			if (auto *d = m_ctx.Get<ImageData>(e)) {
-				d->key = key;
+				d->key = std::string(key);
 				d->fit = f;
 			}
 		}
@@ -1176,8 +1174,6 @@ namespace UI {
 		[[nodiscard]] T GetValue(ECS::EntityId e) const {
 			if (const auto *nv = m_ctx.Get<NumericValue>(e))
 				return nv->As<T>();
-			if (const auto *k = m_ctx.Get<KnobData>(e))
-				return static_cast<T>(k->val);
 			return T(0);
 		}
 
@@ -1337,7 +1333,7 @@ namespace UI {
 		void OnTreeSelect(ECS::EntityId e, std::function<void(int, bool)> cb) { m_ctx.Get<Callbacks>(e)->onTreeSelect = std::move(cb); }
 
 		/** @brief Return a reference to the underlying ECS context (for advanced use). */
-		[[nodiscard]] ECS::Context &GetECSContext() { return m_ctx; }
+		[[nodiscard]] ECS::Context &GetCtx() { return m_ctx; }
 
 		// ── Frame pipeline ────────────────────────────────────────────────────────────
 
@@ -1662,7 +1658,7 @@ namespace UI {
 
 
 		// ── Make widget ─────────────────────────────────────────────────────────────────────────────
-		ECS::EntityId _Make(const std::string &n, WidgetType k) {
+		ECS::EntityId _Make(std::string_view n, WidgetType k) {
 			ECS::EntityId e = m_ctx.CreateEntity();
 
 			// Compute the correct behavior flags for this widget type.
@@ -1707,7 +1703,7 @@ namespace UI {
 					break;
 			}
 
-			m_ctx.Add<Widget>(e, {n, k, beh, DirtyFlag::All});
+			m_ctx.Add<Widget>(e, {std::string(n), k, beh, DirtyFlag::All});
 			auto &style = m_ctx.Add<Style>(e);
 			m_ctx.Add<LayoutProps>(e);
 			m_ctx.Add<EditableContent>(e);
@@ -3089,11 +3085,12 @@ namespace UI {
 								}
 							} else if (pw->type == WidgetType::Knob) {
 								auto *kd  = m_ctx.Get<KnobData>(m_pressed);
+								auto *nv  = m_ctx.Get<NumericValue>(m_pressed);
 								auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
-								if (kd && cr2) {
+								if (kd && nv && cr2) {
 									kd->drag         = true;
 									kd->dragStartY   = m_mousePos.y;
-									kd->dragStartVal = kd->val;
+									kd->dragStartVal = nv->As<double>();
 									float cx_ = cr2->screen.x + cr2->screen.w * 0.5f;
 									float cy_ = cr2->screen.y + cr2->screen.h * 0.5f;
 									kd->dragStartAngle = SDL::Atan2(m_mousePos.y - cy_, m_mousePos.x - cx_) * (180.f / SDL::PI_F);
@@ -3251,9 +3248,10 @@ namespace UI {
 						}
 					} else if (pw->type == WidgetType::Knob) {
 						auto *kd  = m_ctx.Get<KnobData>(m_pressed);
+						auto *nv  = m_ctx.Get<NumericValue>(m_pressed);
 						auto *cr2 = m_ctx.Get<ComputedRect>(m_pressed);
-						if (kd && kd->drag && cr2) {
-							float range = SDL::Max(0.0001f, kd->max - kd->min);
+						if (kd && nv && kd->drag && cr2) {
+							double range = nv->max - nv->min;
 							float cx_ = cr2->screen.x + cr2->screen.w * 0.5f;
 							float cy_ = cr2->screen.y + cr2->screen.h * 0.5f;
 							float curAngle = SDL::Atan2(m_mousePos.y - cy_, m_mousePos.x - cx_) * (180.f / SDL::PI_F);
@@ -3261,15 +3259,16 @@ namespace UI {
 							float dAngle = curAngle - kd->dragStartAngle;
 							if (dAngle >  180.f) dAngle -= 360.f;
 							if (dAngle < -180.f) dAngle += 360.f;
-							float nv = SDL::Clamp(kd->dragStartVal + dAngle / 270.f * range, kd->min, kd->max);
-							if (nv != kd->val) {
-								kd->val = nv;
+							double newVal = SDL::Clamp(kd->dragStartVal + dAngle / 270.0 * range, nv->min, nv->max);
+							if (nv->IsIntegral()) newVal = std::round(newVal);
+							if (newVal != nv->val) {
+								nv->val = newVal;
 								auto *cb = m_ctx.Get<Callbacks>(m_pressed);
-								if (cb && cb->onChange) cb->onChange(nv);
+								if (cb && cb->onChange) cb->onChange((float)newVal);
 							}
 							// Update start for next frame (incremental)
 							kd->dragStartAngle = curAngle;
-							kd->dragStartVal   = kd->val;
+							kd->dragStartVal   = nv->val;
 						}
 						
 					} else if (pw->type == WidgetType::Splitter) {
@@ -4701,7 +4700,7 @@ namespace UI {
 			// When present, the tileset is drawn first.  For Canvas widgets the game
 			// content is rendered on top afterwards; for all other widget types the
 			// tileset is the only background and we skip the normal draw entirely.
-			auto *ts = m_ctx.Get<TilesetStyle>(e);
+			auto *ts = m_ctx.Get<TilesetData>(e);
 			if (ts && !ts->textureKey.empty()) {
 				auto tex = _EnsureTexture(ts->textureKey); 
 				if (tex) {
@@ -4815,7 +4814,7 @@ namespace UI {
 		 * @param ts  Tileset style configuration.
 		 * @param tex Resolved tileset texture.
 		 */
-		void _Draw9Slice(const FRect& r, const TilesetStyle& ts, TextureRef tex) { 
+		void _Draw9Slice(const FRect& r, const TilesetData& ts, TextureRef tex) { 
 			if (!tex) return;
 
 			const float bw  = SDL::Min(ts.BorderW(), r.w * 0.5f);
@@ -5440,7 +5439,8 @@ namespace UI {
 
 		void _DrawKnob(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
 			auto *kd = m_ctx.Get<KnobData>(e);
-			if (!kd) return;
+			auto *nv = m_ctx.Get<NumericValue>(e);
+			if (!kd || !nv) return;
 
 			// Sécurité : Si le widget est trop petit, on ne dessine rien pour éviter le crash
 			float minDim = SDL::Min(r.w, r.h);
@@ -5468,7 +5468,7 @@ namespace UI {
 			m_renderer.SetDrawColor(bdColor);
 			m_renderer.RenderCircle({cx_, cy_}, oR);
 
-			float norm = (kd->max > kd->min) ? (kd->val - kd->min) / (kd->max - kd->min) : 0.5f;
+			float norm = nv->GetNorm<float>();
 			norm = SDL::Clamp(norm, 0.f, 1.f);
 
 			SDL::Color fillC = Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.textDisabledColor;

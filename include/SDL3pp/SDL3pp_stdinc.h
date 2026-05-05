@@ -2288,6 +2288,15 @@ inline void* Memcpy(void* dst, const void* src, size_t len) {
 #endif // SDL_SLOW_MEMCPY
 }
 
+template <typename T, typename U>
+inline T* Memcpy(T* dst, const U* src) {
+#ifdef SDL_SLOW_MEMCPY
+	return SDL_memcpy(dst, src, sizeof(T));
+#else
+	return ::memcpy(dst, src, sizeof(T));
+#endif // SDL_SLOW_MEMCPY
+}
+
 /**
  * A macro to copy memory between objects, with basic type checking.
  *
@@ -2313,7 +2322,7 @@ inline void* Memcpy(void* dst, const void* src, size_t len) {
  * @since This function is available since SDL 3.2.0.
  */
 template<typename T, typename U>
-constexpr T* copyp(T* dst, const U* src) {
+constexpr T* Copyp(T* dst, const U* src) {
 	SDL_copyp(dst, src);
 	return dst;
 }

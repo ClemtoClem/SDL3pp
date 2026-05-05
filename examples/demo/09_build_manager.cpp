@@ -468,7 +468,7 @@ struct Main {
 
         std::string cmd = _BuildCommand();
         ui.SetText(id_statusLabel, "Compiling…");
-        ui.SetEnabled(id_compileBtn, false);
+        ui.SetEnable(id_compileBtn, false);
         ui.SetTextAreaContent(id_output, "$ " + cmd + "\n");
         m_compiling.store(true);
 
@@ -483,7 +483,7 @@ struct Main {
     }
 
     void _ApplyOutput() {
-        ui.SetEnabled(id_compileBtn, true);
+        ui.SetEnable(id_compileBtn, true);
         const std::string text = "$ " + _BuildCommand() + "\n\n" + m_output.filtered(m_filterMode);
         ui.SetTextAreaContent(id_output, text);
         ui.SetText(id_errLabel,  std::format("Errors: {}", m_output.errors));
@@ -514,7 +514,7 @@ struct Main {
     // ─────────────────────────────────────────────────────────────────────────
 
     void _CheckLibsAndIncludes() {
-        ui.SetEnabled(id_checkBtn, false);
+        ui.SetEnable(id_checkBtn, false);
         ui.SetText(id_statusLabel, "Checking…");
 
         int okCount   = 0;
@@ -562,7 +562,7 @@ struct Main {
         ui.SetTextAreaContent(id_output, report);
         ui.SetText(id_statusLabel,
             failCount > 0 ? std::format("{} missing", failCount) : "All OK");
-        ui.SetEnabled(id_checkBtn, true);
+        ui.SetEnable(id_checkBtn, true);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

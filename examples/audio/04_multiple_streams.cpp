@@ -31,7 +31,7 @@ struct Sound {
 struct Main {
 	static constexpr SDL::Point windowSz = {640, 480};
 
-	static SDL::AppResult Init(Main** m, SDL::AppArgs args) {
+	static SDL::AppResult Init(Main** m, SDL::AppArgs /*args*/) {
 		SDL::SetAppMetadata("Example Audio Multiple Streams",
 												"1.0",
 												"com.example.audio-multiple-streams");

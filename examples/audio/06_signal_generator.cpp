@@ -445,8 +445,8 @@ struct Main {
 	// ─────────────────────────────────────────────────────────────────────────
 	void _BuildUI() {
 		const std::string base = std::string(SDL::GetBasePath()) + "../../../assets/";
-		ui.LoadFont("deja-vu-sans", base + "fonts/DejaVuSans.ttf");
-		ui.SetDefaultFont("deja-vu-sans", 12.f);
+		ui.LoadFont("font", base + "fonts/DejaVuSans.ttf");
+		ui.SetDefaultFont("font", 12.f);
 
 		auto root = ui.Row("root", 0.f, 0.f)
 			.W(SDL::UI::Value::Rw(100.f))
@@ -566,7 +566,7 @@ struct Main {
 			.TextColor(pal::WHITE).FontSize(11.f).Id();
 		card.Child(oi.lblFreq);
 
-		auto sldFreq = ui.Slider(idBase + "_sfreq", 20.f, 4000.f, osc.freq)
+		auto sldFreq = ui.Slider<float>(idBase + "_sfreq", 20.f, 4000.f, osc.freq, 0.01f)
 			.H(16.f).FillColor(accent)
 			.OnChange<float>([this, idx](float v){
 				m_osc[idx].freq = v;
@@ -581,7 +581,7 @@ struct Main {
 			.TextColor(pal::WHITE).FontSize(11.f).Id();
 		card.Child(oi.lblAmp);
 
-		auto sldAmp = ui.Slider(idBase + "_samp", 0.f, 1.f, osc.amplitude)
+		auto sldAmp = ui.Slider<float>(idBase + "_samp", 0.f, 1.f, osc.amplitude, 0.01f)
 			.H(16.f).FillColor(accent)
 			.OnChange<float>([this, idx](float v){
 				m_osc[idx].amplitude = v;
@@ -624,7 +624,7 @@ struct Main {
 							   std::format("Volume: {:.0f}%", m_master * 100.f))
 			.TextColor(pal::WHITE).FontSize(12.f).W(100.f).Id();
 
-		auto sld = ui.Slider("sld_master", 0.f, 1.f, m_master)
+		auto sld = ui.Slider<float>("sld_master", 0.f, 1.f, m_master, 0.01f)
 			.Grow(100.f).H(16.f).FillColor(pal::ACCENT)
 			.OnChange<float>([this](float v){
 				m_master = v;

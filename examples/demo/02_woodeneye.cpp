@@ -235,20 +235,20 @@ struct Main
 	{
 		SDL::LogPriority priority = SDL::LOG_PRIORITY_WARN;
 		for (auto arg : args) {
-		if (arg == "--verbose") priority = SDL::LOG_PRIORITY_VERBOSE;
-		else if (arg == "--debug") priority = SDL::LOG_PRIORITY_DEBUG;
-		else if (arg == "--info") priority = SDL::LOG_PRIORITY_INFO;
-		else if (arg == "--help") {
-			SDL::Log("Usage: %s [options]", SDL::GetBasePath());
-			SDL::Log("Options:");
-			SDL::Log("  --verbose    Set log priority to VERBOSE");
-			SDL::Log("  --debug      Set log priority to DEBUG");
-			SDL::Log("  --info       Set log priority to INFO");
-			SDL::Log("  --help       Show this help message");
-			SDL::Log("Press Escape or close the window to quit.");
-			SDL::Log("Press arrow keys to rotate the cube.");
-			return SDL::APP_EXIT_SUCCESS;
-		}
+			if (arg == "--verbose") priority = SDL::LOG_PRIORITY_VERBOSE;
+			else if (arg == "--debug") priority = SDL::LOG_PRIORITY_DEBUG;
+			else if (arg == "--info") priority = SDL::LOG_PRIORITY_INFO;
+			else if (arg == "--help") {
+				SDL::Log("Usage: %s [options]", SDL::GetBasePath());
+				SDL::Log("Options:");
+				SDL::Log("  --verbose    Set log priority to VERBOSE");
+				SDL::Log("  --debug      Set log priority to DEBUG");
+				SDL::Log("  --info       Set log priority to INFO");
+				SDL::Log("  --help       Show this help message");
+				SDL::Log("Press Escape or close the window to quit.");
+				SDL::Log("Press arrow keys to rotate the cube.");
+				return SDL::APP_EXIT_SUCCESS;
+			}
 		}
 		SDL::SetLogPriorities(priority);
 
@@ -1792,12 +1792,12 @@ struct Main
 
 		// Panel container
 		auto panel = ui.Column("menu_panel", 10.f, 0.f)
-						 .W(400.f)
-						 .Padding(20, 14)
-						 .BgColor({9, 11, 26, 230})
-						 .BdColor({55, 75, 135, 255})
-						 .Borders(SDL::FBox(1.f))
-						 .Radius(SDL::FCorners(4.f));
+			.W(400.f)
+			.Padding(20, 14)
+			.BgColor({9, 11, 26, 230})
+			.BdColor({55, 75, 135, 255})
+			.Borders(SDL::FBox(1.f))
+			.Radius(SDL::FCorners(4.f));
 
 		panel.Children(
 			ui.Label("menu_title", "WOODENEYE  008  GPU").TextColor(kTitle),

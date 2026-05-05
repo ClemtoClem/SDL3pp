@@ -1,5 +1,6 @@
 #pragma once
 #include "system.h"
+#include "components.h"
 
 namespace SDL {
 namespace UI {
@@ -41,6 +42,7 @@ namespace UI {
 			fn(sys.GetStyle(id));
 			return *this;
 		}
+
 		/** @brief Set the background color (normal state). */
 		Builder &BgColor(SDL::Color c) {
 			sys.GetStyle(id).bgColor = c;
@@ -57,15 +59,52 @@ namespace UI {
 			return *this;
 		}
 		/** @brief Set the background color when the widget is checked (Toggle, selected ListBox item). */
-		Builder &BgCheck(SDL::Color c) {
+		Builder &BgCheckedColor(SDL::Color c) {
 			sys.GetStyle(id).bgCheckedColor = c;
 			return *this;
 		}
+		/** @brief Set the background color when the widget is focused. */
+		Builder &BgFocusedColor(SDL::Color c) {
+			sys.GetStyle(id).bgFocusedColor = c;
+			return *this;
+		}
+		/** @brief Set the background color when the widget is disabled. */
+		Builder &BgDisabledColor(SDL::Color c) {
+			sys.GetStyle(id).bgDisabledColor = c;
+			return *this;
+		}
+
 		/** @brief Set the border color (normal state). */
 		Builder &BdColor(SDL::Color c) {
 			sys.GetStyle(id).bdColor = c;
 			return *this;
 		}
+		/** @brief Set the border color when the widget is hovered. */
+		Builder &BdHoveredColor(SDL::Color c) {
+			sys.GetStyle(id).bdHoveredColor = c;
+			return *this;
+		}
+		/** @brief Set the border color when the widget is pressed. */
+		Builder &BdPressedColor(SDL::Color c) {
+			sys.GetStyle(id).bdPressedColor = c;
+			return *this;
+		}
+		/** @brief Set the border color when the widget is checked. */
+		Builder &BdCheckedColor(SDL::Color c) {
+			sys.GetStyle(id).bdCheckedColor = c;
+			return *this;
+		}
+		/** @brief Set the border color when the widget is focused. */
+		Builder &BdFocusedColor(SDL::Color c) {
+			sys.GetStyle(id).bdFocusedColor = c;
+			return *this;
+		}
+		/** @brief Set the border color when the widget is disabled. */
+		Builder &BdDisabledColor(SDL::Color c) {
+			sys.GetStyle(id).bdDisabledColor = c;
+			return *this;
+		}
+
 		/** @brief Set the left border thickness in pixels. */
 		Builder &BorderLeft(float w) {
 			sys.GetStyle(id).borders.left = w;
@@ -497,77 +536,89 @@ namespace UI {
 
 		// BehaviorFlag
 		/** @brief Enable or disable the widget (disabled = not interactive, grayed visually). */
-		Builder &Enable(bool e = true) {
-			sys.SetEnabled(id, e);
+		Builder &SetEnable(bool e) {
+			sys.SetEnable(id, e);
 			return *this;
 		}
-		/** @brief Disable the widget (shorthand for Enable(false)). */
-		Builder &Disable() {
-			sys.SetEnabled(id, false);
-			return *this;
-		}
+		/** @brief Enable the widget (shorthand for SetEnable(true)). */
+		Builder &Enable() { return SetEnable(true); }
+		/** @brief Disable the widget (shorthand for SetEnable(false)). */
+		Builder &Disable() { return SetEnable(false); }
+		
 		/** @brief Show or hide the widget (hidden = takes no space, receives no input). */
-		Builder &Visible(bool v = true) {
+		Builder &SetVisible(bool v) {
 			sys.SetVisible(id, v);
 			return *this;
 		}
-		/** @brief Hide the widget (shorthand for Visible(false)). */
-		Builder &Hide() {
-			sys.SetVisible(id, false);
-			return *this;
-		}
-		/** @brief Show the widget (shorthand for Visible(true)). */
-		Builder &Show() {
-			sys.SetVisible(id, true);
-			return *this;
-		}
+		/** @brief Hide the widget (shorthand for SetVisible(false)). */
+		Builder &Hide() { return SetVisible(false); }
+		/** @brief Show the widget (shorthand for SetVisible(true)). */
+		Builder &Show() { return SetVisible(true); }
+		
 		/** @brief Enable or disable hover detection on the widget. */
-		Builder &Hoverable(bool v = true) {
+		Builder &SetHoverable(bool v) {
 			sys.SetHoverable(id, v);
 			return *this;
 		}
+		Builder &Hoverable() { return SetHoverable(true); }
+
 		/** @brief Enable or disable mouse-click selection on the widget. */
-		Builder &Selectable(bool v = true) {
+		Builder &SetSelectable(bool v) {
 			sys.SetSelectable(id, v);
 			return *this;
 		}
+		Builder &Selectable() { return SetSelectable(true); }
+
 		/** @brief Enable or disable keyboard focus on the widget. */
-		Builder &Focusable(bool v = true) {
+		Builder &SetFocusable(bool v) {
 			sys.SetFocusable(id, v);
 			return *this;
 		}
+		Builder &Focusable() { return SetFocusable(true); }
+
 		/** @brief Enable or disable the permanent horizontal scrollbar. */
-		Builder &ScrollableX(bool b = true) {
+		Builder &SetScrollableX(bool b) {
 			sys.SetScrollableX(id, b);
 			return *this;
 		}
+		Builder &ScrollableX() {return SetScrollableX(true); }
+		
 		/** @brief Enable or disable the permanent vertical scrollbar. */
-		Builder &ScrollableY(bool b = true) {
+		Builder &SetScrollableY(bool b) {
 			sys.SetScrollableY(id, b);
 			return *this;
 		}
-		/** @brief Shorthand to set both permanent scrollbar axes at once. */
-		Builder &Scrollable(bool bx = true, bool by = true) {
+		Builder &ScrollableY() {return SetScrollableX(true); }
+		
+		/** @brief Enable or disable the permanent scrollbar axes at once. */
+		Builder &SetScrollable(bool bx, bool by) {
 			sys.SetScrollable(id, bx, by);
 			return *this;
 		}
+		Builder &Scrollable() { return SetScrollable(true, true); }
+
 		/// Scrollbar horizontal automatique : visible seulement si le contenu déborde.
-		Builder &AutoScrollableX(bool b = true) {
+		Builder &SetAutoScrollableX(bool b) {
 			sys.SetAutoScrollableX(id, b);
 			return *this;
 		}
+		Builder &AutoScrollableX() { return SetAutoScrollableX(true); }
 		/// Scrollbar vertical automatique : visible seulement si le contenu déborde.
-		Builder &AutoScrollableY(bool b = true) {
+		Builder &SetAutoScrollableY(bool b) {
 			sys.SetAutoScrollableY(id, b);
 			return *this;
 		}
+		Builder &AutoScrollableY() { return SetAutoScrollableY(true); }
+		
 		/// Active les deux scrollbars automatiques.
-		Builder &AutoScrollable(bool bx = true, bool by = true) {
+		Builder &SetAutoScrollable(bool bx, bool by) {
 			sys.SetAutoScrollable(id, bx, by);
 			return *this;
 		}
+		Builder &AutoScrollable() { return SetAutoScrollable(true, true); }
+		
 		/// Épaisseur en pixels des scrollbars inline (défaut : 8 px).
-		Builder &ScrollbarThickness(float t) {
+		Builder &SetScrollbarThickness(float t) {
 			sys.SetScrollbarThickness(id, t);
 			return *this;
 		}
@@ -604,21 +655,22 @@ namespace UI {
 		}
 
 		/** @brief Set the text content of the widget at runtime. */
-		Builder &SetText(const std::string &t) {
-			sys.SetText(id, t);
+		Builder &SetText(std::string_view view) {
+			sys.SetText(id, std::move(view));
 			return *this;
 		}
 		/** @brief Set the numeric value of a Slider or Knob widget at runtime (clamped). */
-		template <typename T>
-		Builder &SetValue(T v) {
-			sys.SetValue<T>(id, v);
+		Builder &SetValue(float v) {
+			sys.SetValue(id, v);
 			return *this;
 		}
 		/** @brief Set the checked state of a Toggle or RadioButton widget at runtime. */
-		Builder &Check(bool c = true) {
+		Builder &SetChecked(bool c) {
 			sys.SetChecked(id, c);
 			return *this;
 		}
+		Builder &Checked() { return SetChecked(true); }
+		Builder &Unchecked() { return SetChecked(false); }
 
 		// Callbacks
 		/** @brief Register (or replace) the render callback on a Canvas widget. */
@@ -696,136 +748,141 @@ namespace UI {
 			return *this;
 		}
 		/// Set the end color of the gradient for the hovered state.
-		Builder &BgGradientHover(SDL::Color c)    { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Hovered   = c; return *this; }
+		Builder &BgGradientHover(SDL::Color c)    { if (auto *g = sys.GetCtx().Get<::SDL::UI::BgGradient>(id)) g->color2Hovered   = c; return *this; }
 		/// Set the end color of the gradient for the pressed state.
-		Builder &BgGradientPress(SDL::Color c)    { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Pressed   = c; return *this; }
+		Builder &BgGradientPress(SDL::Color c)    { if (auto *g = sys.GetCtx().Get<::SDL::UI::BgGradient>(id)) g->color2Pressed   = c; return *this; }
 		/// Set the end color of the gradient for the checked state.
-		Builder &BgGradientCheck(SDL::Color c)    { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Checked   = c; return *this; }
+		Builder &BgGradientCheck(SDL::Color c)    { if (auto *g = sys.GetCtx().Get<::SDL::UI::BgGradient>(id)) g->color2Checked   = c; return *this; }
 		/// Set the end color of the gradient for the focused state.
-		Builder &BgGradientFocus(SDL::Color c)    { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Focused   = c; return *this; }
+		Builder &BgGradientFocus(SDL::Color c)    { if (auto *g = sys.GetCtx().Get<::SDL::UI::BgGradient>(id)) g->color2Focused   = c; return *this; }
 		/// Set the end color of the gradient for the disabled state.
-		Builder &BgGradientDisable(SDL::Color c)  { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->color2Disabled  = c; return *this; }
+		Builder &BgGradientDisable(SDL::Color c)  { if (auto *g = sys.GetCtx().Get<::SDL::UI::BgGradient>(id)) g->color2Disabled  = c; return *this; }
 		/// Set the gradient start.
-		Builder &BgGradientStart(GradientAnchor start) { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->start = start; return *this; }
+		Builder &BgGradientStart(GradientAnchor start) { if (auto *g = sys.GetCtx().Get<::SDL::UI::BgGradient>(id)) g->start = start; return *this; }
 		/// Set the gradient end.
-		Builder &BgGradientEnd(GradientAnchor end)     { if (auto *g = sys.GetECSContext().Get<::SDL::UI::BgGradient>(id)) g->end = end; return *this; }
+		Builder &BgGradientEnd(GradientAnchor end)     { if (auto *g = sys.GetCtx().Get<::SDL::UI::BgGradient>(id)) g->end = end; return *this; }
 		/// Remove the gradient background (revert to solid colour).
 		Builder &RemoveBgGradient() { sys.RemoveBgGradient(id); return *this; }
 
 		/// Attach a 9-slice tileset skin to this widget.
-		Builder &TilesetSkin(TilesetStyle ts) {
-			sys.SetTilesetStyle(id, std::move(ts));
+		Builder &TilesetSkin(std::string_view key, TilesetData ts) {
+			sys.SetImageKey(id, std::move(key));
+			sys.SetTileset(id, std::move(ts));
 			return *this;
 		}
 
 		/// Remove a previously attached tileset skin.
 		Builder &RemoveTilesetSkin() {
-			sys.RemoveTilesetStyle(id);
+			sys.RemoveTileset(id);
 			return *this;
 		}
 
 		// ── ComboBox setters ───────────────────────────────────────────────────────
 		Builder &Items(const std::vector<std::string>& items) {
-			if (auto *d = sys.GetECSContext().Get<ComboBoxData>(id)) d->items = items;
+			if (auto *d = sys.GetCtx().Get<ComboBoxData>(id)) d->items = items;
 			return *this;
 		}
 		Builder &SelectedIndex(int idx) {
-			if (auto *d = sys.GetECSContext().Get<ComboBoxData>(id)) d->selectedIndex = idx;
+			if (auto *d = sys.GetCtx().Get<ComboBoxData>(id)) d->selectedIndex = idx;
 			return *this;
 		}
 		Builder &ItemHeight(int h) {
-			if (auto *d = sys.GetECSContext().Get<ComboBoxData>(id)) d->itemHeight = h;
+			if (auto *d = sys.GetCtx().Get<ComboBoxData>(id)) d->itemHeight = h;
 			return *this;
 		}
 		Builder &MaxVisible(int n) {
-			if (auto *d = sys.GetECSContext().Get<ComboBoxData>(id)) d->maxVisible = n;
+			if (auto *d = sys.GetCtx().Get<ComboBoxData>(id)) d->maxVisible = n;
 			return *this;
 		}
 
-		// ── InputValue setters (operate on the NumericValue component) ─────
-		Builder &InputRange(double mn, double mx) {
-			if (auto *nv = sys.GetECSContext().Get<NumericValue>(id)) { nv->min = mn; nv->max = mx; }
+		// ── NumericValue setters ─────────────────────────────────────────────────────
+		Builder &ValueRange(float mn, float mx) {
+			if (auto *d = sys.GetCtx().Get<NumericValue>(id)) { d->min = mn; d->max = mx; }
 			return *this;
 		}
-		Builder &InputStep(double step) {
-			if (auto *nv = sys.GetECSContext().Get<NumericValue>(id)) nv->step = step;
+		Builder &ValueMin(float mn) {
+			if (auto *d = sys.GetCtx().Get<NumericValue>(id)) d->min = mn;
 			return *this;
 		}
-		Builder &InputDecimals(int dec) {
-			if (auto *nv = sys.GetECSContext().Get<NumericValue>(id)) nv->decimals = dec;
+		Builder &ValueMax(float mx) {
+			if (auto *d = sys.GetCtx().Get<NumericValue>(id)) d->max = mx;
 			return *this;
 		}
-		Builder &InputType(UI::InputType t) {
-			if (auto *d = sys.GetECSContext().Get<InputData>(id)) d->type = t;
+		Builder &ValueStep(float step) {
+			if (auto *d = sys.GetCtx().Get<NumericValue>(id)) d->step = step;
+			return *this;
+		}
+		Builder &ValueDecimals(int dec) {
+			if (auto *d = sys.GetCtx().Get<NumericValue>(id)) d->decimals = dec;
 			return *this;
 		}
 
 		// ── TabView setters ────────────────────────────────────────────────────────
 		Builder &AddTab(const std::string &label, bool closable = false) {
-			if (auto *d = sys.GetECSContext().Get<TabViewData>(id)) d->tabs.push_back({label, closable});
+			if (auto *d = sys.GetCtx().Get<TabViewData>(id)) d->tabs.push_back({label, closable});
 			return *this;
 		}
 		Builder &ActiveTab(int idx) {
-			if (auto *d = sys.GetECSContext().Get<TabViewData>(id)) d->activeTab = idx;
+			if (auto *d = sys.GetCtx().Get<TabViewData>(id)) d->activeTab = idx;
 			return *this;
 		}
 		Builder &TabHeight(float h) {
-			if (auto *d = sys.GetECSContext().Get<TabViewData>(id)) d->tabHeight = h;
+			if (auto *d = sys.GetCtx().Get<TabViewData>(id)) d->tabHeight = h;
 			return *this;
 		}
 		Builder &TabsBottom(bool v) {
-			if (auto *d = sys.GetECSContext().Get<TabViewData>(id)) d->tabsBottom = v;
+			if (auto *d = sys.GetCtx().Get<TabViewData>(id)) d->tabsBottom = v;
 			return *this;
 		}
 
 		// ── Expander setters ───────────────────────────────────────────────────────
 		Builder &ExpanderLabel(const std::string &label) {
-			if (auto *d = sys.GetECSContext().Get<ExpanderData>(id)) d->label = label;
+			if (auto *d = sys.GetCtx().Get<ExpanderData>(id)) d->label = label;
 			return *this;
 		}
 		Builder &Expanded(bool v) {
-			if (auto *d = sys.GetECSContext().Get<ExpanderData>(id)) {
+			if (auto *d = sys.GetCtx().Get<ExpanderData>(id)) {
 				d->expanded = v; d->animT = v ? 1.f : 0.f;
 			}
 			return *this;
 		}
 		Builder &HeaderHeight(float h) {
-			if (auto *d = sys.GetECSContext().Get<ExpanderData>(id)) d->headerH = h;
-			if (auto *d = sys.GetECSContext().Get<TabViewData>(id))   d->tabHeight = h;
+			if (auto *d = sys.GetCtx().Get<ExpanderData>(id)) d->headerH = h;
+			if (auto *d = sys.GetCtx().Get<TabViewData>(id))   d->tabHeight = h;
 			return *this;
 		}
 
 		// ── Splitter setters ───────────────────────────────────────────────────────
 		Builder &SplitRatio(float ratio) {
-			if (auto *d = sys.GetECSContext().Get<SplitterData>(id)) d->ratio = SDL::Clamp(ratio, d->minRatio, d->maxRatio);
+			if (auto *d = sys.GetCtx().Get<SplitterData>(id)) d->ratio = SDL::Clamp(ratio, d->minRatio, d->maxRatio);
 			return *this;
 		}
 		Builder &SplitRatioRange(float mn, float mx) {
-			if (auto *d = sys.GetECSContext().Get<SplitterData>(id)) { d->minRatio = mn; d->maxRatio = mx; }
+			if (auto *d = sys.GetCtx().Get<SplitterData>(id)) { d->minRatio = mn; d->maxRatio = mx; }
 			return *this;
 		}
 		Builder &HandleSize(float s) {
-			if (auto *d = sys.GetECSContext().Get<SplitterData>(id)) d->handleSize = s;
+			if (auto *d = sys.GetCtx().Get<SplitterData>(id)) d->handleSize = s;
 			return *this;
 		}
 
 		// ── Spinner setters ────────────────────────────────────────────────────────
 		Builder &SpinnerSpeed(float speed) {
-			if (auto *d = sys.GetECSContext().Get<SpinnerData>(id)) d->speed = speed;
+			if (auto *d = sys.GetCtx().Get<SpinnerData>(id)) d->speed = speed;
 			return *this;
 		}
 		Builder &SpinnerArc(float arc) {
-			if (auto *d = sys.GetECSContext().Get<SpinnerData>(id)) d->arcSpan = arc;
+			if (auto *d = sys.GetCtx().Get<SpinnerData>(id)) d->arcSpan = arc;
 			return *this;
 		}
 		Builder &SpinnerThickness(float t) {
-			if (auto *d = sys.GetECSContext().Get<SpinnerData>(id)) d->thickness = t;
+			if (auto *d = sys.GetCtx().Get<SpinnerData>(id)) d->thickness = t;
 			return *this;
 		}
 
 		// ── Knob setters ──────────────────────────────────────────────────────────
 		Builder &SetKnobShape(KnobShape shape) {
-			if (auto *kd = sys.GetECSContext().Get<KnobData>(id)) kd->shape = shape;
+			if (auto *kd = sys.GetCtx().Get<KnobData>(id)) kd->shape = shape;
 			return *this;
 		}
 
@@ -922,21 +979,21 @@ namespace UI {
 		/** @brief Set MenuBar height. */
 		Builder &MenuBarH(float h) {
 			if (auto *d = sys.GetMenuBarData(id)) (void)d;
-			sys.GetECSContext().Get<LayoutProps>(id)->height = Value::Px(h);
+			sys.GetCtx().Get<LayoutProps>(id)->height = Value::Px(h);
 			return *this;
 		}
 
 		// ── Badge setters ──────────────────────────────────────────────────────────
 		Builder &BadgeText(const std::string &text) {
-			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->text = text;
+			if (auto *d = sys.GetCtx().Get<BadgeData>(id)) d->text = text;
 			return *this;
 		}
 		Builder &BadgeBgColor(SDL::Color c) {
-			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->bgColor = c;
+			if (auto *d = sys.GetCtx().Get<BadgeData>(id)) d->bgColor = c;
 			return *this;
 		}
 		Builder &BadgeTextColor(SDL::Color c) {
-			if (auto *d = sys.GetECSContext().Get<BadgeData>(id)) d->textColor = c;
+			if (auto *d = sys.GetCtx().Get<BadgeData>(id)) d->textColor = c;
 			return *this;
 		}
 
@@ -1100,52 +1157,53 @@ namespace UI {
 
 	inline Builder System::GetBuilder(ECS::EntityId e) { return {*this, e}; }
 	
-	inline Builder System::Container(const std::string &n) { return {*this, MakeContainer(n)}; }
-	inline Builder System::Label(const std::string &n, const std::string &t) { return {*this, MakeLabel(n, t)}; } 
-	inline Builder System::Button(const std::string &n, const std::string &t) { return {*this, MakeButton(n, t)}; }
-	inline Builder System::Toggle(const std::string &n, const std::string &t) { return {*this, MakeToggle(n, t)}; }
-	inline Builder System::Radio(const std::string &n, const std::string &g, const std::string &t) { return {*this, MakeRadioButton(n, g, t)}; }
-	template<is_numeric_value T>
-	inline Builder System::Slider(const std::string &n, T mn, T mx, T v, Orientation o) {
-		return {*this, MakeSlider<T>(n, mn, mx, v, T(0), o)};
-	}
-	inline Builder System::ScrollBar(const std::string &n, float cs, float vs, Orientation o) { return {*this, MakeScrollBar(n, cs, vs, o)}; }
-	inline Builder System::Progress(const std::string &n, float v, float mx) { return {*this, MakeProgress(n, v, mx)}; }
-	inline Builder System::Separator(const std::string &n) { return {*this, MakeSeparator(n)}; }
-	inline Builder System::Input(const std::string &n, const std::string &ph) { return {*this, MakeInput(n, ph)}; }
+	inline Builder System::Container(std::string_view n) { return {*this, MakeContainer(n)}; }
+	inline Builder System::Label(std::string_view n, const std::string &t) { return {*this, MakeLabel(n, t)}; } 
+	inline Builder System::Button(std::string_view n, const std::string &t) { return {*this, MakeButton(n, t)}; }
+	inline Builder System::Toggle(std::string_view n, const std::string &t) { return {*this, MakeToggle(n, t)}; }
+	inline Builder System::Radio(std::string_view n, const std::string &g, const std::string &t) { return {*this, MakeRadioButton(n, g, t)}; }
 	template <is_numeric_value T>
-	inline Builder System::InputValue(const std::string &n, T mn, T mx, T v, T step) {
-		return Builder(*this, MakeInputValue<T>(n, mn, mx, v, step));
+	inline Builder System::Slider(std::string_view n, T mn, T mx, T v, T step, Orientation o) { return {*this, MakeSlider<T>(n, mn, mx, v, step, o)}; }
+	inline Builder System::ScrollBar(std::string_view n, float cs, float vs, Orientation o) { return {*this, MakeScrollBar(n, cs, vs, o)}; }
+	inline Builder System::Progress(std::string_view n, float v, float mx) { return {*this, MakeProgress(n, v, mx)}; }
+	inline Builder System::Separator(std::string_view n) { return {*this, MakeSeparator(n)}; }
+	inline Builder System::Input(std::string_view n, const std::string &ph) { return {*this, MakeInput(n, ph)}; }
+	template <is_numeric_value T>
+	inline Builder System::InputValue(std::string_view n, T minValue, T maxValue, T value, T step) {
+		return {*this, MakeInputValue<T>(n, minValue, maxValue, value, step)};
 	}
-	inline Builder System::Knob(const std::string &n, float mn, float mx, float v, KnobShape shape) { return {*this, MakeKnob(n, mn, mx, v, shape)}; }
-	inline Builder System::ImageWidget(const std::string &n, const std::string &p, ImageFit f) { return {*this, MakeImage(n, p, f)}; }
-	inline Builder System::CanvasWidget(const std::string &n,
+	template <is_numeric_value T>
+	inline Builder System::Knob(std::string_view n, T minValue, T maxValue, T value, T step, KnobShape shape) {
+		return {*this, MakeKnob<T>(n, minValue, maxValue, value, step, shape)};
+	}
+	inline Builder System::ImageWidget(std::string_view n, const std::string &p, ImageFit f) { return {*this, MakeImage(n, p, f)}; }
+	inline Builder System::CanvasWidget(std::string_view n,
 		std::function<void(SDL::Event&)> cb_event, 
 		std::function<void(float)> cb_update,
 		std::function<void(RendererRef, FRect)> cb_render) { return {*this, MakeCanvas(n, std::move(cb_event), std::move(cb_update), std::move(cb_render))}; }
-	inline Builder System::TextArea(const std::string &n, const std::string &text, const std::string &ph) { return {*this, MakeTextArea(n, text, ph)}; }
+	inline Builder System::TextArea(std::string_view n, const std::string &text, const std::string &ph) { return {*this, MakeTextArea(n, text, ph)}; }
 
-	inline Builder System::Column(const std::string &n, float gap, float pad, float marg) {
+	inline Builder System::Column(std::string_view n, float gap, float pad, float marg) {
         auto b = Container(n);
         b.Layout(Layout::InColumn).Gap(gap).Padding(pad).Margin(marg);
         return b;
     }
 
-    inline Builder System::Row(const std::string &n, float gap, float pad, float marg) {
+    inline Builder System::Row(std::string_view n, float gap, float pad, float marg) {
         auto b = Container(n);
         b.Layout(Layout::InLine).Gap(gap).Padding(pad).Margin(marg)
             .AlignH(Align::Center);
         return b;
     }
 
-    inline Builder System::Card(const std::string &n, float gap, float marg) {
+    inline Builder System::Card(std::string_view n, float gap, float marg) {
         auto b = Container(n);
         b.Layout(Layout::InColumn).Gap(gap).Margin(marg);
         b.Style(Theme::Card()).PaddingH(14.f).PaddingV(12.f);
         return b;
     }
 
-	inline Builder System::Stack(const std::string &n, float gap, float pad, float marg) {
+	inline Builder System::Stack(std::string_view n, float gap, float pad, float marg) {
 		auto b = Container(n);
 		b.Layout(Layout::Stack).Gap(gap).Padding(pad).Padding(marg)
 			.W(SDL::UI::Value::Auto())
@@ -1160,14 +1218,14 @@ namespace UI {
 		return b;
 	}
 
-	inline Builder System::ScrollView(const std::string &n, float gap) {
+	inline Builder System::ScrollView(std::string_view n, float gap) {
 		auto b = Column(n, gap, 0.f);
 		// AutoScrollableY : la scrollbar verticale n'apparaît que si le contenu déborde.
 		b.AutoScrollableY().Padding(0);
 		return b;
 	}
 
-	inline Builder System::Grid(const std::string &n, int columns, float gap, float pad) {
+	inline Builder System::Grid(std::string_view n, int columns, float gap, float pad) {
 		auto b = Container(n);
 		b.Layout(Layout::InGrid).Gap(gap).Padding(pad);
 		b.GridCols(columns);
@@ -1181,44 +1239,44 @@ namespace UI {
 	inline void Theme::ApplyDark(System &) { accentColor = {70, 130, 210, 255}; }
 	inline void Theme::ApplyLight(System &) { accentColor = {60, 120, 200, 255}; } 
 
-	inline Builder System::ListBoxWidget(const std::string &n,
+	inline Builder System::ListBoxWidget(std::string_view n,
 										 const std::vector<std::string>& items) {
 		return Builder(*this, MakeListBox(n, items));
 	}
 
-	inline Builder System::GradedGraph(const std::string &n) {
+	inline Builder System::GradedGraph(std::string_view n) {
 		return Builder(*this, MakeGraph(n));
 	}
 
-	inline Builder System::ComboBox(const std::string &n, const std::vector<std::string>& items, int sel) {
+	inline Builder System::ComboBox(std::string_view n, const std::vector<std::string>& items, int sel) {
 		return Builder(*this, MakeComboBox(n, items, sel));
 	}
-	inline Builder System::TabView(const std::string &n) {
+	inline Builder System::TabView(std::string_view n) {
 		return Builder(*this, MakeTabView(n));
 	}
-	inline Builder System::Expander(const std::string &n, const std::string &label, bool expanded) {
+	inline Builder System::Expander(std::string_view n, const std::string &label, bool expanded) {
 		return Builder(*this, MakeExpander(n, label, expanded));
 	}
-	inline Builder System::Splitter(const std::string &n, Orientation o, float ratio) {
+	inline Builder System::Splitter(std::string_view n, Orientation o, float ratio) {
 		return Builder(*this, MakeSplitter(n, o, ratio));
 	}
-	inline Builder System::Spinner(const std::string &n, float speed) {
+	inline Builder System::Spinner(std::string_view n, float speed) {
 		return Builder(*this, MakeSpinner(n, speed));
 	}
-	inline Builder System::Badge(const std::string &n, const std::string &text) {
+	inline Builder System::Badge(std::string_view n, const std::string &text) {
 		return Builder(*this, MakeBadge(n, text));
 	}
-	inline Builder System::ColorPicker(const std::string &n, ColorPickerPalette palette, float step) {
+	inline Builder System::ColorPicker(std::string_view n, ColorPickerPalette palette, float step) {
 		return Builder(*this, MakeColorPicker(n, palette, step));
 	}
-	inline Builder System::Popup(const std::string &n, const std::string &title,
+	inline Builder System::Popup(std::string_view n, const std::string &title,
 	                             bool closable, bool draggable, bool resizable) {
 		return Builder(*this, MakePopup(n, title, closable, draggable, resizable));
 	}
-	inline Builder System::Tree(const std::string &n) {
+	inline Builder System::Tree(std::string_view n) {
 		return Builder(*this, MakeTree(n));
 	}
-	inline Builder System::MenuBar(const std::string &n) {
+	inline Builder System::MenuBar(std::string_view n) {
 		return Builder(*this, MakeMenuBar(n));
 	}
 

@@ -145,7 +145,7 @@ namespace SDL::UI {
 #endif
 	}
 
-	inline void UIRenderSystem::Process(ECS::EntityId root, ECS::EntityId focused) {
+	inline void UIRenderSystem::Process(ECS::EntityId root, [[maybe_unused]] ECS::EntityId focused) {
 		if (!m_ctx.IsAlive(root)) return;
 		auto& drawList = m_layout.GetDrawList();
 		for (const auto& call : drawList) {
@@ -172,8 +172,8 @@ namespace SDL::UI {
 
 
 	inline void UIRenderSystem::_RegisterBuiltinRenderers() {
-		m_registry.Register<std::nullptr_t>([](ECS::EntityId e, RendererRef r, const Style& s,
-		                                        const FRect& rect, ECS::Context& ctx) {
+		m_registry.Register<std::nullptr_t>([](ECS::EntityId /*e*/, RendererRef /*r*/, const Style& /*s*/,
+		                                        const FRect& /*rect*/, ECS::Context& /*ctx*/) {
 			// Default no-op renderer
 		});
 	}
@@ -228,7 +228,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawBackground(ECS::EntityId e, const FRect& rect, const Style& s, const WidgetState& st) {
+	inline void UIRenderSystem::_DrawBackground([[maybe_unused]] ECS::EntityId e, const FRect& rect, const Style& s, const WidgetState& st) {
 
 		auto color = s.bgColor;
 		if (st.hovered) {
@@ -259,7 +259,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawLabel(ECS::EntityId e, const FRect& rect, const Style& s) {
+	inline void UIRenderSystem::_DrawLabel(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const Style& s) {
 		auto *te = m_ctx.Get<TextEdit>(e);
 		if (!te || te->text.empty()) return;
 
@@ -339,7 +339,7 @@ namespace SDL::UI {
 		_FillRR(thumb, thumbColor, 8.f);
 	}
 
-	inline void UIRenderSystem::_DrawProgress(ECS::EntityId e, const FRect& rect, const Style& s) {
+	inline void UIRenderSystem::_DrawProgress(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const Style& s) {
 		auto *nv = m_ctx.Get<NumericValue>(e);
 		if (!nv) return;
 
@@ -397,9 +397,8 @@ namespace SDL::UI {
 		m_renderer.RenderFillCircle({cx, cy}, innerRadius * 0.3f);
 	}
 
-	inline void UIRenderSystem::_DrawToggle(ECS::EntityId e, const FRect& rect, const Style& s) {
+	inline void UIRenderSystem::_DrawToggle(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const Style& s) {
 		auto *tog = m_ctx.Get<ToggleData>(e);
-		auto *st = m_ctx.Get<WidgetState>(e);
 		if (!tog) return;
 
 		// Pill-shaped toggle switch
@@ -409,7 +408,7 @@ namespace SDL::UI {
 		float sy = rect.y + (rect.h - sh) * 0.5f;
 
 		// Animated transition
-		float t = tog->animT;
+		[[maybe_unused]] float t = tog->animT;
 		SDL::Color bgColor = tog->checked ?
 			SDL::Color{80, 200, 100, 255} : SDL::Color{100, 100, 100, 255};
 
@@ -428,7 +427,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawRadio(ECS::EntityId e, const FRect& rect, const Style& s) {
+	inline void UIRenderSystem::_DrawRadio(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const Style& s) {
 		auto *rd = m_ctx.Get<RadioData>(e);
 		if (!rd) return;
 
@@ -541,7 +540,6 @@ namespace SDL::UI {
 	inline void UIRenderSystem::_DrawListBox(ECS::EntityId e, const FRect& rect, const Style& s) {
 		auto *lb = m_ctx.Get<ListBoxData>(e);
 		auto *lp = m_ctx.Get<LayoutProps>(e);
-		auto *st = m_ctx.Get<WidgetState>(e);
 		auto *ilv = m_ctx.Get<ItemListView>(e);
 		if (!lb || !lp || !ilv) return;
 
@@ -578,7 +576,7 @@ namespace SDL::UI {
 			}
 
 			// Draw item text
-			if (i < ilv->items.size()) {
+			if (i < (int)ilv->items.size()) {
 				_DrawText(e, ilv->items[i], itemRect, TextHAlign::Left, TextVAlign::Center);
 			}
 		}
@@ -598,7 +596,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawImage(ECS::EntityId e, const FRect& rect, const Style& s) {
+	inline void UIRenderSystem::_DrawImage(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const Style& s) {
 		auto *id = m_ctx.Get<ImageData>(e);
 		if (!id || id->key.empty()) return;
 
@@ -660,7 +658,7 @@ namespace SDL::UI {
 		m_renderer.RenderTexture(*texRef, std::nullopt, SDL_FRect{fitRect.x, fitRect.y, fitRect.w, fitRect.h});
 	}
 
-	inline void UIRenderSystem::_DrawCanvas(ECS::EntityId e, const FRect& rect, const Style& s) {
+	inline void UIRenderSystem::_DrawCanvas(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const Style& s) {
 		auto *cd = m_ctx.Get<CanvasData>(e);
 		if (!cd || !cd->renderCb) return;
 		cd->renderCb(m_renderer, rect);
@@ -685,7 +683,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_StrokeRR(const FRect& r, SDL::Color c, const SDL::FBox& borders, float radius, float op) {
+	inline void UIRenderSystem::_StrokeRR(const FRect& r, SDL::Color c, const SDL::FBox& borders, [[maybe_unused]] float radius, float op) {
 		if (borders.left <= 0.f && borders.right <= 0.f && borders.top <= 0.f && borders.bottom <= 0.f)
 			return;
 		c.a = (uint8_t)(c.a * op);
@@ -723,7 +721,7 @@ namespace SDL::UI {
 		return v;
 	}
 
-	inline void UIRenderSystem::_DrawHueBar(const FRect& rect, float op) {
+	inline void UIRenderSystem::_DrawHueBar(const FRect& rect, [[maybe_unused]] float op) {
 		// Draw 6-color gradient bar for color picker
 		const SDL::Color hues[7] = {
 			{255, 0, 0, 255}, {255, 255, 0, 255}, {0, 255, 0, 255},

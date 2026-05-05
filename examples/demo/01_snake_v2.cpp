@@ -199,7 +199,7 @@ struct FoodTag {};
 struct Main {
 	static constexpr SDL::Point kWinSz = {1280, 760};
 
-    static SDL::AppResult Init(Main** out, SDL::AppArgs args) {
+    static SDL::AppResult Init(Main** out, SDL::AppArgs /*args*/) {
         SDL::SetAppMetadata("Snake ECS", "1.0", "com.example.SnakeECS");
         SDL::Init(SDL::INIT_VIDEO);
         SDL::TTF::Init();
@@ -408,20 +408,20 @@ struct Main {
         // 2. SETTINGS (speed and difficulty only -- grid is fixed 48x48)
         uiSettings = ui.Column("Settings").AlignChildren(SDL::UI::Align::Center, SDL::UI::Align::Center)
             .Align(SDL::UI::Align::Center, SDL::UI::Align::Center)
-            .W(400).Gap(15).Visible(false).AttachTo(rootUI);
+            .W(400).Gap(15).Hide().AttachTo(rootUI);
 
         ui.Label("TitleSet", "PARAMETRES").FontSize(32).MarginBottom(20).AttachTo(uiSettings);
 
         auto rowSpeed = ui.Row("RSpeed").W(SDL::UI::Value::Pw(100)).AttachTo(uiSettings);
         auto lblSpd = ui.Label("LblSpd", std::format("Vitesse : {} ms", config.speed_ms)).W(150).AttachTo(rowSpeed);
-        ui.Slider("SldSpd", 50.f, 400.f, (float)config.speed_ms).Grow(100.f)
-            .OnChange<float>([this, lblSpd](float v){ config.speed_ms = (int)v; ui.SetText(lblSpd, std::format("Vitesse : {} ms", config.speed_ms)); })
+        ui.Slider<int>("SldSpd", 50, 400, config.speed_ms, 10).Grow(100.f)
+            .OnChange<int>([this, lblSpd](int v){ config.speed_ms = v; ui.SetText(lblSpd, std::format("Vitesse : {} ms", config.speed_ms)); })
             .AttachTo(rowSpeed);
 
         auto rowD = ui.Row("RD").W(SDL::UI::Value::Pw(100)).AttachTo(uiSettings);
         auto lblD = ui.Label("LblD", std::format("Niveau tous les : {}", config.difficulty)).W(150).AttachTo(rowD);
-        ui.Slider("SldD", 10.f, 200.f, (float)config.difficulty).Grow(100.f)
-            .OnChange<float>([this, lblD](float v){ config.difficulty = (int)v; ui.SetText(lblD, std::format("Niveau tous les : {}", config.difficulty)); })
+        ui.Slider<int>("SldD", 10, 200, config.difficulty, 1).Grow(100.f)
+            .OnChange<int>([this, lblD](int v){ config.difficulty = v; ui.SetText(lblD, std::format("Niveau tous les : {}", config.difficulty)); })
             .AttachTo(rowD);
 
         ui.Button("BtnBack", "SAUVEGARDER & RETOUR").W(250).H(45).MarginTop(20)
@@ -430,7 +430,7 @@ struct Main {
         // 3. GAME OVER
         uiGameover = ui.Column("GameOver").AlignChildren(SDL::UI::Align::Center, SDL::UI::Align::Center)
             .Align(SDL::UI::Align::Center, SDL::UI::Align::Center)
-            .W(300).Gap(15).Visible(false).AttachTo(rootUI);
+            .W(300).Gap(15).Hide().AttachTo(rootUI);
 
         ui.Label("GOTitle", "GAME OVER").FontSize(48).TextColor({250, 60, 60, 255}).MarginBottom(10).AttachTo(uiGameover);
         lblFinalScore = ui.Label("FinalScore", "Score : 0").FontSize(24).AttachTo(uiGameover);
@@ -440,7 +440,7 @@ struct Main {
             .OnClick([this]{ ChangeState(GameState::MENU); }).AttachTo(uiGameover);
 
         // 4. HUD IN GAME
-        uiHud = ui.Row("HUD").Absolute(10, 10).Gap(20).Visible(false).AttachTo(rootUI);
+        uiHud = ui.Row("HUD").Absolute(10, 10).Gap(20).Hide().AttachTo(rootUI);
         lblHudScore  = ui.Label("HudS", "Score : 0").FontSize(20).TextColor({255, 255, 255, 255}).AttachTo(uiHud);
         lblHighScore = ui.Label("HudH", "Best : 0").FontSize(20).TextColor({200, 200, 200, 255}).AttachTo(uiHud);
     }

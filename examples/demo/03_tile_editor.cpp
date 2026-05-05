@@ -1361,9 +1361,9 @@ struct Main {
 					s.bdColor        = pal::BORDER;
 					s.radius         = SDL::FCorners(0.f);
 				})
-				.Hoverable(true).Selectable(true)
+				.Hoverable().Selectable()
 				.OnClick([this, i]{ _SelectLayer(i); })
-				.Visible(false);
+				.Hide();
 			slot.row = row;
 
 			// Visibility icon button — tint/opacity updated by _UpdateLayerSlots()
@@ -1380,7 +1380,7 @@ struct Main {
 			slot.lblName = ui.Label(std::format("ls_name{}", i), "Layer")
 				.Grow(100.f).TextColor(pal::WHITE)
 				.PaddingH(4).PaddingV(0)
-				.Hoverable(true).Selectable(true)
+				.Hoverable().Selectable()
 				.OnClick([this, i]{ _SelectLayer(i); });
 
 			// Lock icon button — tint/bg updated by _UpdateLayerSlots()
@@ -1624,12 +1624,11 @@ struct Main {
 				.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
 				.Children(
 					ui.Label("lbl_brush_sz", "Brush:").W(44).TextColor(pal::GREY),
-					ui.Slider("sld_brush", 1.f, 9.f, float(state.brushSize))
+					ui.Slider<int>("sld_brush", 1, 9, state.brushSize, 1)
 						.Grow(100.f)
 						.FillColor(pal::ACCENT)
-						.OnChange<float>([this](float v){
-							int b = 1 + 2 * (int)((v - 1.f) / 2.f + 0.5f);
-							state.brushSize = SDL::Clamp(b, 1, 9);
+						.OnChange<int>([this](int v){
+							state.brushSize = SDL::Clamp(v, 1, 9);
 						})
 				)
 		);

@@ -79,7 +79,7 @@ public:
 		m_tilesetName     = cfg.count("tilesetImgName")  ? cfg["tilesetImgName"].AsString("tileset1.png") : "tileset1.png";
 		m_tilesetTileSize = cfg.count("tileSize")        ? cfg["tileSize"].AsInt(16) : 16;
 		m_firstMapName    = cfg.count("firstMapName")    ? cfg["firstMapName"].AsString("world") : "world";
-		m_infoEntities    = cfg.count("infoEntities")    ? cfg["infoEntities"].AsSection()  : nullptr;
+		m_infoEntities    = cfg.count("infoEntities")    ? cfg["infoEntities"].AsObject()  : nullptr;
 
 		// ── Load save if one exists ────────────────────────────────────────
 		if (!ctx.savePath.empty()) {
@@ -219,7 +219,7 @@ private:
 	int                  m_tilesetTileSize = 16;
 	std::string          m_tilesetName;
 	std::string          m_firstMapName;
-	core::ScriptSectionPtr m_infoEntities;
+	core::ScriptObjectPtr m_infoEntities;
 
 	// ── Game world (game logic + scene graph, same ECS world) ─────────────────
 	SDL::ECS::Context     m_gameWorld;
@@ -287,7 +287,7 @@ private:
 
 		auto hpGrp = m_ui->Column("hpGrp", 3.f, 4.f)
 			.BgColor({0,0,0,0})
-			.AutoScrollable(false, false)
+			.SetAutoScrollable(false, false)
 			.Children(m_lblHealth, m_healthBar);
 
 		// ── Points + map name ─────────────────────────────────────────────────
@@ -298,7 +298,7 @@ private:
 		auto hud = m_ui->Row("hud", 14.f, 8.f)
 			.H(46.f)
 			.BgColor(kBgHud)
-			.AutoScrollable(false, false)
+			.SetAutoScrollable(false, false)
 			.Children(hpGrp, m_lblPoints, m_lblMapName);
 
 		// ── Game canvas (grows to fill remaining space) ───────────────────────
@@ -310,7 +310,7 @@ private:
 		auto root = m_ui->Column("root", 0.f, 0.f)
 			.W(Value::Ww(100.f)).H(Value::Wh(100.f))
 			.BgColor({0,0,0,255})
-			.AutoScrollable(false, false)
+			.SetAutoScrollable(false, false)
 			.Children(hud, canvas)
 			.AsRoot();
 
@@ -323,7 +323,7 @@ private:
 			.X(Value::Rw(20.f)).Y(Value::Rh(75.f))
 			.W(Value::Rw(60.f)).H(80.f)
 			.Attach(AttachLayout::Fixed)
-			.Visible(false).AutoScrollable(false, true)
+			.SetVisible(false).SetAutoScrollable(false, true)
 			.Padding({12.f, 8.f, 12.f, 8.f})
 			.Borders(SDL::FBox(2.f)).Radius(SDL::FCorners(8.f));
 
@@ -359,8 +359,8 @@ private:
 			.W(280.f)
 			.BgColor({5,7,15,215})
 			.BdColor(kAcc)
-			.Visible(false)
-			.AutoScrollable(false, false)
+			.SetVisible(false)
+			.SetAutoScrollable(false, false)
 			.Attach(AttachLayout::Fixed)
 			.X(Value::Rw(50.f) - 140.f)
 			.Y(Value::Rh(30.f))
@@ -370,7 +370,7 @@ private:
 
 		auto pauseInner = m_ui->Column("pauseInner", 4.f, 0.f)
 			.BgColor({0,0,0,0})
-			.AutoScrollable(false, false)
+			.SetAutoScrollable(false, false)
 			.Children(pauseTitle, bResume, bSave, m_ui->Separator(), bMenu);
 		m_ui->AppendChild(m_pausePanel, pauseInner);
 		m_ui->AppendChild(root, m_pausePanel);
