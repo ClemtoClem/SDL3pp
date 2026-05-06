@@ -97,6 +97,7 @@ namespace SDL::UI {
 
 		// ── Style (background per state) ─────────────────────────────────────
 		Derived& BgColor        (const SDL::Color& c) { system.GetStyle(id).bgColor         = c; return _self(); }
+		Derived& BgSelectedColor(const SDL::Color& c) { system.GetStyle(id).bgCheckedColor  = c; return _self(); }
 		Derived& BgHoveredColor (const SDL::Color& c) { system.GetStyle(id).bgHoveredColor  = c; return _self(); }
 		Derived& BgPressedColor (const SDL::Color& c) { system.GetStyle(id).bgPressedColor  = c; return _self(); }
 		Derived& BgCheckedColor (const SDL::Color& c) { system.GetStyle(id).bgCheckedColor  = c; return _self(); }
@@ -110,6 +111,7 @@ namespace SDL::UI {
 		Derived& BdCheckedColor (const SDL::Color& c) { system.GetStyle(id).bdCheckedColor  = c; return _self(); }
 		Derived& BdFocusedColor (const SDL::Color& c) { system.GetStyle(id).bdFocusedColor  = c; return _self(); }
 		Derived& BdDisabledColor(const SDL::Color& c) { system.GetStyle(id).bdDisabledColor = c; return _self(); }
+		Derived& BdSelectedColor(const SDL::Color& c) { system.GetStyle(id).bdCheckedColor  = c; return _self(); }
 
 		// ── Style (text per state) ───────────────────────────────────────────
 		Derived& TextColor           (const SDL::Color& c) { system.GetStyle(id).textColor            = c; return _self(); }
@@ -120,8 +122,8 @@ namespace SDL::UI {
 		Derived& TextPlaceholderColor(const SDL::Color& c) { system.GetStyle(id).textPlaceholderColor = c; return _self(); }
 
 		// ── Style (geometry) ─────────────────────────────────────────────────
-		Derived& Borders(float w)               { system.GetStyle(id).borders = SDL::FBox(w); return _self(); }
-		Derived& Borders(const SDL::FBox& b)    { system.GetStyle(id).borders = b;            return _self(); }
+		Derived& Borders(float w)                { system.GetStyle(id).borders = SDL::FBox(w); return _self(); }
+		Derived& Borders(const SDL::FBox& b)     { system.GetStyle(id).borders = b;            return _self(); }
 		Derived& Radius (float r)                { system.GetStyle(id).radius  = SDL::FCorners(r); return _self(); }
 		Derived& Radius (const SDL::FCorners& r) { system.GetStyle(id).radius  = r;            return _self(); }
 		Derived& Opacity(float a)                { system.GetStyle(id).opacity = SDL::Clamp(a, 0.f, 1.f); return _self(); }
@@ -362,6 +364,70 @@ namespace SDL::UI {
 	};
 
 	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct BgColorMixin : Base {
+		using Base::Base;
+
+		Derived& BgColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bgColor = c;
+			return this->_self();
+		}
+		Derived& BgHoveredColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bgHoveredColor = c;
+			return this->_self();
+		}
+		Derived& BgSelectedColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bgCheckedColor = c;
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct BdColorMixin : Base {
+		using Base::Base;
+
+		Derived& BdColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bdColor = c;
+			return this->_self();
+		}
+		Derived& BdHoveredColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bdHoveredColor = c;
+			return this->_self();
+		}
+		Derived& BdSelectedColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bdCheckedColor = c;
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct DisableColorMixin : Base {
+		using Base::Base;
+
+		Derived& DisableColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bgDisabledColor = c;
+			return this->_self();
+		}
+		Derived& DisableHoveredColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bgDisabledColor = c;
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct FocusColorMixin : Base {
+		using Base::Base;
+
+		Derived& FocusColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bgFocusedColor = c;
+			return this->_self();
+		}
+		Derived& FocusHoveredColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).bgFocusedColor = c;
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct EditableMixin : Base {
 		using Base::Base;
 
@@ -371,6 +437,17 @@ namespace SDL::UI {
 		}
 		Derived& OnTextChange(std::function<void(const std::string&)> cb) {
 			this->system.OnTextChange(this->id, std::move(cb));
+			return this->_self();
+		}
+		Derived& ReadOnly(bool ro = true) {
+			auto* te = this->system.GetCtx().template Get<TextEdit>(this->id);
+			if (te) te->readOnly = ro;
+			return this->_self();
+		}
+		Derived& Highlightable(bool h = true) {
+			return this->_self();
+		}
+		Derived& Copiable(bool c = true) {
 			return this->_self();
 		}
 		Derived& ClickSound(std::string_view key) {
@@ -677,8 +754,8 @@ namespace SDL::UI {
 		using StyledTextMixin::StyledTextMixin;
 	};
 
-	struct ButtonBuilder : StyledTextMixin<ButtonBuilder, EditableMixin<ButtonBuilder, TooltipMixin<ButtonBuilder>>> {
-		using StyledTextMixin::StyledTextMixin;
+	struct ButtonBuilder : StateableMixin<ButtonBuilder, StyledTextMixin<ButtonBuilder, EditableMixin<ButtonBuilder, TooltipMixin<ButtonBuilder>>>> {
+		using StateableMixin::StateableMixin;
 	};
 
 	struct ItemBuilder : ItemMixin<ItemBuilder, SelectableMixin<ItemBuilder, TooltipMixin<ItemBuilder>>> {

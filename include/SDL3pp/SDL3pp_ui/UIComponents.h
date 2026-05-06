@@ -570,6 +570,9 @@ namespace SDL::UI {
 		bool        checked = false;
 	};
 
+	// Alias for consistency with builder naming
+	using RadioButtonData = RadioData;
+
 	// ── SeparatorData ─────────────────────────────────────────────────────────────
 	struct SeparatorData {
 		Orientation orientation = Orientation::Horizontal;
