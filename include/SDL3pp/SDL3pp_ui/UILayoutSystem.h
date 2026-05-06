@@ -106,10 +106,10 @@ namespace SDL::UI {
 		    w.type != WidgetType::TextArea && w.type != WidgetType::Tree)
 			return;
 
-		bool always_x = Has(w.behavior, BehaviorFlag::ScrollableX);
-		bool always_y = Has(w.behavior, BehaviorFlag::ScrollableY);
-		bool auto_x   = Has(w.behavior, BehaviorFlag::AutoScrollableX);
-		bool auto_y   = Has(w.behavior, BehaviorFlag::AutoScrollableY);
+		bool always_x = Has(w.behavior, WidgetBehaviorFlag::ScrollableX);
+		bool always_y = Has(w.behavior, WidgetBehaviorFlag::ScrollableY);
+		bool auto_x   = Has(w.behavior, WidgetBehaviorFlag::AutoScrollableX);
+		bool auto_y   = Has(w.behavior, WidgetBehaviorFlag::AutoScrollableY);
 		bool want_x   = always_x || auto_x;
 		bool want_y   = always_y || auto_y;
 
@@ -223,7 +223,7 @@ namespace SDL::UI {
 		auto *lp = m_ctx.Get<LayoutProps>(e);
 		auto *cr = m_ctx.Get<ComputedRect>(e);
 		if (!w || !lp || !cr) return {};
-		if (!Has(w->behavior, BehaviorFlag::Visible)) {
+		if (!Has(w->behavior, WidgetBehaviorFlag::Visible)) {
 			cr->measured = {};
 			return {};
 		}
@@ -303,7 +303,7 @@ namespace SDL::UI {
 				if (!m_ctx.IsAlive(cid)) continue;
 				auto *cw2 = m_ctx.Get<Widget>(cid);
 				auto *cl2 = m_ctx.Get<LayoutProps>(cid);
-				if (!cw2 || !cl2 || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+				if (!cw2 || !cl2 || !Has(cw2->states, WidgetStateFlag::Visible)) continue;
 				if (cl2->attach == AttachLayout::Absolute || cl2->attach == AttachLayout::Fixed) {
 					_Measure(cid, cc);
 					continue;
@@ -364,7 +364,7 @@ namespace SDL::UI {
 				if (!m_ctx.IsAlive(cid)) continue;
 				auto *cw  = m_ctx.Get<Widget>(cid);
 				auto *cl  = m_ctx.Get<LayoutProps>(cid);
-				if (!cw || !cl || !Has(cw->behavior, BehaviorFlag::Visible)) continue;
+				if (!cw || !cl || !Has(cw->behavior, WidgetBehaviorFlag::Visible)) continue;
 
 				if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
 					_Measure(cid, cc);
@@ -400,7 +400,7 @@ namespace SDL::UI {
 				if (!m_ctx.IsAlive(cid)) continue;
 				auto *cw2 = m_ctx.Get<Widget>(cid);
 				auto *cl  = m_ctx.Get<LayoutProps>(cid);
-				if (!cw2 || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+				if (!cw2 || !cl || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 				_Measure(cid, cc);
 			}
 
@@ -415,7 +415,7 @@ namespace SDL::UI {
 					if (!m_ctx.IsAlive(cid)) continue;
 					auto *cw2 = m_ctx.Get<Widget>(cid);
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
-					if (!cw2 || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+					if (!cw2 || !cl || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 					auto *gc  = m_ctx.Get<GridCell>(cid);
 					int r = gc ? gc->row : (autoIdx / numCols);
@@ -442,7 +442,7 @@ namespace SDL::UI {
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					auto *gc  = m_ctx.Get<GridCell>(cid);
 					auto *ccr = m_ctx.Get<ComputedRect>(cid);
-					if (!cw2 || !cl || !ccr || !Has(cw2->behavior, BehaviorFlag::Visible)) { if (!gc) ++autoIdx; continue; }
+					if (!cw2 || !cl || !ccr || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) { if (!gc) ++autoIdx; continue; }
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 					int c  = gc ? SDL::Clamp(gc->col, 0, numCols - 1) : ((autoIdx % numCols));
@@ -482,7 +482,7 @@ namespace SDL::UI {
 				if (!m_ctx.IsAlive(cid)) continue;
 				auto *cw  = m_ctx.Get<Widget>(cid);
 				auto *cl  = m_ctx.Get<LayoutProps>(cid);
-				if (!cw || !cl || !Has(cw->behavior, BehaviorFlag::Visible)) continue;
+				if (!cw || !cl || !Has(cw->behavior, WidgetBehaviorFlag::Visible)) continue;
 				if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
 					_Measure(cid, cc);
 					continue;
@@ -532,11 +532,11 @@ namespace SDL::UI {
 		auto *cr = m_ctx.Get<ComputedRect>(e);
 		if (!w || !lp || !cr) return;
 
-		cr->screen = rect;
+		cr->absolute = rect;
 		auto *ch = m_ctx.Get<Children>(e);
 		if (!ch || ch->ids.empty()) return;
 
-		const FRect &self = cr->screen;
+		const FRect &self = cr->absolute;
 		float cw  = self.w - lp->padding.left - lp->padding.right;
 		float topInset = lp->padding.top;
 
@@ -592,7 +592,7 @@ namespace SDL::UI {
 			auto *cw2 = m_ctx.Get<Widget>(cid);
 			auto *cl  = m_ctx.Get<LayoutProps>(cid);
 			auto *cc  = m_ctx.Get<ComputedRect>(cid);
-			if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+			if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 
 			if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
 				float ox = (cl->attach == AttachLayout::Fixed) ? 0.f : self.x;
@@ -620,7 +620,7 @@ namespace SDL::UI {
 				auto *cw2 = m_ctx.Get<Widget>(cid);
 				auto *cl  = m_ctx.Get<LayoutProps>(cid);
 				auto *cc  = m_ctx.Get<ComputedRect>(cid);
-				if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+				if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 				if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 				flowChildren.push_back(cid);
@@ -755,7 +755,7 @@ namespace SDL::UI {
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					auto *cc  = m_ctx.Get<ComputedRect>(cid);
 
-					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible) ||
+					if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible) ||
 					    cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
 						j++; continue;
 					}
@@ -788,7 +788,7 @@ namespace SDL::UI {
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					auto *cc  = m_ctx.Get<ComputedRect>(cid);
 
-					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible) ||
+					if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible) ||
 					    cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 					float childW = cc->measured.x, childH = cc->measured.y;
@@ -827,7 +827,7 @@ namespace SDL::UI {
 					if (!m_ctx.IsAlive(cid)) continue;
 					auto *cw2 = m_ctx.Get<Widget>(cid);
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
-					if (!cw2 || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+					if (!cw2 || !cl || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 					auto *gc = m_ctx.Get<GridCell>(cid);
 					int r = gc ? gc->row : (autoIdx / numCols);
@@ -863,7 +863,7 @@ namespace SDL::UI {
 				auto *cw2 = m_ctx.Get<Widget>(cid);
 				auto *cl  = m_ctx.Get<LayoutProps>(cid);
 				auto *cc  = m_ctx.Get<ComputedRect>(cid);
-				if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+				if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 				if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 				auto *gc = m_ctx.Get<GridCell>(cid);
@@ -914,7 +914,7 @@ namespace SDL::UI {
 				auto *cw2 = m_ctx.Get<Widget>(cid);
 				auto *cc  = m_ctx.Get<ComputedRect>(cid);
 				auto *cl  = m_ctx.Get<LayoutProps>(cid);
-				if (!cw2 || !cc || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+				if (!cw2 || !cc || !cl || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 				if (cl->attach == AttachLayout::Fixed) continue;
 
 				float childRelativeRight = (cc->screen.x + cc->screen.w + cl->margin.right) - (self.x + lp->padding.left) + lp->scrollX;
@@ -938,19 +938,19 @@ namespace SDL::UI {
 		auto *cr = m_ctx.Get<ComputedRect>(e);
 		if (!w || !lp || !cr) return;
 
-		cr->clip = cr->screen.GetIntersection(parentClip);
-		if (s) cr->outer_clip = cr->clip.Extend(s->borders);
+		cr->inner_clip = cr->absolute.GetIntersection(parentClip);
+		if (s) cr->outer_clip = cr->inner_clip.Extend(s->borders);
 
-		FRect childClip = cr->clip;
+		FRect childClip = cr->inner_clip;
 
 		if (w->type == WidgetType::Container || w->type == WidgetType::ListBox ||
 		    w->type == WidgetType::TextArea || w->type == WidgetType::Tree) {
-			float innerW = cr->screen.w - lp->padding.left - lp->padding.right;
-			float innerH = cr->screen.h - lp->padding.top - lp->padding.bottom;
+			float innerW = cr->absolute.w - lp->padding.left - lp->padding.right;
+			float innerH = cr->absolute.h - lp->padding.top - lp->padding.bottom;
 			bool showX = false, showY = false;
 			_ContainerScrollbars(*w, *lp, innerW, innerH, showX, showY);
 
-			childClip = cr->screen;
+			childClip = cr->absolute;
 			childClip.x += lp->padding.left;
 			childClip.y += lp->padding.top;
 			childClip.w = SDL::Round(innerW - (showY ? lp->scrollbarThickness : 0.f));
@@ -958,14 +958,14 @@ namespace SDL::UI {
 			childClip = childClip.GetIntersection(parentClip);
 		} else if (w->type == WidgetType::Expander) {
 			if (auto *exd = m_ctx.Get<ExpanderData>(e)) {
-				childClip = cr->screen;
+				childClip = cr->absolute;
 				childClip.y += exd->headerH + (s ? s->borders.GetH() : 0.f);
 				childClip.h = SDL::Max(0.f, childClip.h - exd->headerH);
 				childClip = childClip.GetIntersection(parentClip);
 			}
 		} else if (w->type == WidgetType::TabView) {
 			if (auto *tvd = m_ctx.Get<TabViewData>(e)) {
-				childClip = cr->screen;
+				childClip = cr->absolute;
 				if (!tvd->tabsBottom) {
 					childClip.y += tvd->tabHeight + (s ? s->borders.GetH() : 0.f);
 					childClip.h = SDL::Max(0.f, childClip.h - tvd->tabHeight);
@@ -990,9 +990,9 @@ namespace SDL::UI {
 			if (!m_ctx.IsAlive(e)) return;
 			auto *w = m_ctx.Get<Widget>(e);
 			auto *cr = m_ctx.Get<ComputedRect>(e);
-			if (!w || !cr || !Has(w->behavior, BehaviorFlag::Visible)) return;
+			if (!w || !cr || !Has(w->behavior, WidgetBehaviorFlag::Visible)) return;
 
-			m_drawList.push_back({e, cr->clip, z});
+			m_drawList.push_back({e, cr->inner_clip, z});
 
 			auto *ch = m_ctx.Get<Children>(e);
 			if (ch) {

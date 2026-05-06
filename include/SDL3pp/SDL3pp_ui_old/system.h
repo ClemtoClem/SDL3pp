@@ -147,7 +147,7 @@ namespace UI {
 		 */
 		ECS::EntityId MakeButton(std::string_view n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Button);
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 			m_ctx.Get<EditableContent>(e)->text = t;
 			return e;
 		}
@@ -159,7 +159,7 @@ namespace UI {
 		ECS::EntityId MakeToggle(std::string_view n, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Toggle);
 			m_ctx.Get<EditableContent>(e)->text = t;
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(28.f);
 			m_ctx.Add<ToggleData>(e);
 			return e;
@@ -173,7 +173,7 @@ namespace UI {
 		ECS::EntityId MakeRadioButton(std::string_view n, const std::string &group, const std::string &t = "") {
 			ECS::EntityId e = _Make(n, WidgetType::RadioButton);
 			m_ctx.Get<EditableContent>(e)->text = t;
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(24.f);
 			m_ctx.Add<RadioData>(e, {group, false});
 			return e;
@@ -196,11 +196,11 @@ namespace UI {
 			m_ctx.Add<SliderData>(e, sd);
 
 			// Numeric range/value/step live in NumericValue (same as Input).
-			m_ctx.Add<NumericValue>(e, AnyValue<T>(mn, mx, v, step));
+			m_ctx.Add<NumericValue>(e, NumericValue<T>(mn, mx, v, step));
 
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
-			                                | BehaviorFlag::Selectable
-			                                | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable
+			                                | WidgetBehaviorFlag::Selectable
+			                                | WidgetBehaviorFlag::Focusable;
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			if (o == Orientation::Horizontal) lp.height = Value::Px(24.f);
 			else                              lp.width  = Value::Px(24.f);
@@ -221,7 +221,7 @@ namespace UI {
 			sd.viewSize = vs;
 			sd.orientation = o;
 			m_ctx.Add<ScrollBarData>(e, sd);
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			if (o == Orientation::Vertical)
 				lp.width = Value::Px(10.f);
@@ -238,7 +238,7 @@ namespace UI {
 		ECS::EntityId MakeProgress(std::string_view n, float v = 0.f, float mx = 1.f) {
 			ECS::EntityId e = _Make(n, WidgetType::Progress);
 			m_ctx.Add<SliderData>(e, SliderData{});
-			m_ctx.Add<NumericValue>(e, AnyValue<float>(0.f, mx, v, 0.f));
+			m_ctx.Add<NumericValue>(e, NumericValue<float>(0.f, mx, v, 0.f));
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(18.f);
 			return e;
 		}
@@ -258,42 +258,39 @@ namespace UI {
 		ECS::EntityId MakeInput(std::string_view n, const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::Input);
 			m_ctx.Get<EditableContent>(e)->placeholder = ph;
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
 			return e;
 		}
 		/// @brief Create a numeric Input entity.
 		///        @c T may be any integral or floating-point type.
-		///        Selects @ref InputType::IntegerValue for integers and
-		///        @ref InputType::FloatValue for floating-point.
+		///        Selects @ref InputFilterType::IntegerValue for integers and
+		///        @ref InputFilterType::FloatValue for floating-point.
 		template<is_numeric_value T = float>
-		ECS::EntityId MakeInputValue(std::string_view n,
-		                             T minValue = T(0), T maxValue = T(100),
-		                             T value    = T(0), T step     = T(1))
-		{
+		ECS::EntityId MakeInputValue(std::string_view n, T value = T(0), T minValue = T(0), T maxValue = T(100), T step = T(1)) {
 			ECS::EntityId e = _Make(n, WidgetType::Input);
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
-			                                | BehaviorFlag::Selectable
-			                                | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable
+			                                | WidgetBehaviorFlag::Selectable
+			                                | WidgetBehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
 
 			InputData d{};
-			d.type = std::is_integral_v<T> ? InputType::IntegerValue
-			                               : InputType::FloatValue;
+			d.type = std::is_integral_v<T> ? InputFilterType::IntegerValue
+			                               : InputFilterType::FloatValue;
 			m_ctx.Add<InputData>(e, d);
 
-			// Typed numeric value via the AnyValue<T> wrapper; the data is
+			// Typed numeric value via the NumericValue<T> wrapper; the data is
 			// stored as NumericValue (uniform double + type_index) so widgets
 			// can dispatch on type without per-T template instantiation.
-			NumericValue &nv = m_ctx.Add<NumericValue>(e, AnyValue<T>(minValue, maxValue, value, step));
+			NumericValue &nv = m_ctx.Add<NumericValue<T>>(e, NumericValue<T>(value, minValue, maxValue, step));
 			m_ctx.Get<EditableContent>(e)->text = _FormatNumeric(nv);
 			return e;
 		}
 
-		/// @brief Create a text Input restricted to the given @ref InputType
+		/// @brief Create a text Input restricted to the given @ref InputFilterType
 		///        (Mail or Url filtering, etc.). Numeric types should use
 		///        @ref MakeInputValue instead.
-		ECS::EntityId MakeInputFiltered(std::string_view n, InputType type,
+		ECS::EntityId MakeInputFiltered(std::string_view n, InputFilterType type,
 		                                const std::string &ph = "")
 		{
 			ECS::EntityId e = MakeInput(n, ph);
@@ -320,10 +317,10 @@ namespace UI {
 			kd.dragStartVal = 0.f;
 			kd.shape = shape;
 			m_ctx.Add<KnobData>(e, kd);
-			m_ctx.Add<NumericValue>(e, AnyValue<T>(mn, mx, v, step));
+			m_ctx.Add<NumericValue>(e, NumericValue<T>(mn, mx, v, step));
 			
 			auto *w = m_ctx.Get<Widget>(e);
-			if (w) w->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			if (w) w->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
 			lp.width = lp.height = Value::Px(56.f); // Taille par défaut sécurisée
@@ -352,7 +349,7 @@ namespace UI {
 			std::function<void(float)> cb_update = nullptr,
 			std::function<void(RendererRef, FRect)> cb_render = nullptr) {
 			ECS::EntityId e = _Make(n, WidgetType::Canvas);
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 			m_ctx.Add<CanvasData>(e, {std::move(cb_event), std::move(cb_update), std::move(cb_render)});
 			return e; 
 		}
@@ -364,11 +361,11 @@ namespace UI {
 		ECS::EntityId MakeListBox(std::string_view n,
 								  const std::vector<std::string>& items = {}) {
 			ECS::EntityId e = _Make(n, WidgetType::ListBox);
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable
-											  | BehaviorFlag::Selectable
-											  | BehaviorFlag::Focusable
-											  | BehaviorFlag::AutoScrollableY
-											  | BehaviorFlag::AutoScrollableX;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable
+											  | WidgetBehaviorFlag::Selectable
+											  | WidgetBehaviorFlag::Focusable
+											  | WidgetBehaviorFlag::AutoScrollableY
+											  | WidgetBehaviorFlag::AutoScrollableX;
 			auto &lb = m_ctx.Add<ListBoxData>(e);
 			lb.items = items;
 			m_ctx.Get<LayoutProps>(e)->padding = {2.f, 2.f, 2.f, 2.f};
@@ -389,7 +386,7 @@ namespace UI {
 		 */
 		ECS::EntityId MakeTextArea(std::string_view n, const std::string &text = "", const std::string &ph = "") {
 			ECS::EntityId e = _Make(n, WidgetType::TextArea);
-			m_ctx.Get<Widget>(e)->behavior |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 			auto &ta = m_ctx.Add<TextAreaData>(e);
 			ta.text = text;
 			auto &lp = *m_ctx.Get<LayoutProps>(e);
@@ -878,8 +875,8 @@ namespace UI {
 		 */
 		void SetEnable(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				if (b) w->behavior |= BehaviorFlag::Enable;
-				else w->behavior &= (~BehaviorFlag::Enable);
+				if (b) w->behavior |= WidgetBehaviorFlag::Enable;
+				else w->behavior &= (~WidgetBehaviorFlag::Enable);
 			}
 		}
 
@@ -893,15 +890,15 @@ namespace UI {
 		 */
 		void SetVisible(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				bool wasVisible = Has(w->behavior, BehaviorFlag::Visible);
+				bool wasVisible = Has(w->behavior, WidgetBehaviorFlag::Visible);
 				if (b && !wasVisible) {
-					w->behavior |= BehaviorFlag::Visible;
+					w->behavior |= WidgetBehaviorFlag::Visible;
 					m_layoutDirty = true;
 					if (auto *s = m_ctx.Get<Style>(e); s && !s->showSound.empty()) {
 						if (auto sh = _EnsureAudio(s->showSound)) _PlayAudio(sh);
 					}
 				} else if (!b && wasVisible) {
-					w->behavior &= (~BehaviorFlag::Visible);
+					w->behavior &= (~WidgetBehaviorFlag::Visible);
 					m_layoutDirty = true;
 					if (auto *s = m_ctx.Get<Style>(e); s && !s->hideSound.empty()) {
 						if (auto sh = _EnsureAudio(s->hideSound)) _PlayAudio(sh);
@@ -913,40 +910,40 @@ namespace UI {
 		/** @brief Enable or disable the Hoverable behavior flag on @p e. */
 		void SetHoverable(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				if (b) w->behavior |= BehaviorFlag::Hoverable;
-				else w->behavior &= (~BehaviorFlag::Hoverable);
+				if (b) w->behavior |= WidgetBehaviorFlag::Hoverable;
+				else w->behavior &= (~WidgetBehaviorFlag::Hoverable);
 			}
 		}
 
 		/** @brief Enable or disable the Selectable behavior flag on @p e. */
 		void SetSelectable(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				if (b) w->behavior |= BehaviorFlag::Selectable;
-				else w->behavior &= (~BehaviorFlag::Selectable);
+				if (b) w->behavior |= WidgetBehaviorFlag::Selectable;
+				else w->behavior &= (~WidgetBehaviorFlag::Selectable);
 			}
 		}
 
 		/** @brief Enable or disable the Focusable behavior flag on @p e. */
 		void SetFocusable(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				if (b) w->behavior |= BehaviorFlag::Focusable;
-				else w->behavior &= (~BehaviorFlag::Focusable);
+				if (b) w->behavior |= WidgetBehaviorFlag::Focusable;
+				else w->behavior &= (~WidgetBehaviorFlag::Focusable);
 			}
 		}
 
 		/** @brief Enable or disable the permanent horizontal scrollbar on @p e. */
 		void SetScrollableX(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				if (b) w->behavior |= BehaviorFlag::ScrollableX;
-				else w->behavior &= (~BehaviorFlag::ScrollableX);
+				if (b) w->behavior |= WidgetBehaviorFlag::ScrollableX;
+				else w->behavior &= (~WidgetBehaviorFlag::ScrollableX);
 			}
 		}
 
 		/** @brief Enable or disable the permanent vertical scrollbar on @p e. */
 		void SetScrollableY(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				if (b) w->behavior |= BehaviorFlag::ScrollableY;
-				else w->behavior &= (~BehaviorFlag::ScrollableY);
+				if (b) w->behavior |= WidgetBehaviorFlag::ScrollableY;
+				else w->behavior &= (~WidgetBehaviorFlag::ScrollableY);
 			}
 		}
 
@@ -959,16 +956,16 @@ namespace UI {
 		/// Scrollbar automatique horizontal (visible seulement si le contenu déborde).
 		void SetAutoScrollableX(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				if (b) w->behavior |= BehaviorFlag::AutoScrollableX;
-				else w->behavior &= (~BehaviorFlag::AutoScrollableX);
+				if (b) w->behavior |= WidgetBehaviorFlag::AutoScrollableX;
+				else w->behavior &= (~WidgetBehaviorFlag::AutoScrollableX);
 			}
 		}
 
 		/// Scrollbar automatique vertical (visible seulement si le contenu déborde).
 		void SetAutoScrollableY(ECS::EntityId e, bool b) {
 			if (auto *w = m_ctx.Get<Widget>(e)) {
-				if (b) w->behavior |= BehaviorFlag::AutoScrollableY;
-				else w->behavior &= (~BehaviorFlag::AutoScrollableY);
+				if (b) w->behavior |= WidgetBehaviorFlag::AutoScrollableY;
+				else w->behavior &= (~WidgetBehaviorFlag::AutoScrollableY);
 			}
 		}
 
@@ -1195,48 +1192,48 @@ namespace UI {
 		/** @brief Return true if widget @p e has the Enable behavior flag set. */
 		[[nodiscard]] bool IsEnabled(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
-			return w && Has(w->behavior, BehaviorFlag::Enable);
+			return w && Has(w->behavior, WidgetBehaviorFlag::Enable);
 		}
 
 		/** @brief Return true if widget @p e has the Visible behavior flag set. */
 		[[nodiscard]] bool IsVisible(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
-			return w && Has(w->behavior, BehaviorFlag::Visible);
+			return w && Has(w->behavior, WidgetBehaviorFlag::Visible);
 		}
 
 		/** @brief Return true if widget @p e has the Hoverable behavior flag set. */
 		[[nodiscard]] bool IsHoverable(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
-			return w && Has(w->behavior, BehaviorFlag::Hoverable);
+			return w && Has(w->behavior, WidgetBehaviorFlag::Hoverable);
 		}
 
 		/** @brief Return true if widget @p e has the Selectable behavior flag set. */
 		[[nodiscard]] bool IsSelectable(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
-			return w && Has(w->behavior, BehaviorFlag::Selectable);
+			return w && Has(w->behavior, WidgetBehaviorFlag::Selectable);
 		}
 
 		/** @brief Return true if widget @p e has the Focusable behavior flag set. */
 		[[nodiscard]] bool IsFocusable(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
-			return w && Has(w->behavior, BehaviorFlag::Focusable);
+			return w && Has(w->behavior, WidgetBehaviorFlag::Focusable);
 		}
 
 		/** @brief Return true if widget @p e has the ScrollableX behavior flag set. */
 		[[nodiscard]] bool IsScrollableX(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
-			return w && Has(w->behavior, BehaviorFlag::ScrollableX);
+			return w && Has(w->behavior, WidgetBehaviorFlag::ScrollableX);
 		}
 
 		/** @brief Return true if widget @p e has the ScrollableY behavior flag set. */
 		[[nodiscard]] bool IsScrollableY(ECS::EntityId e) const {
 			const auto *w = m_ctx.Get<Widget>(e);
-			return w && Has(w->behavior, BehaviorFlag::ScrollableY);
+			return w && Has(w->behavior, WidgetBehaviorFlag::ScrollableY);
 		}
 
 		/** @brief Return true if the mouse cursor is currently over widget @p e. */
 		[[nodiscard]] bool IsHovered(ECS::EntityId e) const {
-			const auto *s = m_ctx.Get<WidgetState>(e);
+			const auto *s = m_ctx.Get<WidgetStateFlag>(e);
 			return s && s->hovered;
 		}
 
@@ -1247,7 +1244,7 @@ namespace UI {
 		
 		/** @brief Return true if widget @p e is currently being pressed (mouse button held). */
 		[[nodiscard]] bool IsPressed(ECS::EntityId e) const {
-			const auto *s = m_ctx.Get<WidgetState>(e);
+			const auto *s = m_ctx.Get<WidgetStateFlag>(e);
 			return s && s->pressed;
 		}
 
@@ -1378,7 +1375,7 @@ namespace UI {
 				case SDL::EVENT_DROP_TEXT:
 					if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
 						auto *w = m_ctx.Get<Widget>(m_focused);
-						if (w && Has(w->behavior, BehaviorFlag::Enable)) {
+						if (w && Has(w->behavior, WidgetBehaviorFlag::Enable)) {
 							auto processDrop = [&]<typename T>(T* data) {
 								if (data) _InsertText(data, std::string_view(ev.drop.data));
 							};
@@ -1662,9 +1659,9 @@ namespace UI {
 			ECS::EntityId e = m_ctx.CreateEntity();
 
 			// Compute the correct behavior flags for this widget type.
-			// All widgets start Enabled + Visible.  Interactive widgets additionally
+			// All widgets start Enable + Visible.  Interactive widgets additionally
 			// get Hoverable / Selectable / Focusable as appropriate.
-			BehaviorFlag beh = BehaviorFlag::Enable | BehaviorFlag::Visible;
+			WidgetBehaviorFlag beh = WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Visible;
 			switch (k) { 
 				case WidgetType::Button:
 				case WidgetType::Toggle:
@@ -1678,26 +1675,26 @@ namespace UI {
 				case WidgetType::Expander:
 				case WidgetType::ColorPicker:
 				case WidgetType::ComboBox:
-					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
+					beh |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 					break;
 				case WidgetType::Graph:
 				case WidgetType::Splitter:
-					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable;
+					beh |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable;
 					break;
 				case WidgetType::Popup:
-					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Resizable | BehaviorFlag::Draggable;
+					beh |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Resizable | WidgetBehaviorFlag::Draggable;
 					break;
 				case WidgetType::MenuBar:
-					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable;
+					beh |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable;
 					break;
 				case WidgetType::Container:
-					beh |= BehaviorFlag::AutoScrollableX | BehaviorFlag::AutoScrollableY;
+					beh |= WidgetBehaviorFlag::AutoScrollableX | WidgetBehaviorFlag::AutoScrollableY;
 					break;
 				case WidgetType::ListBox:
 				case WidgetType::TextArea:
 				case WidgetType::Tree:
-					beh |= BehaviorFlag::Hoverable | BehaviorFlag::Selectable | BehaviorFlag::Focusable;
-					beh |= BehaviorFlag::AutoScrollableX | BehaviorFlag::AutoScrollableY;
+					beh |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
+					beh |= WidgetBehaviorFlag::AutoScrollableX | WidgetBehaviorFlag::AutoScrollableY;
 					break;
 				default:
 					break;
@@ -1707,7 +1704,7 @@ namespace UI {
 			auto &style = m_ctx.Add<Style>(e);
 			m_ctx.Add<LayoutProps>(e);
 			m_ctx.Add<EditableContent>(e);
-			m_ctx.Add<WidgetState>(e);
+			m_ctx.Add<WidgetStateFlag>(e);
 			m_ctx.Add<Callbacks>(e);
 			m_ctx.Add<ComputedRect>(e);
 			m_ctx.Add<Children>(e);
@@ -1753,12 +1750,12 @@ namespace UI {
 		static void _ContainerScrollbars(const Widget &w, const LayoutProps &lp,
 										 float viewW, float viewH,
 										 bool &showX, bool &showY) noexcept { 
-			const bool wantX  = Has(w.behavior, BehaviorFlag::ScrollableX | BehaviorFlag::AutoScrollableX);
-			const bool wantY  = Has(w.behavior, BehaviorFlag::ScrollableY | BehaviorFlag::AutoScrollableY);
-			const bool autoX  = Has(w.behavior, BehaviorFlag::AutoScrollableX)
-							 && !Has(w.behavior, BehaviorFlag::ScrollableX);
-			const bool autoY  = Has(w.behavior, BehaviorFlag::AutoScrollableY)
-							 && !Has(w.behavior, BehaviorFlag::ScrollableY);
+			const bool wantX  = Has(w.behavior, WidgetBehaviorFlag::ScrollableX | WidgetBehaviorFlag::AutoScrollableX);
+			const bool wantY  = Has(w.behavior, WidgetBehaviorFlag::ScrollableY | WidgetBehaviorFlag::AutoScrollableY);
+			const bool autoX  = Has(w.behavior, WidgetBehaviorFlag::AutoScrollableX)
+							 && !Has(w.behavior, WidgetBehaviorFlag::ScrollableX);
+			const bool autoY  = Has(w.behavior, WidgetBehaviorFlag::AutoScrollableY)
+							 && !Has(w.behavior, WidgetBehaviorFlag::ScrollableY);
 
 			// Première passe — sans tenir compte de l'axe croisé.
 			showX = wantX && (!autoX || lp.contentW > viewW);
@@ -1785,29 +1782,29 @@ namespace UI {
 		// ── Input filtering / numeric helpers ─────────────────────────────────
 		/// Returns the per-frame "permissive" regex used to validate the
 		/// prospective text after an insertion. Compiled once per pattern.
-		static const std::regex& _GetInputRegex(InputType t) {
+		static const std::regex& _GetInputRegex(InputFilterType t) {
 			static const std::regex reText(".*", std::regex::optimize);
 			static const std::regex reInt (R"(-?\d*)",          std::regex::optimize);
 			static const std::regex reFlt (R"(-?\d*\.?\d*)",    std::regex::optimize);
 			static const std::regex reMail(R"([A-Za-z0-9._@+\-]*)",        std::regex::optimize);
 			static const std::regex reUrl (R"([A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%\-]*)", std::regex::optimize);
 			switch (t) {
-				case InputType::IntegerValue: return reInt;
-				case InputType::FloatValue:   return reFlt;
-				case InputType::Mail:         return reMail;
-				case InputType::Url:          return reUrl;
-				case InputType::Text:
+				case InputFilterType::IntegerValue: return reInt;
+				case InputFilterType::FloatValue:   return reFlt;
+				case InputFilterType::Mail:         return reMail;
+				case InputFilterType::Url:          return reUrl;
+				case InputFilterType::Text:
 				default:                      return reText;
 			}
 		}
 		/// Strict regex used on commit/blur: requires a fully-formed value.
-		static const std::regex& _GetInputStrictRegex(InputType t) {
+		static const std::regex& _GetInputStrictRegex(InputFilterType t) {
 			static const std::regex reInt (R"(-?\d+)",                       std::regex::optimize);
 			static const std::regex reFlt (R"(-?(\d+\.?\d*|\.\d+))",         std::regex::optimize);
 			static const std::regex reMail(R"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", std::regex::optimize);
-			return (t == InputType::IntegerValue) ? reInt
-			     : (t == InputType::FloatValue)   ? reFlt
-			     : (t == InputType::Mail)         ? reMail
+			return (t == InputFilterType::IntegerValue) ? reInt
+			     : (t == InputFilterType::FloatValue)   ? reFlt
+			     : (t == InputFilterType::Mail)         ? reMail
 			     : _GetInputRegex(t);
 		}
 		/// Format a NumericValue into its display string, integer or float
@@ -1822,7 +1819,7 @@ namespace UI {
 		}
 		/// Parse the given text into @c v.val using a strict regex selected
 		/// by @p type. Returns true if a value was committed.
-		static bool _ParseNumeric(NumericValue& v, InputType type, const std::string& text) {
+		static bool _ParseNumeric(NumericValue& v, InputFilterType type, const std::string& text) {
 			if (text.empty() || text == "-" || text == "." || text == "-.") return false;
 			if (!std::regex_match(text, _GetInputStrictRegex(type))) return false;
 			try {
@@ -2085,7 +2082,7 @@ namespace UI {
 			auto *cr = m_ctx.Get<ComputedRect>(e);
 			if (!w || !lp || !cr)
 				return {};
-			if (!Has(w->behavior, BehaviorFlag::Visible)) {
+			if (!Has(w->behavior, WidgetBehaviorFlag::Visible)) {
 				cr->measured = {};
 				return {};
 			}
@@ -2163,7 +2160,7 @@ namespace UI {
 						if (!m_ctx.IsAlive(cid)) continue;
 						auto *cw2 = m_ctx.Get<Widget>(cid);
 						auto *cl2 = m_ctx.Get<LayoutProps>(cid);
-						if (!cw2 || !cl2 || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+						if (!cw2 || !cl2 || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 						if (cl2->attach == AttachLayout::Absolute || cl2->attach == AttachLayout::Fixed) {
 							_Measure(cid, cc);
 							continue;
@@ -2225,7 +2222,7 @@ namespace UI {
 						if (!m_ctx.IsAlive(cid)) continue;
 						auto *cw  = m_ctx.Get<Widget>(cid);
 						auto *cl  = m_ctx.Get<LayoutProps>(cid);
-						if (!cw || !cl || !Has(cw->behavior, BehaviorFlag::Visible)) continue;
+						if (!cw || !cl || !Has(cw->behavior, WidgetBehaviorFlag::Visible)) continue;
 
 						if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
 							_Measure(cid, cc);
@@ -2272,7 +2269,7 @@ namespace UI {
 							if (!m_ctx.IsAlive(cid)) continue;
 							auto *cw2 = m_ctx.Get<Widget>(cid);
 							auto *cl  = m_ctx.Get<LayoutProps>(cid);
-							if (!cw2 || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+							if (!cw2 || !cl || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 							if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 							auto *gc  = m_ctx.Get<GridCell>(cid);
 							int r = gc ? gc->row : (autoIdx / numCols);
@@ -2300,7 +2297,7 @@ namespace UI {
 							auto *cl  = m_ctx.Get<LayoutProps>(cid);
 							auto *gc  = m_ctx.Get<GridCell>(cid);
 							auto *ccr = m_ctx.Get<ComputedRect>(cid);
-							if (!cw2 || !cl || !ccr || !Has(cw2->behavior, BehaviorFlag::Visible)) { if (!gc) ++autoIdx; continue; }
+							if (!cw2 || !cl || !ccr || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) { if (!gc) ++autoIdx; continue; }
 							if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 							int c  = gc ? SDL::Clamp(gc->col, 0, numCols - 1) : ((autoIdx % numCols));
@@ -2521,7 +2518,7 @@ namespace UI {
 				auto *cw2 = m_ctx.Get<Widget>(cid);
 				auto *cl  = m_ctx.Get<LayoutProps>(cid);
 				auto *cc  = m_ctx.Get<ComputedRect>(cid);
-				if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+				if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 
 				if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) {
 					float ox = (cl->attach == AttachLayout::Fixed) ? 0.f : self.x;
@@ -2555,7 +2552,7 @@ namespace UI {
 					auto *cw2 = m_ctx.Get<Widget>(cid);
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					auto *cc  = m_ctx.Get<ComputedRect>(cid);
-					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+					if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 					flowChildren.push_back(cid);
@@ -2710,7 +2707,7 @@ namespace UI {
 						auto *cl  = m_ctx.Get<LayoutProps>(cid);
 						auto *cc  = m_ctx.Get<ComputedRect>(cid);
 						
-						if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible) || cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) { 
+						if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible) || cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) { 
 							j++; continue; 
 						}
 						
@@ -2743,7 +2740,7 @@ namespace UI {
 						auto *cl  = m_ctx.Get<LayoutProps>(cid);
 						auto *cc  = m_ctx.Get<ComputedRect>(cid);
 						
-						if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible) || cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
+						if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible) || cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 						float childW = cc->measured.x, childH = cc->measured.y;
 						float cg = cl->width.IsGrow() ? 0.01f * cl->width.val : 0.f;
@@ -2784,7 +2781,7 @@ namespace UI {
 						if (!m_ctx.IsAlive(cid)) continue;
 						auto *cw2 = m_ctx.Get<Widget>(cid);
 						auto *cl  = m_ctx.Get<LayoutProps>(cid);
-						if (!cw2 || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+						if (!cw2 || !cl || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 						if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 						auto *gc  = m_ctx.Get<GridCell>(cid);
 						int r  = gc ? gc->row : (autoIdx / numCols);
@@ -2823,7 +2820,7 @@ namespace UI {
 					auto *cw2 = m_ctx.Get<Widget>(cid);
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
 					auto *cc  = m_ctx.Get<ComputedRect>(cid);
-					if (!cw2 || !cl || !cc || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+					if (!cw2 || !cl || !cc || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Absolute || cl->attach == AttachLayout::Fixed) continue;
 
 					auto *gc  = m_ctx.Get<GridCell>(cid);
@@ -2877,7 +2874,7 @@ namespace UI {
 					auto *cw2 = m_ctx.Get<Widget>(cid);
 					auto *cc  = m_ctx.Get<ComputedRect>(cid);
 					auto *cl  = m_ctx.Get<LayoutProps>(cid);
-					if (!cw2 || !cc || !cl || !Has(cw2->behavior, BehaviorFlag::Visible)) continue;
+					if (!cw2 || !cc || !cl || !Has(cw2->behavior, WidgetBehaviorFlag::Visible)) continue;
 					if (cl->attach == AttachLayout::Fixed) continue; // Fixed ne scrolle pas
 
 					// On calcule la position de l'enfant relativement au coin (0,0) du contenu
@@ -2984,16 +2981,16 @@ namespace UI {
 			ECS::EntityId nh = _HitTest(m_root, m_mousePos);
 
 			// Reset all hover flags.
-			m_ctx.Each<WidgetState>([](ECS::EntityId, WidgetState &s) {
-				s.wasHovered = s.hovered;
-				s.hovered    = false;
+			m_ctx.Each<Widget>([](ECS::EntityId, Widget &w) {
+				w.wasHovered = Has(w.state, WidgetStateFlag::Hovered);
+				w.state = Reset(w.state, WidgetStateFlag::Hovered);
 			});
 
 			// Only mark as hovered if the widget actually supports it.
 			if (nh != ECS::NullEntity && m_ctx.IsAlive(nh)) { 
 				auto *w = m_ctx.Get<Widget>(nh);
-				if (w && Has(w->behavior, BehaviorFlag::Enable) && Has(w->behavior, BehaviorFlag::Hoverable)) {
-					m_ctx.Get<WidgetState>(nh)->hovered = true;
+				if (w && Has(w->behavior, WidgetBehaviorFlag::Enable) && Has(w->behavior, WidgetBehaviorFlag::Hoverable)) {
+					m_ctx.Get<Widget>(nh)->state |= WidgetStateFlag::Hovered;
 				} else {
 					nh = ECS::NullEntity;
 				}
@@ -3031,7 +3028,7 @@ namespace UI {
 
 					if (m_hovered != ECS::NullEntity && m_ctx.IsAlive(m_hovered)) {
 						auto *pw = m_ctx.Get<Widget>(m_hovered);
-						if (pw && Has(pw->behavior, BehaviorFlag::Enable) && Has(pw->behavior, BehaviorFlag::Selectable)) {
+						if (pw && Has(pw->behavior, WidgetBehaviorFlag::Enable) && Has(pw->behavior, WidgetBehaviorFlag::Selectable)) {
 							// ── Comptage des clics (double-clic) ─────────────────────────
 							if (m_hovered == m_lastClickEntity && m_timeSinceLastClick < 0.4f)
 								++m_clickCount;
@@ -3042,9 +3039,9 @@ namespace UI {
 							m_timeSinceLastClick = 0.f;
 
 							m_pressed = m_hovered;
-							if (auto *st = m_ctx.Get<WidgetState>(m_pressed)) st->pressed = true;
+							if (auto *w = m_ctx.Get<Widget>(m_pressed)) w->state |= WidgetStateFlag::Pressed;
 
-							bool wantFocus = Has(pw->behavior, BehaviorFlag::Focusable);
+							bool wantFocus = Has(pw->behavior, WidgetBehaviorFlag::Focusable);
 							_SetFocus(wantFocus ? m_pressed : ECS::NullEntity);
 
 							// Begin drag for interactive controls.
@@ -3352,8 +3349,8 @@ namespace UI {
 				_EndContainerScrollDrags();
 
 				if (m_pressed != ECS::NullEntity && m_ctx.IsAlive(m_pressed)) { 
-					if (auto *st = m_ctx.Get<WidgetState>(m_pressed))
-						st->pressed = false;
+					if (auto *w = m_ctx.Get<Widget>(m_pressed))
+						Reset(w->state, WidgetStateFlag::Pressed);
 					if (m_pressed == m_hovered) {
 						auto *pw = m_ctx.Get<Widget>(m_pressed);
 						// Suppress click for reorderable ListBox that was actively dragged.
@@ -3362,8 +3359,8 @@ namespace UI {
 							if (auto *lb2 = m_ctx.Get<ListBoxData>(m_pressed))
 								suppressClick = lb2->dragActive;
 						if (pw && !suppressClick
-						       && Has(pw->behavior, BehaviorFlag::Enable)
-							   && Has(pw->behavior, BehaviorFlag::Selectable))
+						       && Has(pw->behavior, WidgetBehaviorFlag::Enable)
+							   && Has(pw->behavior, WidgetBehaviorFlag::Selectable))
 							_OnClick(m_pressed, *pw);
 					}
 					if (auto *sd  = m_ctx.Get<SliderData>(m_pressed))    sd->drag  = false;
@@ -3563,8 +3560,8 @@ namespace UI {
 			if (nf == m_focused)
 				return;
 			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
-				if (auto *st = m_ctx.Get<WidgetState>(m_focused))
-					st->focused = false;
+				if (auto *fw = m_ctx.Get<Widget>(m_focused))
+					fw->state |= WidgetStateFlag::Focused;
 				// Numeric Input: on blur, reformat text from the canonical value
 				// (commits any in-progress edit that was strictly valid).
 				if (auto *w2 = m_ctx.Get<Widget>(m_focused);
@@ -3588,8 +3585,8 @@ namespace UI {
 			}
 			m_focused = nf;
 			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
-				if (auto *st = m_ctx.Get<WidgetState>(m_focused))
-					st->focused = true;
+				if (auto *fw = m_ctx.Get<Widget>(m_focused))
+					fw->state |= WidgetStateFlag::Focused;
 				// On focus-gain of a numeric Input, prime the text from val.
 				if (auto *w2 = m_ctx.Get<Widget>(m_focused);
 				    w2 && w2->type == WidgetType::Input) {
@@ -3612,7 +3609,7 @@ namespace UI {
 				return ECS::NullEntity;
 			auto *w = m_ctx.Get<Widget>(e);
 			auto *cr = m_ctx.Get<ComputedRect>(e);
-			if (!w || !cr || !Has(w->behavior, BehaviorFlag::Visible))
+			if (!w || !cr || !Has(w->behavior, WidgetBehaviorFlag::Visible))
 				return ECS::NullEntity;
 			if (!cr->clip.Contains(p))
 				return ECS::NullEntity;
@@ -3629,13 +3626,13 @@ namespace UI {
 		void _HandleTextInput(const char *txt) {
 			if (m_focused == ECS::NullEntity || !m_ctx.IsAlive(m_focused)) return;
 			auto *w = m_ctx.Get<Widget>(m_focused);
-			if (!w || !Has(w->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) return;
+			if (!w || !Has(w->behavior, WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Focusable)) return;
 
-			// Filter against the InputType regex if a typed-Input filter is set.
+			// Filter against the InputFilterType regex if a typed-Input filter is set.
 			std::string_view tv{txt};
 			if (w->type == WidgetType::Input) {
 				if (auto *id = m_ctx.Get<InputData>(m_focused);
-				    id && id->type != InputType::Text) {
+				    id && id->type != InputFilterType::Text) {
 					if (auto *c = m_ctx.Get<EditableContent>(m_focused)) {
 						// Build the prospective text (replacing selection if any).
 						std::string prospective = c->text;
@@ -3911,17 +3908,17 @@ namespace UI {
 				auto *fw = m_ctx.Get<Widget>(m_focused);
 				if (fw) {
 					if (fw->type == WidgetType::TextArea) {
-						if (Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
+						if (Has(fw->behavior, WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Focusable)) {
 							_HandleKeyDownTextArea(k, mod);
 							return;
 						}   
 					} else if (fw->type == WidgetType::Input) {
-						if (Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
+						if (Has(fw->behavior, WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Focusable)) {
 							_HandleKeyDownInput(k, mod);
 							return;
 						}
 					} else if (fw->type == WidgetType::ListBox) {
-						if (Has(fw->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) {
+						if (Has(fw->behavior, WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Focusable)) {
 							_HandleKeyDownListBox(k);
 							return;
 						}
@@ -3937,7 +3934,7 @@ namespace UI {
 			if (m_focused == ECS::NullEntity || !m_ctx.IsAlive(m_focused)) return; 
 
 			auto *w = m_ctx.Get<Widget>(m_focused);
-			if (!w || w->type != WidgetType::Input || !Has(w->behavior, BehaviorFlag::Enable | BehaviorFlag::Focusable)) return;
+			if (!w || w->type != WidgetType::Input || !Has(w->behavior, WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Focusable)) return;
 
 			auto *c = m_ctx.Get<EditableContent>(m_focused);
 			auto *cb = m_ctx.Get<Callbacks>(m_focused);
@@ -4012,7 +4009,7 @@ namespace UI {
 							consumed = _ScrollOnAxis(d2->scrollY, viewH, totalH, dy, d2->itemHeight * 2.f);
 						}
 					}
-					if (consumed || !w->dispatchEvent) return;
+					if (consumed || !Has(w->behavior, WidgetBehaviorFlag::DispatchEvent)) return;
 					auto *par = m_ctx.Get<Parent>(e);
 					e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
 					continue;
@@ -4029,7 +4026,7 @@ namespace UI {
 							                         (float)ta->LineCount() * lineH, dy, lineH * 3.f);
 						}
 					}
-					if (consumed || !w->dispatchEvent) return;
+					if (consumed || !Has(w->behavior, WidgetBehaviorFlag::DispatchEvent)) return;
 					auto *par = m_ctx.Get<Parent>(e);
 					e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
 					continue;
@@ -4037,8 +4034,8 @@ namespace UI {
 				if (!w || !lp) break;
 
 				// ScrollableX/Y = scroll permanent ; AutoScrollableX/Y = scroll si débordement.
-				bool scrollableV = Has(w->behavior, BehaviorFlag::ScrollableY | BehaviorFlag::AutoScrollableY);
-				bool scrollableH = Has(w->behavior, BehaviorFlag::ScrollableX | BehaviorFlag::AutoScrollableX);
+				bool scrollableV = Has(w->behavior, WidgetBehaviorFlag::ScrollableY | WidgetBehaviorFlag::AutoScrollableY);
+				bool scrollableH = Has(w->behavior, WidgetBehaviorFlag::ScrollableX | WidgetBehaviorFlag::AutoScrollableX);
 
 				if (scrollableV || scrollableH) {
 					auto *cr = m_ctx.Get<ComputedRect>(e);
@@ -4054,7 +4051,7 @@ namespace UI {
 							if (auto sh = _EnsureAudio(s->scrollSound))
 								_PlayAudio(sh);
 					}
-					if (consumed || !w->dispatchEvent) return;
+					if (consumed || !Has(w->behavior, WidgetBehaviorFlag::DispatchEvent)) return;
 				}
 				auto *par = m_ctx.Get<Parent>(e);
 				e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
@@ -4068,7 +4065,7 @@ namespace UI {
 			// the mouse is elsewhere (e.g. paused panels on top).
 			m_ctx.Each<CanvasData, Widget, ComputedRect>(
 				[&](ECS::EntityId e, CanvasData& cd, Widget& w, ComputedRect& cr) {
-					if (!Has(w.behavior, BehaviorFlag::Visible | BehaviorFlag::Enable)) return;
+					if (!Has(w.behavior, WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::Enable)) return;
 					if (!cd.eventCb) return;
 					const bool mouseInside = cr.clip.Contains(m_mousePos);
 					const bool hasFocus    = (m_focused == e);
@@ -4080,7 +4077,7 @@ namespace UI {
 		bool IsEffectivelyVisible(ECS::EntityId e, ECS::Context& ecs_context) {
 			while (e != ECS::NullEntity) { 
 				auto* w = ecs_context.Get<Widget>(e);
-				if (!w || !Has(w->behavior, BehaviorFlag::Visible)) return false;
+				if (!w || !Has(w->behavior, WidgetBehaviorFlag::Visible)) return false;
 				
 				auto* p = ecs_context.Get<Parent>(e);
 				e = p ? p->id : ECS::NullEntity;
@@ -4090,9 +4087,9 @@ namespace UI {
 
 		void _CollectFocusables(ECS::EntityId e, std::vector<ECS::EntityId> &out) const {
 			auto *w = m_ctx.Get<Widget>(e);
-			if (!w || !Has(w->behavior, BehaviorFlag::Visible | BehaviorFlag::Enable)) return;
+			if (!w || !Has(w->behavior, WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::Enable)) return;
 
-			if (Has(w->behavior, BehaviorFlag::Focusable)) {
+			if (Has(w->behavior, WidgetBehaviorFlag::Focusable)) {
 				// Only add if the widget is actually on-screen (clip rect has positive area).
 				auto *cr = m_ctx.Get<ComputedRect>(e);
 				if (cr && cr->clip.w > 0.f && cr->clip.h > 0.f)
@@ -4132,7 +4129,7 @@ namespace UI {
 			// Call updateCb for every visible, enabled Canvas widget.
 			// Layout hasn't run yet this frame, so avoid depending on ComputedRect here.
 			m_ctx.Each<CanvasData, Widget>([dt](ECS::EntityId, CanvasData& cd, Widget& w) {
-				if (!Has(w.behavior, BehaviorFlag::Visible | BehaviorFlag::Enable)) return;
+				if (!Has(w.behavior, WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::Enable)) return;
 				if (cd.updateCb) cd.updateCb(dt);
 			});
 		}
@@ -4261,7 +4258,7 @@ namespace UI {
 			auto *cr = m_ctx.Get<ComputedRect>(e);
 			if (!w || !cr) return;
 
-			if (!Has(w->behavior, BehaviorFlag::Visible)) return;
+			if (!Has(w->behavior, WidgetBehaviorFlag::Visible)) return;
 			
 			if (cr->outer_clip.w <= 0.f || cr->outer_clip.h <= 0.f) return;
 
@@ -4470,18 +4467,18 @@ namespace UI {
 
 		/// Draw the background of a widget: gradient if BgGradient component is attached,
 		/// otherwise solid colour via _FillRR.  Border is NOT drawn by this function.
-		void _DrawBg(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
-			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
-			SDL::Color bg1 = !enabled      ? s.bgDisabledColor
-			               : st.pressed    ? s.bgPressedColor
+		void _DrawBg(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
+			const bool enabled = Has(w.behavior, WidgetBehaviorFlag::Enable);
+			SDL::Color bg1 = !enabled ? s.bgDisabledColor
+			               : Has(w.state, WidgetStateFlag::Pressed) ? s.bgPressedColor
 			               : (m_focused==e)? s.bgFocusedColor
-			               : st.hovered    ? s.bgHoveredColor
+			               : Has(w.state, WidgetStateFlag::Hovered) ? s.bgHoveredColor
 			               : s.bgColor;
 			if (auto *bg = m_ctx.Get<BgGradient>(e)) {
-				SDL::Color bg2 = !enabled       ? bg->color2Disabled
-				               : st.pressed     ? bg->color2Pressed
+				SDL::Color bg2 = !enabled ? bg->color2Disabled
+				               : Has(w.state, WidgetStateFlag::Pressed) ? bg->color2Pressed
 				               : (m_focused==e) ? bg->color2Focused
-				               : st.hovered     ? bg->color2Hovered
+				               : Has(w.state, WidgetStateFlag::Hovered) ? bg->color2Hovered
 				               : bg->color2;
 				_FillGradientRect(r, bg1, bg->start, bg2, bg->end, s.opacity);
 			} else {
@@ -4691,9 +4688,8 @@ namespace UI {
 		void _DrawWidget(ECS::EntityId e) {
 			auto *w = m_ctx.Get<Widget>(e);
 			auto *s = m_ctx.Get<Style>(e);
-			auto *st = m_ctx.Get<WidgetState>(e);
 			auto *cr = m_ctx.Get<ComputedRect>(e);
-			if (!w || !s || !st || !cr) return;
+			if (!w || !s || !cr) return;
 			const FRect &r = cr->screen;
 
 			// ── Tileset skin (9-slice) — replaces solid-colour background ────────────
@@ -4710,9 +4706,9 @@ namespace UI {
 						_DrawCanvas(e, r);
 					// Labels inside a skinned container still need their text drawn.
 					else if (w->type == WidgetType::Label)
-						_DrawLabel(e, r, *s, *st, *w);
+						_DrawLabel(e, r, *s, *w);
 					else if (w->type == WidgetType::Button)
-						_DrawButton(e, r, *s, *st, *w);  // draws text + hover overlay
+						_DrawButton(e, r, *s, *w);  // draws text + hover overlay
 					return;
 				}
 			}
@@ -4720,82 +4716,82 @@ namespace UI {
 			// ── Default solid-colour rendering ────────────────────────────────────────
 			switch (w->type) { 
 				case WidgetType::Container:
-					_DrawContainer(e, r, *s, *st, *w);
+					_DrawContainer(e, r, *s, *w);
 					break;
 				case WidgetType::Label:
-					_DrawLabel(e, r, *s, *st, *w);
+					_DrawLabel(e, r, *s, *w);
 					break;
 				case WidgetType::Button:
-					_DrawButton(e, r, *s, *st, *w);
+					_DrawButton(e, r, *s, *w);
 					break;
 				case WidgetType::Toggle:
-					_DrawToggle(e, r, *s, *st);
+					_DrawToggle(e, r, *s);
 					break;
 				case WidgetType::RadioButton:
-					_DrawRadio(e, r, *s, *st);
+					_DrawRadio(e, r, *s);
 					break;
 				case WidgetType::Slider:
-					_DrawSlider(e, r, *s, *st, *w);
+					_DrawSlider(e, r, *s, *w);
 					break;
 				case WidgetType::ScrollBar:
-					_DrawScrollBar(e, r, *s, *st, *w);
+					_DrawScrollBar(e, r, *s, *w);
 					break;
 				case WidgetType::Progress:
-					_DrawProgress(e, r, *s, *st);
+					_DrawProgress(e, r, *s);
 					break;
 				case WidgetType::Separator:
 					_DrawSeparator(r, *s);
 					break;
 				case WidgetType::Input:
-					_DrawInput(e, r, *s, *st, *w);
+					_DrawInput(e, r, *s, *w);
 					break;
 				case WidgetType::TextArea:
-					_DrawTextArea(e, r, *s, *st, *w);
+					_DrawTextArea(e, r, *s, *w);
 					break;
 				case WidgetType::Knob:
-					_DrawKnob(e, r, *s, *st, *w);
+					_DrawKnob(e, r, *s, *w);
 					break;
 				case WidgetType::Image:
-					_DrawImage(e, r, *s, *st);
+					_DrawImage(e, r, *s);
 					break;
 				case WidgetType::Canvas:
 					_DrawCanvas(e, r);
 					break;
 				case WidgetType::ListBox:
-					_DrawListBox(e, r, *s, *st, *w);
+					_DrawListBox(e, r, *s, *w);
 					break;
 				case WidgetType::Graph:
-					_DrawGraph(e, r, *s, *st);
+					_DrawGraph(e, r, *s);
 					break;
 				case WidgetType::ComboBox:
-					_DrawComboBox(e, r, *s, *st, *w);
+					_DrawComboBox(e, r, *s, *w);
 					break;
 				case WidgetType::TabView:
-					_DrawTabView(e, r, *s, *st);
+					_DrawTabView(e, r, *s);
 					break;
 				case WidgetType::Expander:
-					_DrawExpander(e, r, *s, *st);
+					_DrawExpander(e, r, *s);
 					break;
 				case WidgetType::Splitter:
-					_DrawSplitter(e, r, *s, *st);
+					_DrawSplitter(e, r, *s);
 					break;
 				case WidgetType::Spinner:
-					_DrawSpinner(e, r, *s, *st);
+					_DrawSpinner(e, r, *s);
 					break;
 				case WidgetType::Badge:
-					_DrawBadge(e, r, *s, *st, *w);
+					_DrawBadge(e, r, *s, *w);
 					break;
 				case WidgetType::ColorPicker:
-					_DrawColorPicker(e, r, *s, *st, *w);
+					_DrawColorPicker(e, r, *s, *w);
 					break;
 				case WidgetType::Popup:
-					_DrawPopup(e, r, *s, *st, *w);
+					_DrawPopup(e, r, *s, *w);
 					break;
 				case WidgetType::Tree:
-					_DrawTree(e, r, *s, *st, *w);
+					_DrawTree(e, r, *s, *w);
 					break;
 				case WidgetType::MenuBar:
-					_DrawMenuBar(e, r, *s, *st, *w);
+					_DrawMenuBar(e, r, *s, *w);
 					break;
 			}
 		}
@@ -4908,11 +4904,10 @@ namespace UI {
 			}
 		}
 		
-		void _DrawContainer(ECS::EntityId e, const FRect &r, const Style &s,
-							const WidgetState &st, const Widget &w) {
+		void _DrawContainer(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			// ── Background & border ───────────────────────────────────────────────
-			_DrawBg(e, r, s, st, w);
-			_StrokeRR(r, st.hovered ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
+			_DrawBg(e, r, s, w);
+			_StrokeRR(r, Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
 
 			// ── InGrid separator lines ────────────────────────────────────────────
 			auto *lp = m_ctx.Get<LayoutProps>(e);
@@ -4962,23 +4957,23 @@ namespace UI {
 			_DrawInlineScrollbars(e, r, s, w);
 		}
 		
-		void _DrawLabel(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
+		void _DrawLabel(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) { 
 			auto *c = m_ctx.Get<EditableContent>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!c)
 				return;
-			SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabledColor : st.hovered ? s.textHoveredColor
+			SDL::Color tc = !Has(w.behavior, WidgetBehaviorFlag::Enable) ? s.textDisabledColor : Has(w.state, WidgetStateFlag::Hovered) ? s.textHoveredColor
 																	 : s.textColor;
 			_Text(e, c->text, r.x + (lp ? lp->padding.left : 4.f), r.y + (r.h - _TH(e)) * 0.5f, tc, s.opacity, s);
 		}
 
-		void _DrawButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
-			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
+		void _DrawButton(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
+			const bool enabled = Has(w.behavior, WidgetBehaviorFlag::Enable);
 			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor
-				: (st.hovered ? s.bdHoveredColor : s.bdColor);
+				: (Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor : s.bdColor);
 			SDL::Color tc = !enabled ? s.textDisabledColor
-				: (st.hovered ? s.textHoveredColor : s.textColor);
-			_DrawBg(e, r, s, st, w);
+				: (Has(w.state, WidgetStateFlag::Hovered) ? s.textHoveredColor : s.textColor);
+			_DrawBg(e, r, s, w);
 			_StrokeRR(r, bdColor, s.borders, s.radius, s.opacity);
 
 			auto *c  = m_ctx.Get<EditableContent>(e);
@@ -5002,12 +4997,12 @@ namespace UI {
 					float iconY = r.y + (r.h - sz) * 0.5f;
 
 					float opacity = (!enabled ? ic->opacityDisabled
-						: st.pressed ? ic->opacityPressed
-						: st.hovered ? ic->opacityHovered
+						: Has(w.state, WidgetStateFlag::Pressed) ? ic->opacityPressed
+						: Has(w.state, WidgetStateFlag::Hovered) ? ic->opacityHovered
 						: ic->opacityNormal) * s.opacity;
 					const SDL::Color &tint = !enabled ? ic->tintDisabledColor
-						: st.pressed ? ic->tintPressedColor
-						: st.hovered ? ic->tintHoveredColor
+						: Has(w.state, WidgetStateFlag::Pressed) ? ic->tintPressedColor
+						: Has(w.state, WidgetStateFlag::Hovered) ? ic->tintHoveredColor
 						: ic->tintNormalColor;
 
 					tex.SetAlphaMod(SDL::Clamp8((int)(opacity * 255.f)));
@@ -5026,7 +5021,7 @@ namespace UI {
 			}
 		}
 
-		void _DrawToggle(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) { 
+		void _DrawToggle(ECS::EntityId e, const FRect &r, const Style &s) { 
 			auto *t = m_ctx.Get<ToggleData>(e);
 			auto *c = m_ctx.Get<EditableContent>(e);
 			auto *w = m_ctx.Get<Widget>(e);
@@ -5039,14 +5034,14 @@ namespace UI {
 			_FillRR(tr_, tc2, SDL::FCorners(TH) * 0.5f, s.opacity);
 			_StrokeRR(tr_, (m_focused == e) ? s.bdFocusedColor : s.bdColor, s.borders, SDL::FCorners(TH) * 0.5f, s.opacity);
 			float thumbR = (TH - 4.f) * 0.5f, thumbX = tr_.x + 2.f + thumbR + t->animT * (TW - 4.f - TH);
-			_FillRR({thumbX - thumbR, ty + (TH - thumbR * 2.f) * 0.5f, thumbR * 2.f, thumbR * 2.f}, st.hovered ? s.thumbColor : SDL::Color{200, 202, 210, 255}, SDL::FCorners(thumbR), s.opacity);
+			_FillRR({thumbX - thumbR, ty + (TH - thumbR * 2.f) * 0.5f, thumbR * 2.f, thumbR * 2.f}, Has(w.state, WidgetStateFlag::Hovered) ? s.thumbColor : SDL::Color{200, 202, 210, 255}, SDL::FCorners(thumbR), s.opacity);
 			if (c && !c->text.empty()) {
-				SDL::Color col = w && !Has(w->behavior, BehaviorFlag::Enable) ? s.textDisabledColor : s.textColor;
+				SDL::Color col = w && !Has(w->behavior, WidgetBehaviorFlag::Enable) ? s.textDisabledColor : s.textColor;
 				_Text(e, c->text, tr_.x + TW + 10.f, r.y + (r.h - _TH(e)) * 0.5f, col, s.opacity, s);
 			}
 		}
 
-		void _DrawRadio(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) { 
+		void _DrawRadio(ECS::EntityId e, const FRect &r, const Style &s) { 
 			auto *rd = m_ctx.Get<RadioData>(e);
 			auto *c = m_ctx.Get<EditableContent>(e);
 			auto *w = m_ctx.Get<Widget>(e);
@@ -5054,13 +5049,13 @@ namespace UI {
 				return;
 			const float OR = 9.f;
 			float cx_ = r.x + 14.f, cy_ = r.y + r.h * 0.5f;
-			SDL::Color bgColor = !w || !Has(w->behavior, BehaviorFlag::Enable) ? s.bgDisabledColor : st.pressed ? s.bgPressedColor
-														   : st.hovered   ? s.bgHoveredColor
+			SDL::Color bgColor = !w || !Has(w->behavior, WidgetBehaviorFlag::Enable) ? s.bgDisabledColor : Has(w.state, WidgetStateFlag::Pressed) ? s.bgPressedColor
+														   : Has(w.state, WidgetStateFlag::Hovered)   ? s.bgHoveredColor
 																		  : s.bgColor;
 			bgColor.a = (Uint8)(bgColor.a * s.opacity);
 			m_renderer.SetDrawColor(bgColor);
 			m_renderer.RenderCircle({cx_, cy_}, OR);
-			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor : st.hovered ? s.bdHoveredColor
+			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor : Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor
 																			: s.bdColor;
 			bdColor.a = (Uint8)(bdColor.a * s.opacity);
 			m_renderer.SetDrawColor(bdColor);
@@ -5072,13 +5067,13 @@ namespace UI {
 				m_renderer.RenderFillCircle({cx_, cy_}, OR * 0.5f);
 			}
 			if (c && !c->text.empty()) {
-				SDL::Color tc = !w || !Has(w->behavior, BehaviorFlag::Enable) ? s.textDisabledColor : st.hovered ? s.textHoveredColor
+				SDL::Color tc = !w || !Has(w->behavior, WidgetBehaviorFlag::Enable) ? s.textDisabledColor : Has(w.state, WidgetStateFlag::Hovered) ? s.textHoveredColor
 																				: s.textColor;
 				_Text(e, c->text, r.x + 30.f, r.y + (r.h - _TH(e)) * 0.5f, tc, s.opacity, s);
 			}
 		}
 
-		void _DrawSlider(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+		void _DrawSlider(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *sd = m_ctx.Get<SliderData>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			auto *nv = m_ctx.Get<NumericValue>(e);
@@ -5089,14 +5084,14 @@ namespace UI {
 				float tx = r.x + lp->padding.left, bx_ = r.x + r.w - lp->padding.right, tw = bx_ - tx, mid = r.y + r.h * 0.5f;
 				_FillRR({tx, mid - TH * 0.5f, tw, TH}, s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				if (norm > 0.f)
-					_FillRR({tx, mid - TH * 0.5f, tw * norm, TH}, Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
+					_FillRR({tx, mid - TH * 0.5f, tw * norm, TH}, Has(w.behavior, WidgetBehaviorFlag::Enable) ? s.fillColor : s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				// Chapter markers
 				for (float mk : sd->markers) {
 					float mx = tx + tw * SDL::Clamp(mk, 0.f, 1.f);
 					_FillRect({mx - 1.f, mid - TH * 2.f, 2.f, TH * 4.f}, {220, 185, 80, 210}, s.opacity);
 				}
 				float tcx = tx + tw * norm;
-				SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabledColor : (m_focused == e || sd->drag || st.hovered) ? s.thumbColor
+				SDL::Color tc = !Has(w.behavior, WidgetBehaviorFlag::Enable) ? s.textDisabledColor : (m_focused == e || sd->drag || Has(w.state, WidgetStateFlag::Hovered)) ? s.thumbColor
 																										 : SDL::Color{160, 170, 190, 255};
 				_FillRR({tcx - TR, mid - TR, TR * 2.f, TR * 2.f}, tc, SDL::FCorners(TR), s.opacity);
 				if (m_focused == e)
@@ -5107,7 +5102,7 @@ namespace UI {
 				_FillRR({mid - TH * 0.5f, ty_, TH, th_}, s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				if (norm > 0.f) {
 					float fH = th_ * norm;
-					_FillRR({mid - TH * 0.5f, by_ - fH, TH, fH}, Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
+					_FillRR({mid - TH * 0.5f, by_ - fH, TH, fH}, Has(w.behavior, WidgetBehaviorFlag::Enable) ? s.fillColor : s.trackColor, SDL::FCorners(TH * 0.5f), s.opacity);
 				}
 				// Chapter markers (vertical)
 				for (float mk : sd->markers) {
@@ -5115,13 +5110,13 @@ namespace UI {
 					_FillRect({mid - TH * 2.f, my - 1.f, TH * 4.f, 2.f}, {220, 185, 80, 210}, s.opacity);
 				}
 				float tcy = ty_ + th_ * (1.f - norm);
-				SDL::Color tc = !Has(w.behavior, BehaviorFlag::Enable) ? s.textDisabledColor : (m_focused == e || sd->drag || st.hovered) ? s.thumbColor
+				SDL::Color tc = !Has(w.behavior, WidgetBehaviorFlag::Enable) ? s.textDisabledColor : (m_focused == e || sd->drag || Has(w.state, WidgetStateFlag::Hovered)) ? s.thumbColor
 																										 : SDL::Color{160, 170, 190, 255};
 				_FillRR({mid - TR, tcy - TR, TR * 2.f, TR * 2.f}, tc, SDL::FCorners(TR), s.opacity);
 			}
 		}
 
-		void _DrawScrollBar(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) { 
+		void _DrawScrollBar(ECS::EntityId e, const FRect &r, const Style &s, const Widget &) { 
 			auto *sb = m_ctx.Get<ScrollBarData>(e);
 			if (!sb)
 				return;
@@ -5132,15 +5127,15 @@ namespace UI {
 			float offN = (maxO > 0.f) ? sb->offset / maxO : 0.f;
 			if (sb->orientation == Orientation::Vertical) {
 				float tH = SDL::Max(20.f, r.h * ratio), tY = r.y + (r.h - tH) * offN;
-				_FillRR({r.x + 1.f, tY, r.w - 2.f, tH}, (st.hovered || sb->drag) ? s.thumbColor : s.fillColor, s.radius, s.opacity);
+				_FillRR({r.x + 1.f, tY, r.w - 2.f, tH}, (Has(w.state, WidgetStateFlag::Hovered) || sb->drag) ? s.thumbColor : s.fillColor, s.radius, s.opacity);
 			}
 			else {
 				float tW = SDL::Max(20.f, r.w * ratio), tX = r.x + (r.w - tW) * offN;
-				_FillRR({tX, r.y + 1.f, tW, r.h - 2.f}, (st.hovered || sb->drag) ? s.thumbColor : s.fillColor, s.radius, s.opacity);
+				_FillRR({tX, r.y + 1.f, tW, r.h - 2.f}, (Has(w.state, WidgetStateFlag::Hovered) || sb->drag) ? s.thumbColor : s.fillColor, s.radius, s.opacity);
 			}
 		}
 
-		void _DrawProgress(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) { 
+		void _DrawProgress(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &) { 
 			auto *sd = m_ctx.Get<SliderData>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			auto *nv = m_ctx.Get<NumericValue>(e);  // numeric value
@@ -5158,22 +5153,22 @@ namespace UI {
 			_FillRect({r.x, r.y + r.h * 0.5f, r.w, 1.f}, s.separatorColor, s.opacity);
 		}
 		
-		void _DrawInput(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+		void _DrawInput(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *c  = m_ctx.Get<EditableContent>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!c || !lp) return;
 
 			const bool foc     = (m_focused == e);
-			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
+			const bool enabled = Has(w.behavior, WidgetBehaviorFlag::Enable);
 			auto *d            = m_ctx.Get<InputData>(e);     // text filter mode
 			auto *nv           = m_ctx.Get<NumericValue>(e);  // numeric value
 			const bool hasArrows = (d != nullptr && nv != nullptr);
 
 			// Fond et bordures
 			SDL::Color bdColor = !enabled ? s.bdDisabledColor : foc ? s.bdFocusedColor
-												: st.hovered ? s.bdHoveredColor
+												: Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor
 															 : s.bdColor;
-			_DrawBg(e, r, s, st, w);
+			_DrawBg(e, r, s, w);
 			_StrokeRR(r, bdColor, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
 
 			// ── Arrow buttons (numeric mode only) ───────────────────────────
@@ -5261,23 +5256,23 @@ namespace UI {
 		}
 
 		// ── TextArea ────────────────────────────────────────────────────────
-		void _DrawTextArea(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) { 
+		void _DrawTextArea(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) { 
 			auto *ta  = m_ctx.Get<TextAreaData>(e);
 			auto *lp  = m_ctx.Get<LayoutProps>(e);
 			auto *cnt = m_ctx.Get<EditableContent>(e);
 			if (!ta || !lp) return;
 
 			const bool foc     = (m_focused == e);
-			const bool enabled = Has(w.behavior, BehaviorFlag::Enable);
+			const bool enabled = Has(w.behavior, WidgetBehaviorFlag::Enable);
 
 			// ── 1. Fond & Bordures ────────────────────────────────────────────────
 			SDL::Color bgC = !enabled ? s.bgDisabledColor
 						   : foc      ? s.bgFocusedColor
-						   : st.hovered ? SDL::Color{30, 32, 44, 255}
+						   : Has(w.state, WidgetStateFlag::Hovered) ? SDL::Color{30, 32, 44, 255}
 										: s.bgColor;
 			SDL::Color bdC = !enabled ? s.bdDisabledColor
 						   : foc      ? s.bdFocusedColor
-						   : st.hovered ? s.bdHoveredColor : s.bdColor;
+						   : Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor : s.bdColor;
 			
 			_FillRR(r, bgC, s.radius, s.opacity);
 			_StrokeRR(r, bdC, SDL::Max(s.borders, 1.f), s.radius, s.opacity);
@@ -5437,7 +5432,7 @@ namespace UI {
 			_DrawInlineScrollbars(e, r, s, w);
 		}
 
-		void _DrawKnob(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+		void _DrawKnob(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *kd = m_ctx.Get<KnobData>(e);
 			auto *nv = m_ctx.Get<NumericValue>(e);
 			if (!kd || !nv) return;
@@ -5454,16 +5449,16 @@ namespace UI {
 			if (oR <= 0.f) return; // Ultime sécurité
 
 			// Couleur de fond
-			SDL::Color bgColor = !Has(w.behavior, BehaviorFlag::Enable) ? s.bgDisabledColor 
-							: st.pressed ? s.bgPressedColor
-							: st.hovered ? s.bgHoveredColor : s.bgColor;
+			SDL::Color bgColor = !Has(w.behavior, WidgetBehaviorFlag::Enable) ? s.bgDisabledColor 
+							: Has(w.state, WidgetStateFlag::Pressed) ? s.bgPressedColor
+							: Has(w.state, WidgetStateFlag::Hovered) ? s.bgHoveredColor : s.bgColor;
 			bgColor.a = (Uint8)(bgColor.a * s.opacity);
 			m_renderer.SetDrawColor(bgColor);
 			m_renderer.RenderFillCircle({cx_, cy_}, oR);
 
 			// Bordure
 			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor 
-							: st.hovered ? s.bdHoveredColor : s.bdColor;
+							: Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor : s.bdColor;
 			bdColor.a = (Uint8)(bdColor.a * s.opacity);
 			m_renderer.SetDrawColor(bdColor);
 			m_renderer.RenderCircle({cx_, cy_}, oR);
@@ -5471,7 +5466,7 @@ namespace UI {
 			float norm = nv->GetNorm<float>();
 			norm = SDL::Clamp(norm, 0.f, 1.f);
 
-			SDL::Color fillC = Has(w.behavior, BehaviorFlag::Enable) ? s.fillColor : s.textDisabledColor;
+			SDL::Color fillC = Has(w.behavior, WidgetBehaviorFlag::Enable) ? s.fillColor : s.textDisabledColor;
 			fillC.a = (Uint8)(fillC.a * s.opacity);
 
 			if (kd->shape == KnobShape::Potentiometer) {
@@ -5524,7 +5519,7 @@ namespace UI {
 			}
 		}
 
-		void _DrawImage(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) { 
+		void _DrawImage(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &) { 
 			auto *d = m_ctx.Get<ImageData>(e);
 			if (!d || d->key.empty()) {
 				_FillRR(r, s.bgColor, s.radius, s.opacity);
@@ -5594,18 +5589,17 @@ namespace UI {
 		}
 
 		// ── ListBox draw ──────────────────────────────────────────────
-		void _DrawListBox(ECS::EntityId e, const FRect &r, const Style &s,
-						  const WidgetState &st, const Widget &w) {
+		void _DrawListBox(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *lb  = m_ctx.Get<ListBoxData>(e);
 			auto *lp  = m_ctx.Get<LayoutProps>(e);
 			if (!lb || !lp) return;
 
 			// Background + focused/hovered border
-			SDL::Color bg = st.focused ? s.bgFocusedColor
-						  : st.hovered ? s.bgHoveredColor
+			SDL::Color bg = Has(w.state, WidgetStateFlag::Focused) ? s.bgFocusedColor
+						  : Has(w.state, WidgetStateFlag::Hovered) ? s.bgHoveredColor
 						  : s.bgColor;
 			_FillRR(r, bg, s.radius, s.opacity);
-			_StrokeRR(r, st.focused ? s.bdFocusedColor : st.hovered ? s.bdHoveredColor : s.bdColor,
+			_StrokeRR(r, Has(w.state, WidgetStateFlag::Focused) ? s.bdFocusedColor : Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor : s.bdColor,
 					  s.borders, s.radius, s.opacity);
 
 			const float ih    = lb->itemHeight;
@@ -5691,8 +5685,7 @@ namespace UI {
 		}
 
 		// ── Graph draw ────────────────────────────────────────────────
-		void _DrawGraph(ECS::EntityId e, const FRect &r, const Style &s,
-						const WidgetState &st) {
+		void _DrawGraph(ECS::EntityId e, const FRect &r, const Style &s) {
 			auto *gd = m_ctx.Get<GraphData>(e);
 			if (!gd) return;
 
@@ -5701,7 +5694,7 @@ namespace UI {
 			const SDL::Rect outerClip = m_renderer.GetClipRect();
 
 			_FillRR(r, s.bgColor, s.radius, s.opacity);
-			_StrokeRR(r, st.hovered ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
+			_StrokeRR(r, Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
 
 			const float op    = s.opacity;
 			const float charH = _TH(e);
@@ -5998,9 +5991,9 @@ namespace UI {
 								auto *cw = m_ctx.Get<Widget>(ch2->ids[j]);
 								if (cw) {
 									if (j == d->activeTab)
-										cw->behavior |= BehaviorFlag::Visible;
+										cw->behavior |= WidgetBehaviorFlag::Visible;
 									else
-										cw->behavior &= ~BehaviorFlag::Visible;
+										cw->behavior &= ~WidgetBehaviorFlag::Visible;
 								}
 							}
 						}
@@ -6062,9 +6055,9 @@ namespace UI {
 					auto *cw = m_ctx.Get<Widget>(cid);
 					if (cw) {
 						if (d->expanded)
-							cw->behavior |= BehaviorFlag::Visible;
+							cw->behavior |= WidgetBehaviorFlag::Visible;
 						else
-							cw->behavior &= ~BehaviorFlag::Visible;
+							cw->behavior &= ~WidgetBehaviorFlag::Visible;
 					}
 				}
 			}
@@ -6075,10 +6068,10 @@ namespace UI {
 
 		// ── Draw helpers ───────────────────────────────────────────────────────────
 
-		void _DrawComboBox(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
+		void _DrawComboBox(ECS::EntityId e, const FRect &r, const Style &s, const Widget &) {
 			auto *d  = m_ctx.Get<ComboBoxData>(e);
 			if (!d) return;
-			const bool hover  = st.hovered;
+			const bool hover  = Has(w.state, WidgetStateFlag::Hovered);
 			const bool focus  = (m_focused == e);
 			SDL::Color bg  = hover ? s.bgHoveredColor  : s.bgColor;
 			SDL::Color bd  = focus ? s.fillColor : s.bdColor;
@@ -6132,7 +6125,7 @@ namespace UI {
 			}
 		}
 
-		void _DrawTabView(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) {
+		void _DrawTabView(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &) {
 			auto *d  = m_ctx.Get<TabViewData>(e);
 			if (!d) return;
 			float tabH = d->tabHeight;
@@ -6155,12 +6148,12 @@ namespace UI {
 			_StrokeRR(content, s.bdColor, {1.f,1.f,1.f,1.f}, {}, s.opacity);
 		}
 
-		void _DrawExpander(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) {
+		void _DrawExpander(ECS::EntityId e, const FRect &r, const Style &s) {
 			auto *d = m_ctx.Get<ExpanderData>(e);
 			if (!d) return;
 			float headerH = d->headerH;
 			FRect header = {r.x, r.y, r.w, headerH};
-			SDL::Color bg = st.hovered ? s.bgHoveredColor : s.bgColor;
+			SDL::Color bg = Has(w.state, WidgetStateFlag::Hovered) ? s.bgHoveredColor : s.bgColor;
 			_FillRR(header, bg, s.radius, s.opacity);
 			// Arrow  (rotates with animT: 0=right, 1=down)
 			float ax = r.x + 14.f, ay = r.y + headerH * 0.5f;
@@ -6179,7 +6172,7 @@ namespace UI {
 			_Text(e, d->label, r.x + 26.f, r.y + (headerH - _TH(e)) * 0.5f, s.textColor, s.opacity, s);
 		}
 
-		void _DrawSplitter(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st) {
+		void _DrawSplitter(ECS::EntityId e, const FRect &r, const Style &s) {
 			auto *d = m_ctx.Get<SplitterData>(e);
 			if (!d) return;
 			bool horiz = (d->orientation == Orientation::Horizontal);
@@ -6188,11 +6181,11 @@ namespace UI {
 			FRect handle = horiz
 				? FRect{pos, r.y, hs, r.h}
 				: FRect{r.x, pos, r.w, hs};
-			SDL::Color hc = st.hovered ? s.fillColor : s.bdColor;
+			SDL::Color hc = Has(w.state, WidgetStateFlag::Hovered) ? s.fillColor : s.bdColor;
 			_FillRR(handle, hc, {}, s.opacity);
 		}
 
-		void _DrawSpinner(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &) {
+		void _DrawSpinner(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &) {
 			auto *d = m_ctx.Get<SpinnerData>(e);
 			if (!d) return;
 			float cx  = r.x + r.w * 0.5f;
@@ -6216,7 +6209,7 @@ namespace UI {
 			(void)arcEnd;
 		}
 
-		void _DrawBadge(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &, const Widget &) {
+		void _DrawBadge(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &, const Widget &) {
 			auto *d = m_ctx.Get<BadgeData>(e);
 			if (!d) return;
 			SDL::Color bg = d->bgColor.a ? d->bgColor : s.fillColor;
@@ -6229,11 +6222,11 @@ namespace UI {
 
 		// ── ColorPicker ────────────────────────────────────────────────────────────
 
-		void _DrawColorPicker(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+		void _DrawColorPicker(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *d = m_ctx.Get<ColorPickerData>(e);
 			if (!d) return;
 
-			_DrawBg(e, r, s, st, w);
+			_DrawBg(e, r, s, w);
 			_StrokeRR(r, (m_focused==e) ? s.bdFocusedColor : s.bdColor, s.borders, s.radius, s.opacity);
 
 			constexpr float P    = 4.f;
@@ -6327,13 +6320,13 @@ namespace UI {
 
 		// ── Popup ──────────────────────────────────────────────────────────────────
 
-		void _DrawPopup(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+		void _DrawPopup(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *d = m_ctx.Get<PopupData>(e);
 			if (!d || !d->open) return;
 			float op = s.opacity;
 
 			// Window background & outer border
-			_DrawBg(e, r, s, st, w);
+			_DrawBg(e, r, s, w);
 			_StrokeRR(r, s.bdColor, s.borders, s.radius, op);
 
 			// Header bar
@@ -6408,13 +6401,13 @@ namespace UI {
 
 		// ── Tree ───────────────────────────────────────────────────────────────────
 
-		void _DrawTree(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &w) {
+		void _DrawTree(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *d  = m_ctx.Get<TreeData>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (!d || !lp) return;
 
-			_DrawBg(e, r, s, st, w);
-			SDL::Color bd = (m_focused==e) ? s.bdFocusedColor : st.hovered ? s.bdHoveredColor : s.bdColor;
+			_DrawBg(e, r, s, w);
+			SDL::Color bd = (m_focused==e) ? s.bdFocusedColor : Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor : s.bdColor;
 			_StrokeRR(r, bd, s.borders, s.radius, s.opacity);
 
 			float op   = s.opacity;
@@ -6495,11 +6488,11 @@ namespace UI {
 			}
 		}
 
-		void _DrawColorButton(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &st, const Widget &) {
+		void _DrawColorButton(ECS::EntityId e, const FRect &r, const Style &s, const Widget &) {
 			SDL::Color bd = (m_focused == e) ? s.fillColor : s.bdColor;
 			_FillRR(r, s.bgColor, s.radius, s.opacity);
 			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.radius, s.opacity);
-			if (st.hovered) {
+			if (Has(w.state, WidgetStateFlag::Hovered)) {
 				_FillRR(r, {255,255,255,30}, s.radius, 1.f);
 			}
 		}
@@ -6513,7 +6506,7 @@ namespace UI {
 
 		// ── MenuBar draw ──────────────────────────────────────────────────────────
 
-		void _DrawMenuBar(ECS::EntityId e, const FRect &r, const Style &s, const WidgetState &, const Widget &) {
+		void _DrawMenuBar(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &, const Widget &) {
 			auto *d = m_ctx.Get<MenuBarData>(e);
 			if (!d) return;
 

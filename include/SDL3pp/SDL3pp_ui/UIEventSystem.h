@@ -131,7 +131,7 @@ namespace SDL::UI {
 			ECS::EntityId target = _HitTest(root, m_mousePos);
 			if (target != ECS::NullEntity && m_ctx.IsAlive(target)) {
 				auto *w = m_ctx.Get<Widget>(target);
-				if (w && Has(w->behavior, BehaviorFlag::Enable) && Has(w->behavior, BehaviorFlag::Selectable)) {
+				if (w && Has(w->behavior, WidgetBehaviorFlag::Enable) && Has(w->behavior, WidgetBehaviorFlag::Selectable)) {
 					_DispatchPress(target);
 				}
 			}
@@ -175,7 +175,7 @@ namespace SDL::UI {
 
 		// Unfocus previous
 		if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
-			if (auto *st = m_ctx.Get<WidgetState>(m_focused)) st->focused = false;
+			if (auto *w = m_ctx.Get<Widget>(m_focused)) w->states &= ~WidgetStateFlag::Focused;
 			if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onFocusLose) {
 				cb->onFocusLose();
 			}
@@ -184,7 +184,7 @@ namespace SDL::UI {
 		// Focus new
 		m_focused = e;
 		if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
-			if (auto *st = m_ctx.Get<WidgetState>(m_focused)) st->focused = true;
+			if (auto *w = m_ctx.Get<Widget>(m_focused)) w->states |= WidgetStateFlag::Focused;
 			if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onFocusGain) {
 				cb->onFocusGain();
 			}
@@ -196,7 +196,7 @@ namespace SDL::UI {
 
 		auto *w = m_ctx.Get<Widget>(root);
 		auto *cr = m_ctx.Get<ComputedRect>(root);
-		if (!w || !cr || !Has(w->behavior, BehaviorFlag::Visible)) return ECS::NullEntity;
+		if (!w || !cr || !Has(w->behavior, WidgetBehaviorFlag::Visible)) return ECS::NullEntity;
 
 		if (!cr->clip.Contains(p)) return ECS::NullEntity;
 
@@ -210,7 +210,7 @@ namespace SDL::UI {
 		}
 
 		// Check self (only if hoverable)
-		if (Has(w->behavior, BehaviorFlag::Hoverable)) {
+		if (Has(w->behavior, WidgetBehaviorFlag::Hoverable)) {
 			return root;
 		}
 
@@ -221,14 +221,14 @@ namespace SDL::UI {
 		ECS::EntityId newHover = _HitTest(root, m_mousePos);
 
 		// Clear old hover
-		m_ctx.Each<WidgetState>([](ECS::EntityId, WidgetState &st) {
-			st.hovered = false;
+		m_ctx.Each<Widget>([](ECS::EntityId, Widget &w) {
+			w.states &= ~WidgetStateFlag::Hovered;
 		});
 
 		// Set new hover
 		if (newHover != ECS::NullEntity && m_ctx.IsAlive(newHover)) {
-			if (auto *st = m_ctx.Get<WidgetState>(newHover)) {
-				st->hovered = true;
+			if (auto *w = m_ctx.Get<Widget>(newHover)) {
+				w->states |= WidgetStateFlag::Hovered;
 			}
 		}
 
@@ -250,15 +250,12 @@ namespace SDL::UI {
 
 	inline void UIEventSystem::_DispatchPress(ECS::EntityId target) {
 		m_pressed = target;
-		if (auto *st = m_ctx.Get<WidgetState>(target)) {
-			st->pressed = true;
-		}
 
 		auto *w = m_ctx.Get<Widget>(target);
 		if (!w) return;
 
 		// Focus if focusable
-		if (Has(w->behavior, BehaviorFlag::Focusable)) {
+		if (Has(w->behavior, WidgetBehaviorFlag::Focusable)) {
 			_SetFocus(target);
 		}
 
@@ -271,7 +268,7 @@ namespace SDL::UI {
 				if (nv && cr && lp) {
 					sd->drag = true;
 					sd->dragStartPos = (sd->orientation == Orientation::Horizontal) ? m_mousePos.x : m_mousePos.y;
-					sd->dragStartVal = nv->val;
+					sd->dragStartVal = nv->value;
 				}
 			}
 		} else if (w->type == WidgetType::ScrollBar) {
@@ -287,9 +284,9 @@ namespace SDL::UI {
 				if (cr && nv) {
 					kd->drag = true;
 					kd->dragStartY = m_mousePos.y;
-					kd->dragStartVal = nv->val;
-					float cx = cr->screen.x + cr->screen.w * 0.5f;
-					float cy = cr->screen.y + cr->screen.h * 0.5f;
+					kd->dragStartVal = nv->value;
+					float cx = cr->absolute.x + cr->absolute.w * 0.5f;
+					float cy = cr->absolute.y + cr->absolute.h * 0.5f;
 					kd->dragStartAngle = std::atan2(m_mousePos.y - cy, m_mousePos.x - cx) * (180.f / 3.14159265f);
 				}
 			}
@@ -313,24 +310,23 @@ namespace SDL::UI {
 		// Slider drag
 		if (w->type == WidgetType::Slider) {
 			if (auto *sd = m_ctx.Get<SliderData>(target); sd && sd->drag) {
-				auto *nv = m_ctx.Get<NumericValue>(target);
+				auto *nv = m_ctx.Get<NumericValue<float>>(target);
 				auto *cr = m_ctx.Get<ComputedRect>(target);
-				auto *lp = m_ctx.Get<LayoutProps>(target);
-				if (nv && cr && lp) {
+				auto *s = m_ctx.Get<Style>(target);
+				if (nv && cr && s) {
 					bool h = (sd->orientation == Orientation::Horizontal);
 					float trackLen = h
-						? (cr->screen.w - lp->padding.left - lp->padding.right - 16.f)
-						: (cr->screen.h - lp->padding.top - lp->padding.bottom - 16.f);
+						? (cr->absolute.w - s->padding.left - s->padding.right - 16.f)
+						: (cr->absolute.h - s->padding.top - s->padding.bottom - 16.f);
 					if (trackLen > 0.f) {
 						float cur = h ? m_mousePos.x : m_mousePos.y;
 						float dx = cur - sd->dragStartPos;
-						double v = std::clamp(
+						float v = SDL::Clamp(
 							sd->dragStartVal + dx / trackLen * (nv->max - nv->min),
 							nv->min, nv->max);
-						if (nv->IsIntegral()) v = std::round(v);
-						if (nv->step > 0.0) v = nv->min + std::round((v - nv->min) / nv->step) * nv->step;
-						if (v != nv->val) {
-							nv->val = v;
+						if (nv->step > 0.f) v = nv->min + std::round((v - nv->min) / nv->step) * nv->step;
+						if (v != nv->value) {
+							nv->value = v;
 							if (auto *cb = m_ctx.Get<Callbacks>(target); cb && cb->onChange) {
 								cb->onChange((float)v);
 							}
@@ -360,21 +356,21 @@ namespace SDL::UI {
 				auto *cr = m_ctx.Get<ComputedRect>(target);
 				auto *nv = m_ctx.Get<NumericValue>(target);
 				if (cr && nv) {
-					float cx = cr->screen.x + cr->screen.w * 0.5f;
-					float cy = cr->screen.y + cr->screen.h * 0.5f;
+					float cx = cr->absolute.x + cr->absolute.w * 0.5f;
+					float cy = cr->absolute.y + cr->absolute.h * 0.5f;
 					float curAngle = std::atan2(m_mousePos.y - cy, m_mousePos.x - cx) * (180.f / 3.14159265f);
 					float dAngle = curAngle - kd->dragStartAngle;
 					if (dAngle > 180.f) dAngle -= 360.f;
 					if (dAngle < -180.f) dAngle += 360.f;
 					double newVal = SDL::Clamp(kd->dragStartVal + dAngle / 270.0 * (nv->max - nv->min), nv->min, nv->max);
-					if (newVal != nv->val) {
-						nv->val = newVal;
+					if (newVal != nv->value) {
+						nv->value = newVal;
 						if (auto *cb = m_ctx.Get<Callbacks>(target); cb && cb->onChange) {
 							cb->onChange((float)newVal);
 						}
 					}
 					kd->dragStartAngle = curAngle;
-					kd->dragStartVal = nv->val;
+					kd->dragStartVal = nv->value;
 				}
 			}
 		} else if (w->type == WidgetType::Splitter) {
@@ -383,8 +379,8 @@ namespace SDL::UI {
 				if (cr) {
 					bool horiz = (spl->orientation == Orientation::Horizontal);
 					float cur = horiz ? m_mousePos.x : m_mousePos.y;
-					float total = horiz ? cr->screen.w : cr->screen.h;
-					float start = horiz ? cr->screen.x : cr->screen.y;
+					float total = horiz ? cr->absolute.w : cr->absolute.h;
+					float start = horiz ? cr->absolute.x : cr->absolute.y;
 					float nr = SDL::Clamp((cur - start) / SDL::Max(1.f, total), spl->minRatio, spl->maxRatio);
 					if (nr != spl->ratio) {
 						spl->ratio = nr;
@@ -399,7 +395,7 @@ namespace SDL::UI {
 
 	inline void UIEventSystem::_DispatchRelease(ECS::EntityId target) {
 		auto *w = m_ctx.Get<Widget>(target);
-		auto *st = m_ctx.Get<WidgetState>(target);
+		auto *st = m_ctx.Get<WidgetStateFlag>(target);
 		auto *cb = m_ctx.Get<Callbacks>(target);
 
 		if (st) st->pressed = false;
@@ -412,7 +408,7 @@ namespace SDL::UI {
 		if (auto *cp = m_ctx.Get<ColorPickerData>(target)) cp->dragging = false;
 
 		// Trigger click callback if released on the pressed target
-		if (m_hovered == target && w && Has(w->behavior, BehaviorFlag::Enable) && Has(w->behavior, BehaviorFlag::Selectable)) {
+		if (m_hovered == target && w && Has(w->behavior, WidgetBehaviorFlag::Enable) && Has(w->behavior, WidgetBehaviorFlag::Selectable)) {
 			if (cb && cb->onClick) {
 				cb->onClick(m_lastButton);
 			}
@@ -650,21 +646,21 @@ namespace SDL::UI {
 		// Delete selection if any
 		ts->DeleteFrom(te->text, te->cursor);
 
-		// Check InputType filtering for Input widgets
+		// Check InputFilterType filtering for Input widgets
 		auto *w = m_ctx.Get<Widget>(e);
 		auto *id = m_ctx.Get<InputData>(e);
 		std::string toInsert = text;
 
 		if (w && w->type == WidgetType::Input && id) {
-			// Apply InputType filtering
+			// Apply InputFilterType filtering
 			std::string filtered;
 			for (char c : toInsert) {
 				bool allowed = false;
-				switch (id->type) {
-					case InputType::Text:
+				switch (id->filter) {
+					case InputFilterType::Text:
 						allowed = true;  // All printable chars allowed
 						break;
-					case InputType::Mail: {
+					case InputFilterType::Email: {
 						// Basic email characters: alphanumeric, @, ., -, _, +
 						allowed = (c >= '0' && c <= '9') ||
 								 (c >= 'a' && c <= 'z') ||
@@ -672,7 +668,7 @@ namespace SDL::UI {
 								 c == '@' || c == '.' || c == '-' || c == '_' || c == '+';
 						break;
 					}
-					case InputType::Url: {
+					case InputFilterType::Url: {
 						// Basic URL characters: alphanumeric, :, /, ., -, _, ~, ?, &, =, +
 						allowed = (c >= '0' && c <= '9') ||
 								 (c >= 'a' && c <= 'z') ||
@@ -681,13 +677,13 @@ namespace SDL::UI {
 								 c == '~' || c == '?' || c == '&' || c == '=' || c == '+';
 						break;
 					}
-					case InputType::IntegerValue: {
+					case InputFilterType::IntegerValue: {
 						// Digits and optional leading minus
 						allowed = (c >= '0' && c <= '9') ||
 								 (c == '-' && te->cursor == 0);
 						break;
 					}
-					case InputType::FloatValue: {
+					case InputFilterType::FloatValue: {
 						// Digits, optional minus at start, and single decimal point
 						allowed = (c >= '0' && c <= '9') ||
 								 (c == '-' && te->cursor == 0) ||

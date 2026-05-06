@@ -59,6 +59,7 @@ namespace SDL::UI {
 	struct TabViewBuilder;
 	struct ExpanderBuilder;
 	struct MenuBarBuilder;
+	struct ItemBuilder;
 
 	class UIFactory;
 	class UILayoutSystem;
@@ -149,26 +150,24 @@ namespace SDL::UI {
 		ECS::EntityId MakeRadioButton(std::string_view n, std::string_view group, std::string_view text = "");
 
 		template <typename T>
-		ECS::EntityId MakeSlider(std::string_view n,
-		                         T mn = T(0), T mx = T(1), T v = T(0), T step = T(0),
-		                         Orientation o = Orientation::Horizontal);
+		ECS::EntityId MakeSlider(std::string_view n, T value = T(0), T minValue = T(0), T maxValue = T(100), T step = T(1), Orientation o = Orientation::Horizontal);
 
 		ECS::EntityId MakeScrollBar (std::string_view n, float contentSize = 0.f, float viewSize = 0.f,
 		                             float thickness = 10.f, Orientation o = Orientation::Vertical);
-		ECS::EntityId MakeProgressBase(std::string_view n, NumericValue v, float thickness, Orientation o);
-		ECS::EntityId MakeProgress    (std::string_view n, float v = 0.f, float mx = 1.f);
+		template <typename T>
+		ECS::EntityId MakeProgressBase(std::string_view n, NumericValue<T> v, float thickness, Orientation o);
+		template <typename T>
+		ECS::EntityId MakeProgress  (std::string_view n, T value = T(0), T maxValue = T(100), Orientation o = Orientation::Horizontal);
 		ECS::EntityId MakeSeparator (std::string_view n = "sep");
 		ECS::EntityId MakeInput     (std::string_view n, std::string_view placeholder = "");
 
 		template <typename T>
-		ECS::EntityId MakeInputValue(std::string_view n,
-		                             T minValue = T(0), T maxValue = T(100),
-		                             T value = T(0), T step = T(1));
-
-		ECS::EntityId MakeInputFiltered(std::string_view n, InputType type, std::string_view placeholder = "");
-		ECS::EntityId MakeKnob         (std::string_view n, float mn = 0.f, float mx = 1.f, float v = 0.5f,
-		                                KnobShape shape = KnobShape::Arc);
-		ECS::EntityId MakeImage        (std::string_view n, std::string_view key = "", ImageFit fit = ImageFit::Contain);
+		ECS::EntityId MakeInputValue(std::string_view n, T value = T(0), T minValue = T(0), T maxValue = T(100), T step = T(1));
+		ECS::EntityId MakeInputFiltered(std::string_view n, InputFilterType filter, std::string_view placeholder = "");
+		
+		template <typename T>
+		ECS::EntityId MakeKnob      (std::string_view n, T value = T(0), T minValue = T(0), T maxValue = T(100), T step = T(1), KnobShape shape = KnobShape::Arc);
+		ECS::EntityId MakeImage     (std::string_view n, std::string_view key = "", ImageFit fit = ImageFit::Contain);
 
 		ECS::EntityId MakeCanvas(std::string_view n,
 		                         std::function<void(SDL::Event&)>        eventCb  = nullptr,
@@ -198,26 +197,22 @@ namespace SDL::UI {
 		LabelBuilder     Label      (std::string_view n, std::string_view text = "");
 		ButtonBuilder    Button     (std::string_view n, std::string_view text = "");
 		ToggleBuilder    Toggle     (std::string_view n, std::string_view text = "");
-		RadioButtonBuilder Radio      (std::string_view n, std::string_view group, std::string_view text = "");
+		RadioButtonBuilder Radio	(std::string_view n, std::string_view group, std::string_view text = "");
 
 		template <typename T = float>
-		SliderBuilder    Slider     (std::string_view n,
-		                             T mn = T(0), T mx = T(1), T v = T(0),
-		                             Orientation o = Orientation::Horizontal);
+		SliderBuilder    Slider     (std::string_view n, NumericValue<T> v = {}, Orientation o = Orientation::Horizontal);
 
-		ScrollBarBuilder ScrollBar  (std::string_view n, float contentSize = 0.f, float viewSize = 0.f,
-		                             Orientation o = Orientation::Vertical);
-		ProgressBuilder  Progress   (std::string_view n, float v = 0.f, float mx = 1.f);
+		ScrollBarBuilder ScrollBar  (std::string_view n, float contentSize = 0.f, float viewSize = 0.f, Orientation o = Orientation::Vertical);
+		template <typename T = float>
+		ProgressBuilder  Progress   (std::string_view n, NumericValue<T> v = {});
 		SeparatorBuilder Separator  (std::string_view n = "sep");
 		InputBuilder     Input      (std::string_view n, std::string_view placeholder = "");
 
 		template <typename T = float>
-		InputBuilder     InputValue (std::string_view n,
-		                             T minValue = T(0), T maxValue = T(100),
-		                             T value = T(0), T step = T(1));
+		InputBuilder     InputValue (std::string_view n, NumericValue<T> v = {});
 
-		KnobBuilder      Knob       (std::string_view n, float mn = 0.f, float mx = 1.f, float v = 0.5f,
-		                             KnobShape shape = KnobShape::Arc);
+		template <typename T = float>
+		KnobBuilder      Knob       (std::string_view n, NumericValue<T> v = {}, KnobShape shape = KnobShape::Arc);
 		ImageBuilder     ImageWidget(std::string_view n, std::string_view key = "", ImageFit fit = ImageFit::Contain);
 		CanvasBuilder    CanvasWidget(std::string_view n,
 		                             std::function<void(SDL::Event&)>        eventCb  = nullptr,
@@ -233,8 +228,7 @@ namespace SDL::UI {
 		SplitterBuilder  Splitter   (std::string_view n, Orientation o = Orientation::Horizontal, float ratio = 0.5f);
 		SpinnerBuilder   Spinner    (std::string_view n, float speed = 3.f);
 		BadgeBuilder     Badge      (std::string_view n, std::string_view text = "0");
-		ColorPickerBuilder ColorPicker(std::string_view n, ColorPickerPalette palette = ColorPickerPalette::RGB8,
-		                             float step = 1.f / 255.f);
+		ColorPickerBuilder ColorPicker(std::string_view n, ColorPickerPalette palette = ColorPickerPalette::RGB8, float step = 1.f / 255.f);
 		PopupBuilder     Popup      (std::string_view n, std::string_view title = "",
 		                             bool closable = true, bool draggable = true, bool resizable = false);
 		TreeBuilder      Tree       (std::string_view n);
@@ -551,7 +545,12 @@ namespace SDL::UI {
 		return m_factory->MakeInput(n, placeholder);
 	}
 
-	inline ECS::EntityId System::MakeInputFiltered(std::string_view n, InputType type, std::string_view placeholder) {
+	template <typename T>
+	inline ECS::EntityId System::MakeInputValue(std::string_view n, NumericValue<T> v) {
+		return m_factory->MakeInputValue(n, v);
+	}
+
+	inline ECS::EntityId System::MakeInputFiltered(std::string_view n, InputFilterType type, std::string_view placeholder) {
 		return m_factory->MakeInputFiltered(n, type, placeholder);
 	}
 
@@ -606,16 +605,14 @@ namespace SDL::UI {
 		return m_factory->MakeBadge(n, text);
 	}
 
-	inline ECS::EntityId System::MakeProgressBase(std::string_view n, NumericValue v, float thickness, Orientation o) {
-		return m_factory->MakeProgressBase(n, std::move(v), thickness, o);
+	template <typename T>
+	inline ECS::EntityId System::MakeProgress(std::string_view n, NumericValue<T> v) {
+		return m_factory->MakeProgress(n, std::move(v), 4.f, Orientation::Horizontal);
 	}
 
-	inline ECS::EntityId System::MakeProgress(std::string_view n, float v, float mx) {
-		return MakeProgressBase(n, NumericValue{typeid(float), 0.0, static_cast<double>(mx), static_cast<double>(v), 1.0}, 4.f, Orientation::Horizontal);
-	}
-
-	inline ECS::EntityId System::MakeKnob(std::string_view n, float mn, float mx, float v, KnobShape shape) {
-		return m_factory->MakeKnob(n, mn, mx, v, shape);
+	template <typename T>
+	inline ECS::EntityId System::MakeKnob(std::string_view n, NumericValue<T> v, KnobShape shape) {
+		return m_factory->MakeKnob(n, std::move(v), shape);
 	}
 
 	inline ECS::EntityId System::MakeColorPicker(std::string_view n, ColorPickerPalette palette, float step) {
@@ -699,18 +696,18 @@ namespace SDL::UI {
 	}
 
 	template <typename T>
-	inline void SetValue (ECS::EntityId e, T v) {
-		if (auto *nv = m_ctx.Get<NumericValue>(e)) nv->val = (double)v;
+	inline void SetValue(ECS::EntityId e, T v) {
+		if (auto *nv = m_ctx.Get<NumericValue<T>>(e)) nv->val = v;
 	}
 	
 	template <typename T>
 	inline void SetMinValue (ECS::EntityId e, T v) {
-		if (auto *nv = m_ctx.Get<NumericValue>(e)) nv->min = (double)v;
+		if (auto *nv = m_ctx.Get<NumericValue<T>>(e)) nv->min = v;
 	}
 	
 	template <typename T>
 	inline void SetMaxValue (ECS::EntityId e, T v) {
-		if (auto *nv = m_ctx.Get<NumericValue>(e)) nv->max = (double)v;
+		if (auto *nv = m_ctx.Get<NumericValue<T>>(e)) nv->max = v;
 	}
 
 	inline void System::SetChecked(ECS::EntityId e, bool b) {
@@ -720,44 +717,44 @@ namespace SDL::UI {
 
 	inline void System::SetEnable(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::Enable;
-			else w->behavior &= ~BehaviorFlag::Enable;
+			if (b) w->behavior |= WidgetBehaviorFlag::Enable;
+			else w->behavior &= ~WidgetBehaviorFlag::Enable;
 		}
 	}
 
 	inline void System::SetVisible(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::Visible;
-			else w->behavior &= ~BehaviorFlag::Visible;
+			if (b) w->behavior |= WidgetBehaviorFlag::Visible;
+			else w->behavior &= ~WidgetBehaviorFlag::Visible;
 			if (m_layout) m_layout->MarkDirty();
 		}
 	}
 
 	inline void System::SetHoverable(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::Hoverable;
-			else w->behavior &= ~BehaviorFlag::Hoverable;
+			if (b) w->behavior |= WidgetBehaviorFlag::Hoverable;
+			else w->behavior &= ~WidgetBehaviorFlag::Hoverable;
 		}
 	}
 
 	inline void System::SetSelectable(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::Selectable;
-			else w->behavior &= ~BehaviorFlag::Selectable;
+			if (b) w->behavior |= WidgetBehaviorFlag::Selectable;
+			else w->behavior &= ~WidgetBehaviorFlag::Selectable;
 		}
 	}
 
 	inline void System::SetFocusable(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::Focusable;
-			else w->behavior &= ~BehaviorFlag::Focusable;
+			if (b) w->behavior |= WidgetBehaviorFlag::Focusable;
+			else w->behavior &= ~WidgetBehaviorFlag::Focusable;
 		}
 	}
 
 	inline void System::SetDispatchEvent(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::PropagateEvent;
-			else w->behavior &= ~BehaviorFlag::PropagateEvent;
+			if (b) w->behavior |= WidgetBehaviorFlag::DispatchEvent;
+			else w->behavior &= ~WidgetBehaviorFlag::DispatchEvent;
 		}
 	}
 
@@ -767,15 +764,15 @@ namespace SDL::UI {
 
 	inline void System::SetScrollableX(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::ScrollableX;
-			else w->behavior &= ~BehaviorFlag::ScrollableX;
+			if (b) w->behavior |= WidgetBehaviorFlag::ScrollableX;
+			else w->behavior &= ~WidgetBehaviorFlag::ScrollableX;
 		}
 	}
 
 	inline void System::SetScrollableY(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::ScrollableY;
-			else w->behavior &= ~BehaviorFlag::ScrollableY;
+			if (b) w->behavior |= WidgetBehaviorFlag::ScrollableY;
+			else w->behavior &= ~WidgetBehaviorFlag::ScrollableY;
 		}
 	}
 
@@ -786,15 +783,15 @@ namespace SDL::UI {
 
 	inline void System::SetAutoScrollableX(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::AutoScrollableX;
-			else w->behavior &= ~BehaviorFlag::AutoScrollableX;
+			if (b) w->behavior |= WidgetBehaviorFlag::AutoScrollableX;
+			else w->behavior &= ~WidgetBehaviorFlag::AutoScrollableX;
 		}
 	}
 
 	inline void System::SetAutoScrollableY(ECS::EntityId e, bool b) {
 		if (auto *w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= BehaviorFlag::AutoScrollableY;
-			else w->behavior &= ~BehaviorFlag::AutoScrollableY;
+			if (b) w->behavior |= WidgetBehaviorFlag::AutoScrollableY;
+			else w->behavior &= ~WidgetBehaviorFlag::AutoScrollableY;
 		}
 	}
 
@@ -804,8 +801,8 @@ namespace SDL::UI {
 	}
 
 	inline void System::SetScrollbarThickness(ECS::EntityId e, float t) {
-		if (auto *lp = m_ctx.Get<LayoutProps>(e)) {
-			lp->scrollbarThickness = t;
+		if (auto *s = m_ctx.Get<Style>(e)) {
+			s->scrollbarThickness = t;
 		}
 	}
 
@@ -1213,52 +1210,52 @@ namespace SDL::UI {
 	}
 
 	inline bool System::IsEnabled(ECS::EntityId e) const {
-		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, BehaviorFlag::Enable);
+		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Enable);
 		return false;
 	}
 
 	inline bool System::IsVisible(ECS::EntityId e) const {
-		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, BehaviorFlag::Visible);
+		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Visible);
 		return false;
 	}
 
 	inline bool System::IsHoverable(ECS::EntityId e) const {
-		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, BehaviorFlag::Hoverable);
+		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Hoverable);
 		return false;
 	}
 
 	inline bool System::IsSelectable(ECS::EntityId e) const {
-		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, BehaviorFlag::Selectable);
+		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Selectable);
 		return false;
 	}
 
 	inline bool System::IsFocusable(ECS::EntityId e) const {
-		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, BehaviorFlag::Focusable);
+		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Focusable);
 		return false;
 	}
 
 	inline bool System::IsScrollableX(ECS::EntityId e) const {
-		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, BehaviorFlag::ScrollableX) || Has(w->behavior, BehaviorFlag::AutoScrollableX);
+		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::ScrollableX) || Has(w->behavior, WidgetBehaviorFlag::AutoScrollableX);
 		return false;
 	}
 
 	inline bool System::IsScrollableY(ECS::EntityId e) const {
-		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, BehaviorFlag::ScrollableY) || Has(w->behavior, BehaviorFlag::AutoScrollableY);
+		if (auto *w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::ScrollableY) || Has(w->behavior, WidgetBehaviorFlag::AutoScrollableY);
 		return false;
 	}
 
 	inline bool System::IsHovered(ECS::EntityId e) const {
-		if (auto *st = m_ctx.Get<WidgetState>(e)) return st->hovered;
+		if (auto *st = m_ctx.Get<WidgetStateFlag>(e)) return st->hovered;
 		return false;
 	}
 
 	inline bool System::IsFocused(ECS::EntityId e) const {
-		if (auto *st = m_ctx.Get<WidgetState>(e)) return st->focused;
+		if (auto *st = m_ctx.Get<WidgetStateFlag>(e)) return st->focused;
 		return false;
 	}
 
 	inline bool System::IsPressed(ECS::EntityId e) const {
-		if (auto *st = m_ctx.Get<WidgetState>(e)) return st->pressed;
+		if (auto *st = m_ctx.Get<WidgetStateFlag>(e)) return st->pressed;
 		return false;
 	}
 
@@ -1487,8 +1484,8 @@ namespace SDL::UI {
 	}
 
 	template <typename T>
-	inline ECS::EntityId System::MakeInputValue(std::string_view n, T minValue, T maxValue, T value, T step) {
-		ECS::EntityId e = m_factory->MakeInputValue(n, minValue, maxValue, value, step);
+	inline ECS::EntityId System::MakeInputValue(std::string_view n, NumericValue<T> v = {}) {
+		ECS::EntityId e = m_factory->MakeInputValue(n, value, minValue, maxValue, step);
 		return e;
 	}
 
@@ -1637,8 +1634,8 @@ namespace SDL::UI {
 	}
 
 	template <typename T>
-	inline InputBuilder System::InputValue(std::string_view n, T minValue, T maxValue, T value, T step) {
-		ECS::EntityId e = MakeInputValue(n, minValue, maxValue, value, step);
+	inline InputBuilder System::InputValue(std::string_view n, NumericValue<T> v = {}) {
+		ECS::EntityId e = MakeInputValue(n, value, minValue, maxValue, step);
 		return InputBuilder{*this, e};
 	}
 

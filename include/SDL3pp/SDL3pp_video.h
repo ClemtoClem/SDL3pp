@@ -2900,7 +2900,7 @@ public:
 	 *
 	 * - `prop::TextInput.ANDROID_INPUTTYPE_NUMBER` - the text input type to use,
 	 *   overriding other properties. This is documented at
-	 *   https://developer.android.com/reference/android/text/InputType
+	 *   https://developer.android.com/reference/android/text/InputFilterType
 	 *
 	 * @param props the properties to use.
 	 * @throws Error on failure.

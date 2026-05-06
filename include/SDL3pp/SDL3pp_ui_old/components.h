@@ -53,9 +53,10 @@ namespace UI {
 	struct Widget {
 		std::string name;
 		WidgetType  type         = WidgetType::Container;
-		BehaviorFlag behavior    = BehaviorFlag::Enable | BehaviorFlag::Visible;
+		WidgetBehaviorFlag behavior    = WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::DispatchEvent;
+		WidgetStateFlag    state = WidgetStateFlag::None;
 		DirtyFlag   dirty        = DirtyFlag::All;
-		bool dispatchEvent       = true; ///< When false, unhandled scroll events are NOT propagated to parent widgets.
+		bool wasHovered = false;
 	};
 
 	enum class FontType: Uint8 {
@@ -357,7 +358,7 @@ namespace UI {
 	// ==================================================================================
 
 	/// @brief Per-Input numeric / filter state. Attached only when an Input
-	///        widget is configured with a non-Text @ref InputType. Plain text
+	///        widget is configured with a non-Text @ref InputFilterType. Plain text
 	///        Inputs do not carry this component.
 	///
 	/// When attached, the Input widget renders stacked ↑/↓ arrow buttons on
@@ -365,7 +366,7 @@ namespace UI {
 	/// from those arrows, and filters typed characters via a regex selected
 	/// by @ref type.
 	struct InputData {
-		InputType type      = InputType::Text;   ///< Filter / value mode.
+		InputFilterType type      = InputFilterType::Text;   ///< Filter / value mode.
 
 		// ── Optional child button entity IDs (for layouts that wire the
 		//     increment/decrement arrows as separate Button widgets).
@@ -989,10 +990,6 @@ namespace UI {
 		std::vector<MenuBtnRect> menuBtnRects;
 		FRect dropRect = {};
 		std::vector<FRect> itemRects;
-	};
-
-	struct WidgetState {
-		bool hovered = false, pressed = false, focused = false, wasHovered = false;
 	};
 
 	struct Callbacks {

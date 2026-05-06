@@ -63,10 +63,10 @@ namespace UI {
 	inline bool Has(DirtyFlag &a, DirtyFlag b) { return (a & b) != DirtyFlag::None; }
 
 	/// @brief Bitmask controlling what interactions a widget participates in.
-	enum class BehaviorFlag : Uint16 {
+	enum class WidgetBehaviorFlag : Uint16 {
 		None            = 0,
-		Enable          = 1 << 0,
-		Visible         = 1 << 1,
+		Visible         = 1 << 0,
+		Enable          = 1 << 1,
 		Hoverable       = 1 << 2,
 		Selectable      = 1 << 3,
 		Focusable       = 1 << 4,
@@ -76,18 +76,40 @@ namespace UI {
 		ScrollableY     = 1 << 8,
 		AutoScrollableX = 1 << 9,
 		AutoScrollableY = 1 << 10,
-		PropagateEvent  = 1 << 11, ///< Propagated unused event to parent widgets.
+		DispatchEvent   = 1 << 11, ///< Dispatch unused event to parent widgets.
 		All             = 0x0FFF
 	};
 	
-	inline BehaviorFlag operator|(BehaviorFlag a, BehaviorFlag b) noexcept { return static_cast<BehaviorFlag>(static_cast<Uint16>(a) | static_cast<Uint16>(b)); }
-	inline BehaviorFlag operator&(BehaviorFlag a, BehaviorFlag b) noexcept { return static_cast<BehaviorFlag>(static_cast<Uint16>(a) & static_cast<Uint16>(b)); }
-	inline BehaviorFlag operator~(BehaviorFlag a) noexcept { return static_cast<BehaviorFlag>((~static_cast<Uint16>(a)) & static_cast<Uint16>(BehaviorFlag::All)); }
-	inline BehaviorFlag &operator|=(BehaviorFlag &a, BehaviorFlag b) noexcept { a = a | b; return a; }
-	inline BehaviorFlag &operator&=(BehaviorFlag &a, BehaviorFlag b) noexcept { a = a & b; return a; }
-	inline bool operator!(BehaviorFlag a) noexcept { return a == BehaviorFlag::None; }
+	inline WidgetBehaviorFlag operator|(WidgetBehaviorFlag a, WidgetBehaviorFlag b) noexcept { return static_cast<WidgetBehaviorFlag>(static_cast<Uint16>(a) | static_cast<Uint16>(b)); }
+	inline WidgetBehaviorFlag operator&(WidgetBehaviorFlag a, WidgetBehaviorFlag b) noexcept { return static_cast<WidgetBehaviorFlag>(static_cast<Uint16>(a) & static_cast<Uint16>(b)); }
+	inline WidgetBehaviorFlag operator~(WidgetBehaviorFlag a) noexcept { return static_cast<WidgetBehaviorFlag>((~static_cast<Uint16>(a)) & static_cast<Uint16>(WidgetBehaviorFlag::All)); }
+	inline WidgetBehaviorFlag &operator|=(WidgetBehaviorFlag &a, WidgetBehaviorFlag b) noexcept { a = a | b; return a; }
+	inline WidgetBehaviorFlag &operator&=(WidgetBehaviorFlag &a, WidgetBehaviorFlag b) noexcept { a = a & b; return a; }
+	inline WidgetStateFlag Reset(WidgetStateFlag a, WidgetStateFlag b) { return static_cast<WidgetStateFlag>(static_cast<Uint16>(a) & (~static_cast<Uint16>(b))); }
+	inline bool operator!(WidgetBehaviorFlag a) noexcept { return a == WidgetBehaviorFlag::None; }
 	/** @brief Returns true if all bits of @p b are set in @p a. */
-	inline bool Has(BehaviorFlag a, BehaviorFlag b) { return (a & b) != BehaviorFlag::None; }
+	inline bool Has(WidgetBehaviorFlag a, WidgetBehaviorFlag b) { return (a & b) != WidgetBehaviorFlag::None; }
+
+	enum class WidgetStateFlag : Uint8 {
+		None			= 0,
+		Hovered			= 1 << 0,
+		Pressed			= 1 << 1,
+		Focused			= 1 << 2,
+		Resized 		= 1 << 3,
+		Dragged			= 1 << 4,
+		Checked			= 1 << 5,
+		All				= 0x3F
+	};
+
+	inline WidgetStateFlag operator|(WidgetStateFlag a, WidgetStateFlag b) noexcept { return static_cast<WidgetStateFlag>(static_cast<Uint8>(a) | static_cast<Uint8>(b)); }
+	inline WidgetStateFlag operator&(WidgetStateFlag a, WidgetStateFlag b) noexcept { return static_cast<WidgetStateFlag>(static_cast<Uint8>(a) & static_cast<Uint8>(b)); }
+	inline WidgetStateFlag operator~(WidgetStateFlag a) noexcept { return static_cast<WidgetStateFlag>((~static_cast<Uint8>(a)) & static_cast<Uint8>(WidgetStateFlag::All)); }
+	inline WidgetStateFlag &operator|=(WidgetStateFlag &a, WidgetStateFlag b) noexcept { a = a | b; return a; }
+	inline WidgetStateFlag &operator&=(WidgetStateFlag &a, WidgetStateFlag b) noexcept { a = a & b; return a; }
+	inline WidgetStateFlag Reset(WidgetStateFlag a, WidgetStateFlag b) { return static_cast<WidgetStateFlag>(static_cast<Uint8>(a) & (~static_cast<Uint8>(b))); }
+	inline bool operator!(WidgetStateFlag a) noexcept { return a == WidgetStateFlag::None; }
+	/** @brief Returns true if all bits of @p b are set in @p a. */
+	inline bool Has(WidgetStateFlag a, WidgetStateFlag b) { return (a & b) != WidgetStateFlag::None; }
 
 	/// @brief Alignment of children along the cross axis of a layout container.
 	enum class Align : Uint8 {
@@ -114,7 +136,7 @@ namespace UI {
 	/// Selects how typed characters are validated and (for numeric modes) how
 	/// the value is parsed and formatted. Numeric modes also enable the right-
 	/// edge ↑/↓ arrow buttons.
-	enum class InputType : Uint8 {
+	enum class InputFilterType : Uint8 {
 		Text,         ///< Plain free-form text (no filter).
 		Mail,         ///< Permissive e-mail character filter while typing.
 		Url,          ///< Permissive URL character filter while typing.

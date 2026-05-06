@@ -39,8 +39,7 @@ namespace SDL::UI {
 			m_renderers[std::type_index(typeid(T))] = std::move(fn);
 		}
 
-		bool Dispatch(ECS::EntityId e, RendererRef r, const Style& s,
-		              const FRect& rect, ECS::Context& ctx) const;
+		bool Dispatch(ECS::EntityId e, RendererRef r, const Style& s, const FRect& rect, ECS::Context& ctx) const;
 
 		template <typename T>
 		void RegisterByPresence(RenderFn fn);  ///< Defined inline below — uses ctx.Has<T>() at dispatch.
@@ -92,8 +91,8 @@ namespace SDL::UI {
 		std::optional<SDL::RendererTextEngine> m_engine;
 #endif
 
-		void _DrawWidget    (ECS::EntityId e, const WidgetState& st, const Style& s);
-		void _DrawBackground(ECS::EntityId e, const FRect& rect, const Style& s, const WidgetState& st);
+		void _DrawWidget    (ECS::EntityId e, const WidgetStateFlag& st, const Style& s);
+		void _DrawBackground(ECS::EntityId e, const FRect& rect, const Style& s, const WidgetStateFlag& st);
 		void _DrawText      (ECS::EntityId e, const std::string& text, const FRect& rect,
 		                     TextHAlign hAlign = TextHAlign::Center, TextVAlign vAlign = TextVAlign::Center);
 
@@ -151,10 +150,10 @@ namespace SDL::UI {
 		for (const auto& call : drawList) {
 			if (!m_ctx.IsAlive(call.entity)) continue;
 			auto *w = m_ctx.Get<Widget>(call.entity);
-			auto *st = m_ctx.Get<WidgetState>(call.entity);
+			auto *st = m_ctx.Get<WidgetStateFlag>(call.entity);
 			auto *s = m_ctx.Get<Style>(call.entity);
 			auto *cr = m_ctx.Get<ComputedRect>(call.entity);
-			if (!w || !st || !s || !cr || !Has(w->behavior, BehaviorFlag::Visible)) continue;
+			if (!w || !st || !s || !cr || !Has(w->behavior, WidgetBehaviorFlag::Visible)) continue;
 
 			SDL_Rect clipRectSDL = {(int)call.clipRect.x, (int)call.clipRect.y,
 			                        (int)call.clipRect.w, (int)call.clipRect.h};
@@ -165,7 +164,7 @@ namespace SDL::UI {
 	}
 
 	inline void UIRenderSystem::ProcessAnimate(float dt, ECS::EntityId root) {
-		// Animation processing placeholder - animation fields would be added to WidgetState if needed
+		// Animation processing placeholder - animation fields would be added to WidgetStateFlag if needed
 		(void)dt;
 		(void)root;
 	}
@@ -178,7 +177,7 @@ namespace SDL::UI {
 		});
 	}
 
-	inline void UIRenderSystem::_DrawWidget(ECS::EntityId e, const WidgetState& st, const Style& s) {
+	inline void UIRenderSystem::_DrawWidget(ECS::EntityId e, const WidgetStateFlag& st, const Style& s) {
 		auto *w = m_ctx.Get<Widget>(e);
 		auto *cr = m_ctx.Get<ComputedRect>(e);
 		if (!w || !cr) return;
@@ -228,7 +227,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawBackground([[maybe_unused]] ECS::EntityId e, const FRect& rect, const Style& s, const WidgetState& st) {
+	inline void UIRenderSystem::_DrawBackground([[maybe_unused]] ECS::EntityId e, const FRect& rect, const Style& s, const WidgetStateFlag& st) {
 
 		auto color = s.bgColor;
 		if (st.hovered) {
@@ -269,7 +268,7 @@ namespace SDL::UI {
 	}
 
 	inline void UIRenderSystem::_DrawButton(ECS::EntityId e, const FRect& rect, const Style& s) {
-		auto *st = m_ctx.Get<WidgetState>(e);
+		auto *st = m_ctx.Get<WidgetStateFlag>(e);
 		auto *te = m_ctx.Get<TextEdit>(e);
 
 		// Draw pressed state with darker background
@@ -455,7 +454,7 @@ namespace SDL::UI {
 
 	inline void UIRenderSystem::_DrawInput(ECS::EntityId e, const FRect& rect, const Style& s) {
 		auto *te = m_ctx.Get<TextEdit>(e);
-		auto *st = m_ctx.Get<WidgetState>(e);
+		auto *st = m_ctx.Get<WidgetStateFlag>(e);
 		auto *lp = m_ctx.Get<LayoutProps>(e);
 		if (!te || !lp) return;
 
@@ -491,7 +490,7 @@ namespace SDL::UI {
 		auto *lp = m_ctx.Get<LayoutProps>(e);
 		if (!te || !ta || !lp) return;
 
-		Widget w; w.name = "textarea"; w.type = WidgetType::TextArea; w.behavior = BehaviorFlag::Enable | BehaviorFlag::Visible | BehaviorFlag::ScrollableX | BehaviorFlag::ScrollableY;
+		Widget w; w.name = "textarea"; w.type = WidgetType::TextArea; w.behavior = WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::ScrollableX | WidgetBehaviorFlag::ScrollableY;
 		ScrollViewInfo svi = _ComputeScrollView(rect, *lp, w);
 
 		// Draw background
@@ -543,7 +542,7 @@ namespace SDL::UI {
 		auto *ilv = m_ctx.Get<ItemListView>(e);
 		if (!lb || !lp || !ilv) return;
 
-		Widget w; w.name = "listbox"; w.type = WidgetType::ListBox; w.behavior = BehaviorFlag::Enable | BehaviorFlag::Visible | BehaviorFlag::ScrollableY;
+		Widget w; w.name = "listbox"; w.type = WidgetType::ListBox; w.behavior = WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::ScrollableY;
 		ScrollViewInfo svi = _ComputeScrollView(rect, *lp, w);
 
 		// Draw background
@@ -708,10 +707,10 @@ namespace SDL::UI {
 		bool showX = false, showY = false;
 		if (w.type == WidgetType::Container || w.type == WidgetType::ListBox ||
 		    w.type == WidgetType::TextArea || w.type == WidgetType::Tree) {
-			showX = Has(w.behavior, BehaviorFlag::ScrollableX) ||
-			        (Has(w.behavior, BehaviorFlag::AutoScrollableX) && lp.contentW > v.innerW);
-			showY = Has(w.behavior, BehaviorFlag::ScrollableY) ||
-			        (Has(w.behavior, BehaviorFlag::AutoScrollableY) && lp.contentH > v.innerH);
+			showX = Has(w.behavior, WidgetBehaviorFlag::ScrollableX) ||
+			        (Has(w.behavior, WidgetBehaviorFlag::AutoScrollableX) && lp.contentW > v.innerW);
+			showY = Has(w.behavior, WidgetBehaviorFlag::ScrollableY) ||
+			        (Has(w.behavior, WidgetBehaviorFlag::AutoScrollableY) && lp.contentH > v.innerH);
 		}
 
 		v.showX = showX;

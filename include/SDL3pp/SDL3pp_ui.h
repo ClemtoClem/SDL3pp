@@ -27,7 +27,7 @@
  * | `ImageData`      | texture path + ImageFit                                    |
  * | `IconData`       | icon key, padding, per-state opacity + tint (Button)       |
  * | `CanvasData`     | custom render callback                                     |
- * | `WidgetState`    | hover/press/focus                                          |
+ * | `WidgetStateFlag`    | hover/press/focus                                          |
  * | `Callbacks`      | onClick, onChange, onScroll, onToggle, onTextChange, …     |
  * | `ComputedRect`   | screen rect, clip rect, measured size                      |
  * | `Children`       | ordered child entity IDs                                   |
@@ -102,7 +102,7 @@
  * ## Container — scrollbars automatiques
  *
  * Un `Container` peut afficher des scrollbars inline (superposées sur le bord
- * intérieur du container) en combinant les `BehaviorFlag` suivants :
+ * intérieur du container) en combinant les `WidgetBehaviorFlag` suivants :
  *
  * |-----------------------|-----------------------------------------------------------|
  * | Flag                  | Comportement                                              |
@@ -213,7 +213,16 @@
  */
 
 // ── Sub-modules ───────────────────────────────────────────────────────────────────────
-/*#include "SDL3pp_ui/UIEnums.h"
+
+#if !defined(SDL3PP_ENABLE_NEW_UI)
+#include "SDL3pp_ui_old/builder.h"
+#include "SDL3pp_ui_old/components.h"
+#include "SDL3pp_ui_old/enums.h"
+#include "SDL3pp_ui_old/system.h"
+#include "SDL3pp_ui_old/theme.h"
+#include "SDL3pp_ui_old/value.h"
+#else
+#include "SDL3pp_ui/UIEnums.h"
 #include "SDL3pp_ui/UIValue.h"
 #include "SDL3pp_ui/UIComponents.h"
 #include "SDL3pp_ui/UIFactory.h"
@@ -221,13 +230,6 @@
 #include "SDL3pp_ui/UIEventSystem.h"
 #include "SDL3pp_ui/UIRenderSystem.h"
 #include "SDL3pp_ui/UISystem.h"
-#include "SDL3pp_ui/UIBuilder.h"*/
-
-#include "SDL3pp_ui_old/builder.h"
-#include "SDL3pp_ui_old/components.h"
-#include "SDL3pp_ui_old/enums.h"
-#include "SDL3pp_ui_old/system.h"
-#include "SDL3pp_ui_old/theme.h"
-#include "SDL3pp_ui_old/value.h"
-
+#include "SDL3pp_ui/UIBuilder.h"
+#endif
 #endif /* SDL3PP_UI_H_ */

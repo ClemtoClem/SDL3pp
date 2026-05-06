@@ -534,7 +534,7 @@ namespace UI {
 			return *this;
 		}
 
-		// BehaviorFlag
+		// WidgetBehaviorFlag
 		/** @brief Enable or disable the widget (disabled = not interactive, grayed visually). */
 		Builder &SetEnable(bool e) {
 			sys.SetEnable(id, e);

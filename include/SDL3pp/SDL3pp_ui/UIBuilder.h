@@ -223,9 +223,72 @@ namespace SDL::UI {
 	// ==================================================================================
 
 	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct HoverableMixin : Base {
+		using Base::Base;
+
+		Derived& SetHoverable(bool h = true) {
+			auto& w = *this->system.GetCtx().template Get<Widget>(this->id);
+			if (h) w.behavior = w.behavior | WidgetBehaviorFlag::Hoverable;
+			else   w.behavior = w.behavior & ~WidgetBehaviorFlag::Hoverable;
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct FocusableMixin : Base {
+		using Base::Base;
+
+		Derived& SetFocusable(bool f = true) {
+			auto& w = *this->system.GetCtx().template Get<Widget>(this->id);
+			if (f) w.behavior = w.behavior | WidgetBehaviorFlag::Focusable;
+			else   w.behavior = w.behavior & ~WidgetBehaviorFlag::Focusable;
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct SelectableMixin : Base {
+		using Base::Base;
+
+		Derived& SetSelectable(bool s = true) {
+			auto& w = *this->system.GetCtx().template Get<Widget>(this->id);
+			if (s) w.behavior = w.behavior | WidgetBehaviorFlag::Selectable;
+			else   w.behavior = w.behavior & ~WidgetBehaviorFlag::Selectable;
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct DraggableMixin : Base {
+		using Base::Base;
+
+		Derived& SetDraggable(bool d = true) {
+			auto& w = *this->system.GetCtx().template Get<Widget>(this->id);
+			if (d) w.behavior = w.behavior | WidgetBehaviorFlag::Draggable;
+			else   w.behavior = w.behavior & ~WidgetBehaviorFlag::Draggable;
+			return this->_self();
+		}
+
+		Derived& OnDrag(std::function<void(SDL::FPoint)> cb) {
+			this->system.OnDrag(this->id, std::move(cb));
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct TouchMixin : Base {
+		using Base::Base;
+
+		Derived& OnTouchFingerEvent(std::function<void(const SDL::TouchFingerEvent&)> cb) {
+			this->system.OnTouchFingerEvent(this->id, std::move(cb));
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct ScrollableMixin : Base {
 		using Base::Base;
-		
+
 		Derived& SetAutoScrollable(bool both) {
 			this->system.SetAutoScrollable(this->id, both, both);
 			return this->_self();
@@ -240,6 +303,60 @@ namespace SDL::UI {
 		}
 		Derived& OnScrollChange(std::function<void(SDL::FPoint, SDL::FPoint)> cb) {
 			this->system.OnScrollChange(this->id, std::move(cb));
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct KindMixin : Base {
+		using Base::Base;
+
+		Derived& Child(ECS::EntityId e) {
+			this->system.AppendChild(this->id, e);
+			return this->_self();
+		}
+
+		template <typename C>
+			requires(std::convertible_to<C, ECS::EntityId>)
+		Derived& Child(C && c) {
+			this->system.AppendChild(this->id, static_cast<ECS::EntityId>(c));
+			return this->_self();
+		}
+
+		template <typename... Cs>
+			requires(std::convertible_to<Cs, ECS::EntityId> && ...)
+		Derived& Children(Cs &&...cs) {
+			(this->system.AppendChild(this->id, static_cast<ECS::EntityId>(std::forward<Cs>(cs))), ...);
+			return this->_self();
+		}
+
+		Derived& RemoveChild(ECS::EntityId child) {
+			this->system.RemoveChild(this->id, child);
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct StyledTextMixin : Base {
+		using Base::Base;
+
+		Derived& SetText(std::string_view text) {
+			auto* te = this->system.GetCtx().template Get<TextEdit>(this->id);
+			if (te) te->text = std::string(text);
+			return this->_self();
+		}
+
+		Derived& TextColor(const SDL::Color& c) {
+			this->system.GetStyle(this->id).textColor = c;
+			return this->_self();
+		}
+
+		Derived& SetTextAlign(TextHAlign ha) {
+			return this->_self();
+		}
+
+		Derived& SetFontSize(float sz) {
+			this->system.GetStyle(this->id).fontSize = sz;
 			return this->_self();
 		}
 	};
@@ -262,6 +379,31 @@ namespace SDL::UI {
 		}
 		Derived& HoverSound(std::string_view key) {
 			this->system.GetStyle(this->id).hoverSound = std::string(key);
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct ItemMixin : Base {
+		using Base::Base;
+
+		Derived& SetIcon(std::string_view key) {
+			auto* icon = this->system.GetCtx().template Get<IconData>(this->id);
+			if (!icon) this->system.GetCtx().template Add<IconData>(this->id);
+			icon = this->system.GetCtx().template Get<IconData>(this->id);
+			if (icon) icon->key = std::string(key);
+			return this->_self();
+		}
+
+		Derived& IsExtendable(bool e = true) {
+			return this->_self();
+		}
+
+		Derived& Extended(bool ex = true) {
+			return this->_self();
+		}
+
+		Derived& OnToggleExtend(std::function<void(bool)> cb) {
 			return this->_self();
 		}
 	};
@@ -531,17 +673,21 @@ namespace SDL::UI {
 	};
 
 	// ── Label & Button (text-bearing simple widgets) ───────────────────────────────
-	struct LabelBuilder : EditableMixin<LabelBuilder> {
-		using EditableMixin<LabelBuilder>::EditableMixin;
+	struct LabelBuilder : StyledTextMixin<LabelBuilder, EditableMixin<LabelBuilder, TooltipMixin<LabelBuilder>>> {
+		using StyledTextMixin::StyledTextMixin;
 	};
 
-	struct ButtonBuilder : EditableMixin<ButtonBuilder> {
-		using EditableMixin<ButtonBuilder>::EditableMixin;
+	struct ButtonBuilder : StyledTextMixin<ButtonBuilder, EditableMixin<ButtonBuilder, TooltipMixin<ButtonBuilder>>> {
+		using StyledTextMixin::StyledTextMixin;
+	};
+
+	struct ItemBuilder : ItemMixin<ItemBuilder, SelectableMixin<ItemBuilder, TooltipMixin<ItemBuilder>>> {
+		using ItemMixin::ItemMixin;
 	};
 
 	// ── Numeric widgets (Slider, Knob, Progress, Input, ScrollBar) ─────────────────
-	struct KnobBuilder : NumericMixin<KnobBuilder> {
-		using NumericMixin<KnobBuilder>::NumericMixin;
+	struct KnobBuilder : NumericMixin<KnobBuilder, TooltipMixin<KnobBuilder>> {
+		using NumericMixin::NumericMixin;
 
 		template <typename T>
 		KnobBuilder& Markers(std::vector<T> m) {
@@ -562,8 +708,8 @@ namespace SDL::UI {
 		}
 	};
 
-	struct ProgressBuilder : NumericMixin<ProgressBuilder> {
-		using NumericMixin<ProgressBuilder>::NumericMixin;
+	struct ProgressBuilder : NumericMixin<ProgressBuilder, TooltipMixin<ProgressBuilder>> {
+		using NumericMixin::NumericMixin;
 
 		ProgressBuilder& Indeterminate(bool i = true) {
 			if (auto* pd = this->system.GetCtx().template Get<ProgressData>(this->id)) {
@@ -581,8 +727,8 @@ namespace SDL::UI {
 		}
 	};
 
-	struct SliderBuilder : BuilderBase<SliderBuilder> {
-		using BuilderBase<SliderBuilder>::BuilderBase;
+	struct SliderBuilder : TooltipMixin<SliderBuilder> {
+		using TooltipMixin::TooltipMixin;
 
 		template <typename T>
 		SliderBuilder& OnChange(std::function<void(T)> cb) {
@@ -608,26 +754,27 @@ namespace SDL::UI {
 		}
 	};
 
-	struct InputBuilder : NumericMixin<InputBuilder, EditableMixin<InputBuilder>> {
-		using NumericMixin<InputBuilder, EditableMixin<InputBuilder>>::NumericMixin;
+	struct InputBuilder : NumericMixin<InputBuilder, EditableMixin<InputBuilder, TooltipMixin<InputBuilder>>> {
+		using NumericMixin::NumericMixin;
 
-		InputBuilder& InputType([[maybe_unused]] InputType t) {
-			// Store type info; actual validation happens on keystroke
+		InputBuilder& InputFilterType(InputFilterType filter) {
+			if (auto* in = this->system.GetCtx().template Get<InputData>(this->id))
+				in->filter = filter;
 			return this->_self();
 		}
 		InputBuilder& SetText(std::string_view text) {
 			this->system.SetText(this->id, std::string(text));
 			return this->_self();
 		}
-		InputBuilder& InputDecimals(int n) {
-			if (auto* nv = this->system.GetCtx().template Get<NumericValue>(this->id))
-				nv->decimals = n;
+		InputBuilder& InputFormat(std::string_view format = "{}") {
+			if (auto* in = this->system.GetCtx().template Get<InputData>(this->id))
+				in->format = format;
 			return this->_self();
 		}
 	};
 
-	struct ScrollBarBuilder : NumericMixin<ScrollBarBuilder> {
-		using NumericMixin<ScrollBarBuilder>::NumericMixin;
+	struct ScrollBarBuilder : NumericMixin<ScrollBarBuilder, TooltipMixin<ScrollBarBuilder>> {
+		using NumericMixin::NumericMixin;
 
 		ScrollBarBuilder& TrackSize(float s) {
 			if (auto* sb = this->system.GetCtx().template Get<ScrollBarData>(this->id)) {
@@ -642,12 +789,12 @@ namespace SDL::UI {
 	};
 
 	// ── State widgets (Toggle, RadioButton) ────────────────────────────────────────
-	struct ToggleBuilder : StateableMixin<ToggleBuilder, EditableMixin<ToggleBuilder>> {
-		using StateableMixin<ToggleBuilder, EditableMixin<ToggleBuilder>>::StateableMixin;
+	struct ToggleBuilder : StateableMixin<ToggleBuilder, EditableMixin<ToggleBuilder, TooltipMixin<ToggleBuilder>>> {
+		using StateableMixin::StateableMixin;
 	};
 
-	struct RadioButtonBuilder : StateableMixin<RadioButtonBuilder, EditableMixin<RadioButtonBuilder>> {
-		using StateableMixin<RadioButtonBuilder, EditableMixin<RadioButtonBuilder>>::StateableMixin;
+	struct RadioButtonBuilder : StateableMixin<RadioButtonBuilder, EditableMixin<RadioButtonBuilder, TooltipMixin<RadioButtonBuilder>>> {
+		using StateableMixin::StateableMixin;
 
 		RadioButtonBuilder& Group(std::string_view grp) {
 			if (auto* rb = this->system.GetCtx().template Get<RadioButtonData>(this->id)) {
@@ -658,8 +805,8 @@ namespace SDL::UI {
 	};
 
 	// ── Image widgets (Image, Badge) ──────────────────────────────────────────────
-	struct ImageBuilder : ImageMixin<ImageBuilder> {
-		using ImageMixin<ImageBuilder>::ImageMixin;
+	struct ImageBuilder : ImageMixin<ImageBuilder, TooltipMixin<ImageBuilder>> {
+		using ImageMixin::ImageMixin;
 
 		ImageBuilder& Fit(ImageFit f) {
 			if (auto* id = this->system.GetCtx().template Get<ImageData>(this->id)) {
@@ -669,8 +816,8 @@ namespace SDL::UI {
 		}
 	};
 
-	struct BadgeBuilder : ImageMixin<BadgeBuilder, EditableMixin<BadgeBuilder>> {
-		using ImageMixin<BadgeBuilder, EditableMixin<BadgeBuilder>>::ImageMixin;
+	struct BadgeBuilder : ImageMixin<BadgeBuilder, EditableMixin<BadgeBuilder, TooltipMixin<BadgeBuilder>>> {
+		using ImageMixin::ImageMixin;
 
 		BadgeBuilder& Variant(std::string_view v) {
 			if (auto* bd = this->system.GetCtx().template Get<BadgeData>(this->id)) {
@@ -681,8 +828,8 @@ namespace SDL::UI {
 	};
 
 	// ── Canvas & specialized ──────────────────────────────────────────────────────
-	struct CanvasBuilder : BuilderBase<CanvasBuilder> {
-		using BuilderBase<CanvasBuilder>::BuilderBase;
+	struct CanvasBuilder : TooltipMixin<CanvasBuilder> {
+		using TooltipMixin::TooltipMixin;
 
 		CanvasBuilder& OnRender(std::function<void(SDL::RendererRef, const SDL::FRect&)> cb) {
 			if (auto* c = this->system.GetCtx().template Get<CanvasData>(this->id)) {
@@ -706,8 +853,8 @@ namespace SDL::UI {
 		}
 	};
 
-	struct SeparatorBuilder : BuilderBase<SeparatorBuilder> {
-		using BuilderBase<SeparatorBuilder>::BuilderBase;
+	struct SeparatorBuilder : TooltipMixin<SeparatorBuilder> {
+		using TooltipMixin::TooltipMixin;
 
 		SeparatorBuilder& Thickness(float t) {
 			this->system.GetStyle(this->id).borders.top = t;
@@ -721,8 +868,8 @@ namespace SDL::UI {
 	};
 
 	// ── ComboBox (editable + scrollable dropdown) ──────────────────────────────────
-	struct ComboBoxBuilder : ScrollableMixin<ComboBoxBuilder, EditableMixin<ComboBoxBuilder>> {
-		using ScrollableMixin<ComboBoxBuilder, EditableMixin<ComboBoxBuilder>>::ScrollableMixin;
+	struct ComboBoxBuilder : ScrollableMixin<ComboBoxBuilder, EditableMixin<ComboBoxBuilder, TooltipMixin<ComboBoxBuilder>>> {
+		using ScrollableMixin::ScrollableMixin;
 
 		ComboBoxBuilder& Items(std::vector<std::string> items) {
 			this->system.SetComboBoxItems(this->id, std::move(items));
@@ -742,8 +889,8 @@ namespace SDL::UI {
 	};
 
 	// ── Tree (scrollable hierarchical items) ────────────────────────────────────────
-	struct TreeBuilder : ScrollableMixin<TreeBuilder> {
-		using ScrollableMixin<TreeBuilder>::ScrollableMixin;
+	struct TreeBuilder : ScrollableMixin<TreeBuilder, TooltipMixin<TreeBuilder>> {
+		using ScrollableMixin::ScrollableMixin;
 
 		TreeBuilder& TreeNode(std::string_view label, int level,
 							  bool hasChildren, bool expanded,
@@ -767,8 +914,8 @@ namespace SDL::UI {
 	};
 
 	// ── ColorPicker (specialized color selection widget) ──────────────────────────
-	struct ColorPickerBuilder : BuilderBase<ColorPickerBuilder> {
-		using BuilderBase<ColorPickerBuilder>::BuilderBase;
+	struct ColorPickerBuilder : TooltipMixin<ColorPickerBuilder> {
+		using TooltipMixin::TooltipMixin;
 
 		ColorPickerBuilder& OnColorChange(std::function<void(SDL::Color)> cb) {
 			this->system.OnColorChange(this->id, std::move(cb));
@@ -813,8 +960,8 @@ namespace SDL::UI {
 	};
 
 	// ── Popup (draggable/resizable floating container) ───────────────────────────
-	struct PopupBuilder : ScrollableMixin<PopupBuilder> {
-		using ScrollableMixin<PopupBuilder>::ScrollableMixin;
+	struct PopupBuilder : ScrollableMixin<PopupBuilder, TooltipMixin<PopupBuilder>> {
+		using ScrollableMixin::ScrollableMixin;
 
 		PopupBuilder& Draggable(bool d = true) {
 			if (auto* p = this->system.GetCtx().template Get<PopupData>(this->id)) {
@@ -851,8 +998,8 @@ namespace SDL::UI {
 	};
 
 	// ── TabView (tabbed container) ─────────────────────────────────────────────────
-	struct TabViewBuilder : ScrollableMixin<TabViewBuilder> {
-		using ScrollableMixin<TabViewBuilder>::ScrollableMixin;
+	struct TabViewBuilder : ScrollableMixin<TabViewBuilder, TooltipMixin<TabViewBuilder>> {
+		using ScrollableMixin::ScrollableMixin;
 
 		TabViewBuilder& TabLocation(TabLocation l) {
 			if (auto* tv = this->system.GetCtx().template Get<TabViewData>(this->id)) {
@@ -876,8 +1023,8 @@ namespace SDL::UI {
 	};
 
 	// ── Expander (collapsible container with header) ────────────────────────────────
-	struct ExpanderBuilder : EditableMixin<ExpanderBuilder> {
-		using EditableMixin<ExpanderBuilder>::EditableMixin;
+	struct ExpanderBuilder : EditableMixin<ExpanderBuilder, TooltipMixin<ExpanderBuilder>> {
+		using EditableMixin::EditableMixin;
 
 		ExpanderBuilder& Expanded(bool e = true) {
 			this->system.SetExpanderExpanded(this->id, e);
@@ -891,8 +1038,8 @@ namespace SDL::UI {
 	};
 
 	// ── MenuBar (horizontal menu with items) ───────────────────────────────────────
-	struct MenuBarBuilder : ScrollableMixin<MenuBarBuilder> {
-		using ScrollableMixin<MenuBarBuilder>::ScrollableMixin;
+	struct MenuBarBuilder : ScrollableMixin<MenuBarBuilder, TooltipMixin<MenuBarBuilder>> {
+		using ScrollableMixin::ScrollableMixin;
 
 		MenuBarBuilder& Items(std::vector<std::string> items) {
 			if (auto* mb = this->system.GetCtx().template Get<MenuBarData>(this->id)) {

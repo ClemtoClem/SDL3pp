@@ -246,8 +246,8 @@ struct Main {
 
 		{
 			std::string hov = "(none)", foc = "(none)";
-			ecs_context.Each<SDL::UI::Widget, SDL::UI::WidgetState>(
-				[&](SDL::ECS::EntityId, SDL::UI::Widget& w, SDL::UI::WidgetState& s) {
+			ecs_context.Each<SDL::UI::Widget, SDL::UI::WidgetStateFlag>(
+				[&](SDL::ECS::EntityId, SDL::UI::Widget& w, SDL::UI::WidgetStateFlag& s) {
 					if (s.hovered) hov = w.name;
 					if (s.focused) foc = w.name;
 				});

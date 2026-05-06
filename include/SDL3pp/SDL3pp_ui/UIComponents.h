@@ -15,6 +15,7 @@
 #include <string>
 #include <type_traits>
 #include <typeindex>
+#include <limits>
 #include <vector>
 
 namespace SDL::UI {
@@ -23,9 +24,51 @@ namespace SDL::UI {
 	// Shared utilities
 	// ==================================================================================
 
-	/// @brief Format a NumericValue's value as text (integer or fixed-point).
-	inline std::string FormatNumeric(const struct NumericValue& v);  // forward — defined below NumericValue.
+	// ── NumericValue ────────────────────────────────────────────────
 
+	template<typename T>
+	struct NumericValue {
+		T value = T(0);
+		T min = std::numeric_limits<T>::lowest();
+		T max = std::numeric_limits<T>::max();
+		T step = T(0);
+		std::string format = "{}";  ///< Format string for std::format
+
+		constexpr NumericValue() = default;
+
+		constexpr NumericValue(
+			T value,
+			T minValue = std::numeric_limits<T>::lowest(),
+			T maxValue = std::numeric_limits<T>::max(),
+			T step = T(0),
+			std::string_view fmt = "{}"
+		)
+			: value(value), min(minValue), max(maxValue), step(step), format(fmt) {}
+
+		void Set(T v) {
+			value = SDL::Clamp(v, min, max);
+		}
+
+		template <typename U>
+		U GetNorm() const {
+			return (max > min) ? U(value - min) / U(max - min) : U(0);
+		}
+	};
+
+	/// @brief Format a NumericValue's value as text (integer or fixed-point).
+	template<typename T>
+	std::string FormatNumeric(const NumericValue<T>& v) {
+		if constexpr (std::is_integral_v<T>) {
+			return std::to_string(v.value);
+		} else if constexpr (std::is_floating_point_v<T>) {
+			std::ostringstream oss;
+			oss << std::fixed << std::setprecision(v.decimals) << v.value;
+			return oss.str();
+		}
+	}
+	
+	// ── Color convertion ────────────────────────────────────────────────
+	
 	/// @brief Convert RGB color to HSV floats in [0..1].
 	inline void RgbToHsv(SDL::Color c, float& h, float& s, float& v) noexcept {
 		float rf = c.r / 255.f, gf = c.g / 255.f, bf = c.b / 255.f;
@@ -68,66 +111,15 @@ namespace SDL::UI {
 	}
 
 	// ==================================================================================
-	// WidgetType
-	// ==================================================================================
-
-	/// @brief Identifies the high-level kind of a widget. Used for built-in renderers
-	///        and dispatch fallbacks; new widgets are encouraged to drive behavior
-	///        via component presence rather than enum comparison.
-	enum class WidgetType : Uint8 {
-		Container,
-		Label,
-		Input,
-		Button,
-		Toggle,
-		RadioButton,
-		Knob,
-		Slider,
-		ScrollBar,
-		Progress,
-		Separator,
-		Image,
-		Canvas,
-		TextArea,
-		ListBox,
-		Graph,
-		ComboBox,
-		TabView,
-		Expander,
-		Splitter,
-		Spinner,
-		Badge,
-		ColorPicker,
-		Popup,
-		Tree,
-		MenuBar,
-	};
-
-	// ==================================================================================
 	// Tier 1 — Core components (every widget)
 	// ==================================================================================
 
 	struct Widget {
-		std::string  name;
-		WidgetType   type          = WidgetType::Container;
-		BehaviorFlag behavior       = BehaviorFlag::Enable | BehaviorFlag::Visible;
-		DirtyFlag    dirty         = DirtyFlag::All;
-		bool         dispatchEvent = true; ///< When false, unhandled events are NOT propagated to parent widgets.
-	};
-
-	struct WidgetState {
-		bool hovered    = false;
-		bool pressed    = false;
-		bool focused    = false;
-		bool wasHovered = false;
-	};
-
-	enum class FontType : Uint8 {
-		Inherited, ///< Walk ancestors to find a configured font; fall back to Default.
-		Self,      ///< Use the font configured on this entity; if empty, behaves as Inherited.
-		Root,      ///< Use the root widget's font; fall back to Default.
-		Default,   ///< Use the engine's default font.
-		Debug      ///< Force the SDL3 built-in debug font.
+		std::string			name		= "";
+		WidgetType			type		= WidgetType::Container;
+		WidgetBehaviorFlag	behavior	= WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::DispatchEvent;
+		WidgetStateFlag		states		= WidgetStateFlag::None;
+		DirtyFlag			dirty		= DirtyFlag::All;
 	};
 
 	struct Style {
@@ -170,6 +162,11 @@ namespace SDL::UI {
 		SDL::FBox     borders = {1.f, 1.f, 1.f, 1.f};
 		SDL::FCorners radius  = {5.f, 5.f, 5.f, 5.f};
 
+		// ── Spacing ──────────────────────────────────────────────────────────
+		SDL::FBox margin  = {0.f, 0.f, 0.f, 0.f};
+		SDL::FBox padding = {8.f, 6.f, 8.f, 6.f};
+		float     gap     = 4.f;
+
 		// ── Font ─────────────────────────────────────────────────────────────
 		std::string fontKey;
 		float       fontSize = 0.f;
@@ -177,6 +174,7 @@ namespace SDL::UI {
 
 		// ── Misc ─────────────────────────────────────────────────────────────
 		float opacity = 1.f;
+		float scrollbarThickness = 8.f;
 
 		std::string clickSound;
 		std::string hoverSound;
@@ -196,11 +194,6 @@ namespace SDL::UI {
 		Value maxWidth  = Value::Px(-1.f);
 		Value maxHeight = Value::Px(-1.f);
 
-		// ── Spacing ──────────────────────────────────────────────────────────
-		SDL::FBox margin  = {0.f, 0.f, 0.f, 0.f};
-		SDL::FBox padding = {8.f, 6.f, 8.f, 6.f};
-		float     gap     = 4.f;
-
 		// ── Flow & alignment ─────────────────────────────────────────────────
 		Layout       layout         = Layout::InColumn;
 		Align        alignChildrenH = Align::Stretch;
@@ -213,14 +206,15 @@ namespace SDL::UI {
 		// ── Scroll state (host for any widget that scrolls its content) ──────
 		float scrollX  = 0.f, scrollY  = 0.f;
 		float contentW = 0.f, contentH = 0.f;
-		float scrollbarThickness = 8.f; ///< Thickness (px) of the inline scrollbars drawn by Container.
 	};
 
 	struct ComputedRect {
-		FRect  screen     = {};
-		FRect  clip       = {};
-		FRect  outer_clip = {};
-		FPoint measured   = {};
+		FPoint measured   = {}; ///< Intrinsic size from Measure pass
+		FRect  inner_rel  = {}; ///< Inner relative rect without borders
+		FRect  outer_rel  = {}; ///< Outer relative rect with borders
+		FRect  absolute   = {}; ///< Final screen rect after Place pass
+		FRect  inner_clip = {}; ///< Inner clip rect
+		FRect  outer_clip = {}; ///< Outer clip rect
 	};
 
 	struct Parent {
@@ -263,13 +257,6 @@ namespace SDL::UI {
 	// ==================================================================================
 	// Tier 2 — Reusable add-ons
 	// ==================================================================================
-
-	// ── TextCache ─────────────────────────────────────────────────────────────────
-	/// @brief Cached TTF text object — created lazily by the renderer when a
-	///        Label/Button/etc. has visible text.
-	struct TextCache {
-		SDL::Text text;
-	};
 
 	// ── IconData ──────────────────────────────────────────────────────────────────
 	/// @brief Decorative icon attached to a widget (Button, MenuBar item, …).
@@ -356,73 +343,14 @@ namespace SDL::UI {
 		[[nodiscard]] float BorderH() const noexcept { return borderH > 0.f ? borderH : static_cast<float>(tileH); }
 	};
 
-	// ── NumericValue / AnyValue<T> ────────────────────────────────────────────────
-	/// @brief Bounded scalar shared by Slider, Knob, Progress, Input(numeric mode)…
-	///        Always stored as @c double; the original C++ type is remembered via
-	///        @ref type for callback dispatch.
-	struct NumericValue {
-		std::type_index type = typeid(double);
-		double min      = 0.0;
-		double max      = 100.0;
-		double val      = 0.0;
-		double step     = 1.0;
-		int    decimals = 2;
-
-		template <typename U>
-		[[nodiscard]] U As() const { return static_cast<U>(val); }
-
-		template <typename U>
-		void Set(U v) {
-			double d = static_cast<double>(v);
-			if constexpr (std::is_integral_v<std::decay_t<U>>) d = std::round(d);
-			val = std::clamp(d, min, max);
-		}
-
-		[[nodiscard]] bool IsIntegral() const noexcept {
-			return type == typeid(int)         || type == typeid(unsigned int)
-			    || type == typeid(short)       || type == typeid(unsigned short)
-			    || type == typeid(long)        || type == typeid(unsigned long)
-			    || type == typeid(long long)   || type == typeid(unsigned long long)
-			    || type == typeid(char)        || type == typeid(unsigned char)
-			    || type == typeid(signed char);
-		}
-
-		template <typename U>
-		[[nodiscard]] U GetNorm() const {
-			return static_cast<U>((max > min) ? (val - min) / (max - min) : 0);
-		}
-	};
-
-	inline std::string FormatNumeric(const NumericValue& v) {
-		char buf[32];
-		if (v.IsIntegral())
-			std::snprintf(buf, sizeof(buf), "%lld",
-			              static_cast<long long>(std::llround(v.val)));
-		else
-			std::snprintf(buf, sizeof(buf), "%.*f", std::max(0, v.decimals), v.val);
-		return buf;
-	}
-
-	/// @brief Type-aware helper that constructs a NumericValue from a specific
-	///        arithmetic type (used by builders like `MakeSlider<int>(...)`).
-	template <typename T>
-	struct AnyValue : NumericValue {
-		AnyValue() {
-			type     = typeid(T);
-			decimals = std::is_integral_v<T> ? 0 : 2;
-		}
-		AnyValue(T mn, T mx, T v, T st = T(1)) : AnyValue() {
-			min  = static_cast<double>(mn);
-			max  = static_cast<double>(mx);
-			val  = std::clamp(static_cast<double>(v), min, max);
-			step = static_cast<double>(st);
-		}
-		[[nodiscard]] T value() const { return As<T>(); }
-		void SetValue(T v) { Set<T>(v); }
+	// ── TextCache ─────────────────────────────────────────────────────────────────
+	/// @brief Cached TTF text object — created lazily by the renderer when a
+	///        Label/Button/etc. has visible text.
+	struct TextCache {
+		SDL::Text text;
 	};
 
 	// ── TextEdit + TextSelection (shared by Input and TextArea) ───────────────────
-
 	/// @brief Editable text buffer — UTF-8, LF line endings.
 	///        Cursor and selection use byte offsets. Pair with @ref TextSelection
 	///        for selection support and @ref TextSpans for rich text.
@@ -624,7 +552,7 @@ namespace SDL::UI {
 	};
 
 	// ── ProgressData ──────────────────────────────────────────────────────────────
-	/// @brief Progress bar. Pair with @ref NumericValue for value (no drag, no markers).
+	/// @brief Progress bar. Pair with @ref NumericValue for value.
 	struct ProgressData {
 		Orientation orientation = Orientation::Horizontal;
 		bool isIndeterminate = false;
@@ -642,11 +570,9 @@ namespace SDL::UI {
 		bool        checked = false;
 	};
 
-	using RadioButtonData = RadioData;
-
 	// ── SeparatorData ─────────────────────────────────────────────────────────────
 	struct SeparatorData {
-		// Separator is purely visual, no additional state needed
+		Orientation orientation = Orientation::Horizontal;
 	};
 
 	// ── ScrollBarData ─────────────────────────────────────────────────────────────
@@ -688,20 +614,15 @@ namespace SDL::UI {
 
 	// ── InputData ─────────────────────────────────────────────────────────────────
 	/// @brief Numeric / typed-input mode for the Input widget.
-	///        Plain-text Inputs do not carry this component.
-	///        Pair with @ref TextEdit (text/cursor) and optionally @ref NumericValue
-	///        (for IntegerValue/FloatValue modes).
 	struct InputData {
-		InputType type = InputType::Text;
+		InputFilterType filter = InputFilterType::Text;
+		std::string     format = "{}"; ///< NumericValue representation
 
 		// Optional child entities for the increment/decrement arrow buttons.
 		ECS::EntityId incrementButton = ECS::NullEntity;
 		ECS::EntityId decrementButton = ECS::NullEntity;
 
 		// Drag-to-adjust state (vertical drag from the arrow column).
-		bool   drag         = false;
-		float  dragStartY   = 0.f;
-		double dragStartVal = 0.0;
 		bool   pressUp      = false;
 		bool   pressDown    = false;
 	};
