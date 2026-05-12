@@ -1,7 +1,7 @@
 #pragma once
 #include "../Core/ScriptParser.hpp"
 #include "../ECS/Components.hpp"
-#include "../Logger/Logger.hpp"
+#include <SDL3pp/SDL3pp_log.h>		  // Logger
 #include <SDL3pp/SDL3pp.h>
 #include <SDL3pp/SDL3pp_ecs.h>
 #include <SDL3pp/SDL3pp_scene.h>
@@ -68,7 +68,7 @@ public:
 		if (!m_info) return SDL::ECS::NullEntity;
 		auto it = m_info->find(typeName);
 		if (it == m_info->end()) {
-			LOG_GAME(core::LogLevel::Warning) << "EntityBuilder: no config for '" << typeName << "'";
+			LOG_GAME(SDL::LOG::LogLevel::Warning) << "EntityBuilder: no config for '" << typeName << "'";
 			return SDL::ECS::NullEntity;
 		}
 		const core::ScriptValue& cfg = it->second;
@@ -185,7 +185,7 @@ public:
 				}
 		});
 
-		LOG_GAME(core::LogLevel::Debug)
+		LOG_GAME(SDL::LOG::LogLevel::Debug)
 			<< std::format("Built '{}' eid={} ({:.1f},{:.1f})", typeName, eid, x, y);
 		return eid;
 	}
@@ -208,7 +208,7 @@ private:
 			m_pool.Add<SDL::Texture>(key, std::move(t));
 			if (auto h2 = m_pool.Get<SDL::Texture>(key)) return *h2.get();
 		} catch (const std::exception& e) {
-			LOG_RESOURCE(core::LogLevel::Warning) << "EntityBuilder texture: " << e.what();
+			LOG_RESOURCE(SDL::LOG::LogLevel::Warning) << "EntityBuilder texture: " << e.what();
 		}
 		return nullptr;
 	}

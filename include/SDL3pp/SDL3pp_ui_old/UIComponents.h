@@ -1,5 +1,5 @@
 #pragma once
-#include "value.h"
+#include "UIValue.h"
 #include "../SDL3pp_ecs.h"
 #include "../SDL3pp_events.h"
 #include "../SDL3pp_ttf.h"
@@ -18,32 +18,33 @@ namespace UI {
 	// ==================================================================================
 
 	enum class WidgetType : Uint8 {
-		Container, ///< Container is a basic layout widget that can have children and optional scrollbars.  It does not render anything itself but can have background and border styles.
-		Label,     ///< Label is a simple text display widget with optional word wrap and text alignment.
-		Input,     ///< Input is a single-line text editor with cursor, selection, and copy/paste support.  It can be used for password fields (with placeholder chars) or as a base for more complex text widgets.
-		Button,    ///< Button is a clickable widget that triggers an action when pressed.  It can display text and/or an image, and has visual states for normal, hovered, pressed, and disabled.
-		Toggle,    ///< Toggle is a binary switch that can be checked or unchecked, and maintains its state until toggled again.
-		RadioButton, ///< RadioButton is a toggle that belongs to a named group and auto-unchecks when another in the same group is checked.
-		Knob,      ///< Knob is a circular slider with infinite rotation and optional snapping.
-		Slider,    ///< Slider can be horizontal or vertical based on its orientation property.
-		ScrollBar, ///< ScrollBar can be horizontal or vertical based on its orientation property.
-		Progress,  ///< Progress bar can be horizontal or vertical based on its orientation property.
-		Separator, ///< Horizontal or vertical line (non-interactive).
-		Image,     ///< Image from texture with fit modes (Cover, Contain, Fill, Tile, None).
-		Canvas,    ///< Custom render callback with full access to the renderer and layout rect.
-		TextArea,  ///< Multi-line rich text editor with selection, copy/paste, drag-drop.
-		ListBox,   ///< Scrollable list of selectable text items with keyboard navigation.
-		Graph,     ///< Graduated data plot (Excel-style axes, grid, fill, bar or line mode).
-		ComboBox,    ///< Dropdown selector — click to open a popup list of items.
-		TabView,     ///< Tabbed container — one child visible at a time via a tab bar.
-		Expander,    ///< Collapsible section — header click shows/hides child content.
-		Splitter,    ///< Resizable split panes — two children divided by a draggable handle.
-		Spinner,     ///< Animated loading indicator (rotating arc, updated by _ProcessAnimate).
-		Badge,       ///< Small notification pill displaying a text count.
+		Container,	///< Container is a basic layout widget that can have children and optional scrollbars.  It does not render anything itself but can have background and border styles.
+		Label,		///< Label is a simple text display widget with optional word wrap and text alignment.
+		Input,		///< Input is a single-line text editor with cursor, selection, and copy/paste support.  It can be used for password fields (with placeholder chars) or as a base for more complex text widgets.
+		Button,		///< Button is a clickable widget that triggers an action when pressed.  It can display text and/or an image, and has visual states for normal, hovered, pressed, and disabled.
+		Toggle,		///< Toggle is a binary switch that can be checked or unchecked, and maintains its state until toggled again.
+		Radio,		///< Radio is a toggle that belongs to a named group and auto-unchecks when another in the same group is checked.
+		Knob,		///< Knob is a circular slider with infinite rotation and optional snapping.
+		Slider,		///< Slider can be horizontal or vertical based on its orientation property.
+		ScrollBar, 	///< ScrollBar can be horizontal or vertical based on its orientation property.
+		Progress,	///< Progress bar can be horizontal or vertical based on its orientation property.
+		Separator,	///< Horizontal or vertical line (non-interactive).
+		Image,		///< Image from texture with fit modes (Cover, Contain, Fill, Tile, None).
+		Canvas,		///< Custom render callback with full access to the renderer and layout rect.
+		TextArea,	///< Multi-line rich text editor with selection, copy/paste, drag-drop.
+		ListBox,	///< Scrollable list of selectable text items with keyboard navigation.
+		Graph,		///< Graduated data plot (Excel-style axes, grid, fill, bar or line mode).
+		ComboBox,	///< Dropdown selector — click to open a popup list of items.
+		TabView,	///< Tabbed container — one child visible at a time via a tab bar.
+		Expander,	///< Collapsible section — header click shows/hides child content.
+		Splitter,	///< Resizable split panes — two children divided by a draggable handle.
+		Spinner,	///< Animated loading indicator (rotating arc, updated by _ProcessAnimate).
+		Badge,		///< Small notification pill displaying a text count.
 		ColorPicker, ///< Color palette picker (Grayscale, RGB8, RGBFloat, GradientAB).
-		Popup,       ///< Floating window with title bar, draggable, resizable, closable.
-		Tree,        ///< Hierarchical tree view with expandable/collapsible nodes.
-		MenuBar,     ///< Horizontal application-style menu bar with dropdown sub-menus.
+		Popup,		///< Floating window with title bar, draggable, resizable, closable.
+		Tree,		///< Hierarchical tree view with expandable/collapsible nodes.
+		MenuBar,	///< Horizontal application-style menu bar with dropdown sub-menus.
+		Connector,	///< Audio patch-bay port circle (In/Out direction, connection state, accent color).
 	};
 
 	// ==================================================================================
@@ -57,6 +58,14 @@ namespace UI {
 		WidgetStateFlag    state = WidgetStateFlag::None;
 		DirtyFlag   dirty        = DirtyFlag::All;
 		bool wasHovered = false;
+
+		bool Has(WidgetBehaviorFlag flag) {
+			return (static_cast<Uint16>(behavior) & static_cast<Uint16>(flag)) != 0;
+		}
+
+		bool Is(WidgetStateFlag flag) {
+			return (static_cast<Uint8>(state) & static_cast<Uint8>(flag)) != 0;
+		}
 	};
 
 	enum class FontType: Uint8 {
@@ -799,12 +808,9 @@ namespace UI {
 		std::vector<std::string> items;      ///< All selectable items.
 		int    selectedIndex = -1;           ///< Currently selected item (-1 = none).
 		bool   open          = false;        ///< Dropdown overlay is visible.
-		int    hoverIndex    = -1;           ///< Item highlighted in the open dropdown.
 		float  itemHeight    = 22.f;         ///< Height of each dropdown row (px).
 		int    maxVisible    = 6;            ///< Maximum rows shown before scrolling.
-		float  scrollOffset  = 0.f;         ///< Scroll position inside the dropdown.
-		FRect  dropRect      = {};           ///< Screen-space dropdown rect (computed each frame).
-		std::vector<float> tabWidths;        ///< (unused — for future use)
+		ECS::EntityId overlayId = ECS::NullEntity; ///< Container entity for the overlay.
 	};
 
 	// ==================================================================================
@@ -990,6 +996,21 @@ namespace UI {
 		std::vector<MenuBtnRect> menuBtnRects;
 		FRect dropRect = {};
 		std::vector<FRect> itemRects;
+	};
+
+	// ==================================================================================
+	// ConnectorData — ECS component for the Connector widget
+	// ==================================================================================
+
+	enum class ConnectorDir : Uint8 { In, Out };
+
+	/// @brief Audio port connector circle: input (left) or output (right) of a DSP block.
+	struct ConnectorData {
+		ConnectorDir  dir       = ConnectorDir::Out;
+		SDL::Color    color     = {45, 195, 110, 255};
+		bool          connected = false;
+		ECS::EntityId blockId   = ECS::NullEntity; ///< Entity ID of the DSP block this connector belongs to (for wiring).
+		int           portIdx   = 0;
 	};
 
 	struct Callbacks {

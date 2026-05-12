@@ -12,6 +12,9 @@
 #include <cmath>
 #include <cstdio>
 #include <functional>
+#include <iomanip>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <typeindex>
@@ -24,30 +27,25 @@ namespace SDL::UI {
 	// Shared utilities
 	// ==================================================================================
 
-	// ── NumericValue ────────────────────────────────────────────────
-
-	template<typename T>
+	// ── NumericValue ──────────────────────────────────────────────────────────────
+	template <typename T>
 	struct NumericValue {
 		T value = T(0);
-		T min = std::numeric_limits<T>::lowest();
-		T max = std::numeric_limits<T>::max();
-		T step = T(0);
-		std::string format = "{}";  ///< Format string for std::format
+		T min   = std::numeric_limits<T>::lowest();
+		T max   = std::numeric_limits<T>::max();
+		T step  = T(0);
+		std::string format = "{}"; ///< Format string for std::format
 
 		constexpr NumericValue() = default;
 
-		constexpr NumericValue(
-			T value,
-			T minValue = std::numeric_limits<T>::lowest(),
-			T maxValue = std::numeric_limits<T>::max(),
-			T step = T(0),
-			std::string_view fmt = "{}"
-		)
+		constexpr NumericValue(T value,
+		                       T minValue = std::numeric_limits<T>::lowest(),
+		                       T maxValue = std::numeric_limits<T>::max(),
+		                       T step = T(0),
+		                       std::string_view fmt = "{}")
 			: value(value), min(minValue), max(maxValue), step(step), format(fmt) {}
 
-		void Set(T v) {
-			value = SDL::Clamp(v, min, max);
-		}
+		void Set(T v) { value = SDL::Clamp(v, min, max); }
 
 		template <typename U>
 		U GetNorm() const {
@@ -55,21 +53,19 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Format a NumericValue's value as text (integer or fixed-point).
-	template<typename T>
+	/// @brief Format a NumericValue as text (integer or fixed-point fallback).
+	template <typename T>
 	std::string FormatNumeric(const NumericValue<T>& v) {
 		if constexpr (std::is_integral_v<T>) {
 			return std::to_string(v.value);
 		} else if constexpr (std::is_floating_point_v<T>) {
 			std::ostringstream oss;
-			oss << std::fixed << std::setprecision(v.decimals) << v.value;
+			oss << std::fixed << std::setprecision(3) << v.value;
 			return oss.str();
 		}
 	}
-	
-	// ── Color convertion ────────────────────────────────────────────────
-	
-	/// @brief Convert RGB color to HSV floats in [0..1].
+
+	// ── Color conversions (RGB ↔ HSV) ────────────────────────────────────────────
 	inline void RgbToHsv(SDL::Color c, float& h, float& s, float& v) noexcept {
 		float rf = c.r / 255.f, gf = c.g / 255.f, bf = c.b / 255.f;
 		float cmax = std::max(rf, std::max(gf, bf));
@@ -84,7 +80,6 @@ namespace SDL::UI {
 		if (h < 0.f) h += 1.f;
 	}
 
-	/// @brief Convert HSV floats [0..1] to SDL::Color.
 	inline SDL::Color HsvToColor(float h, float s, float v, Uint8 a = 255) noexcept {
 		if (s < 1e-6f) {
 			Uint8 g = static_cast<Uint8>(v * 255.f);
@@ -111,80 +106,42 @@ namespace SDL::UI {
 	}
 
 	// ==================================================================================
-	// Tier 1 — Core components (every widget)
+	// Tier 0 — Inline value-types (not ECS components on their own)
 	// ==================================================================================
 
+	/// @brief Two-stop gradient inlined inside @ref BackgroundStyle.
+	///        Each per-state stop2 colour pairs with the corresponding state colour
+	///        of the parent BackgroundStyle (color = stop1, color2 = stop2).
+	struct BgGradient {
+		SDL::Color color2         = { 40,  40,  60, 255};
+		SDL::Color color2Hovered  = { 60,  62,  90, 255};
+		SDL::Color color2Selected = { 20,  20,  35, 255};
+		SDL::Color color2Checked  = { 80, 160, 240, 255};
+		SDL::Color color2Focused  = { 20,  20,  35, 255};
+		SDL::Color color2Disabled = { 28,  28,  38, 160};
+		GradientAnchor start = GradientAnchor::Top;
+		GradientAnchor end   = GradientAnchor::Bottom;
+	};
+
+	// ==================================================================================
+	// Tier 1 — Universal components (every widget gets these via UIFactory::_Spawn)
+	// ==================================================================================
+
+	/// @brief Identity, behavior bitmask and live state of a widget.
 	struct Widget {
-		std::string			name		= "";
-		WidgetType			type		= WidgetType::Container;
-		WidgetBehaviorFlag	behavior	= WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::DispatchEvent;
-		WidgetStateFlag		states		= WidgetStateFlag::None;
-		DirtyFlag			dirty		= DirtyFlag::All;
+		std::string         name     = "";
+		WidgetType          type     = WidgetType::Container;
+		WidgetBehaviorFlag  behavior = WidgetBehaviorFlag::Enable
+		                             | WidgetBehaviorFlag::Visible
+		                             | WidgetBehaviorFlag::DispatchEvent;
+		WidgetStateFlag     states   = WidgetStateFlag::None;
+		DirtyFlag           dirty    = DirtyFlag::All;
 	};
 
-	struct Style {
-		// ── Background per state ─────────────────────────────────────────────
-		SDL::Color bgColor          = { 22,  22,  30, 255};
-		SDL::Color bgHoveredColor   = { 40,  42,  58, 255};
-		SDL::Color bgPressedColor   = { 14,  14,  20, 255};
-		SDL::Color bgCheckedColor   = { 55, 115, 195, 255};
-		SDL::Color bgFocusedColor   = { 14,  14,  20, 255};
-		SDL::Color bgDisabledColor  = { 22,  22,  28, 160};
-
-		// ── Border per state ─────────────────────────────────────────────────
-		SDL::Color bdColor          = { 55,  58,  78, 255};
-		SDL::Color bdHoveredColor   = { 90,  95, 130, 255};
-		SDL::Color bdPressedColor   = { 90,  95, 130, 255};
-		SDL::Color bdCheckedColor   = { 90,  95, 130, 255};
-		SDL::Color bdFocusedColor   = { 70, 130, 210, 255};
-		SDL::Color bdDisabledColor  = { 90,  95, 130, 255};
-
-		// ── Text per state ───────────────────────────────────────────────────
-		SDL::Color textColor             = {215, 215, 220, 255};
-		SDL::Color textHoveredColor      = {255, 255, 255, 255};
-		SDL::Color textPressedColor      = {255, 255, 255, 255};
-		SDL::Color textCheckedColor      = {255, 255, 255, 255};
-		SDL::Color textDisabledColor     = {110, 110, 120, 200};
-		SDL::Color textPlaceholderColor  = { 90,  92, 105, 200};
-
-		// ── Accent colors (used by track/fill/thumb-style widgets) ───────────
-		SDL::Color trackColor       = { 42,  44,  58, 255};
-		SDL::Color fillColor        = { 70, 130, 210, 255};
-		SDL::Color thumbColor       = {100, 160, 230, 255};
-		SDL::Color separatorColor   = { 55,  58,  78, 255};
-
-		// ── Tooltip ──────────────────────────────────────────────────────────
-		SDL::Color tooltipBgColor   = { 30,  32,  44, 245};
-		SDL::Color tooltipBdColor   = { 75,  80, 108, 255};
-		SDL::Color tooltipTextColor = {215, 218, 228, 255};
-
-		// ── Geometry ─────────────────────────────────────────────────────────
-		SDL::FBox     borders = {1.f, 1.f, 1.f, 1.f};
-		SDL::FCorners radius  = {5.f, 5.f, 5.f, 5.f};
-
-		// ── Spacing ──────────────────────────────────────────────────────────
-		SDL::FBox margin  = {0.f, 0.f, 0.f, 0.f};
-		SDL::FBox padding = {8.f, 6.f, 8.f, 6.f};
-		float     gap     = 4.f;
-
-		// ── Font ─────────────────────────────────────────────────────────────
-		std::string fontKey;
-		float       fontSize = 0.f;
-		FontType    usedFont = FontType::Inherited;
-
-		// ── Misc ─────────────────────────────────────────────────────────────
-		float opacity = 1.f;
-		float scrollbarThickness = 8.f;
-
-		std::string clickSound;
-		std::string hoverSound;
-		std::string scrollSound;
-		std::string showSound;
-		std::string hideSound;
-	};
-
+	/// @brief Layout-only properties (size, position, flow, alignment, scroll state).
+	///        Spacing-related fields (margin/padding/gap) live in @ref SpacingStyle.
 	struct LayoutProps {
-		// ── Position & size ──────────────────────────────────────────────────
+		// ── Position & size ─────────────────────────────────────────────────
 		Value absX      = Value::Px(0);
 		Value absY      = Value::Px(0);
 		Value width     = Value::Auto();
@@ -194,7 +151,7 @@ namespace SDL::UI {
 		Value maxWidth  = Value::Px(-1.f);
 		Value maxHeight = Value::Px(-1.f);
 
-		// ── Flow & alignment ─────────────────────────────────────────────────
+		// ── Flow & alignment ────────────────────────────────────────────────
 		Layout       layout         = Layout::InColumn;
 		Align        alignChildrenH = Align::Stretch;
 		Align        alignChildrenV = Align::Stretch;
@@ -203,11 +160,12 @@ namespace SDL::UI {
 		AttachLayout attach         = AttachLayout::Relative;
 		BoxSizing    boxSizing      = BoxSizing::BorderBox;
 
-		// ── Scroll state (host for any widget that scrolls its content) ──────
+		// ── Scroll state (host for any widget that scrolls its content) ─────
 		float scrollX  = 0.f, scrollY  = 0.f;
 		float contentW = 0.f, contentH = 0.f;
 	};
 
+	/// @brief Resolved geometry produced by the layout pass.
 	struct ComputedRect {
 		FPoint measured   = {}; ///< Intrinsic size from Measure pass
 		FRect  inner_rel  = {}; ///< Inner relative rect without borders
@@ -227,44 +185,147 @@ namespace SDL::UI {
 		void Remove(ECS::EntityId e) { std::erase(ids, e); }
 	};
 
+	/// @brief Centralized callback bag for pointer / focus / value-change events.
 	struct Callbacks {
-		// ── Pointer ──────────────────────────────────────────────────────────
+		// ── Pointer ─────────────────────────────────────────────────────────
 		std::function<void(SDL::MouseButton)>      onPress;
 		std::function<void(SDL::MouseButton)>      onRelease;
 		std::function<void(SDL::MouseButton)>      onClick;
 		std::function<void(SDL::MouseButton)>      onDoubleClick;
 		std::function<void(SDL::MouseButton, int)> onMultiClick;
-		std::function<void()>           		   onMouseEnter;
-		std::function<void()>           		   onMouseLeave;
+		std::function<void()>                      onMouseEnter;
+		std::function<void()>                      onMouseLeave;
 
-		// ── Focus ────────────────────────────────────────────────────────────
+		// ── Focus ───────────────────────────────────────────────────────────
 		std::function<void()> onFocusGain;
 		std::function<void()> onFocusLose;
 
-		// ── Value-change ─────────────────────────────────────────────────────
-		std::function<void(float)>                onChange;       ///< Generic float-valued change.
-		std::function<void(SDL::Color)>           onColorChange;  ///< ColorPicker.
-		std::function<void(const std::string &)>  onTextChange;
-		std::function<void(bool)>                 onToggle;
-		std::function<void(float)>                onScroll;
+		// ── Value-change ────────────────────────────────────────────────────
+		std::function<void(float)>                    onChange;
+		std::function<void(SDL::Color)>               onColorChange;
+		std::function<void(const std::string&)>       onTextChange;
+		std::function<void(bool)>                     onToggle;
+		std::function<void(float)>                    onScroll;
 		std::function<void(SDL::FPoint, SDL::FPoint)> onScrollChange;
 
-		// ── Item-list ────────────────────────────────────────────────────────
-		std::function<void(int, bool)>  onTreeSelect;       ///< (index, hasChildren)
-		std::function<void(int, int)>   onItemReorder;      ///< (fromIdx, toIdx)
+		// ── Item-list ───────────────────────────────────────────────────────
+		std::function<void(int, bool)>  onTreeSelect;
+		std::function<void(int, int)>   onItemReorder;
 	};
 
 	// ==================================================================================
-	// Tier 2 — Reusable add-ons
+	// Tier 2 — Specialized style components
+	//
+	//   Each component carries a SINGLE visual responsibility and is opt-in:
+	//   only entities that actually need it pay the memory cost.
+	//
+	//   - BackgroundStyle  → fill colours per state (+ optional embedded gradient)
+	//   - BorderStyle      → border colours/dimensions/radius per state
+	//   - TextStyle        → text colours / font / alignment
+	//   - SpacingStyle     → margin / padding / gap
+	//   - TransformStyle   → opacity (and future transform fields)
+	//   - AccentStyle      → track / fill / thumb / separator colours
+	//   - SoundStyle       → audio cues (click / hover / scroll / show / hide)
 	// ==================================================================================
 
-	// ── IconData ──────────────────────────────────────────────────────────────────
+	/// @brief Background fill of a widget — six per-state colours and an optional
+	///        gradient that, when present, replaces the solid fill.
+	struct BackgroundStyle {
+		SDL::Color color         = { 22,  22,  30, 255};
+		SDL::Color hoveredColor  = { 40,  42,  58, 255};
+		SDL::Color selectedColor = { 14,  14,  20, 255};
+		SDL::Color checkedColor  = { 55, 115, 195, 255};
+		SDL::Color focusedColor  = { 14,  14,  20, 255};
+		SDL::Color disabledColor = { 22,  22,  28, 160};
+
+		std::optional<BgGradient> gradient = std::nullopt;
+	};
+
+	/// @brief Border drawn around the content box — six per-state colours,
+	///        per-side thickness and per-corner radius.
+	struct BorderStyle {
+		SDL::Color color         = { 55,  58,  78, 255};
+		SDL::Color hoveredColor  = { 90,  95, 130, 255};
+		SDL::Color selectedColor = { 90,  95, 130, 255};
+		SDL::Color checkedColor  = { 90,  95, 130, 255};
+		SDL::Color focusedColor  = { 70, 130, 210, 255};
+		SDL::Color disabledColor = { 90,  95, 130, 255};
+
+		SDL::FBox     dimensions = { 1.f, 1.f, 1.f, 1.f };
+		SDL::FCorners radius     = { 5.f, 5.f, 5.f, 5.f };
+	};
+
+	/// @brief Text colour, font and alignment — only attached to text-bearing widgets
+	///        (Label, Button, Input, TextArea, …).
+	struct TextStyle {
+		SDL::Color color            = {215, 215, 220, 255};
+		SDL::Color hoveredColor     = {255, 255, 255, 255};
+		SDL::Color selectedColor    = {255, 255, 255, 255};
+		SDL::Color checkedColor     = {255, 255, 255, 255};
+		SDL::Color disabledColor    = {110, 110, 120, 200};
+		SDL::Color placeholderColor = { 90,  92, 105, 200};
+
+		std::string fontKey;
+		float       fontSize = 0.f;
+		FontType    usedFont = FontType::Inherited;
+		TextHAlign  alignH   = TextHAlign::Center;
+		TextVAlign  alignV   = TextVAlign::Center;
+	};
+
+	/// @brief Box-model spacing — margin (outside), padding (inside), gap (between
+	///        children of a layout container).
+	struct SpacingStyle {
+		SDL::FBox margin  = {0.f, 0.f, 0.f, 0.f};
+		SDL::FBox padding = {8.f, 6.f, 8.f, 6.f};
+		float     gap     = 4.f;
+	};
+
+	/// @brief Per-entity rendering transform. Currently opacity only; future
+	///        rotation / scale fields belong here too.
+	struct TransformStyle {
+		float opacity = 1.f;
+	};
+
+	/// @brief Accent colours used by track/fill/thumb-style widgets
+	///        (Slider, Knob, Progress, ScrollBar, Separator).
+	struct AccentStyle {
+		SDL::Color trackColor     = { 42,  44,  58, 255};
+		SDL::Color fillColor      = { 70, 130, 210, 255};
+		SDL::Color thumbColor     = {100, 160, 230, 255};
+		SDL::Color separatorColor = { 55,  58,  78, 255};
+	};
+
+	/// @brief Audio cues triggered by widget interactions.
+	struct SoundStyle {
+		std::string clickKey;
+		std::string hoverKey;
+		std::string scrollKey;
+		std::string showKey;
+		std::string hideKey;
+	};
+
+	/// @brief Inline scrollbar visuals — only attached to scrollable hosts.
+	struct ScrollbarStyle {
+		float      thickness  = 8.f;
+		SDL::Color trackColor = { 42,  44,  58, 200};
+		SDL::Color thumbColor = {100, 160, 230, 220};
+	};
+
+	/// @brief Tooltip colours — paired with @ref TooltipData on entities that own a tooltip.
+	struct TooltipStyle {
+		SDL::Color bgColor   = { 30,  32,  44, 245};
+		SDL::Color bdColor   = { 75,  80, 108, 255};
+		SDL::Color textColor = {215, 218, 228, 255};
+	};
+
+	// ==================================================================================
+	// Tier 3 — Reusable add-ons (opt-in feature components)
+	// ==================================================================================
+
 	/// @brief Decorative icon attached to a widget (Button, MenuBar item, …).
-	///        When the host widget has text, the icon is drawn to its left;
-	///        otherwise the icon is centered in the content box.
 	struct IconData {
-		std::string key;             ///< Resource-pool key of the texture (empty = no icon).
-		float       pad = 4.f;       ///< Inset from the widget edges (px).
+		std::string key;
+		float       pad = 4.f;
 
 		float opacityNormal   = 1.f;
 		float opacityHovered  = 1.f;
@@ -273,62 +334,26 @@ namespace SDL::UI {
 
 		SDL::Color tintNormalColor   = {255, 255, 255, 255};
 		SDL::Color tintHoveredColor  = {255, 255, 255, 255};
-		SDL::Color tintPressedColor  = {220, 220, 220, 255};
+		SDL::Color tintPressedColor = {220, 220, 220, 255};
 		SDL::Color tintDisabledColor = {180, 180, 180, 255};
 	};
 
-	// ── TooltipData ───────────────────────────────────────────────────────────────
-	/// @brief Hover-tooltip — info bubble shown after a sustained hover.
+	/// @brief Hover-tooltip behaviour. Visual styling lives in @ref TooltipStyle.
 	struct TooltipData {
 		std::string text;
-		float       delay = 1.f; ///< Hover duration before the bubble appears (seconds).
+		float       delay   = 1.f;
 		bool        visible = true;
 	};
 
-	// ── BgGradient ────────────────────────────────────────────────────────────────
-	enum class GradientAnchor : Uint8 {
-		Top,
-		Bottom,
-		Left,
-		Right,
-		TopLeft,
-		TopRight,
-		BottomLeft,
-		BottomRight,
-		Center
-	};
-
-	/// @brief Gradient background — when present, replaces the solid `Style::bg*` fill.
-	///        Each per-state `bg*` color is the gradient start; the matching
-	///        `color2*` field below is the end color.
-	struct BgGradient {
-		SDL::Color color2         = { 40,  40,  60, 255};
-		SDL::Color color2Hovered  = { 60,  62,  90, 255};
-		SDL::Color color2Pressed  = { 20,  20,  35, 255};
-		SDL::Color color2Checked  = { 80, 160, 240, 255};
-		SDL::Color color2Focused  = { 20,  20,  35, 255};
-		SDL::Color color2Disabled = { 28,  28,  38, 160};
-		GradientAnchor start = GradientAnchor::Top;
-		GradientAnchor end   = GradientAnchor::Bottom;
-	};
-
-	// ── TilesetData ──────────────────────────────────────────────────────────────
 	/// @brief 9-slice tileset skin — when present, replaces the default
-	///        solid/border/radius drawing with sliced tiles from a tileset texture.
-	///
-	/// Tile index layout (row-major, starting at @ref firstTileIdx):
-	/// ```
-	///  tl  tc  tr        0  1  2
-	///  ml  mc  mr   →    3  4  5
-	///  bl  bc  br        6  7  8
-	/// ```
+	///        background/border drawing with sliced tiles from a tileset texture.
 	struct TilesetData {
-		int  tileW        = 16;
-		int  tileH        = 16;
-		int  tilesPerRow  = 3;
-		int  firstTileIdx = 0;
-		float borderW = 0.f; ///< Border thickness when slicing; 0 → use full tileW.
-		float borderH = 0.f; ///< Border thickness when slicing; 0 → use full tileH.
+		int   tileW        = 16;
+		int   tileH        = 16;
+		int   tilesPerRow  = 3;
+		int   firstTileIdx = 0;
+		float borderW      = 0.f;
+		float borderH      = 0.f;
 
 		[[nodiscard]] FRect TileRect(int rel) const noexcept {
 			int abs = firstTileIdx + rel;
@@ -343,26 +368,20 @@ namespace SDL::UI {
 		[[nodiscard]] float BorderH() const noexcept { return borderH > 0.f ? borderH : static_cast<float>(tileH); }
 	};
 
-	// ── TextCache ─────────────────────────────────────────────────────────────────
-	/// @brief Cached TTF text object — created lazily by the renderer when a
-	///        Label/Button/etc. has visible text.
+	/// @brief Cached TTF text object, created lazily by the renderer.
 	struct TextCache {
 		SDL::Text text;
 	};
 
-	// ── TextEdit + TextSelection (shared by Input and TextArea) ───────────────────
-	/// @brief Editable text buffer — UTF-8, LF line endings.
-	///        Cursor and selection use byte offsets. Pair with @ref TextSelection
-	///        for selection support and @ref TextSpans for rich text.
+	// ── TextEdit + TextSelection (shared by Input and TextArea) ──────────────────
 	struct TextEdit {
 		std::string text;
 		std::string placeholder;
-		int   cursor     = 0;       ///< Byte offset of the insertion caret.
-		float blinkTimer = 0.f;     ///< Phase [0,1) — caret visible while < 0.5.
-		int   tabSize    = 4;       ///< Visual columns per tab stop (TextArea).
+		int   cursor     = 0;
+		float blinkTimer = 0.f;
+		int   tabSize    = 4;
 		bool  readOnly   = false;
 
-		// ── Document navigation (LF-delimited lines) ─────────────────────────
 		[[nodiscard]] int LineCount() const noexcept {
 			int n = 1;
 			for (char c : text) if (c == '\n') ++n;
@@ -392,26 +411,14 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Selection state — pair with @ref TextEdit.
-	///        `anchor`/`focus` are byte offsets into `TextEdit::text`; the
-	///        selected range is [min(anchor,focus), max(anchor,focus)).
 	struct TextSelection {
-		int        anchor          = -1;  ///< Fixed end of the selection (-1 = none).
-		int        focus           = -1;  ///< Moving end of the selection (-1 = none).
-		bool       dragging        = false;
-		SDL::Color highlightColor  = {70, 130, 210, 90};
+		int anchor = 0;
+		int focus  = 0;
 
-		[[nodiscard]] bool HasSelection() const noexcept {
-			return anchor >= 0 && focus >= 0 && anchor != focus;
-		}
-		[[nodiscard]] int Min() const noexcept { return anchor < focus ? anchor : focus; }
-		[[nodiscard]] int Max() const noexcept { return anchor > focus ? anchor : focus; }
-
-		void Clear() noexcept { anchor = focus = -1; }
-		void Set(int a, int f, int textSize) noexcept {
-			anchor = std::clamp(a, 0, textSize);
-			focus  = std::clamp(f, 0, textSize);
-		}
+		[[nodiscard]] int  Min()          const noexcept { return std::min(anchor, focus); }
+		[[nodiscard]] int  Max()          const noexcept { return std::max(anchor, focus); }
+		[[nodiscard]] bool HasSelection() const noexcept { return anchor != focus; }
+		void Clear() noexcept { anchor = focus = 0; }
 
 		[[nodiscard]] std::string GetSelected(const std::string& src) const {
 			if (!HasSelection()) return {};
@@ -419,8 +426,6 @@ namespace SDL::UI {
 			int b = std::clamp(Max(), 0, (int)src.size());
 			return (a < b) ? src.substr(a, b - a) : std::string{};
 		}
-		/// @brief Delete the selected range from `dst`, move `cursor` to the start,
-		///        clear the selection, and return the number of bytes removed.
 		int DeleteFrom(std::string& dst, int& cursor) {
 			if (!HasSelection()) return 0;
 			int a = std::clamp(Min(), 0, (int)dst.size());
@@ -432,24 +437,20 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── TextSpans (rich text runs) ────────────────────────────────────────────────
-
-	/// @brief Per-run style override for a byte range in a text component.
 	struct TextSpanStyle {
 		bool       bold          = false;
 		bool       italic        = false;
 		bool       underline     = false;
 		bool       strikethrough = false;
 		bool       highlight     = false;
-		SDL::Color color          = {0, 0, 0, 0}; ///< Alpha 0 = use widget default.
+		SDL::Color color          = {0, 0, 0, 0};
 		SDL::Color highlightColor = {255, 255, 100, 80};
 	};
 
-	/// @brief Sorted, non-overlapping styled ranges layered over a TextEdit document.
 	struct TextSpans {
 		struct Span {
 			int           start = 0;
-			int           end   = 0; ///< [start, end) byte offsets.
+			int           end   = 0;
 			TextSpanStyle style;
 		};
 		std::vector<Span> spans;
@@ -469,8 +470,6 @@ namespace SDL::UI {
 			return found;
 		}
 
-		/// @brief Adjust span boundaries after an insert (delta>0) or erase (delta<0)
-		///        at byte offset @p at.  Empty spans are removed.
 		void Shift(int at, int delta) {
 			for (auto& sp : spans) {
 				if (sp.start >= at) sp.start = std::max(at, sp.start + delta);
@@ -480,9 +479,7 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── ItemListView (shared by ListBox / ComboBox / Tree dropdown) ──────────────
 	/// @brief State common to all selectable item-list widgets.
-	///        Specific widgets attach their own data alongside (e.g. ListBoxData).
 	struct ItemListView {
 		std::vector<std::string> items;
 		int   selectedIndex = -1;
@@ -498,7 +495,7 @@ namespace SDL::UI {
 
 	struct LayoutGridProps {
 		int        columns       = 2;
-		int        rows          = 0; ///< 0 = auto from children.
+		int        rows          = 0;
 		GridSizing colSizing     = GridSizing::Fixed;
 		GridSizing rowSizing     = GridSizing::Fixed;
 		GridLines  lines         = GridLines::None;
@@ -510,7 +507,6 @@ namespace SDL::UI {
 		std::vector<float> rowHeights;
 	};
 
-	/// @brief Cell placement of a child inside a Layout::InGrid container.
 	struct GridCell {
 		int col     = 0;
 		int row     = 0;
@@ -519,16 +515,14 @@ namespace SDL::UI {
 	};
 
 	// ==================================================================================
-	// Tier 3 — Widget-specific data
+	// Tier 4 — Widget-specific data
 	// ==================================================================================
 
 	// ── SliderData ────────────────────────────────────────────────────────────────
-	/// @brief Slider behavior. Pair with @ref NumericValue for range/value.
 	struct SliderData {
 		Orientation        orientation  = Orientation::Horizontal;
-		std::vector<float> markers;             ///< Normalized marker positions [0,1].
+		std::vector<float> markers;
 
-		// Drag state
 		bool   drag         = false;
 		float  dragStartPos = 0.f;
 		double dragStartVal = 0.0;
@@ -536,42 +530,37 @@ namespace SDL::UI {
 
 	// ── KnobData ──────────────────────────────────────────────────────────────────
 	enum class KnobShape : Uint8 {
-		Arc,           ///< Circular body with arc track + filled arc indicator.
-		Potentiometer  ///< Solid dial with a single line/pointer indicator.
+		Arc,
+		Potentiometer
 	};
 
-	/// @brief Knob behavior. Pair with @ref NumericValue for range/value.
 	struct KnobData {
 		KnobShape shape = KnobShape::Arc;
 
-		// Drag state (vertical drag and angular drag)
 		bool   drag           = false;
 		float  dragStartY     = 0.f;
 		double dragStartVal   = 0.0;
-		float  dragStartAngle = 0.f; ///< Angle (degrees) at drag start, for arc interaction.
+		float  dragStartAngle = 0.f;
 	};
 
 	// ── ProgressData ──────────────────────────────────────────────────────────────
-	/// @brief Progress bar. Pair with @ref NumericValue for value.
 	struct ProgressData {
-		Orientation orientation = Orientation::Horizontal;
-		bool isIndeterminate = false;
+		Orientation orientation     = Orientation::Horizontal;
+		bool        isIndeterminate = false;
 	};
 
 	// ── ToggleData ────────────────────────────────────────────────────────────────
 	struct ToggleData {
 		bool  checked = false;
-		float animT   = 0.f; ///< Animation phase [0..1].
+		float animT   = 0.f;
 	};
 
-	// ── RadioData / RadioButtonData ───────────────────────────────────────────────
+	// ── RadioData ─────────────────────────────────────────────────────────────────
 	struct RadioData {
 		std::string group;
 		bool        checked = false;
 	};
-
-	// Alias for consistency with builder naming
-	using RadioButtonData = RadioData;
+	using RadioData = RadioData;
 
 	// ── SeparatorData ─────────────────────────────────────────────────────────────
 	struct SeparatorData {
@@ -579,8 +568,6 @@ namespace SDL::UI {
 	};
 
 	// ── ScrollBarData ─────────────────────────────────────────────────────────────
-	/// @brief Standalone scrollbar widget. (Inline scrollbars on Containers use
-	///        @ref ContainerScrollState instead.)
 	struct ScrollBarData {
 		Orientation orientation = Orientation::Vertical;
 		float       contentSize = 0.f;
@@ -588,46 +575,35 @@ namespace SDL::UI {
 		float       offset      = 0.f;
 		float       trackSize   = 8.f;
 
-		// Drag state
 		bool  drag         = false;
 		float dragStartPos = 0.f;
 		float dragStartOff = 0.f;
 	};
 
 	// ── ContainerScrollState ──────────────────────────────────────────────────────
-	/// @brief Drag state of the inline scrollbars drawn automatically inside a
-	///        Container with `(Auto)?Scrollable[XY]`. The actual scroll offset
-	///        lives in `LayoutProps::scrollX/Y`; this component carries the
-	///        thumb rects (for hit-testing) and the per-axis drag state.
 	struct ContainerScrollState {
-		// Thumb rects in screen space (refreshed every frame by the renderer).
 		FRect thumbX = {};
 		FRect thumbY = {};
 
-		// Horizontal drag
 		bool  dragX        = false;
 		float dragStartX   = 0.f;
 		float dragStartOff = 0.f;
 
-		// Vertical drag
 		bool  dragY          = false;
 		float dragStartY     = 0.f;
 		float dragStartOffY  = 0.f;
 	};
 
 	// ── InputData ─────────────────────────────────────────────────────────────────
-	/// @brief Numeric / typed-input mode for the Input widget.
 	struct InputData {
 		InputFilterType filter = InputFilterType::Text;
-		std::string     format = "{}"; ///< NumericValue representation
+		std::string     format = "{}";
 
-		// Optional child entities for the increment/decrement arrow buttons.
 		ECS::EntityId incrementButton = ECS::NullEntity;
 		ECS::EntityId decrementButton = ECS::NullEntity;
 
-		// Drag-to-adjust state (vertical drag from the arrow column).
-		bool   pressUp      = false;
-		bool   pressDown    = false;
+		bool   pressUp   = false;
+		bool   pressDown = false;
 	};
 
 	// ── ImageData ─────────────────────────────────────────────────────────────────
@@ -644,13 +620,9 @@ namespace SDL::UI {
 	};
 
 	// ── ListBoxData ───────────────────────────────────────────────────────────────
-	/// @brief Scrollable list of selectable strings.
-	///        Items / selection / itemHeight live in @ref ItemListView.
-	///        Scroll position lives in `LayoutProps::scrollY`.
 	struct ListBoxData {
 		bool reorderable = false;
 
-		// Drag-to-reorder state
 		bool  dragActive = false;
 		int   dragSrcIdx = -1;
 		int   dragDstIdx = -1;
@@ -660,12 +632,8 @@ namespace SDL::UI {
 	};
 
 	// ── TextAreaData ──────────────────────────────────────────────────────────────
-	/// @brief Multi-line text editor.
-	///        Document/cursor/blink/readOnly/tabSize live in @ref TextEdit;
-	///        selection in @ref TextSelection; rich text in @ref TextSpans.
-	///        This struct only carries TextArea-specific state.
 	struct TextAreaData {
-		float scrollY = 0.f; ///< Vertical scroll offset (px from document top).
+		float scrollY = 0.f;
 	};
 
 	// ── GraphData ─────────────────────────────────────────────────────────────────
@@ -690,13 +658,10 @@ namespace SDL::UI {
 	};
 
 	// ── ComboBoxData ──────────────────────────────────────────────────────────────
-	/// @brief Dropdown list selector.
-	///        Items / selection / hoverIndex / itemHeight / maxVisible live in
-	///        @ref ItemListView. This struct carries dropdown-specific state.
 	struct ComboBoxData {
-		bool   open         = false;
-		float  scrollOffset = 0.f;
-		FRect  dropRect     = {};
+		bool  open         = false;
+		float scrollOffset = 0.f;
+		FRect dropRect     = {};
 	};
 
 	// ── TabViewData ───────────────────────────────────────────────────────────────
@@ -705,11 +670,11 @@ namespace SDL::UI {
 			std::string label;
 			bool        closable = false;
 		};
-		std::vector<Tab> tabs;             ///< Parallel with the widget's Children::ids.
+		std::vector<Tab> tabs;
 		int   activeTab  = 0;
 		float tabHeight  = 32.f;
 		bool  tabsBottom = false;
-		std::vector<float> tabWidths;      ///< Computed each frame by the renderer.
+		std::vector<float> tabWidths;
 		TabLocation tabLocation = TabLocation::Top;
 		std::function<void(int)> onTabChange;
 	};
@@ -723,7 +688,6 @@ namespace SDL::UI {
 	};
 
 	// ── SplitterData ──────────────────────────────────────────────────────────────
-	/// @brief Resizable split panes (two children divided by a draggable handle).
 	struct SplitterData {
 		Orientation orientation = Orientation::Horizontal;
 		float ratio      = 0.5f;
@@ -731,7 +695,6 @@ namespace SDL::UI {
 		float maxRatio   = 0.95f;
 		float handleSize = 6.f;
 
-		// Drag state
 		bool  dragging  = false;
 		float dragStart = 0.f;
 		float dragRatio = 0.f;
@@ -740,25 +703,25 @@ namespace SDL::UI {
 	// ── SpinnerData ───────────────────────────────────────────────────────────────
 	struct SpinnerData {
 		float angle     = 0.f;
-		float speed     = 6.28f; ///< rad/s.
-		float arcSpan   = 0.65f; ///< Fraction of the full circle covered [0..1].
+		float speed     = 6.28f;
+		float arcSpan   = 0.65f;
 		float thickness = 3.f;
 	};
 
 	// ── BadgeData ─────────────────────────────────────────────────────────────────
 	struct BadgeData {
 		std::string text;
-		std::string variant;  // e.g., "danger", "warning", "success", "info"
+		std::string variant;
 		SDL::Color  bgColor   = {220,  50,  40, 255};
 		SDL::Color  textColor = {255, 255, 255, 255};
 	};
 
 	// ── ColorPickerData ───────────────────────────────────────────────────────────
 	enum class ColorPickerPalette : Uint8 {
-		Grayscale,   ///< 1-D bar: black → white.
-		RGB8,        ///< 2-D HSV square + hue bar (8-bit output).
-		RGBFloat,    ///< 2-D HSV square + hue bar (configurable precision step).
-		GradientAB,  ///< 1-D bar: colorA → colorB.
+		Grayscale,
+		RGB8,
+		RGBFloat,
+		GradientAB
 	};
 
 	struct ColorPickerData {
@@ -769,19 +732,16 @@ namespace SDL::UI {
 		float              precisionStep = 1.f / 255.f;
 		bool               allowAlpha    = false;
 
-		// Internal HSV state (RGB8 / RGBFloat)
 		float hue   = 0.f;
 		float sat   = 1.f;
 		float val   = 1.f;
 		float gradT = 0.f;
 
-		// Drag state
 		bool dragging    = false;
 		bool draggingHue = false;
 	};
 
 	// ── PopupData ─────────────────────────────────────────────────────────────────
-	/// @brief Floating window with optional title bar, drag, resize and close.
 	struct PopupData {
 		std::string title;
 		bool  closable  = true;
@@ -791,17 +751,14 @@ namespace SDL::UI {
 		bool  open      = true;
 		float headerH   = 28.f;
 
-		// Drag state
 		bool        dragging   = false;
 		SDL::FPoint dragOffset = {};
 		SDL::FPoint pressPos   = {};
 
-		// Resize state
 		bool        resizing        = false;
 		SDL::FPoint resizeStart     = {};
 		SDL::FPoint resizeStartSize = {};
 
-		// Custom header buttons (drawn left of the close button).
 		struct HeaderBtn {
 			std::string           iconKey;
 			std::function<void()> onClick;
@@ -858,7 +815,6 @@ namespace SDL::UI {
 		int hovMenu  = -1;
 		int hovItem  = -1;
 
-		// Computed every render frame — used for hit-testing.
 		struct MenuBtnRect { float x = 0.f, w = 0.f; };
 		std::vector<MenuBtnRect> menuBtnRects;
 		FRect dropRect = {};

@@ -7572,7 +7572,7 @@ inline void Renderer::RenderBezierCurve(SpanRef<const FPointRaw> control_points,
 	if (control_points.size() < 2) return;
 
 	// Clamp step to a sensible range.
-	if (step <= 0.0f || step > 1.0f) step = 0.01f;
+	step = SDL::Clamp(step, 0.001f, 1.0f);
 
 	const int n = static_cast<int>(control_points.size());
 
@@ -7585,8 +7585,7 @@ inline void Renderer::RenderBezierCurve(SpanRef<const FPointRaw> control_points,
 	curve.reserve(numSamples);
 
 	for (int s = 0; s < numSamples; ++s) {
-		const float t = (s == numSamples - 1) ? 1.0f
-																					 : static_cast<float>(s) * step;
+		const float t = (s == numSamples - 1) ? 1.0f : static_cast<float>(s) * step;
 
 		// Copy control points into working buffer.
 		for (int i = 0; i < n; ++i) {

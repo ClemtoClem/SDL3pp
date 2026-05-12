@@ -161,11 +161,12 @@ struct Main {
     // ─────────────────────────────────────────────────────────────────────────
     void _BuildUI() {
         // ── File path popup ───────────────────────────────────────────────────
-        eFileInput = ui.MakeInput("file_input", "Enter file path…");
+        eFileInput = ui.Input("file_input", "Enter file path…").Id();
         eFilePopup = ui.Popup("file_popup", "File", true, true, false)
             .W(480.f).H(110.f)
             .Fixed(SDL::UI::Value::Ww(50.f) - 240.f,
                    SDL::UI::Value::Wh(50.f) - 55.f)
+            .PopupOpen(false)
             .Children(
                 ui.Column("fp_col", 8.f, 8.f)
                 .W(SDL::UI::Value::Pw(100.f))
@@ -195,6 +196,7 @@ struct Main {
             .W(240.f).H(295.f)
             .Fixed(SDL::UI::Value::Ww(50.f) - 120.f,
                    SDL::UI::Value::Wh(50.f) - 147.f)
+            .PopupOpen(false)
             .Children(
                 ui.Column("clr_col", 8.f, 8.f)
                 .W(SDL::UI::Value::Pw(100.f))

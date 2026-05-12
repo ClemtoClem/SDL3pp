@@ -21,10 +21,30 @@ namespace SDL::UI {
 	// ==================================================================================
 	//
 	// Creates ECS entities and attaches the components a given widget kind needs.
+	//
+	// The factory follows an *à-la-carte* component policy: a widget only ever pays
+	// (in memory) for the visual/behavioural aspects it actually needs.
+	//
+	//   _Spawn() attaches only the **universal** bundle:
+	//     Widget, LayoutProps, Callbacks, ComputedRect, Children, Parent.
+	//
+	//   Each Make* method then uses the small _Attach* helpers to opt in to the
+	//   specific style components that widget kind needs:
+	//
+	//     _AttachBackground  → BackgroundStyle (fill colours, optional gradient)
+	//     _AttachBorder      → BorderStyle    (border colours / dimensions / radius)
+	//     _AttachText        → TextStyle      (text colours, font, alignment)
+	//     _AttachSpacing     → SpacingStyle   (margin / padding / gap)
+	//     _AttachTransform   → TransformStyle (opacity, future rotation/scale)
+	//     _AttachAccent      → AccentStyle    (track/fill/thumb/separator colours)
+	//     _AttachSound       → SoundStyle     (click/hover/scroll/show/hide audio)
+	//     _AttachVisual      = Background + Border + Spacing + Transform
+	//     _AttachVisualText  = Visual + Text
+	//
 	// Adding a new widget type only requires:
-	//   1. Adding a new entry to the WidgetType enum (UIComponents.h)
-	//   2. Adding a Make* method here that calls _Spawn(...) + the
-	//      widget-specific component initialization.
+	//   1. Adding a new entry to the WidgetType enum (UIEnums.h)
+	//   2. Adding a Make* method here that calls _Spawn(...) +
+	//      the appropriate _Attach* helpers + widget-specific data init.
 	// No other file needs to change.
 	//
 	// ==================================================================================
@@ -62,34 +82,50 @@ namespace SDL::UI {
 		// ──────────────────────────────────────────────────────────────────────
 
 		ECS::EntityId MakeContainer(std::string_view n) {
-			return _Spawn(n, WidgetType::Container, _AutoScrollable());
+			ECS::EntityId e = _Spawn(n, WidgetType::Container, _AutoScrollable());
+			_AttachVisual(e);
+			m_ctx.Add<ContainerScrollState>(e);
+			return e;
 		}
 
 		ECS::EntityId MakeLabel(std::string_view n, std::string_view text) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Label);
-			m_ctx.Get<TextEdit>(e)->text = std::string(text);
-			auto& s = *m_ctx.Get<Style>(e);
-			s.padding.top = s.padding.bottom = 2.f;
+			// No background, no border — labels are pure text.
+			_AttachText(e);
+			_AttachSpacing(e);
+			_AttachTransform(e);
+			m_ctx.Add<TextEdit>(e).text = std::string(text);
+			auto& sp = *m_ctx.Get<SpacingStyle>(e);
+			sp.padding.top = sp.padding.bottom = 2.f;
 			return e;
 		}
 
 		ECS::EntityId MakeButton(std::string_view n, std::string_view text) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Button, _Interactive());
-			m_ctx.Get<TextEdit>(e)->text = std::string(text);
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
+			m_ctx.Add<TextEdit>(e).text = std::string(text);
 			return e;
 		}
 
 		ECS::EntityId MakeToggle(std::string_view n, std::string_view text) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Toggle, _Interactive());
-			m_ctx.Get<TextEdit>(e)->text = std::string(text);
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
+			m_ctx.Add<TextEdit>(e).text = std::string(text);
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(28.f);
 			m_ctx.Add<ToggleData>(e);
 			return e;
 		}
 
-		ECS::EntityId MakeRadioButton(std::string_view n, std::string_view group, std::string_view text) {
-			ECS::EntityId e = _Spawn(n, WidgetType::RadioButton, _Interactive());
-			m_ctx.Get<TextEdit>(e)->text = std::string(text);
+		ECS::EntityId MakeRadio(std::string_view n, std::string_view group, std::string_view text) {
+			ECS::EntityId e = _Spawn(n, WidgetType::Radio, _Interactive());
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
+			m_ctx.Add<TextEdit>(e).text = std::string(text);
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(24.f);
 			m_ctx.Add<RadioData>(e, RadioData{std::string(group), false});
 			return e;
@@ -97,10 +133,13 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeSeparator(std::string_view n) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Separator);
-			auto& lp = *m_ctx.Get<LayoutProps>(e);
-			lp.height = Value::Px(1.f);
-			auto& s = *m_ctx.Get<Style>(e);
-			s.margin.top = s.margin.bottom = 6.f;
+			// No background, no text — separators are just a thin coloured line.
+			_AttachBorder(e);
+			_AttachSpacing(e);
+			_AttachTransform(e);
+			m_ctx.Get<LayoutProps>(e)->height = Value::Px(1.f);
+			auto& sp = *m_ctx.Get<SpacingStyle>(e);
+			sp.margin.top = sp.margin.bottom = 6.f;
 			return e;
 		}
 
@@ -111,6 +150,9 @@ namespace SDL::UI {
 		template <typename T=float>
 		ECS::EntityId MakeSlider(std::string_view n, NumericValue<T> v = {}, float thickness = 12.f, Orientation o = Orientation::Horizontal) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Slider, _Interactive());
+			_AttachVisual(e);
+			_AttachAccent(e);
+			_AttachSound(e);
 			m_ctx.Add<NumericValue<T>>(e, std::move(v));
 			SliderData sd;
 			sd.orientation = o;
@@ -124,6 +166,8 @@ namespace SDL::UI {
 		template <typename T=float>
 		ECS::EntityId MakeProgress(std::string_view n, NumericValue<T> v = {}, float thickness = 12.f, Orientation o = Orientation::Horizontal) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Progress);
+			_AttachVisual(e);
+			_AttachAccent(e);
 			m_ctx.Add<NumericValue<T>>(e, std::move(v));
 			ProgressData pd;
 			pd.orientation = o;
@@ -137,6 +181,9 @@ namespace SDL::UI {
 		template <typename T=float>
 		ECS::EntityId MakeKnob(std::string_view n, NumericValue<T> v, float size = 80.f, KnobShape shape = KnobShape::Potentiometer) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Knob, _Interactive());
+			_AttachVisual(e);
+			_AttachAccent(e);
+			_AttachSound(e);
 			m_ctx.Add<NumericValue<T>>(e, std::move(v));
 			KnobData kd;
 			kd.shape = shape;
@@ -148,6 +195,10 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeScrollBar(std::string_view n, float contentSize, float viewSize, float thickness = 12.f, Orientation o = Orientation::Vertical) {
 			ECS::EntityId e = _Spawn(n, WidgetType::ScrollBar, _Interactive());
+			// Scrollbar uses background (track surface) + accent (thumb / fill) only.
+			_AttachBackground(e);
+			_AttachAccent(e);
+			_AttachTransform(e);
 			ScrollBarData sd;
 			sd.contentSize = contentSize;
 			sd.viewSize    = viewSize;
@@ -165,10 +216,13 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeInput(std::string_view n, InputFilterType filter = InputFilterType::Text, std::string_view placeholder = "") {
 			ECS::EntityId e = _Spawn(n, WidgetType::Input, _Interactive());
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
 			InputData in{};
 			in.filter = filter;
 			m_ctx.Add<InputData>(e, in);
-			auto& te = *m_ctx.Get<TextEdit>(e);
+			auto& te = m_ctx.Add<TextEdit>(e);
 			te.placeholder = std::string(placeholder);
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
 			return e;
@@ -176,7 +230,7 @@ namespace SDL::UI {
 
 		template <typename T=float>
 		ECS::EntityId MakeInputValue(std::string_view n, NumericValue<T> v = {}, std::string_view placeholder = "") {
-			ECS::EntityId e = MakeInput(n, std::is_floating_point<T> ? InputFilterType::Float : InputFilterType::Integer, placeholder);
+			ECS::EntityId e = MakeInput(n, std::is_floating_point<T>::value ? InputFilterType::Float : InputFilterType::Integer, placeholder);
 			auto& nv = m_ctx.Add<NumericValue<T>>(e, std::move(v));
 			m_ctx.Get<TextEdit>(e)->text = FormatNumeric(nv);
 			return e;
@@ -184,13 +238,17 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeTextArea(std::string_view n, std::string_view text = "", std::string_view placeholder = "") {
 			ECS::EntityId e = _Spawn(n, WidgetType::TextArea, _Interactive() | _AutoScrollable());
-			auto& te = *m_ctx.Get<TextEdit>(e);
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
+			auto& te = m_ctx.Add<TextEdit>(e);
 			te.text        = std::string(text);
 			te.placeholder = std::string(placeholder);
 			m_ctx.Add<TextSelection>(e);
 			m_ctx.Add<TextSpans>(e);
 			m_ctx.Add<TextAreaData>(e);
-			m_ctx.Get<Style>(e)->padding = {6.f, 6.f, 6.f, 6.f};
+			m_ctx.Add<ContainerScrollState>(e);
+			m_ctx.Get<SpacingStyle>(e)->padding = {6.f, 6.f, 6.f, 6.f};
 			return e;
 		}
 
@@ -200,6 +258,9 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeImage(std::string_view n, std::string_view key, ImageFit fit = ImageFit::None) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Image);
+			// Pure visual — no background, no border, no text. Just spacing + transform.
+			_AttachSpacing(e);
+			_AttachTransform(e);
 			m_ctx.Add<ImageData>(e, ImageData{std::string(key), fit});
 			return e;
 		}
@@ -209,6 +270,9 @@ namespace SDL::UI {
 		                         std::function<void(float)>              updateCb,
 		                         std::function<void(RendererRef, FRect)> renderCb) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Canvas, _Interactive());
+			// Canvas draws its own surface — no bg/border/text needed.
+			_AttachSpacing(e);
+			_AttachTransform(e);
 			m_ctx.Add<CanvasData>(e, CanvasData{std::move(eventCb), std::move(updateCb), std::move(renderCb)});
 			return e;
 		}
@@ -219,15 +283,22 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeListBox(std::string_view n, std::vector<std::string> items) {
 			ECS::EntityId e = _Spawn(n, WidgetType::ListBox, _Interactive() | _AutoScrollable());
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
 			auto& lv = m_ctx.Add<ItemListView>(e);
 			lv.items = std::move(items);
 			m_ctx.Add<ListBoxData>(e);
-			m_ctx.Get<Style>(e)->padding = {2.f, 2.f, 2.f, 2.f};
+			m_ctx.Add<ContainerScrollState>(e);
+			m_ctx.Get<SpacingStyle>(e)->padding = {2.f, 2.f, 2.f, 2.f};
 			return e;
 		}
 
 		ECS::EntityId MakeComboBox(std::string_view n, std::vector<std::string> items, int selectedIndex = 0) {
 			ECS::EntityId e = _Spawn(n, WidgetType::ComboBox, _Interactive() | _AutoScrollable());
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
 			auto& lv = m_ctx.Add<ItemListView>(e);
 			lv.items         = std::move(items);
 			lv.selectedIndex = lv.items.empty() ? -1 : SDL::Clamp(selectedIndex, 0, (int)lv.items.size() - 1);
@@ -237,8 +308,12 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeTree(std::string_view n) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Tree, _Interactive() | _AutoScrollable());
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
 			m_ctx.Add<TreeData>(e);
-			m_ctx.Get<Style>(e)->padding = {2.f, 2.f, 2.f, 2.f};
+			m_ctx.Add<ContainerScrollState>(e);
+			m_ctx.Get<SpacingStyle>(e)->padding = {2.f, 2.f, 2.f, 2.f};
 			return e;
 		}
 
@@ -248,12 +323,18 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeTabView(std::string_view n) {
 			ECS::EntityId e = _Spawn(n, WidgetType::TabView, _Interactive());
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
 			m_ctx.Add<TabViewData>(e);
 			return e;
 		}
 
 		ECS::EntityId MakeExpander(std::string_view n, std::string_view label, bool expanded) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Expander, _Interactive());
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
 			auto& d = m_ctx.Add<ExpanderData>(e);
 			d.label    = std::string(label);
 			d.expanded = expanded;
@@ -263,6 +344,9 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeSplitter(std::string_view n, Orientation o, float ratio) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Splitter, WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable);
+			// Splitter is just a draggable bar — background + transform are enough.
+			_AttachBackground(e);
+			_AttachTransform(e);
 			auto& d = m_ctx.Add<SplitterData>(e);
 			d.orientation = o;
 			d.ratio       = SDL::Clamp(ratio, d.minRatio, d.maxRatio);
@@ -274,6 +358,9 @@ namespace SDL::UI {
 			ECS::EntityId e = _Spawn(n, WidgetType::Popup,
 			                          WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable
 			                        | WidgetBehaviorFlag::Resizable | WidgetBehaviorFlag::Draggable);
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
 			auto& d = m_ctx.Add<PopupData>(e);
 			d.title     = std::string(title);
 			d.closable  = closable;
@@ -282,8 +369,8 @@ namespace SDL::UI {
 			if (auto* lp = m_ctx.Get<LayoutProps>(e)) {
 				lp->attach = AttachLayout::Fixed;
 			}
-			if (auto* s = m_ctx.Get<Style>(e)) {
-				s->padding = {4.f, 4.f, 4.f, d.headerH + 4.f};
+			if (auto* sp = m_ctx.Get<SpacingStyle>(e)) {
+				sp->padding = {4.f, 4.f, 4.f, d.headerH + 4.f};
 			}
 			return e;
 		}
@@ -294,13 +381,19 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeGraph(std::string_view n) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Graph, WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable);
+			_AttachVisual(e);
+			_AttachAccent(e);
 			m_ctx.Add<GraphData>(e);
-			m_ctx.Get<Style>(e)->padding = {0.f, 0.f, 0.f, 0.f};
+			m_ctx.Get<SpacingStyle>(e)->padding = {0.f, 0.f, 0.f, 0.f};
 			return e;
 		}
 
 		ECS::EntityId MakeSpinner(std::string_view n, float speed) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Spinner);
+			// Spinner draws a rotating shape — accent for tint, transform for opacity.
+			_AttachAccent(e);
+			_AttachTransform(e);
+			_AttachSpacing(e);
 			auto& d = m_ctx.Add<SpinnerData>(e);
 			d.speed = speed;
 			return e;
@@ -308,15 +401,20 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeBadge(std::string_view n, std::string_view text) {
 			ECS::EntityId e = _Spawn(n, WidgetType::Badge);
+			_AttachVisualText(e);
+			_AttachTransform(e);
 			auto& d = m_ctx.Add<BadgeData>(e);
 			d.text = std::string(text);
-			m_ctx.Get<LayoutProps>(e)->width = Value::Auto();
+			m_ctx.Get<LayoutProps>(e)->width  = Value::Auto();
 			m_ctx.Get<LayoutProps>(e)->height = Value::Auto();
 			return e;
 		}
 
 		ECS::EntityId MakeColorPicker(std::string_view n, ColorPickerPalette palette, float step) {
 			ECS::EntityId e = _Spawn(n, WidgetType::ColorPicker, _Interactive());
+			_AttachVisual(e);
+			_AttachAccent(e);
+			_AttachSound(e);
 			auto& d = m_ctx.Add<ColorPickerData>(e);
 			d.palette       = palette;
 			d.precisionStep = step;
@@ -325,11 +423,13 @@ namespace SDL::UI {
 
 		ECS::EntityId MakeMenuBar(std::string_view n) {
 			ECS::EntityId e = _Spawn(n, WidgetType::MenuBar, WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable);
+			_AttachVisualText(e);
+			_AttachTransform(e);
+			_AttachSound(e);
 			m_ctx.Add<MenuBarData>(e);
 			auto& lp = *m_ctx.Get<LayoutProps>(e);
 			lp.height = Value::Px(26.f);
-			auto& s = *m_ctx.Get<Style>(e);
-			s.padding = {0.f, 0.f, 0.f, 0.f};
+			m_ctx.Get<SpacingStyle>(e)->padding = {0.f, 0.f, 0.f, 0.f};
 			return e;
 		}
 
@@ -347,8 +447,71 @@ namespace SDL::UI {
 			return WidgetBehaviorFlag::AutoScrollableX | WidgetBehaviorFlag::AutoScrollableY;
 		}
 
+		// ──────────────────────────────────────────────────────────────────────
+		// Per-aspect attachers — opt-in style components
+		// ──────────────────────────────────────────────────────────────────────
+
+		/// @brief Attach a BackgroundStyle if missing. Idempotent.
+		void _AttachBackground(ECS::EntityId e) {
+			if (!m_ctx.Has<BackgroundStyle>(e)) m_ctx.Add<BackgroundStyle>(e);
+		}
+
+		/// @brief Attach a BorderStyle if missing. Idempotent.
+		void _AttachBorder(ECS::EntityId e) {
+			if (!m_ctx.Has<BorderStyle>(e)) m_ctx.Add<BorderStyle>(e);
+		}
+
+		/// @brief Attach a TextStyle if missing. Default font = FontType::Default.
+		void _AttachText(ECS::EntityId e) {
+			if (!m_ctx.Has<TextStyle>(e)) {
+				auto& ts = m_ctx.Add<TextStyle>(e);
+				ts.usedFont = FontType::Default;
+			}
+		}
+
+		/// @brief Attach a SpacingStyle if missing. Idempotent.
+		void _AttachSpacing(ECS::EntityId e) {
+			if (!m_ctx.Has<SpacingStyle>(e)) m_ctx.Add<SpacingStyle>(e);
+		}
+
+		/// @brief Attach a TransformStyle if missing. Idempotent.
+		void _AttachTransform(ECS::EntityId e) {
+			if (!m_ctx.Has<TransformStyle>(e)) m_ctx.Add<TransformStyle>(e);
+		}
+
+		/// @brief Attach an AccentStyle if missing. Idempotent.
+		void _AttachAccent(ECS::EntityId e) {
+			if (!m_ctx.Has<AccentStyle>(e)) m_ctx.Add<AccentStyle>(e);
+		}
+
+		/// @brief Attach a SoundStyle if missing. Idempotent.
+		void _AttachSound(ECS::EntityId e) {
+			if (!m_ctx.Has<SoundStyle>(e)) m_ctx.Add<SoundStyle>(e);
+		}
+
+		/// @brief Convenience: full visual surface = Background + Border + Spacing + Transform.
+		///        Used by container-like and button-like widgets.
+		void _AttachVisual(ECS::EntityId e) {
+			_AttachBackground(e);
+			_AttachBorder(e);
+			_AttachSpacing(e);
+			_AttachTransform(e);
+		}
+
+		/// @brief Convenience: full text-bearing surface = Visual + Text.
+		///        Used by Button, Toggle, Input, TextArea, Popup, MenuBar, ListBox, ComboBox, …
+		void _AttachVisualText(ECS::EntityId e) {
+			_AttachVisual(e);
+			_AttachText(e);
+		}
+
+		// ──────────────────────────────────────────────────────────────────────
+		// Universal spawn — minimal bundle every widget gets
+		// ──────────────────────────────────────────────────────────────────────
+
 		/// Create an entity and attach the universal component bundle.
-		/// Widget-specific components are added by each Make* method afterward.
+		/// Style components (Background/Border/Text/Spacing/...) are attached
+		/// à la carte by each Make* method via the _Attach* helpers.
 		ECS::EntityId _Spawn(std::string_view name, WidgetType type,
 		                     WidgetBehaviorFlag extraBehavior = WidgetBehaviorFlag::None) {
 			ECS::EntityId e = m_ctx.CreateEntity();
@@ -356,22 +519,12 @@ namespace SDL::UI {
 			WidgetBehaviorFlag beh = WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Visible | extraBehavior;
 			m_ctx.Add<Widget>(e, Widget{std::string(name), type, beh, WidgetStateFlag::None, DirtyFlag::All});
 
-			auto& style = m_ctx.Add<Style>(e);
-			style.usedFont = FontType::Default;
-
+			// Universal components — every widget gets these.
 			m_ctx.Add<LayoutProps>(e);
 			m_ctx.Add<Callbacks>(e);
 			m_ctx.Add<ComputedRect>(e);
 			m_ctx.Add<Children>(e);
 			m_ctx.Add<Parent>(e);
-
-			if (type == WidgetType::Input || type == WidgetType::TextArea)
-				m_ctx.Add<TextEdit>(e);
-
-			// Scrollable hosts get a drag-state component for inline scrollbars.
-			if (type == WidgetType::Container || type == WidgetType::TextArea
-			    || type == WidgetType::ListBox || type == WidgetType::Tree)
-				m_ctx.Add<ContainerScrollState>(e);
 
 			return e;
 		}

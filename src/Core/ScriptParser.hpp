@@ -18,6 +18,7 @@
 //   core::ScriptObject — count/operator[]/find/range-for
 // ─────────────────────────────────────────────────────────────────────────────
 
+#include <SDL3pp/SDL3pp_log.h>		  // Logger
 #include <SDL3pp/SDL3pp_dataScripts.h>
 
 #include <cctype>

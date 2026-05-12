@@ -180,11 +180,11 @@ inline int RunApp(int argc,
  * @since This function is available since SDL 3.2.0.
  */
 inline int EnterAppMainCallbacks(int argc,
-																 char* argv[],
-																 AppInit_func appinit,
-																 AppIterate_func appiter,
-																 AppEvent_func appevent,
-																 AppQuit_func appquit) {
+	char* argv[],
+	AppInit_func appinit,
+	AppIterate_func appiter,
+	AppEvent_func appevent,
+	AppQuit_func appquit) {
 	return SDL_EnterAppMainCallbacks(
 		argc, argv, appinit, appiter, appevent, appquit);
 }

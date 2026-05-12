@@ -1,6 +1,6 @@
 #pragma once
-#include "system.h"
-#include "components.h"
+#include "UISystem.h"
+#include "UIComponents.h"
 
 namespace SDL {
 namespace UI {
@@ -664,7 +664,7 @@ namespace UI {
 			sys.SetValue(id, v);
 			return *this;
 		}
-		/** @brief Set the checked state of a Toggle or RadioButton widget at runtime. */
+		/** @brief Set the checked state of a Toggle or Radio widget at runtime. */
 		Builder &SetChecked(bool c) {
 			sys.SetChecked(id, c);
 			return *this;
@@ -779,7 +779,7 @@ namespace UI {
 
 		// ── ComboBox setters ───────────────────────────────────────────────────────
 		Builder &Items(const std::vector<std::string>& items) {
-			if (auto *d = sys.GetCtx().Get<ComboBoxData>(id)) d->items = items;
+			sys.SetComboBoxItems(id, items);
 			return *this;
 		}
 		Builder &SelectedIndex(int idx) {
@@ -1030,7 +1030,7 @@ namespace UI {
 			return *this;
 		}
 		/**
-		 * @brief Register a callback invoked when a Toggle or RadioButton changes state.
+		 * @brief Register a callback invoked when a Toggle or Radio changes state.
 		 * @param cb  Receives `true` if the widget is now checked.
 		 */
 		Builder &OnToggle(std::function<void(bool)> cb) {
@@ -1161,7 +1161,7 @@ namespace UI {
 	inline Builder System::Label(std::string_view n, const std::string &t) { return {*this, MakeLabel(n, t)}; } 
 	inline Builder System::Button(std::string_view n, const std::string &t) { return {*this, MakeButton(n, t)}; }
 	inline Builder System::Toggle(std::string_view n, const std::string &t) { return {*this, MakeToggle(n, t)}; }
-	inline Builder System::Radio(std::string_view n, const std::string &g, const std::string &t) { return {*this, MakeRadioButton(n, g, t)}; }
+	inline Builder System::Radio(std::string_view n, const std::string &g, const std::string &t) { return {*this, MakeRadio(n, g, t)}; }
 	template <is_numeric_value T>
 	inline Builder System::Slider(std::string_view n, T mn, T mx, T v, T step, Orientation o) { return {*this, MakeSlider<T>(n, mn, mx, v, step, o)}; }
 	inline Builder System::ScrollBar(std::string_view n, float cs, float vs, Orientation o) { return {*this, MakeScrollBar(n, cs, vs, o)}; }
@@ -1278,6 +1278,9 @@ namespace UI {
 	}
 	inline Builder System::MenuBar(std::string_view n) {
 		return Builder(*this, MakeMenuBar(n));
+	}
+	inline Builder System::Connector(std::string_view n, ConnectorDir dir) {
+		return Builder(*this, MakeConnector(n, dir));
 	}
 
 } // namespace UI

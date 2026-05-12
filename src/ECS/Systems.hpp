@@ -1,6 +1,7 @@
 #pragma once
 #include "Components.hpp"
 #include "../Core/Camera.hpp"
+#include <SDL3pp/SDL3pp_log.h>		  // Logger
 #include <SDL3pp/SDL3pp_stdinc.h>
 #include <SDL3pp/SDL3pp_ecs.h>
 #include <SDL3pp/SDL3pp_keyboard.h>

@@ -20,8 +20,8 @@
 #include <SDL3pp/SDL3pp_ui.h>         // UI::System + Builder DSL
 #include <SDL3pp/SDL3pp_scene.h>      // SceneBuilder / SceneGraph
 #include <SDL3pp/SDL3pp_timer.h>      // FrameTimer
+#include <SDL3pp/SDL3pp_log.h>		  // Logger
 
-#include "Logger/Logger.hpp"
 #include "Core/ScriptParser.hpp"
 
 // ── State headers — include in dependency order ───────────────────────────────
@@ -121,8 +121,7 @@ struct Main {
 	}
 
 	static SDL::Window _MakeWindow() {
-		return SDL::CreateWindowAndRenderer(kDefaultTitle, kDefaultSize,
-											 SDL_WINDOW_RESIZABLE, nullptr);
+		return SDL::CreateWindowAndRenderer(kDefaultTitle, kDefaultSize, SDL::WINDOW_RESIZABLE, nullptr);
 	}
 
 	SDL::Window      window  { _MakeWindow()         };
@@ -150,19 +149,19 @@ struct Main {
 	Main(SDL::AppArgs args) {
 		// ── Logger ─────────────────────────────────────────────────────────────
 		LOG_INIT_FILE("logs");
-		core::LogLevel level = core::LogLevel::Info;
+		SDL::LOG::LogLevel level = SDL::LOG::LogLevel::Info;
 		for (auto arg : args) {
 			if (arg == "--debug") {
-				level = core::LogLevel::Debug;
+				level = SDL::LOG::LogLevel::Debug;
 				break;
 			} else if (arg == "--trace") {
-				level = core::LogLevel::Trace;
+				level = SDL::LOG::LogLevel::Trace;
 				break;
 			}
 		}
-		core::Logger::Instance().SetMinLevel(level);
+		SDL::LOG::Logger::Instance().SetMinLevel(level);
 #if LOGGER_HAS_SDL
-		core::Logger::BridgeSDLFunction();
+		SDL::LOG::Logger::BridgeSDLFunction();
 #endif
 		LOG_SEPARATOR;
 		LOG_INFO << std::format("=== {} {} ===", kDefaultTitle, kAppVersion);

@@ -3,7 +3,7 @@
  * @brief SDL3pp UI system — complete widget showcase (all widget types).
  *
  * Tabs:
- *   1. Basics       — Label, Button, Toggle, RadioButton, Separator
+ *   1. Basics       — Label, Button, Toggle, Radio, Separator
  *   2. Controls     — Slider (H/V), Knob, Progress
  *   3. Input&Scroll — Input, ScrollBar, ScrollView (container scroll)
  *   4. Image&Canvas — Image (all fit modes), Canvas, debug info
@@ -246,10 +246,10 @@ struct Main {
 
 		{
 			std::string hov = "(none)", foc = "(none)";
-			ecs_context.Each<SDL::UI::Widget, SDL::UI::WidgetStateFlag>(
-				[&](SDL::ECS::EntityId, SDL::UI::Widget& w, SDL::UI::WidgetStateFlag& s) {
-					if (s.hovered) hov = w.name;
-					if (s.focused) foc = w.name;
+			ecs_context.Each<SDL::UI::Widget>(
+				[&](SDL::ECS::EntityId, SDL::UI::Widget& w) {
+					if (w.Is(SDL::UI::WidgetStateFlag::Hovered)) hov = w.name;
+					if (w.Is(SDL::UI::WidgetStateFlag::Focused)) foc = w.name;
 				});
 			ui.SetText(lblHovered, "Hovered: " + hov);
 			ui.SetText(lblFocused, "Focused: " + foc);
@@ -371,7 +371,7 @@ struct Main {
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════════
-	// Page 1 — Basics: Label, Button, Toggle, RadioButton
+	// Page 1 — Basics: Label, Button, Toggle, Radio
 	// ═══════════════════════════════════════════════════════════════════════════════
 
 	SDL::ECS::EntityId _BuildBasicsPage() {

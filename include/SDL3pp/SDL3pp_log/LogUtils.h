@@ -10,10 +10,13 @@
 #include <source_location>
 #include <sstream>
 #include <string>
+#include <source_location>
 #include <string_view>
 #include <vector>
 
-namespace core {
+namespace SDL {
+
+namespace LOG {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -61,13 +64,13 @@ enum class LogCategory : uint8_t {
 
 struct LogContext {
 	LogLevel    level    = LogLevel::Info;
-	LogCategory category = LogCategory::App;
+	SDL::LOG::LogCategory category = SDL::LOG::LogCategory::App;
 	const char* file     = "";
 	const char* function = "";
 	int         line     = 0;
 
-	static LogContext Make(LogLevel lv, LogCategory cat,
-						   std::source_location loc = std::source_location::current()) noexcept {
+	static LogContext Make(LogLevel lv, SDL::LOG::LogCategory cat,
+			std::source_location loc = std::source_location::current()) noexcept {
 		return { lv, cat, loc.file_name(), loc.function_name(), (int)loc.line() };
 	}
 };
@@ -229,10 +232,11 @@ public:
 class ILogger {
 public:
 	virtual ~ILogger() = default;
-	virtual void AddSink(std::shared_ptr<ILogSink> sink)                      = 0;
-	virtual bool IsEnabled(LogLevel lv, LogCategory cat = LogCategory::App)
-															   const noexcept = 0;
-	virtual void Dispatch(const LogContext& ecs_context, const std::string& msg)      = 0;
+	virtual void AddSink(std::shared_ptr<ILogSink> sink) = 0;
+	virtual bool IsEnabled(LogLevel lv, LogCategory cat = LogCategory::App) const noexcept = 0;
+	virtual void Dispatch(const LogContext& ecs_context, const std::string& msg) = 0;
 };
 
-} // namespace core
+} // namespace LOG
+
+} // namespace SDL

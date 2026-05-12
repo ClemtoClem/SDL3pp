@@ -1269,9 +1269,7 @@ inline void AsyncIOQueue::Signal() { SDL::SignalAsyncIOQueue(m_resource); }
  *
  * @sa IOStream.LoadFile
  */
-inline void LoadFileAsync(StringParam file,
-													AsyncIOQueueRef queue,
-													void* userdata) {
+inline void LoadFileAsync(StringParam file, AsyncIOQueueRef queue, void* userdata) {
 	CheckError(SDL_LoadFileAsync(file, queue, userdata));
 }
 

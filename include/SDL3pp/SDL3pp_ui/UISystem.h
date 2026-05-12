@@ -47,7 +47,7 @@ namespace SDL::UI {
 	struct InputBuilder;
 	struct ScrollBarBuilder;
 	struct ToggleBuilder;
-	struct RadioButtonBuilder;
+	struct RadioBuilder;
 	struct ImageBuilder;
 	struct BadgeBuilder;
 	struct CanvasBuilder;
@@ -147,7 +147,7 @@ namespace SDL::UI {
 		ECS::EntityId MakeLabel      (std::string_view n, std::string_view text = "");
 		ECS::EntityId MakeButton     (std::string_view n, std::string_view text = "");
 		ECS::EntityId MakeToggle     (std::string_view n, std::string_view text = "");
-		ECS::EntityId MakeRadioButton(std::string_view n, std::string_view group, std::string_view text = "");
+		ECS::EntityId MakeRadio(std::string_view n, std::string_view group, std::string_view text = "");
 
 		template <typename T>
 		ECS::EntityId MakeSlider(std::string_view n, T value = T(0), T minValue = T(0), T maxValue = T(100), T step = T(1), Orientation o = Orientation::Horizontal);
@@ -197,7 +197,7 @@ namespace SDL::UI {
 		LabelBuilder     Label      (std::string_view n, std::string_view text = "");
 		ButtonBuilder    Button     (std::string_view n, std::string_view text = "");
 		ToggleBuilder    Toggle     (std::string_view n, std::string_view text = "");
-		RadioButtonBuilder Radio	(std::string_view n, std::string_view group, std::string_view text = "");
+		RadioBuilder Radio	(std::string_view n, std::string_view group, std::string_view text = "");
 
 		template <typename T = float>
 		SliderBuilder    Slider     (std::string_view n, NumericValue<T> v = {}, Orientation o = Orientation::Horizontal);
@@ -533,8 +533,8 @@ namespace SDL::UI {
 		return m_factory->MakeToggle(n, text);
 	}
 
-	inline ECS::EntityId System::MakeRadioButton(std::string_view n, std::string_view group, std::string_view text) {
-		return m_factory->MakeRadioButton(n, group, text);
+	inline ECS::EntityId System::MakeRadio(std::string_view n, std::string_view group, std::string_view text) {
+		return m_factory->MakeRadio(n, group, text);
 	}
 
 	inline ECS::EntityId System::MakeSeparator(std::string_view n) {

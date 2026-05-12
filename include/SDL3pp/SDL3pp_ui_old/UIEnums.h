@@ -85,8 +85,9 @@ namespace UI {
 	inline WidgetBehaviorFlag operator~(WidgetBehaviorFlag a) noexcept { return static_cast<WidgetBehaviorFlag>((~static_cast<Uint16>(a)) & static_cast<Uint16>(WidgetBehaviorFlag::All)); }
 	inline WidgetBehaviorFlag &operator|=(WidgetBehaviorFlag &a, WidgetBehaviorFlag b) noexcept { a = a | b; return a; }
 	inline WidgetBehaviorFlag &operator&=(WidgetBehaviorFlag &a, WidgetBehaviorFlag b) noexcept { a = a & b; return a; }
-	inline WidgetStateFlag Reset(WidgetStateFlag a, WidgetStateFlag b) { return static_cast<WidgetStateFlag>(static_cast<Uint16>(a) & (~static_cast<Uint16>(b))); }
 	inline bool operator!(WidgetBehaviorFlag a) noexcept { return a == WidgetBehaviorFlag::None; }
+	inline WidgetBehaviorFlag Reset(WidgetBehaviorFlag a, WidgetBehaviorFlag b) { return static_cast<WidgetBehaviorFlag>(static_cast<Uint16>(a) & (~static_cast<Uint16>(b))); }
+	inline WidgetBehaviorFlag Set(WidgetBehaviorFlag a, WidgetBehaviorFlag b) { return a | b; }
 	/** @brief Returns true if all bits of @p b are set in @p a. */
 	inline bool Has(WidgetBehaviorFlag a, WidgetBehaviorFlag b) { return (a & b) != WidgetBehaviorFlag::None; }
 
@@ -106,8 +107,9 @@ namespace UI {
 	inline WidgetStateFlag operator~(WidgetStateFlag a) noexcept { return static_cast<WidgetStateFlag>((~static_cast<Uint8>(a)) & static_cast<Uint8>(WidgetStateFlag::All)); }
 	inline WidgetStateFlag &operator|=(WidgetStateFlag &a, WidgetStateFlag b) noexcept { a = a | b; return a; }
 	inline WidgetStateFlag &operator&=(WidgetStateFlag &a, WidgetStateFlag b) noexcept { a = a & b; return a; }
-	inline WidgetStateFlag Reset(WidgetStateFlag a, WidgetStateFlag b) { return static_cast<WidgetStateFlag>(static_cast<Uint8>(a) & (~static_cast<Uint8>(b))); }
 	inline bool operator!(WidgetStateFlag a) noexcept { return a == WidgetStateFlag::None; }
+	inline WidgetStateFlag Reset(WidgetStateFlag a, WidgetStateFlag b) { return static_cast<WidgetStateFlag>(static_cast<Uint8>(a) & (~static_cast<Uint8>(b))); }
+	inline WidgetStateFlag Set(WidgetStateFlag a, WidgetStateFlag b) { return a | b; }
 	/** @brief Returns true if all bits of @p b are set in @p a. */
 	inline bool Has(WidgetStateFlag a, WidgetStateFlag b) { return (a & b) != WidgetStateFlag::None; }
 

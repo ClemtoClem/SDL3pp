@@ -1,9 +1,10 @@
 #pragma once
-#include "LogUtils.hpp"
+#include "LogUtils.h"
 #include <filesystem>
 #include <fstream>
 
-namespace core {
+namespace SDL {
+namespace LOG {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FileSink — plain-text file output with session-timestamped filename
@@ -98,4 +99,5 @@ private:
 	int           m_rotations = 0;
 };
 
-} // namespace core
+} // namespace LOG
+} // namespace SDL

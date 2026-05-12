@@ -1,8 +1,9 @@
 #pragma once
-#include "LogUtils.hpp"
+#include "LogUtils.h"
 #include <iostream>
 
-namespace core {
+namespace SDL {
+namespace LOG {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ConsoleSink — thread-safe colored terminal output
@@ -64,4 +65,5 @@ private:
 	bool m_color;
 };
 
-} // namespace core
+} // namespace LOG
+} // namespace SDL

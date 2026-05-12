@@ -1,5 +1,5 @@
 #pragma once
-#include "theme.h"
+#include "UITheme.h"
 #include "../SDL3pp_mouse.h"
 #include "../SDL3pp_keyboard.h"
 #include "../SDL3pp_resources.h"
@@ -165,13 +165,13 @@ namespace UI {
 			return e;
 		}
 		/**
-		 * @brief Create a RadioButton entity belonging to the given group.
+		 * @brief Create a Radio entity belonging to the given group.
 		 * @param n      Widget name.
 		 * @param group  Named group; only one radio button per group can be checked.
 		 * @param t      Label text displayed beside the button.
 		 */
-		ECS::EntityId MakeRadioButton(std::string_view n, const std::string &group, const std::string &t = "") {
-			ECS::EntityId e = _Make(n, WidgetType::RadioButton);
+		ECS::EntityId MakeRadio(std::string_view n, const std::string &group, const std::string &t = "") {
+			ECS::EntityId e = _Make(n, WidgetType::Radio);
 			m_ctx.Get<EditableContent>(e)->text = t;
 			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(24.f);
@@ -196,7 +196,7 @@ namespace UI {
 			m_ctx.Add<SliderData>(e, sd);
 
 			// Numeric range/value/step live in NumericValue (same as Input).
-			m_ctx.Add<NumericValue>(e, NumericValue<T>(mn, mx, v, step));
+			m_ctx.Add<NumericValue>(e, AnyValue<T>(mn, mx, v, step));
 
 			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable
 			                                | WidgetBehaviorFlag::Selectable
@@ -235,10 +235,11 @@ namespace UI {
 		 * @param v   Initial value (clamped to [0, mx]).
 		 * @param mx  Maximum value.
 		 */
-		ECS::EntityId MakeProgress(std::string_view n, float v = 0.f, float mx = 1.f) {
+		template<is_numeric_value T = float>
+		ECS::EntityId MakeProgress(std::string_view n, T v = T(0), T mx = T(100)) {
 			ECS::EntityId e = _Make(n, WidgetType::Progress);
 			m_ctx.Add<SliderData>(e, SliderData{});
-			m_ctx.Add<NumericValue>(e, NumericValue<float>(0.f, mx, v, 0.f));
+			m_ctx.Add<NumericValue>(e, AnyValue<T>(T(0), mx, v, T(0)));
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(18.f);
 			return e;
 		}
@@ -267,7 +268,7 @@ namespace UI {
 		///        Selects @ref InputFilterType::IntegerValue for integers and
 		///        @ref InputFilterType::FloatValue for floating-point.
 		template<is_numeric_value T = float>
-		ECS::EntityId MakeInputValue(std::string_view n, T value = T(0), T minValue = T(0), T maxValue = T(100), T step = T(1)) {
+		ECS::EntityId MakeInputValue(std::string_view n, T value = T(0), T minValue = T(0), T maxValue = T(100), T step = T(0)) {
 			ECS::EntityId e = _Make(n, WidgetType::Input);
 			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable
 			                                | WidgetBehaviorFlag::Selectable
@@ -282,7 +283,7 @@ namespace UI {
 			// Typed numeric value via the NumericValue<T> wrapper; the data is
 			// stored as NumericValue (uniform double + type_index) so widgets
 			// can dispatch on type without per-T template instantiation.
-			NumericValue &nv = m_ctx.Add<NumericValue<T>>(e, NumericValue<T>(value, minValue, maxValue, step));
+			NumericValue &nv = m_ctx.Add<NumericValue>(e, AnyValue<T>(minValue, maxValue, value, step));
 			m_ctx.Get<EditableContent>(e)->text = _FormatNumeric(nv);
 			return e;
 		}
@@ -307,7 +308,7 @@ namespace UI {
 		 * @param v   Initial value (clamped to [mn, mx]).
 		 */
 		template <is_numeric_value T=float>
-		ECS::EntityId MakeKnob(std::string_view n, T mn = T(0), T mx = T(100), T v = T(50), T step = T(1), KnobShape shape = KnobShape::Arc) {
+		ECS::EntityId MakeKnob(std::string_view n, T mn = T(0), T mx = T(100), T v = T(50), T step = T(0), KnobShape shape = KnobShape::Arc) {
 			ECS::EntityId e = _Make(n, WidgetType::Knob);
 			
 			// Initialisation explicite de tous les champs pour éviter le garbage memory
@@ -317,7 +318,7 @@ namespace UI {
 			kd.dragStartVal = 0.f;
 			kd.shape = shape;
 			m_ctx.Add<KnobData>(e, kd);
-			m_ctx.Add<NumericValue>(e, NumericValue<T>(mn, mx, v, step));
+			m_ctx.Add<NumericValue>(e, AnyValue<T>(mn, mx, v, step));
 			
 			auto *w = m_ctx.Get<Widget>(e);
 			if (w) w->behavior |= WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable | WidgetBehaviorFlag::Focusable;
@@ -499,6 +500,25 @@ namespace UI {
 			return e;
 		}
 
+		/** @brief Create a Connector widget entity (audio patch-bay port circle).
+		 *  @param dir  Direction: ConnectorDir::In or ConnectorDir::Out.
+		 */
+		ECS::EntityId MakeConnector(std::string_view n, ConnectorDir dir = ConnectorDir::Out) {
+			ECS::EntityId e = _Make(n, WidgetType::Connector);
+			auto &d  = m_ctx.Add<ConnectorData>(e);
+			d.dir    = dir;
+			d.color  = (dir == ConnectorDir::In)
+			               ? SDL::Color{60, 140, 220, 255}
+			               : SDL::Color{45, 195, 110, 255};
+			if (auto *lp = m_ctx.Get<LayoutProps>(e)) {
+				lp->width   = Value::Px(14.f);
+				lp->height  = Value::Px(14.f);
+				lp->padding = SDL::FBox(0.f);
+			}
+			m_ctx.Get<Widget>(e)->behavior |= WidgetBehaviorFlag::Hoverable;
+			return e;
+		}
+
 		// ── MenuBar accessors ─────────────────────────────────────────────────────────
 
 		/** @brief Returns the MenuBarData of entity @p e, or nullptr. */
@@ -591,7 +611,7 @@ namespace UI {
 		inline Builder Button(std::string_view n, const std::string &t = "");
 		/** @brief Create a Toggle switch and return a Builder for it. */
 		inline Builder Toggle(std::string_view n, const std::string &t = "");
-		/** @brief Create a RadioButton and return a Builder for it. */
+		/** @brief Create a Radio and return a Builder for it. */
 		inline Builder Radio(std::string_view n, const std::string &grp, const std::string &t = "");
 		/** @brief Create a Slider and return a Builder for it.
 		 *  Templated on the arithmetic value type @c T (int / float / double …). */
@@ -654,7 +674,9 @@ namespace UI {
 		inline Builder Tree(std::string_view n);
 		/** @brief Create a MenuBar widget and return a Builder for it. */
 		inline Builder MenuBar(std::string_view n = "menubar");
-		
+		/** @brief Create a Connector widget and return a Builder for it. */
+		inline Builder Connector(std::string_view n, ConnectorDir dir = ConnectorDir::Out);
+
 		/** @brief Create a vertical Column container (InColumn layout) and return a Builder for it. */
 		inline Builder Column(std::string_view n = "col", float gap = 4.f, float pad = 8.f, float marg = 0.f);
 		/** @brief Create a horizontal Row container (InLine layout) and return a Builder for it. */
@@ -855,7 +877,7 @@ namespace UI {
 		}
 
 		/**
-		 * @brief Set the checked state of a Toggle or RadioButton widget.
+		 * @brief Set the checked state of a Toggle or Radio widget.
 		 * @param e  Target entity.
 		 * @param b  New checked state.
 		 */
@@ -1152,6 +1174,22 @@ namespace UI {
 			return ta && ta->readOnly;
 		}
 
+		/**
+		 * @brief Update the item list of a ComboBox widget.
+		 * Closes the dropdown if it is currently open, then reopens it to update the displayed list.
+		 * @param e      Target entity.
+		 * @param items  New item list.
+		 */
+		void SetComboBoxItems(ECS::EntityId e, const std::vector<std::string>& items) {
+			if (auto *d = m_ctx.Get<ComboBoxData>(e)) {
+				d->items = items;
+				if (d->open) {
+					_CloseComboBox(e);
+					_OpenComboBox(e);
+				}
+			}
+		}
+
 		// ── Getters ───────────────────────────────────────────────────────────────────
 
 		/**
@@ -1180,7 +1218,7 @@ namespace UI {
 			return sb ? sb->offset : 0.f;
 		}
 
-		/** @brief Return true if a Toggle or RadioButton widget is currently checked. */
+		/** @brief Return true if a Toggle or Radio widget is currently checked. */
 		[[nodiscard]] bool IsChecked(ECS::EntityId e) const {
 			if (const auto *t = m_ctx.Get<ToggleData>(e))
 				return t->checked;
@@ -1233,8 +1271,8 @@ namespace UI {
 
 		/** @brief Return true if the mouse cursor is currently over widget @p e. */
 		[[nodiscard]] bool IsHovered(ECS::EntityId e) const {
-			const auto *s = m_ctx.Get<WidgetStateFlag>(e);
-			return s && s->hovered;
+			const auto *s = m_ctx.Get<Widget>(e);
+			return s && Has(s->state, WidgetStateFlag::Hovered);
 		}
 
 		/** @brief Return true if widget @p e currently holds keyboard focus. */
@@ -1244,8 +1282,8 @@ namespace UI {
 		
 		/** @brief Return true if widget @p e is currently being pressed (mouse button held). */
 		[[nodiscard]] bool IsPressed(ECS::EntityId e) const {
-			const auto *s = m_ctx.Get<WidgetStateFlag>(e);
-			return s && s->pressed;
+			const auto *s = m_ctx.Get<Widget>(e);
+			return s && Has(s->state, WidgetStateFlag::Pressed);
 		}
 
 		/**
@@ -1292,7 +1330,12 @@ namespace UI {
 		/** @brief Register (or replace) the double-click callback on widget @p e. */
 		void OnDoubleClick(ECS::EntityId e, std::function<void()> cb) { m_ctx.Get<Callbacks>(e)->onDoubleClick = std::move(cb); }
 		/** @brief Enable or disable event propagation to parent for widget @p e (default: true). */
-		void SetDispatchEvent(ECS::EntityId e, bool b) { if (auto *w = m_ctx.Get<Widget>(e)) w->dispatchEvent = b; }
+		void SetDispatchEvent(ECS::EntityId e, bool b) {
+			if (auto *w = m_ctx.Get<Widget>(e)) {
+				if (b) w->behavior |= WidgetBehaviorFlag::DispatchEvent;
+				else   w->behavior &= ~WidgetBehaviorFlag::DispatchEvent;
+			}
+		}
 		/** @brief Register the value-change callback on widget @p e.
 		 *  Templated on the value type @c T:
 		 *   - @c SDL::Color routes to the ColorPicker color callback;
@@ -1314,7 +1357,7 @@ namespace UI {
 		}
 		/** @brief Register (or replace) the text-change callback on widget @p e (Input, TextArea). */
 		void OnTextChange(ECS::EntityId e, std::function<void(const std::string &)> cb) { m_ctx.Get<Callbacks>(e)->onTextChange = std::move(cb); }
-		/** @brief Register (or replace) the toggle callback on widget @p e (Toggle, RadioButton). */
+		/** @brief Register (or replace) the toggle callback on widget @p e (Toggle, Radio). */
 		void OnToggle(ECS::EntityId e, std::function<void(bool)> cb) { m_ctx.Get<Callbacks>(e)->onToggle = std::move(cb); }
 		/** @brief Register (or replace) the scroll callback on widget @p e (Container, ScrollBar). */
 		void OnScroll(ECS::EntityId e, std::function<void(float)> cb) { m_ctx.Get<Callbacks>(e)->onScroll = std::move(cb); }
@@ -1404,6 +1447,15 @@ namespace UI {
 			if (m_root == ECS::NullEntity || !m_ctx.IsAlive(m_root)) {
 				_ResetOneShots();
 				return;
+			}
+
+			if (m_comboOpen != ECS::NullEntity && !m_ctx.IsAlive(m_comboOpen)) {
+				if (m_comboOverlayOpen != ECS::NullEntity) {
+					RemoveChild(m_root, m_comboOverlayOpen);
+					_DestroySubtree(m_comboOverlayOpen);
+					m_comboOverlayOpen = ECS::NullEntity;
+				}
+				m_comboOpen = ECS::NullEntity;
 			}
 
 			SDL::Point sz    = m_renderer.GetWindow().GetSize();
@@ -1665,7 +1717,7 @@ namespace UI {
 			switch (k) { 
 				case WidgetType::Button:
 				case WidgetType::Toggle:
-				case WidgetType::RadioButton:
+				case WidgetType::Radio:
 				case WidgetType::Slider:
 				case WidgetType::Knob:
 				case WidgetType::ScrollBar:
@@ -1700,7 +1752,7 @@ namespace UI {
 					break;
 			}
 
-			m_ctx.Add<Widget>(e, {std::string(n), k, beh, DirtyFlag::All});
+			m_ctx.Add<Widget>(e, {std::string(n), k, beh, WidgetStateFlag::None, DirtyFlag::All});
 			auto &style = m_ctx.Add<Style>(e);
 			m_ctx.Add<LayoutProps>(e);
 			m_ctx.Add<EditableContent>(e);
@@ -2386,7 +2438,7 @@ namespace UI {
 			}
 			case WidgetType::Toggle:
 				return {80.f, 28.f};
-			case WidgetType::RadioButton:
+			case WidgetType::Radio:
 				return {80.f, 24.f};
 			case WidgetType::Slider:
 				return {80.f, 24.f};
@@ -2972,54 +3024,34 @@ namespace UI {
 			return bestIdx;
 		}
 
-		void _ProcessInput() {
-			// ── Scrollbars inline des containers (drag en cours) ──────────────────
-			// On traite le drag des thumbs de container AVANT le hit-test normal
-			// car la souris peut sortir du thumb pendant le drag.
-			_UpdateContainerScrollDrags();
 
-			ECS::EntityId nh = _HitTest(m_root, m_mousePos);
-
-			// Reset all hover flags.
-			m_ctx.Each<Widget>([](ECS::EntityId, Widget &w) {
-				w.wasHovered = Has(w.state, WidgetStateFlag::Hovered);
-				w.state = Reset(w.state, WidgetStateFlag::Hovered);
-			});
-
-			// Only mark as hovered if the widget actually supports it.
-			if (nh != ECS::NullEntity && m_ctx.IsAlive(nh)) { 
-				auto *w = m_ctx.Get<Widget>(nh);
-				if (w && Has(w->behavior, WidgetBehaviorFlag::Enable) && Has(w->behavior, WidgetBehaviorFlag::Hoverable)) {
-					m_ctx.Get<Widget>(nh)->state |= WidgetStateFlag::Hovered;
-				} else {
-					nh = ECS::NullEntity;
-				}
-			}
-
-			// Hover enter / leave callbacks + hover sound.
-			if (nh != m_hovered) {
-				if (m_hovered != ECS::NullEntity && m_ctx.IsAlive(m_hovered)) { 
-					auto *cb = m_ctx.Get<Callbacks>(m_hovered);
-					if (cb && cb->onHoverLeave) cb->onHoverLeave();
-				}
-				if (nh != ECS::NullEntity && m_ctx.IsAlive(nh)) { 
-					auto *cb = m_ctx.Get<Callbacks>(nh);
-					if (cb && cb->onHoverEnter) cb->onHoverEnter();
-					
-					auto *s = m_ctx.Get<Style>(nh);
-					if (s && !s->hoverSound.empty())
-						if (auto sh = _EnsureAudio(s->hoverSound))
-							_PlayAudio(sh);
-				}
-				m_hovered = nh;
-			}
-
+		void _ProcessMousePress() {
 			// ── Press ─────────────────────────────────────────────────────────────
 			if (m_mousePressed) {
-				// MenuBar dropdown intercept — must run before normal hit-test.
-				if (_CheckMenuBarOverlayPress()) goto end_press;
-				// ComboBox overlay intercept — must run before normal hit-test.
-				if (_CheckComboOverlayPress()) goto end_press;
+				// Auto-close open combo if click is outside
+				if (m_comboOpen != ECS::NullEntity && m_ctx.IsAlive(m_comboOpen)) {
+					auto *d = m_ctx.Get<ComboBoxData>(m_comboOpen);
+					if (d && d->open) {
+						bool insideCombo = (m_hovered == m_comboOpen);
+						bool insideOverlay = false;
+						ECS::EntityId curr = m_hovered;
+						
+						// On vérifie si l'élément survolé fait partie de la hiérarchie de l'overlay
+						while (curr != ECS::NullEntity && m_ctx.IsAlive(curr)) {
+							if (curr == d->overlayId) { insideOverlay = true; break; }
+							auto *p = m_ctx.Get<Parent>(curr);
+							curr = p ? p->id : ECS::NullEntity;
+						}
+						
+						if (!insideCombo && !insideOverlay) {
+							_CloseComboBox(m_comboOpen);
+						}
+					}
+				}
+
+				// MenuBar dropdown intercept...
+				if (_CheckMenuBarOverlayPress()) return;
+				
 				// Vérifier d'abord si le clic tombe sur un thumb de scrollbar inline.
 				// Si oui, on initie le drag et on consomme l'événement.
 				if (!_TryBeginContainerScrollDrag()) {
@@ -3187,9 +3219,9 @@ namespace UI {
 					}
 				}
 			}
-			end_press:;
+		}
 
-			// ── Drag ──────────────────────────────────────────────────────────────
+		void _ProccessMouseDrag() {
 			if (m_mouseDown && m_pressed != ECS::NullEntity && m_ctx.IsAlive(m_pressed)) { 
 				// TextArea drag-selection and Input drag-cursor-move can continue even if the mouse goes out of the widget bounds, so we check them before the hit-test of the current mouse position.
 				{
@@ -3342,8 +3374,9 @@ namespace UI {
 					}
 				}
 			}
-
-			// ── Release ───────────────────────────────────────────────────────────
+		}
+		
+		void _ProcessMouseRelease() {
 			if (m_mouseReleased) {
 				// Relâcher les drags de scrollbars inline.
 				_EndContainerScrollDrags();
@@ -3399,6 +3432,58 @@ namespace UI {
 					c->selectDragging = false;
 				}
 			}
+		}
+
+		void _ProcessInput() {
+			// ── Scrollbars inline des containers (drag en cours) ──────────────────
+			// On traite le drag des thumbs de container AVANT le hit-test normal
+			// car la souris peut sortir du thumb pendant le drag.
+			_UpdateContainerScrollDrags();
+
+			ECS::EntityId nh = _HitTest(m_root, m_mousePos);
+
+			// Reset all hover flags.
+			m_ctx.Each<Widget>([](ECS::EntityId, Widget &w) {
+				w.wasHovered = Has(w.state, WidgetStateFlag::Hovered);
+				w.state = Reset(w.state, WidgetStateFlag::Hovered);
+			});
+
+			// Only mark as hovered if the widget actually supports it.
+			if (nh != ECS::NullEntity && m_ctx.IsAlive(nh)) { 
+				auto *w = m_ctx.Get<Widget>(nh);
+				if (w && Has(w->behavior, WidgetBehaviorFlag::Enable) && Has(w->behavior, WidgetBehaviorFlag::Hoverable)) {
+					m_ctx.Get<Widget>(nh)->state |= WidgetStateFlag::Hovered;
+				} else {
+					nh = ECS::NullEntity;
+				}
+			}
+
+			// Hover enter / leave callbacks + hover sound.
+			if (nh != m_hovered) {
+				if (m_hovered != ECS::NullEntity && m_ctx.IsAlive(m_hovered)) { 
+					auto *cb = m_ctx.Get<Callbacks>(m_hovered);
+					if (cb && cb->onHoverLeave) cb->onHoverLeave();
+				}
+				if (nh != ECS::NullEntity && m_ctx.IsAlive(nh)) { 
+					auto *cb = m_ctx.Get<Callbacks>(nh);
+					if (cb && cb->onHoverEnter) cb->onHoverEnter();
+					
+					auto *s = m_ctx.Get<Style>(nh);
+					if (s && !s->hoverSound.empty())
+						if (auto sh = _EnsureAudio(s->hoverSound))
+							_PlayAudio(sh);
+				}
+				m_hovered = nh;
+			}
+
+			// ── Press ─────────────────────────────────────────────────────────────
+			_ProcessMousePress();
+
+			// ── Drag ──────────────────────────────────────────────────────────────
+			_ProccessMouseDrag();
+
+			// ── Release ───────────────────────────────────────────────────────────
+			_ProcessMouseRelease();
 		}
 
 		// ── Helpers : drag des scrollbars inline de containers ────────────────────
@@ -3485,7 +3570,7 @@ namespace UI {
 							cb->onClick();
 					}
 					break;
-				case WidgetType::RadioButton:
+				case WidgetType::Radio:
 					if (auto *r = m_ctx.Get<RadioData>(e); r && !r->checked) {
 						m_ctx.Each<RadioData>([&](ECS::EntityId eid, RadioData &rd) { if(rd.group==r->group) rd.checked=(eid==e); });
 						if (cb && cb->onToggle)
@@ -3557,15 +3642,19 @@ namespace UI {
 		}
 
 		void _SetFocus(ECS::EntityId nf) {
-			if (nf == m_focused)
-				return;
+			if (nf == m_focused) return;
+
+
+			// Perte du focus pour l'ancien widget
 			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
-				if (auto *fw = m_ctx.Get<Widget>(m_focused))
-					fw->state |= WidgetStateFlag::Focused;
+				if (auto *fw = m_ctx.Get<Widget>(m_focused)) {
+					// Retrait du flag Focused
+					fw->state = Reset(fw->state, WidgetStateFlag::Focused);
+				}
+
 				// Numeric Input: on blur, reformat text from the canonical value
 				// (commits any in-progress edit that was strictly valid).
-				if (auto *w2 = m_ctx.Get<Widget>(m_focused);
-				    w2 && w2->type == WidgetType::Input) {
+				if (auto *w2 = m_ctx.Get<Widget>(m_focused); w2 && w2->type == WidgetType::Input) {
 					auto *id = m_ctx.Get<InputData>(m_focused);
 					auto *nv = m_ctx.Get<NumericValue>(m_focused);
 					auto *c  = m_ctx.Get<EditableContent>(m_focused);
@@ -3580,16 +3669,19 @@ namespace UI {
 					}
 				}
 				auto *cb = m_ctx.Get<Callbacks>(m_focused);
-				if (cb && cb->onFocusLose)
-					cb->onFocusLose();
+				if (cb && cb->onFocusLose) cb->onFocusLose();
 			}
+
 			m_focused = nf;
+
+			// Gain du focus pour le nouveau widget
 			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
-				if (auto *fw = m_ctx.Get<Widget>(m_focused))
+				if (auto *fw = m_ctx.Get<Widget>(m_focused)) {
 					fw->state |= WidgetStateFlag::Focused;
-				// On focus-gain of a numeric Input, prime the text from val.
-				if (auto *w2 = m_ctx.Get<Widget>(m_focused);
-				    w2 && w2->type == WidgetType::Input) {
+				}
+
+				// Sélection automatique du texte pour les inputs numériques
+				if (auto *w2 = m_ctx.Get<Widget>(m_focused); w2 && w2->type == WidgetType::Input) {
 					auto *nv = m_ctx.Get<NumericValue>(m_focused);
 					auto *c  = m_ctx.Get<EditableContent>(m_focused);
 					if (nv && c) {
@@ -3599,8 +3691,7 @@ namespace UI {
 					}
 				}
 				auto *cb = m_ctx.Get<Callbacks>(m_focused);
-				if (cb && cb->onFocusGain)
-					cb->onFocusGain();
+				if (cb && cb->onFocusGain) cb->onFocusGain();
 			}
 		}
 
@@ -3993,7 +4084,7 @@ namespace UI {
 							                         dy, lb->itemHeight * 2.f);
 						}
 					}
-					if (consumed || !w->dispatchEvent) return;
+					if (consumed || !Has(w->behavior, WidgetBehaviorFlag::DispatchEvent)) return;
 					auto *par = m_ctx.Get<Parent>(e);
 					e = (par && par->id != ECS::NullEntity) ? par->id : ECS::NullEntity;
 					continue;
@@ -4241,13 +4332,192 @@ namespace UI {
 			_Text(m_tooltipEntity, td->text, x + kPadH, y + kPadV, s.tooltipTextColor, 1.f, ts);
 		}
 
+		// ── ComboBox ───────────────────────────────────────────────────────
+
+		ECS::EntityId m_comboOverlayOpen = ECS::NullEntity;
+
+		void _OnClickComboBox(ECS::EntityId e) {
+			auto *d  = m_ctx.Get<ComboBoxData>(e);
+			auto *cb = m_ctx.Get<Callbacks>(e);
+			if (!d) return;
+
+			if (m_comboOpen != ECS::NullEntity && m_comboOpen != e) {
+				_CloseComboBox(m_comboOpen);
+			}
+
+			if (d->open) {
+				_CloseComboBox(e);
+				if (cb && cb->onClick) cb->onClick();
+			} else {
+				_OpenComboBox(e);
+			}
+		}
+
+		void _DestroySubtree(ECS::EntityId e) {
+			if (!m_ctx.IsAlive(e)) return;
+			if (auto *ch = m_ctx.Get<Children>(e)) {
+				auto ids = ch->ids; 
+				for (auto c : ids) _DestroySubtree(c);
+			}
+			m_ctx.DestroyEntity(e);
+		}
+
+		void _CloseComboBox(ECS::EntityId e) {
+			auto *d = m_ctx.Get<ComboBoxData>(e);
+			if (!d) return;
+			if (d->overlayId != ECS::NullEntity) {
+				RemoveChild(m_root, d->overlayId);
+				_DestroySubtree(d->overlayId);
+				d->overlayId = ECS::NullEntity;
+			}
+			d->open = false;
+			if (m_comboOpen == e) {
+				m_comboOpen = ECS::NullEntity;
+				m_comboOverlayOpen = ECS::NullEntity;
+			}
+			m_layoutDirty = true;
+		}
+
+		void _PositionComboOverlay(ECS::EntityId e) {
+			auto *d  = m_ctx.Get<ComboBoxData>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(d->overlayId);
+			if (!d || !cr || !lp) return;
+
+			// Déterminer la largeur maximale requise (minimale = la largeur du combobox)
+			float maxW = cr->screen.w;
+			for (const auto& item : d->items) {
+				float tw = _TW(item, e) + 32.f; // Padding + espace pour la scrollbar potentielle
+				if (tw > maxW) maxW = tw;
+			}
+
+			float totalH = d->itemHeight * d->items.size();
+			float maxH = d->maxVisible * d->itemHeight;
+			float finalH = SDL::Min(totalH, maxH) + 2.f; // +2 pour les bordures
+			maxW += 2.f;
+
+			float dropX = cr->screen.x;
+			float dropY = cr->screen.y + cr->screen.h;
+
+			// Maintien à l'intérieur de l'écran en hauteur
+			if (dropY + finalH > m_viewport.h) {
+				float spaceAbove = cr->screen.y;
+				float spaceBelow = m_viewport.h - dropY;
+				// Si l'espace au dessus est plus grand on le place en haut
+				if (spaceAbove > spaceBelow && spaceAbove >= finalH) {
+					dropY = cr->screen.y - finalH;
+				} else if (spaceAbove > spaceBelow) {
+					dropY = 0.f;
+					finalH = spaceAbove;
+				} else {
+					finalH = spaceBelow; // Si on laisse en bas, on réduit sa taille
+				}
+			}
+			
+			// Maintien à l'intérieur de l'écran en largeur
+			if (dropX + maxW > m_viewport.w) {
+				dropX = m_viewport.w - maxW;
+				if (dropX < 0.f) dropX = 0.f;
+			}
+
+			lp->absX = Value::Px(dropX);
+			lp->absY = Value::Px(dropY);
+			lp->width = Value::Px(maxW);
+			lp->height = Value::Px(finalH);
+
+			// Auto-scroll vers l'item sélectionné si existant
+			if (d->selectedIndex >= 0) {
+				lp->scrollY = d->selectedIndex * d->itemHeight;
+			}
+		}
+
+		void _OpenComboBox(ECS::EntityId e) {
+			auto *d = m_ctx.Get<ComboBoxData>(e);
+			auto *s = m_ctx.Get<Style>(e);
+			if (!d || !s || d->items.empty()) return;
+
+			d->open = true;
+			m_comboOpen = e;
+
+			// Création du Container flottant (SANS utiliser Builder)
+			d->overlayId = MakeContainer("ComboOverlay");
+			m_comboOverlayOpen = d->overlayId;
+
+			// Configuration manuelle du Layout
+			if (auto *lp = m_ctx.Get<LayoutProps>(d->overlayId)) {
+				lp->attach = AttachLayout::Fixed;
+				lp->absX = Value::Px(0.f); lp->absY = Value::Px(0.f);
+				lp->width = Value::Px(100.f); lp->height = Value::Px(100.f);
+				lp->padding = {0.f, 0.f, 0.f, 0.f}; lp->gap = 0.f;
+			}
+			// Configuration manuelle du Style et du Scroll
+			if (auto *os = m_ctx.Get<Style>(d->overlayId)) {
+				os->bgColor = {30, 30, 35, 252};
+				os->bdColor = s->bdColor;
+				os->borders = {1.f, 1.f, 1.f, 1.f};
+				os->radius = {4.f, 4.f, 4.f, 4.f};
+			}
+			if (auto *w = m_ctx.Get<Widget>(d->overlayId)) {
+				w->behavior = Set(w->behavior, WidgetBehaviorFlag::ScrollableY);
+			}
+
+			// Création des éléments
+			for (int i = 0; i < (int)d->items.size(); ++i) {
+				auto itemCont = MakeContainer("ComboItem");
+				
+				if (auto *ilp = m_ctx.Get<LayoutProps>(itemCont)) {
+					ilp->layout = Layout::InLine;
+					ilp->alignSelfV = Align::Center;
+					ilp->padding = {8.f, 8.f, 0.f, 0.f};
+					ilp->width = Value::Grow(1.f);
+					ilp->height = Value::Px(d->itemHeight);
+				}
+				if (auto *is = m_ctx.Get<Style>(itemCont)) {
+					is->bgColor = (i == d->selectedIndex) ? s->fillColor : SDL::Color{0, 0, 0, 0};
+					is->bgHoveredColor = s->bgHoveredColor;
+				}
+				if (auto *iw = m_ctx.Get<Widget>(itemCont)) {
+					iw->behavior = Set(iw->behavior, WidgetBehaviorFlag::Hoverable);
+					iw->behavior = Set(iw->behavior, WidgetBehaviorFlag::Selectable);
+				}
+				
+				// Ajout du clic
+				if (!m_ctx.Has<Callbacks>(itemCont)) m_ctx.Add<Callbacks>(itemCont, {});
+				if (auto *cb = m_ctx.Get<Callbacks>(itemCont)) {
+					cb->onClick = [this, e, i]() {
+						auto *dd = m_ctx.Get<ComboBoxData>(e);
+						auto *ecb = m_ctx.Get<Callbacks>(e);
+						if (dd) {
+							dd->selectedIndex = i;
+							_CloseComboBox(e);
+							if (ecb && ecb->onChange) ecb->onChange((float)i);
+							if (ecb && ecb->onClick) ecb->onClick();
+						}
+					};
+				}
+
+				// Texte de l'élément (SANS utiliser Builder)
+				auto lbl = MakeLabel("ComboLbl", d->items[i]);
+				if (auto *ls = m_ctx.Get<Style>(lbl)) {
+					ls->textColor = s->textColor;
+					ls->fontKey = s->fontKey;
+					ls->fontSize = s->fontSize;
+				}
+
+				AppendChild(itemCont, lbl);
+				AppendChild(d->overlayId, itemCont);
+			}
+
+			AppendChild(m_root, d->overlayId);
+			_PositionComboOverlay(e);
+		}
+
 		// ── Render ─────────────────────────────────────────────────────────
 
 		void _ProcessRender() {
 			m_renderer.SetDrawBlendMode(SDL::BLENDMODE_BLEND);
 			_RenderNode(m_root);
 			m_renderer.ResetClipRect();
-			_DrawComboOverlay();
 			_DrawMenuBarOverlay();
 			_DrawTooltip();
 		}
@@ -4727,7 +4997,7 @@ namespace UI {
 				case WidgetType::Toggle:
 					_DrawToggle(e, r, *s);
 					break;
-				case WidgetType::RadioButton:
+				case WidgetType::Radio:
 					_DrawRadio(e, r, *s);
 					break;
 				case WidgetType::Slider:
@@ -4737,7 +5007,7 @@ namespace UI {
 					_DrawScrollBar(e, r, *s, *w);
 					break;
 				case WidgetType::Progress:
-					_DrawProgress(e, r, *s);
+					_DrawProgress(e, r, *s, *w);
 					break;
 				case WidgetType::Separator:
 					_DrawSeparator(r, *s);
@@ -4752,7 +5022,7 @@ namespace UI {
 					_DrawKnob(e, r, *s, *w);
 					break;
 				case WidgetType::Image:
-					_DrawImage(e, r, *s);
+					_DrawImage(e, r, *s, *w);
 					break;
 				case WidgetType::Canvas:
 					_DrawCanvas(e, r);
@@ -4767,16 +5037,16 @@ namespace UI {
 					_DrawComboBox(e, r, *s, *w);
 					break;
 				case WidgetType::TabView:
-					_DrawTabView(e, r, *s);
+					_DrawTabView(e, r, *s, *w);
 					break;
 				case WidgetType::Expander:
-					_DrawExpander(e, r, *s);
+					_DrawExpander(e, r, *s, *w);
 					break;
 				case WidgetType::Splitter:
-					_DrawSplitter(e, r, *s);
+					_DrawSplitter(e, r, *s, *w);
 					break;
 				case WidgetType::Spinner:
-					_DrawSpinner(e, r, *s);
+					_DrawSpinner(e, r, *s, *w);
 					break;
 				case WidgetType::Badge:
 					_DrawBadge(e, r, *s, *w);
@@ -4792,6 +5062,9 @@ namespace UI {
 					break;
 				case WidgetType::MenuBar:
 					_DrawMenuBar(e, r, *s, *w);
+					break;
+				case WidgetType::Connector:
+					_DrawConnector(e, r, *s, *w);
 					break;
 			}
 		}
@@ -5034,7 +5307,7 @@ namespace UI {
 			_FillRR(tr_, tc2, SDL::FCorners(TH) * 0.5f, s.opacity);
 			_StrokeRR(tr_, (m_focused == e) ? s.bdFocusedColor : s.bdColor, s.borders, SDL::FCorners(TH) * 0.5f, s.opacity);
 			float thumbR = (TH - 4.f) * 0.5f, thumbX = tr_.x + 2.f + thumbR + t->animT * (TW - 4.f - TH);
-			_FillRR({thumbX - thumbR, ty + (TH - thumbR * 2.f) * 0.5f, thumbR * 2.f, thumbR * 2.f}, Has(w.state, WidgetStateFlag::Hovered) ? s.thumbColor : SDL::Color{200, 202, 210, 255}, SDL::FCorners(thumbR), s.opacity);
+			_FillRR({thumbX - thumbR, ty + (TH - thumbR * 2.f) * 0.5f, thumbR * 2.f, thumbR * 2.f}, (w && Has(w->state, WidgetStateFlag::Hovered)) ? s.thumbColor : SDL::Color{200, 202, 210, 255}, SDL::FCorners(thumbR), s.opacity);
 			if (c && !c->text.empty()) {
 				SDL::Color col = w && !Has(w->behavior, WidgetBehaviorFlag::Enable) ? s.textDisabledColor : s.textColor;
 				_Text(e, c->text, tr_.x + TW + 10.f, r.y + (r.h - _TH(e)) * 0.5f, col, s.opacity, s);
@@ -5049,13 +5322,13 @@ namespace UI {
 				return;
 			const float OR = 9.f;
 			float cx_ = r.x + 14.f, cy_ = r.y + r.h * 0.5f;
-			SDL::Color bgColor = !w || !Has(w->behavior, WidgetBehaviorFlag::Enable) ? s.bgDisabledColor : Has(w.state, WidgetStateFlag::Pressed) ? s.bgPressedColor
-														   : Has(w.state, WidgetStateFlag::Hovered)   ? s.bgHoveredColor
+			SDL::Color bgColor = !w || !Has(w->behavior, WidgetBehaviorFlag::Enable) ? s.bgDisabledColor : Has(w->state, WidgetStateFlag::Pressed) ? s.bgPressedColor
+														   : Has(w->state, WidgetStateFlag::Hovered)   ? s.bgHoveredColor
 																		  : s.bgColor;
 			bgColor.a = (Uint8)(bgColor.a * s.opacity);
 			m_renderer.SetDrawColor(bgColor);
 			m_renderer.RenderCircle({cx_, cy_}, OR);
-			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor : Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor
+			SDL::Color bdColor = (m_focused == e) ? s.bdFocusedColor : (w && Has(w->state, WidgetStateFlag::Hovered)) ? s.bdHoveredColor
 																			: s.bdColor;
 			bdColor.a = (Uint8)(bdColor.a * s.opacity);
 			m_renderer.SetDrawColor(bdColor);
@@ -5067,7 +5340,7 @@ namespace UI {
 				m_renderer.RenderFillCircle({cx_, cy_}, OR * 0.5f);
 			}
 			if (c && !c->text.empty()) {
-				SDL::Color tc = !w || !Has(w->behavior, WidgetBehaviorFlag::Enable) ? s.textDisabledColor : Has(w.state, WidgetStateFlag::Hovered) ? s.textHoveredColor
+				SDL::Color tc = !w || !Has(w->behavior, WidgetBehaviorFlag::Enable) ? s.textDisabledColor : Has(w->state, WidgetStateFlag::Hovered) ? s.textHoveredColor
 																				: s.textColor;
 				_Text(e, c->text, r.x + 30.f, r.y + (r.h - _TH(e)) * 0.5f, tc, s.opacity, s);
 			}
@@ -5116,7 +5389,7 @@ namespace UI {
 			}
 		}
 
-		void _DrawScrollBar(ECS::EntityId e, const FRect &r, const Style &s, const Widget &) { 
+		void _DrawScrollBar(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *sb = m_ctx.Get<ScrollBarData>(e);
 			if (!sb)
 				return;
@@ -5135,7 +5408,7 @@ namespace UI {
 			}
 		}
 
-		void _DrawProgress(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &) { 
+		void _DrawProgress(ECS::EntityId e, const FRect &r, const Style &s, [[maybe_unused]] const Widget &w) { 
 			auto *sd = m_ctx.Get<SliderData>(e);
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			auto *nv = m_ctx.Get<NumericValue>(e);  // numeric value
@@ -5519,7 +5792,7 @@ namespace UI {
 			}
 		}
 
-		void _DrawImage(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &) { 
+		void _DrawImage(ECS::EntityId e, const FRect &r, const Style &s, [[maybe_unused]] const Widget &w) { 
 			auto *d = m_ctx.Get<ImageData>(e);
 			if (!d || d->key.empty()) {
 				_FillRR(r, s.bgColor, s.radius, s.opacity);
@@ -5688,13 +5961,14 @@ namespace UI {
 		void _DrawGraph(ECS::EntityId e, const FRect &r, const Style &s) {
 			auto *gd = m_ctx.Get<GraphData>(e);
 			if (!gd) return;
+			auto *w = m_ctx.Get<Widget>(e);
 
 			// Save the outer clip (set by _RenderNode) so we can restore it after
 			// clipping to the plot area, and so all sub-clips are properly intersected.
 			const SDL::Rect outerClip = m_renderer.GetClipRect();
 
 			_FillRR(r, s.bgColor, s.radius, s.opacity);
-			_StrokeRR(r, Has(w.state, WidgetStateFlag::Hovered) ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
+			_StrokeRR(r, (w && Has(w->state, WidgetStateFlag::Hovered)) ? s.bdHoveredColor : s.bdColor, s.borders, s.radius, s.opacity);
 
 			const float op    = s.opacity;
 			const float charH = _TH(e);
@@ -5927,48 +6201,6 @@ namespace UI {
 		
 		}
 
-		// ── ComboBox helpers ───────────────────────────────────────────────────────
-
-		void _OnClickComboBox(ECS::EntityId e) {
-			auto *d  = m_ctx.Get<ComboBoxData>(e);
-			auto *cb = m_ctx.Get<Callbacks>(e);
-			if (!d) return;
-			d->open = !d->open;
-			m_comboOpen = d->open ? e : ECS::NullEntity;
-			if (!d->open && cb && cb->onClick) cb->onClick();
-		}
-
-		/// Try to handle a click on a currently-open ComboBox dropdown item.
-		/// Returns true if the click was consumed.
-		bool _TryComboBoxClick() {
-			if (m_comboOpen == ECS::NullEntity || !m_ctx.IsAlive(m_comboOpen)) {
-				m_comboOpen = ECS::NullEntity;
-				return false;
-			}
-			auto *d  = m_ctx.Get<ComboBoxData>(m_comboOpen);
-			auto *cr = m_ctx.Get<ComputedRect>(m_comboOpen);
-			auto *cb = m_ctx.Get<Callbacks>(m_comboOpen);
-			if (!d || !cr) { m_comboOpen = ECS::NullEntity; return false; }
-
-			const FRect &drop = d->dropRect;
-			if (!drop.HasIntersection(FRect{m_mousePos.x, m_mousePos.y, 1.f, 1.f})) {
-				d->open = false;
-				m_comboOpen = ECS::NullEntity;
-				return true;
-			}
-			float ry = m_mousePos.y - drop.y;
-			int idx = (int)(ry / SDL::Max(1.f, (float)d->itemHeight));
-			idx = SDL::Clamp(idx, 0, (int)d->items.size() - 1);
-			if (idx != d->selectedIndex) {
-				d->selectedIndex = idx;
-				if (cb && cb->onChange) cb->onChange((float)idx);
-			}
-			d->open = false;
-			m_comboOpen = ECS::NullEntity;
-			if (cb && cb->onClick) cb->onClick();
-			return true;
-		}
-
 		// ── TabView helper ─────────────────────────────────────────────────────────
 
 		void _OnClickTabView(ECS::EntityId e) {
@@ -6068,7 +6300,7 @@ namespace UI {
 
 		// ── Draw helpers ───────────────────────────────────────────────────────────
 
-		void _DrawComboBox(ECS::EntityId e, const FRect &r, const Style &s, const Widget &) {
+		void _DrawComboBox(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *d  = m_ctx.Get<ComboBoxData>(e);
 			if (!d) return;
 			const bool hover  = Has(w.state, WidgetStateFlag::Hovered);
@@ -6096,36 +6328,9 @@ namespace UI {
 				? d->items[d->selectedIndex] : "";
 			if (!label.empty())
 				_Text(e, label, r.x + 8.f, r.y + (r.h - _TH(e)) * 0.5f, s.textColor, s.opacity, s);
-			
-			// Store drop rect for overlay rendering
-			float dropH = SDL::Min((float)d->maxVisible, (float)d->items.size()) * d->itemHeight;
-			d->dropRect = {r.x, r.y + r.h, r.w, dropH};
 		}
 
-		void _DrawComboOverlay() {
-			if (m_comboOpen == ECS::NullEntity || !m_ctx.IsAlive(m_comboOpen)) return;
-			auto *d  = m_ctx.Get<ComboBoxData>(m_comboOpen);
-			auto *s  = m_ctx.Get<Style>(m_comboOpen);
-			if (!d || !s || d->items.empty()) return;
-			const FRect &drop = d->dropRect;
-			m_renderer.ResetClipRect();
-			_FillRR(drop, SDL::Color{30,30,35,245}, SDL::FCorners(4.f), 1.f);
-			_StrokeRR(drop, s->bdColor, {1.f,1.f,1.f,1.f}, SDL::FCorners(4.f), 1.f);
-			float iy = drop.y;
-			int count = SDL::Min((int)d->items.size(), d->maxVisible);
-			for (int i = d->scrollOffset; i < d->scrollOffset + count && i < (int)d->items.size(); ++i) {
-				FRect row = {drop.x, iy, drop.w, (float)d->itemHeight};
-				if (i == d->selectedIndex)
-					_FillRR(row, s->fillColor, {}, 0.35f);
-				if (i == d->hoverIndex)
-					_FillRR(row, {255,255,255,50}, {}, 1.f);
-				_Text(m_comboOpen, d->items[i], drop.x + 8.f, iy + (d->itemHeight - _TH(m_comboOpen)) * 0.5f,
-					  s->textColor, 1.f, *s);
-				iy += d->itemHeight;
-			}
-		}
-
-		void _DrawTabView(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &) {
+		void _DrawTabView(ECS::EntityId e, const FRect &r, const Style &s, [[maybe_unused]] const Widget &w) {
 			auto *d  = m_ctx.Get<TabViewData>(e);
 			if (!d) return;
 			float tabH = d->tabHeight;
@@ -6148,7 +6353,7 @@ namespace UI {
 			_StrokeRR(content, s.bdColor, {1.f,1.f,1.f,1.f}, {}, s.opacity);
 		}
 
-		void _DrawExpander(ECS::EntityId e, const FRect &r, const Style &s) {
+		void _DrawExpander(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *d = m_ctx.Get<ExpanderData>(e);
 			if (!d) return;
 			float headerH = d->headerH;
@@ -6172,7 +6377,7 @@ namespace UI {
 			_Text(e, d->label, r.x + 26.f, r.y + (headerH - _TH(e)) * 0.5f, s.textColor, s.opacity, s);
 		}
 
-		void _DrawSplitter(ECS::EntityId e, const FRect &r, const Style &s) {
+		void _DrawSplitter(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			auto *d = m_ctx.Get<SplitterData>(e);
 			if (!d) return;
 			bool horiz = (d->orientation == Orientation::Horizontal);
@@ -6185,7 +6390,7 @@ namespace UI {
 			_FillRR(handle, hc, {}, s.opacity);
 		}
 
-		void _DrawSpinner(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &) {
+		void _DrawSpinner(ECS::EntityId e, const FRect &r, const Style &s, [[maybe_unused]] const Widget &w) {
 			auto *d = m_ctx.Get<SpinnerData>(e);
 			if (!d) return;
 			float cx  = r.x + r.w * 0.5f;
@@ -6209,7 +6414,7 @@ namespace UI {
 			(void)arcEnd;
 		}
 
-		void _DrawBadge(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &, const Widget &) {
+		void _DrawBadge(ECS::EntityId e, const FRect &r, const Style &s, [[maybe_unused]] const Widget &w) {
 			auto *d = m_ctx.Get<BadgeData>(e);
 			if (!d) return;
 			SDL::Color bg = d->bgColor.a ? d->bgColor : s.fillColor;
@@ -6488,7 +6693,7 @@ namespace UI {
 			}
 		}
 
-		void _DrawColorButton(ECS::EntityId e, const FRect &r, const Style &s, const Widget &) {
+		void _DrawColorButton(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
 			SDL::Color bd = (m_focused == e) ? s.fillColor : s.bdColor;
 			_FillRR(r, s.bgColor, s.radius, s.opacity);
 			_StrokeRR(r, bd, {1.f,1.f,1.f,1.f}, s.radius, s.opacity);
@@ -6497,16 +6702,9 @@ namespace UI {
 			}
 		}
 
-		// ── ComboBox press intercept ──────────────────────────────────────────────
-		// Called from _ProcessInput press section to check combo overlay first.
-		// Returns true if consumed.
-		bool _CheckComboOverlayPress() {
-			return _TryComboBoxClick();
-		}
-
 		// ── MenuBar draw ──────────────────────────────────────────────────────────
 
-		void _DrawMenuBar(ECS::EntityId e, const FRect &r, const Style &s, const WidgetStateFlag &, const Widget &) {
+		void _DrawMenuBar(ECS::EntityId e, const FRect &r, const Style &s, [[maybe_unused]] const Widget &w) {
 			auto *d = m_ctx.Get<MenuBarData>(e);
 			if (!d) return;
 
@@ -6553,6 +6751,24 @@ namespace UI {
 					m_menuBarOpen = e;
 				}
 			}
+		}
+
+		void _DrawConnector(ECS::EntityId e, const FRect &r, const Style &s, const Widget &w) {
+			auto *d = m_ctx.Get<ConnectorData>(e);
+			if (!d) return;
+			float rad = SDL::Min(r.w, r.h) * 0.5f - 1.f;
+			if (rad <= 0.f) return;
+			SDL::FPoint c = {r.x + r.w * 0.5f, r.y + r.h * 0.5f};
+			float op = s.opacity;
+			bool hov = Has(w.state, WidgetStateFlag::Hovered);
+			SDL::Color fill = d->connected ? d->color : SDL::Color{38, 42, 62, 255};
+			fill.a = SDL::Clamp8((int)((float)fill.a * op));
+			m_renderer.SetDrawColor(fill);
+			m_renderer.RenderFillCircle(c, rad);
+			SDL::Color ring = hov ? SDL::Color{255, 255, 100, 255} : d->color;
+			ring.a = SDL::Clamp8((int)((float)ring.a * op));
+			m_renderer.SetDrawColor(ring);
+			m_renderer.RenderCircle(c, rad);
 		}
 
 		void _DrawMenuBarOverlay() {

@@ -160,7 +160,7 @@ namespace SDL::UI {
 		}
 		case WidgetType::Toggle:
 			return {80.f, 28.f};
-		case WidgetType::RadioButton:
+		case WidgetType::Radio:
 			return {80.f, 24.f};
 		case WidgetType::Slider:
 			return {80.f, 24.f};

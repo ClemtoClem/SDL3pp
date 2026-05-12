@@ -4,7 +4,19 @@
 namespace SDL::UI {
 
 	// ==================================================================================
-	// Enums
+	// Helper macro — generates the bitwise operators for a "flags"-style enum.
+	// ==================================================================================
+	#define SDL_UI_DECLARE_FLAG_OPERATORS(EnumT, UnderlyingT)                                     \
+		inline EnumT  operator|  (EnumT a, EnumT b) noexcept { return static_cast<EnumT>(static_cast<UnderlyingT>(a) | static_cast<UnderlyingT>(b)); } \
+		inline EnumT  operator&  (EnumT a, EnumT b) noexcept { return static_cast<EnumT>(static_cast<UnderlyingT>(a) & static_cast<UnderlyingT>(b)); } \
+		inline EnumT  operator~  (EnumT a)          noexcept { return static_cast<EnumT>((~static_cast<UnderlyingT>(a)) & static_cast<UnderlyingT>(EnumT::All)); } \
+		inline EnumT& operator|= (EnumT& a, EnumT b) noexcept { a = a | b; return a; }            \
+		inline EnumT& operator&= (EnumT& a, EnumT b) noexcept { a = a & b; return a; }            \
+		inline bool   operator!  (EnumT a)          noexcept { return a == EnumT::None; }         \
+		inline bool   Has(EnumT a, EnumT b)         noexcept { return (a & b) != EnumT::None; }
+
+	// ==================================================================================
+	// Widget identification
 	// ==================================================================================
 
 	/// @brief Identifies the high-level kind of a widget. Used for built-in renderers
@@ -17,7 +29,7 @@ namespace SDL::UI {
 		Input,
 		Button,
 		Toggle,
-		RadioButton,
+		Radio,
 		Knob,
 		Slider,
 		ScrollBar,
@@ -37,10 +49,12 @@ namespace SDL::UI {
 		ColorPicker,
 		Popup,
 		Tree,
-		MenuBar,
-		/* TODO: Add other widget types here */
+		MenuBar
 	};
 
+	// ==================================================================================
+	// Layout
+	// ==================================================================================
 
 	/// @brief Layout mode controlling how a container arranges its children.
 	enum class Layout : Uint16 {
@@ -58,15 +72,15 @@ namespace SDL::UI {
 
 	/// @brief Which separator lines are drawn inside a Layout::InGrid container.
 	enum class GridLines : Uint8 {
-		None,    ///< No visible separator lines.
-		Rows,    ///< Horizontal lines between rows only.
-		Columns, ///< Vertical lines between columns only.
-		Both     ///< Both horizontal and vertical lines.
+		None,
+		Rows,
+		Columns,
+		Both
 	};
 
 	/// @brief How a widget is positioned relative to its parent or the root viewport.
 	enum class AttachLayout : Uint16 {
-		Relative, ///< Normal flow.
+		Relative,
 		Absolute, ///< Absolute inside parent (bypasses flow; not scroll-offset).
 		Fixed     ///< Fixed relative to root viewport.
 	};
@@ -75,81 +89,8 @@ namespace SDL::UI {
 	enum class BoxSizing : Uint16 {
 		ContentBox, ///< W/H = content only.
 		PaddingBox, ///< W/H = content + padding.
-		BorderBox,  ///< W/H = content + padding + bdColor.
-		MarginBox   ///< W/H = content + padding + bdColor + margin.
-	};
-
-	/// @brief Bitmask that tracks which sub-systems need to reprocess a widget this frame.
-	enum class DirtyFlag : Uint8 {
-		None = 0,
-		Style = 1 << 0,
-		Layout = 1 << 1,
-		Render = 1 << 2,
-		All = Style | Layout | Render
-	};
-	inline DirtyFlag operator|(DirtyFlag a, DirtyFlag b) noexcept { return static_cast<DirtyFlag>(static_cast<Uint8>(a) | static_cast<Uint8>(b)); }
-	inline DirtyFlag operator&(DirtyFlag a, DirtyFlag b) noexcept { return static_cast<DirtyFlag>(static_cast<Uint8>(a) & static_cast<Uint8>(b)); }
-	inline DirtyFlag operator~(DirtyFlag a) noexcept { return static_cast<DirtyFlag>((~static_cast<Uint8>(a)) & static_cast<Uint8>(DirtyFlag::All)); }
-	inline DirtyFlag &operator|=(DirtyFlag &a, DirtyFlag b) noexcept { a = a | b; return a; }
-	inline DirtyFlag &operator&=(DirtyFlag &a, DirtyFlag b) noexcept { a = a & b; return a; }
-	inline bool operator!(DirtyFlag a) noexcept { return a == DirtyFlag::None; }
-	/** @brief Returns true if all bits of @p b are set in @p a. */
-	inline bool Has(DirtyFlag &a, DirtyFlag b) { return (a & b) != DirtyFlag::None; }
-
-	/// @brief Bitmask controlling what interactions a widget participates in.
-	enum class WidgetBehaviorFlag : Uint16 {
-		None            = 0,
-		Visible         = 1 << 0,
-		Enable          = 1 << 1,
-		Hoverable       = 1 << 2,
-		Selectable      = 1 << 3,
-		Focusable       = 1 << 4,
-		Resizable       = 1 << 5,
-		Draggable       = 1 << 6,
-		ScrollableX     = 1 << 7,
-		ScrollableY     = 1 << 8,
-		AutoScrollableX = 1 << 9,
-		AutoScrollableY = 1 << 10,
-		DispatchEvent   = 1 << 11, ///< Dispatch unused event to parent widgets.
-		All             = 0x0FFF
-	};
-	
-	inline WidgetBehaviorFlag operator|(WidgetBehaviorFlag a, WidgetBehaviorFlag b) noexcept { return static_cast<WidgetBehaviorFlag>(static_cast<Uint16>(a) | static_cast<Uint16>(b)); }
-	inline WidgetBehaviorFlag operator&(WidgetBehaviorFlag a, WidgetBehaviorFlag b) noexcept { return static_cast<WidgetBehaviorFlag>(static_cast<Uint16>(a) & static_cast<Uint16>(b)); }
-	inline WidgetBehaviorFlag operator~(WidgetBehaviorFlag a) noexcept { return static_cast<WidgetBehaviorFlag>((~static_cast<Uint16>(a)) & static_cast<Uint16>(WidgetBehaviorFlag::All)); }
-	inline WidgetBehaviorFlag &operator|=(WidgetBehaviorFlag &a, WidgetBehaviorFlag b) noexcept { a = a | b; return a; }
-	inline WidgetBehaviorFlag &operator&=(WidgetBehaviorFlag &a, WidgetBehaviorFlag b) noexcept { a = a & b; return a; }
-	inline bool operator!(WidgetBehaviorFlag a) noexcept { return a == WidgetBehaviorFlag::None; }
-	/** @brief Returns true if all bits of @p b are set in @p a. */
-	inline bool Has(WidgetBehaviorFlag a, WidgetBehaviorFlag b) { return (a & b) != WidgetBehaviorFlag::None; }
-
-	enum class WidgetStateFlag : Uint8 {
-		None			= 0,
-		Hovered			= 1 << 0,
-		Pressed			= 1 << 1,
-		Focused			= 1 << 2,
-		Resized 		= 1 << 3,
-		Dragged			= 1 << 4,
-		Checked			= 1 << 5,
-		All				= 0x3F
-	};
-
-	inline WidgetStateFlag operator|(WidgetStateFlag a, WidgetStateFlag b) noexcept { return static_cast<WidgetStateFlag>(static_cast<Uint16>(a) | static_cast<Uint16>(b)); }
-	inline WidgetStateFlag operator&(WidgetStateFlag a, WidgetStateFlag b) noexcept { return static_cast<WidgetStateFlag>(static_cast<Uint16>(a) & static_cast<Uint16>(b)); }
-	inline WidgetStateFlag operator~(WidgetStateFlag a) noexcept { return static_cast<WidgetStateFlag>((~static_cast<Uint16>(a)) & static_cast<Uint16>(WidgetStateFlag::All)); }
-	inline WidgetStateFlag &operator|=(WidgetStateFlag &a, WidgetStateFlag b) noexcept { a = a | b; return a; }
-	inline WidgetStateFlag &operator&=(WidgetStateFlag &a, WidgetStateFlag b) noexcept { a = a & b; return a; }
-	inline bool operator!(WidgetStateFlag a) noexcept { return a == WidgetStateFlag::None; }
-	/** @brief Returns true if all bits of @p b are set in @p a. */
-	inline bool Has(WidgetStateFlag a, WidgetStateFlag b) { return (a & b) != WidgetStateFlag::None; }
-
-
-	enum class FontType : Uint8 {
-		Inherited, ///< Walk ancestors to find a configured font; fall back to Default.
-		Self,      ///< Use the font configured on this entity; if empty, behaves as Inherited.
-		Root,      ///< Use the root widget's font; fall back to Default.
-		Default,   ///< Use the engine's default font.
-		Debug      ///< Force the SDL3 built-in debug font.
+		BorderBox,  ///< W/H = content + padding + border.
+		MarginBox   ///< W/H = content + padding + border + margin.
 	};
 
 	/// @brief Alignment of children along the cross axis of a layout container.
@@ -172,68 +113,120 @@ namespace SDL::UI {
 		Vertical
 	};
 
+	// ==================================================================================
+	// Bitmask flags — dirty / behavior / state
+	// ==================================================================================
+
+	/// @brief Bitmask that tracks which sub-systems need to reprocess a widget this frame.
+	enum class DirtyFlag : Uint8 {
+		None   = 0,
+		Style  = 1 << 0,
+		Layout = 1 << 1,
+		Render = 1 << 2,
+		All    = Style | Layout | Render
+	};
+	SDL_UI_DECLARE_FLAG_OPERATORS(DirtyFlag, Uint8)
+
+	/// @brief Bitmask controlling what interactions a widget participates in.
+	enum class WidgetBehaviorFlag : Uint16 {
+		None            = 0,
+		Visible         = 1 << 0,
+		Enable          = 1 << 1,
+		Hoverable       = 1 << 2,
+		Selectable      = 1 << 3,
+		Focusable       = 1 << 4,
+		Resizable       = 1 << 5,
+		Draggable       = 1 << 6,
+		ScrollableX     = 1 << 7,
+		ScrollableY     = 1 << 8,
+		AutoScrollableX = 1 << 9,
+		AutoScrollableY = 1 << 10,
+		DispatchEvent   = 1 << 11, ///< Dispatch unused event to parent widgets.
+		All             = 0x0FFF
+	};
+	SDL_UI_DECLARE_FLAG_OPERATORS(WidgetBehaviorFlag, Uint16)
+
+	/// @brief Bitmask describing the live interaction state of a widget.
+	enum class WidgetStateFlag : Uint8 {
+		None    = 0,
+		Hovered = 1 << 0,
+		Pressed = 1 << 1,
+		Focused = 1 << 2,
+		Resized = 1 << 3,
+		Dragged = 1 << 4,
+		Checked = 1 << 5,
+		All     = 0x3F
+	};
+	SDL_UI_DECLARE_FLAG_OPERATORS(WidgetStateFlag, Uint8)
+
+	// ==================================================================================
+	// Style enums
+	// ==================================================================================
+
+	/// @brief Source of the resolved font for a text-bearing widget.
+	enum class FontType : Uint8 {
+		Inherited, ///< Walk ancestors to find a configured font; fall back to Default.
+		Self,      ///< Use the font configured on this entity; if empty, behaves as Inherited.
+		Root,      ///< Use the root widget's font; fall back to Default.
+		Default,   ///< Use the engine's default font.
+		Debug      ///< Force the SDL3 built-in debug font.
+	};
+
 	/// @brief Filter / value mode for the Input widget.
-	///
-	/// Selects how typed characters are validated and (for numeric modes) how
-	/// the value is parsed and formatted. Numeric modes also enable the right-
-	/// edge ↑/↓ arrow buttons.
 	enum class InputFilterType : Uint8 {
 		None,
-
 		// text
 		Text,
 		Multiline,
-
 		// structured text
 		Email,
 		URL,
 		Phone,
 		Username,
-
 		// numeric
 		Integer,
 		Float,
 		Hex,
-
 		// charset
 		Digits,
 		Alpha,
 		Alnum,
-
 		// advanced
 		Slug,
 		Filename,
-
 		// custom
 		Custom
 	};
 
+	/// @brief How an Image widget fits its source into the content box.
 	enum class ImageFit : Uint8 {
-		Fill,    ///< Stretch to fill the widget's content box (may distort aspect ratio).
-		Contain, ///< Scale to fit the widget's content box while preserving aspect ratio (may letterbox).
-		Cover,   ///< Scale to fill the widget's content box while preserving aspect ratio (may crop).
-		Tile,    ///< Repeat the image to fill the widget's content box (preserves aspect ratio).
-		None     ///< No scaling; place the image at the top-left of the content box (may overflow).
+		Fill,    ///< Stretch to fill (may distort aspect ratio).
+		Contain, ///< Scale to fit while preserving aspect ratio.
+		Cover,   ///< Scale to cover while preserving aspect ratio (may crop).
+		Tile,    ///< Repeat to fill.
+		None     ///< No scaling; top-left placement.
 	};
 
 	/// @brief Horizontal text alignment.
-	enum class TextHAlign : Uint8 {
-		Left,
-		Center,
-		Right
-	};
+	enum class TextHAlign : Uint8 { Left, Center, Right };
 
 	/// @brief Vertical text alignment.
-	enum class TextVAlign : Uint8 {
-		Top,
-		Center,
-		Bottom
-	};
+	enum class TextVAlign : Uint8 { Top, Center, Bottom };
 
 	/// @brief Tab bar location in a TabView widget.
-	enum class TabLocation : Uint8 {
+	enum class TabLocation : Uint8 { Top, Bottom };
+
+	/// @brief Anchor used by a BackgroundStyle gradient.
+	enum class GradientAnchor : Uint8 {
 		Top,
-		Bottom
+		Bottom,
+		Left,
+		Right,
+		TopLeft,
+		TopRight,
+		BottomLeft,
+		BottomRight,
+		Center
 	};
 
 } // namespace SDL::UI

@@ -1072,4 +1072,8 @@ inline void ResetLogOutputFunction() {
 
 } // namespace SDL
 
+// Included outside namespace SDL so that Logger/ConsoleSink/LogUtils
+// can include STL headers without namespace contamination.
+#include "SDL3pp_log/Logger.h"
+
 #endif /* SDL3PP_LOG_H_ */

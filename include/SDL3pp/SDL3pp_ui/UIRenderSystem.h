@@ -204,7 +204,7 @@ namespace SDL::UI {
 		case WidgetType::Toggle:
 			_DrawToggle(e, cr->screen, s);
 			break;
-		case WidgetType::RadioButton:
+		case WidgetType::Radio:
 			_DrawRadio(e, cr->screen, s);
 			break;
 		case WidgetType::Input:

@@ -68,6 +68,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <typeindex>
 #include <unordered_map>
@@ -133,8 +134,8 @@ struct ResourceEntryBase {
 	std::type_index typeId;
 	bool           ready = false; ///< true once async load succeeded
 
-	explicit ResourceEntryBase(std::string k, std::type_index t)
-		: key(std::move(k)), typeId(t) {}
+	explicit ResourceEntryBase(std::string_view k, std::type_index t)
+		: key(k), typeId(t) {}
 
 	virtual ~ResourceEntryBase() = default;
 };
@@ -147,7 +148,7 @@ template<class T>
 struct ResourceEntry : ResourceEntryBase {
 	std::shared_ptr<T> resource;
 
-	ResourceEntry(std::string k, std::shared_ptr<T> r)
+	ResourceEntry(std::string_view k, std::shared_ptr<T> r)
 		: ResourceEntryBase(std::move(k), typeid(T))
 		, resource(std::move(r)) {
 		ready = (resource != nullptr);
@@ -160,8 +161,7 @@ struct ResourceEntry : ResourceEntryBase {
 
 struct PendingLoad {
 	std::string   key;
-	std::function<void(const char* key, void* buf, size_t bytes,
-										 ResourceEntryBase& entry)> finalize;
+	std::function<void(const char* key, void* buf, size_t bytes, ResourceEntryBase& entry)> finalize;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,8 +202,8 @@ class ResourcePool {
 public:
 	// ── Construction ──────────────────────────────────────────────────────────
 
-	explicit ResourcePool(std::string name)
-		: m_name(std::move(name)) {
+	explicit ResourcePool(std::string_view name)
+		: m_name(name) {
 	}
 
 	~ResourcePool() { Release(); }
@@ -231,16 +231,16 @@ public:
 	 * @param value The resource value (moved in).
 	 */
 	template<class T>
-	void Add(const std::string& key, T value) {
+	void Add(std::string_view key, T value) {
 		auto entry = std::make_unique<ResourceEntry<T>>(
 			key, std::make_shared<T>(std::move(value)));
 
 		std::lock_guard lock(m_mutex);
-		m_resources[key] = std::move(entry);
+		m_resources[std::string(key)] = std::move(entry);
 	}
 	
 	/*template<class T, typename U>
-	void Add(const std::string& key, U&& value) {
+	void Add(std::string_view key, U&& value) {
 		auto resourcePtr = std::make_shared<T>(std::forward<U>(value));
 		
 		auto entry = std::make_unique<ResourceEntry<T>>(
@@ -248,7 +248,7 @@ public:
 		);
 
 		std::lock_guard lock(m_mutex);
-		m_resources[key] = std::move(entry);
+		m_resources[std::string(key)] = std::move(entry);
 	}*/
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -272,18 +272,17 @@ public:
 	 * @param factory Conversion function raw-bytes → T.
 	 */
 	template<class T, class Factory>
-	void LoadAsync(const std::string& key, const std::string& path,
-								 Factory&& factory) {
+	void LoadAsync(std::string_view key, std::string_view path, Factory&& factory) {
 		// Create a placeholder entry (not ready yet)
 		{
 			std::lock_guard lock(m_mutex);
-			if (m_resources.count(key)) {
+			if (m_resources.count(std::string(key))) {
 				// Already loaded – skip.
 				return;
 			}
 			auto placeholder = std::make_unique<ResourceEntry<T>>(key, nullptr);
 			placeholder->ready = false;
-			m_resources[key] = std::move(placeholder);
+			m_resources[std::string(key)] = std::move(placeholder);
 			m_pendingCount.fetch_add(1, std::memory_order_relaxed);
 			m_totalQueued.fetch_add(1, std::memory_order_relaxed);
 		}
@@ -350,9 +349,9 @@ public:
 	 * @returns A ResourceHandle<T>; falsy if not found / not ready.
 	 */
 	template<class T>
-	ResourceHandle<T> Get(const std::string& key) const {
+	ResourceHandle<T> Get(std::string_view key) const {
 		std::lock_guard lock(m_mutex);
-		auto it = m_resources.find(key);
+		auto it = m_resources.find(std::string(key));
 		if (it == m_resources.end()) return {};
 		auto* base = it->second.get();
 		if (base->typeId != typeid(T)) return {};
@@ -368,9 +367,9 @@ public:
 	 * entry is released while you hold it.  Prefer Get<T>() for safety.
 	 */
 	template<class T>
-	T* GetRaw(const std::string& key) const {
+	T* GetRaw(std::string_view key) const {
 		std::lock_guard lock(m_mutex);
-		auto it = m_resources.find(key);
+		auto it = m_resources.find(std::string(key));
 		if (it == m_resources.end()) return nullptr;
 		auto* base = it->second.get();
 		if (base->typeId != typeid(T)) return nullptr;
@@ -388,9 +387,9 @@ public:
 	 * If external ResourceHandle<T> instances still hold a reference, the
 	 * underlying T won't be freed until those handles are released too.
 	 */
-	void Remove(const std::string& key) {
+	void Remove(std::string_view key) {
 		std::lock_guard lock(m_mutex);
-		m_resources.erase(key);
+		m_resources.erase(std::string(key));
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -584,6 +583,13 @@ struct ResourcePoolPtr {
 	 */
 	explicit ResourcePoolPtr(ResourcePool* p) : pool(p) {}
 
+	void Reset(ResourcePool *p) {
+		if (pool) {
+			pool->Release();
+		}
+		pool = p;
+	}
+
 	/**
 	 * Allow implicit conversion from ResourcePool* to ResourcePoolPtr for convenience.
 	 * This does not take ownership; the caller is responsible for ensuring the pointer remains valid while the ResourcePoolPtr is used.
@@ -628,13 +634,13 @@ public:
 	 * @returns Raw (non-owning) pointer to the pool.  Ownership stays with the
 	 *          ResourceManager.
 	 */
-	ResourcePool* CreatePool(const std::string& name) {
+	ResourcePool* CreatePool(std::string_view name) {
 		std::lock_guard lock(m_mutex);
-		auto it = m_pools.find(name);
+		auto it = m_pools.find(std::string(name));
 		if (it != m_pools.end()) return it->second.get();
 		auto pool = std::make_unique<ResourcePool>(name);
 		auto* ptr = pool.get();
-		m_pools.emplace(name, std::move(pool));
+		m_pools.emplace(std::string(name), std::move(pool));
 		return ptr;
 	}
 
@@ -642,18 +648,18 @@ public:
 	 * Look up an existing pool by name.
 	 * @returns nullptr if not found.
 	 */
-	ResourcePool* GetPool(const std::string& name) const {
+	ResourcePool* GetPool(std::string_view name) const {
 		std::lock_guard lock(m_mutex);
-		auto it = m_pools.find(name);
+		auto it = m_pools.find(std::string(name));
 		return it != m_pools.end() ? it->second.get() : nullptr;
 	}
 
 	/**
 	 * Destroy a pool (releases all resources and stops its loading thread).
 	 */
-	void DestroyPool(const std::string& name) {
+	void DestroyPool(std::string_view name) {
 		std::lock_guard lock(m_mutex);
-		m_pools.erase(name);
+		m_pools.erase(std::string(name));
 	}
 
 	/**

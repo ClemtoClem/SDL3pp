@@ -5,7 +5,7 @@
 #include "../Core/Camera.hpp"
 #include "../Core/SaveManager.hpp"
 #include "../ECS/EntityBuilder.hpp"
-#include "../Logger/Logger.hpp"
+#include <SDL3pp/SDL3pp_log.h>		  // Logger
 #include <SDL3pp/SDL3pp_ecs.h>
 #include <SDL3pp/SDL3pp_scene.h>
 #include <SDL3pp/SDL3pp_ui.h>
@@ -70,7 +70,7 @@ public:
 	// ═══════════════════════════════════════════════════════════════════════
 	void Enter(AppContext& ctx) override {
 		m_ctx = &ctx;
-		LOG_GAME(core::LogLevel::Info) << "GameState::Enter";
+		LOG_GAME(SDL::LOG::LogLevel::Info) << "GameState::Enter";
 
 		// ── Read config ────────────────────────────────────────────────────
 		auto& cfg = *ctx.config;
@@ -87,7 +87,7 @@ public:
 			if (sm.Load(m_pendingSave)) {
 				m_hasPendingSave = true;
 				m_firstMapName   = m_pendingSave.mapName;
-				LOG_GAME(core::LogLevel::Info)
+				LOG_GAME(SDL::LOG::LogLevel::Info)
 					<< "Using save: map=" << m_firstMapName;
 			}
 		}
@@ -117,14 +117,14 @@ public:
 		// ── First map ──────────────────────────────────────────────────────
 		LoadMap(m_firstMapName);
 
-		LOG_GAME(core::LogLevel::Success) << "GameState ready";
+		LOG_GAME(SDL::LOG::LogLevel::Success) << "GameState ready";
 	}
 
 	void Leave() override {
 		m_ui.reset(); m_ecs.reset();
 		m_scene.reset();
 		m_gameWorld = {};
-		LOG_GAME(core::LogLevel::Info) << "GameState::Leave";
+		LOG_GAME(SDL::LOG::LogLevel::Info) << "GameState::Leave";
 	}
 
 	bool HandleEvent(const SDL::Event& ev) override {
@@ -202,7 +202,7 @@ public:
 	void LoadMap(const std::string& name) {
 		m_map = core::LoadMap(m_assetsBase + "/maps", name);
 		if (m_map.width == 0) {
-			LOG_GAME(core::LogLevel::Error) << "Failed to load map: " << name;
+			LOG_GAME(SDL::LOG::LogLevel::Error) << "Failed to load map: " << name;
 			return;
 		}
 		m_camera.SetDispTileSize(m_dispTileSize);
@@ -578,7 +578,7 @@ private:
 				m_scene->Emit("PLAYER", "spawned");
 			}
 		}
-		LOG_GAME(core::LogLevel::Info)
+		LOG_GAME(SDL::LOG::LogLevel::Info)
 			<< std::format("Spawned {} entities", m_map.spawns.size());
 
 		// ── Apply pending save data (overrides spawn positions) ───────────────
@@ -597,7 +597,7 @@ private:
 			m_camera.worldX = sd.playerX;
 			m_camera.worldY = sd.playerY;
 			m_hasPendingSave = false;
-			LOG_GAME(core::LogLevel::Success) << "Save data applied";
+			LOG_GAME(SDL::LOG::LogLevel::Success) << "Save data applied";
 		}
 	}
 
@@ -689,9 +689,9 @@ private:
 	void _ConnectSignals() {
 		// Tag names MUST match the uppercase entity type names produced by MapLoader
 		m_scene->Connect("PLAYER", "spawned",
-			[]{ LOG_GAME(core::LogLevel::Info) << "Signal: PLAYER spawned"; });
+			[]{ LOG_GAME(SDL::LOG::LogLevel::Info) << "Signal: PLAYER spawned"; });
 		m_scene->Connect("WORLD", "teleport",
-			[]{ LOG_GAME(core::LogLevel::Info) << "Signal: Teleport"; });
+			[]{ LOG_GAME(SDL::LOG::LogLevel::Info) << "Signal: Teleport"; });
 
 		// Mob-died → award polypoints
 		auto award = [this](const std::string& tag, int pts) {
@@ -727,7 +727,7 @@ private:
 				ctx.pool->Add<SDL::Texture>(key, std::move(t));
 				if (auto h2 = ctx.pool->Get<SDL::Texture>(key)) m_tilesetTex = *h2.get();
 			} catch (const std::exception& e) {
-				LOG_RESOURCE(core::LogLevel::Error) << "Tileset: " << e.what();
+				LOG_RESOURCE(SDL::LOG::LogLevel::Error) << "Tileset: " << e.what();
 			}
 		}
 		if (m_tilesetTex) {

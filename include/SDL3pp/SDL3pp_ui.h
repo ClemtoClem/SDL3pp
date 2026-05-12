@@ -22,7 +22,7 @@
  * | `SliderData`     | min/max/value + drag (Slider, Progress, horizontal SB)     |
  * | `ScrollBarData`  | contentSize, viewSize, offset + drag                       |
  * | `ToggleData`     | checked + animT (Toggle)                                   |
- * | `RadioData`      | group name + checked (RadioButton)                         |
+ * | `RadioData`      | group name + checked (Radio)                         |
  * | `KnobData`       | normalised val [0,1] + drag                                |
  * | `ImageData`      | texture path + ImageFit                                    |
  * | `IconData`       | icon key, padding, per-state opacity + tint (Button)       |
@@ -96,7 +96,7 @@
  *
  * ## Widgets available
  *
- *   Container, Label, Button, Toggle, RadioButton, Slider (H/V),
+ *   Container, Label, Button, Toggle, Radio, Slider (H/V),
  *   ScrollBar (H/V), Progress, Separator, Input, Knob, Image, Canvas
  *
  * ## Container — scrollbars automatiques
@@ -215,12 +215,12 @@
 // ── Sub-modules ───────────────────────────────────────────────────────────────────────
 
 #if !defined(SDL3PP_ENABLE_NEW_UI)
-#include "SDL3pp_ui_old/builder.h"
-#include "SDL3pp_ui_old/components.h"
-#include "SDL3pp_ui_old/enums.h"
-#include "SDL3pp_ui_old/system.h"
-#include "SDL3pp_ui_old/theme.h"
-#include "SDL3pp_ui_old/value.h"
+#include "SDL3pp_ui_old/UIBuilder.h"
+#include "SDL3pp_ui_old/UIComponents.h"
+#include "SDL3pp_ui_old/UIEnums.h"
+#include "SDL3pp_ui_old/UISystem.h"
+#include "SDL3pp_ui_old/UITheme.h"
+#include "SDL3pp_ui_old/UIValue.h"
 #else
 #include "SDL3pp_ui/UIEnums.h"
 #include "SDL3pp_ui/UIValue.h"

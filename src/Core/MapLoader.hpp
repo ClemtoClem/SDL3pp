@@ -1,6 +1,6 @@
 #pragma once
 #include "ScriptParser.hpp"
-#include "../Logger/Logger.hpp"
+#include <SDL3pp/SDL3pp_log.h>		  // Logger
 #include <algorithm>
 #include <cctype>
 #include <string>
@@ -139,7 +139,7 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 	try {
 		script = ParseConfFile(confPath);
 	} catch (const std::exception& e) {
-		LOG_RESOURCE(core::LogLevel::Error) << "LoadMap script: " << e.what();
+		LOG_RESOURCE(SDL::LOG::LogLevel::Error) << "LoadMap script: " << e.what();
 		return map;
 	}
 
@@ -158,7 +158,7 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 			for (auto& [k, v] : *musicsArr) {
 				if (!v.IsString()) continue;
 				map.musicsKey.push_back(v.AsString());
-				LOG_RESOURCE(core::LogLevel::Debug) << "LoadMap script: music " << k << " " << v.AsString();
+				LOG_RESOURCE(SDL::LOG::LogLevel::Debug) << "LoadMap script: music " << k << " " << v.AsString();
 			}
 		}
 	}
@@ -229,7 +229,7 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 	{
 		std::ifstream f(mapPath);
 		if (!f.is_open()) {
-			LOG_RESOURCE(core::LogLevel::Error) << "Cannot open " << mapPath;
+			LOG_RESOURCE(SDL::LOG::LogLevel::Error) << "Cannot open " << mapPath;
 			return map;
 		}
 
@@ -265,7 +265,7 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 	{
 		std::ifstream f(cmapPath);
 		if (!f.is_open()) {
-			LOG_RESOURCE(core::LogLevel::Error) << "Cannot open " << cmapPath;
+			LOG_RESOURCE(SDL::LOG::LogLevel::Error) << "Cannot open " << cmapPath;
 			// return partial map (no collision)
 		} else {
 			map.collision.resize((size_t)(map.width * map.height), 0);
@@ -288,7 +288,7 @@ inline MapData LoadMap(const std::string& basePath, const std::string& mapName) 
 		}
 	}
 
-	LOG_RESOURCE(core::LogLevel::Success)
+	LOG_RESOURCE(SDL::LOG::LogLevel::Success)
 		<< "Map '" << mapName << "' loaded: "
 		<< map.width << 'x' << map.height
 		<< " | " << map.numLayers << " layers"

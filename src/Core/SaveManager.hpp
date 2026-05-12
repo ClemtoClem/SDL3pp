@@ -18,7 +18,7 @@
  */
 
 #include "MapLoader.hpp"   // Direction
-#include "../Logger/Logger.hpp"
+#include <SDL3pp/SDL3pp_log.h>		  // Logger
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -63,7 +63,7 @@ public:
 		std::error_code ec;
 		std::filesystem::remove(m_path, ec);
 		if (!ec)
-			LOG_RESOURCE(core::LogLevel::Info) << "Save deleted: " << m_path;
+			LOG_RESOURCE(SDL::LOG::LogLevel::Info) << "Save deleted: " << m_path;
 	}
 
 	/**
@@ -78,7 +78,7 @@ public:
 
 		std::ofstream f(m_path, std::ios::binary | std::ios::trunc);
 		if (!f) {
-			LOG_RESOURCE(core::LogLevel::Error)
+			LOG_RESOURCE(SDL::LOG::LogLevel::Error)
 				<< "SaveManager: cannot open for write: " << m_path;
 			return false;
 		}
@@ -96,7 +96,7 @@ public:
 		_WriteF32(f, data.playerY);
 		_WriteU8 (f, static_cast<uint8_t>(data.playerDir));
 
-		LOG_RESOURCE(core::LogLevel::Success)
+		LOG_RESOURCE(SDL::LOG::LogLevel::Success)
 			<< "Saved to: " << m_path;
 		return f.good();
 	}
@@ -108,7 +108,7 @@ public:
 	bool Load(SaveData& out) const {
 		std::ifstream f(m_path, std::ios::binary);
 		if (!f) {
-			LOG_RESOURCE(core::LogLevel::Warning)
+			LOG_RESOURCE(SDL::LOG::LogLevel::Warning)
 				<< "SaveManager: no save at: " << m_path;
 			return false;
 		}
@@ -117,14 +117,14 @@ public:
 		char magic[4];
 		f.read(magic, 4);
 		if (std::strncmp(magic, "PAVE", 4) != 0) {
-			LOG_RESOURCE(core::LogLevel::Error)
+			LOG_RESOURCE(SDL::LOG::LogLevel::Error)
 				<< "SaveManager: invalid magic in: " << m_path;
 			return false;
 		}
 
 		uint8_t version = _ReadU8(f);
 		if (version != 1) {
-			LOG_RESOURCE(core::LogLevel::Error)
+			LOG_RESOURCE(SDL::LOG::LogLevel::Error)
 				<< "SaveManager: unsupported save version " << (int)version;
 			return false;
 		}
@@ -139,13 +139,13 @@ public:
 		tmp.playerDir  = static_cast<Direction>(_ReadU8(f));
 
 		if (!f) {
-			LOG_RESOURCE(core::LogLevel::Error)
+			LOG_RESOURCE(SDL::LOG::LogLevel::Error)
 				<< "SaveManager: truncated save file: " << m_path;
 			return false;
 		}
 
 		out = std::move(tmp);
-		LOG_RESOURCE(core::LogLevel::Success)
+		LOG_RESOURCE(SDL::LOG::LogLevel::Success)
 			<< "Loaded save: pts=" << out.polypoints
 			<< " map=" << out.mapName
 			<< " pos=(" << out.playerX << "," << out.playerY << ")";
