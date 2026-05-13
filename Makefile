@@ -32,7 +32,7 @@ CXXFLAGS := -std=c++$(CXX_VERSION) -Wall -Wextra -g -O0 -MMD -MP
 CPPFLAGS := -I$(INCDIR)
 
 LDLIBS := $(shell pkg-config --libs sdl3 sdl3-image sdl3-mixer sdl3-ttf sdl3-net 2>/dev/null) \
-		  $(shell pkg-config --libs vulkan 2>/dev/null)
+		  $(shell pkg-config --libs vulkan 2>/dev/null) -lsqlite3
 
 # FFmpeg libraries – used only by the video player example
 FFMPEG_CFLAGS := $(shell pkg-config --cflags libavutil libavcodec libavformat libswscale libswresample 2>/dev/null)
