@@ -525,7 +525,7 @@ struct Main {
             .PaddingH(24.f).PaddingV(16.f);
 
         // Big weather icon
-        id_cwIcon = ui.ImageWidget("cw_icon", "weather_sun", SDL::UI::ImageFit::Contain)
+        id_cwIcon = ui.Image("cw_icon", "weather_sun", SDL::UI::ImageFit::Contain)
             .W(96.f).H(96.f);
         curCard.Child(id_cwIcon);
 
@@ -590,7 +590,7 @@ struct Main {
                 .TextColor(pal::GREY).Font("font", 12.f);
             card.Child(id_dayLabel[i]);
 
-            id_dayIcon[i] = ui.ImageWidget("day_icon_" + idx, "weather_sun",
+            id_dayIcon[i] = ui.Image("day_icon_" + idx, "weather_sun",
                                            SDL::UI::ImageFit::Contain)
                 .W(40.f).H(40.f);
             card.Child(id_dayIcon[i]);

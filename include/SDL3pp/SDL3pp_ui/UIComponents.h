@@ -34,7 +34,7 @@ namespace SDL::UI {
 		T min   = std::numeric_limits<T>::lowest();
 		T max   = std::numeric_limits<T>::max();
 		T step  = T(0);
-		std::string format = "{}"; ///< Format string for std::format
+		std::string format = "{}";
 
 		constexpr NumericValue() = default;
 
@@ -53,7 +53,6 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Format a NumericValue as text (integer or fixed-point fallback).
 	template <typename T>
 	std::string FormatNumeric(const NumericValue<T>& v) {
 		if constexpr (std::is_integral_v<T>) {
@@ -63,6 +62,7 @@ namespace SDL::UI {
 			oss << std::fixed << std::setprecision(3) << v.value;
 			return oss.str();
 		}
+		return {};
 	}
 
 	// ── Color conversions (RGB ↔ HSV) ────────────────────────────────────────────
@@ -110,8 +110,6 @@ namespace SDL::UI {
 	// ==================================================================================
 
 	/// @brief Two-stop gradient inlined inside @ref BackgroundStyle.
-	///        Each per-state stop2 colour pairs with the corresponding state colour
-	///        of the parent BackgroundStyle (color = stop1, color2 = stop2).
 	struct BgGradient {
 		SDL::Color color2         = { 40,  40,  60, 255};
 		SDL::Color color2Hovered  = { 60,  62,  90, 255};
@@ -127,15 +125,23 @@ namespace SDL::UI {
 	// Tier 1 — Universal components (every widget gets these via UIFactory::_Spawn)
 	// ==================================================================================
 
+	/// @brief Optional searchable tag — enables path-based lookup ("/tag1/tag2/@id").
+	struct Tag {
+		std::string value;
+	};
+
 	/// @brief Identity, behavior bitmask and live state of a widget.
 	struct Widget {
-		std::string         name     = "";
 		WidgetType          type     = WidgetType::Container;
 		WidgetBehaviorFlag  behavior = WidgetBehaviorFlag::Enable
 		                             | WidgetBehaviorFlag::Visible
 		                             | WidgetBehaviorFlag::DispatchEvent;
 		WidgetStateFlag     states   = WidgetStateFlag::None;
 		DirtyFlag           dirty    = DirtyFlag::All;
+
+		[[nodiscard]] bool Is(WidgetStateFlag f) const noexcept {
+			return Has(states, f);
+		}
 	};
 
 	/// @brief Layout-only properties (size, position, flow, alignment, scroll state).
@@ -195,6 +201,7 @@ namespace SDL::UI {
 		std::function<void(SDL::MouseButton, int)> onMultiClick;
 		std::function<void()>                      onMouseEnter;
 		std::function<void()>                      onMouseLeave;
+		std::function<void(SDL::FPoint)>           onDrag;
 
 		// ── Focus ───────────────────────────────────────────────────────────
 		std::function<void()> onFocusGain;
@@ -208,6 +215,9 @@ namespace SDL::UI {
 		std::function<void(float)>                    onScroll;
 		std::function<void(SDL::FPoint, SDL::FPoint)> onScrollChange;
 
+		// ── Touch ───────────────────────────────────────────────────────────
+		std::function<void(const SDL::TouchFingerEvent&)> onTouchFinger;
+
 		// ── Item-list ───────────────────────────────────────────────────────
 		std::function<void(int, bool)>  onTreeSelect;
 		std::function<void(int, int)>   onItemReorder;
@@ -215,21 +225,9 @@ namespace SDL::UI {
 
 	// ==================================================================================
 	// Tier 2 — Specialized style components
-	//
-	//   Each component carries a SINGLE visual responsibility and is opt-in:
-	//   only entities that actually need it pay the memory cost.
-	//
-	//   - BackgroundStyle  → fill colours per state (+ optional embedded gradient)
-	//   - BorderStyle      → border colours/dimensions/radius per state
-	//   - TextStyle        → text colours / font / alignment
-	//   - SpacingStyle     → margin / padding / gap
-	//   - TransformStyle   → opacity (and future transform fields)
-	//   - AccentStyle      → track / fill / thumb / separator colours
-	//   - SoundStyle       → audio cues (click / hover / scroll / show / hide)
 	// ==================================================================================
 
-	/// @brief Background fill of a widget — six per-state colours and an optional
-	///        gradient that, when present, replaces the solid fill.
+	/// @brief Background fill of a widget.
 	struct BackgroundStyle {
 		SDL::Color color         = { 22,  22,  30, 255};
 		SDL::Color hoveredColor  = { 40,  42,  58, 255};
@@ -241,8 +239,7 @@ namespace SDL::UI {
 		std::optional<BgGradient> gradient = std::nullopt;
 	};
 
-	/// @brief Border drawn around the content box — six per-state colours,
-	///        per-side thickness and per-corner radius.
+	/// @brief Border drawn around the content box.
 	struct BorderStyle {
 		SDL::Color color         = { 55,  58,  78, 255};
 		SDL::Color hoveredColor  = { 90,  95, 130, 255};
@@ -255,8 +252,7 @@ namespace SDL::UI {
 		SDL::FCorners radius     = { 5.f, 5.f, 5.f, 5.f };
 	};
 
-	/// @brief Text colour, font and alignment — only attached to text-bearing widgets
-	///        (Label, Button, Input, TextArea, …).
+	/// @brief Text colour, font and alignment.
 	struct TextStyle {
 		SDL::Color color            = {215, 215, 220, 255};
 		SDL::Color hoveredColor     = {255, 255, 255, 255};
@@ -272,22 +268,19 @@ namespace SDL::UI {
 		TextVAlign  alignV   = TextVAlign::Center;
 	};
 
-	/// @brief Box-model spacing — margin (outside), padding (inside), gap (between
-	///        children of a layout container).
+	/// @brief Box-model spacing — margin (outside), padding (inside), gap (between children).
 	struct SpacingStyle {
 		SDL::FBox margin  = {0.f, 0.f, 0.f, 0.f};
 		SDL::FBox padding = {8.f, 6.f, 8.f, 6.f};
 		float     gap     = 4.f;
 	};
 
-	/// @brief Per-entity rendering transform. Currently opacity only; future
-	///        rotation / scale fields belong here too.
+	/// @brief Per-entity rendering transform (opacity, future rotation/scale).
 	struct TransformStyle {
 		float opacity = 1.f;
 	};
 
-	/// @brief Accent colours used by track/fill/thumb-style widgets
-	///        (Slider, Knob, Progress, ScrollBar, Separator).
+	/// @brief Accent colours used by track/fill/thumb-style widgets.
 	struct AccentStyle {
 		SDL::Color trackColor     = { 42,  44,  58, 255};
 		SDL::Color fillColor      = { 70, 130, 210, 255};
@@ -304,14 +297,14 @@ namespace SDL::UI {
 		std::string hideKey;
 	};
 
-	/// @brief Inline scrollbar visuals — only attached to scrollable hosts.
+	/// @brief Inline scrollbar visuals.
 	struct ScrollbarStyle {
 		float      thickness  = 8.f;
 		SDL::Color trackColor = { 42,  44,  58, 200};
 		SDL::Color thumbColor = {100, 160, 230, 220};
 	};
 
-	/// @brief Tooltip colours — paired with @ref TooltipData on entities that own a tooltip.
+	/// @brief Tooltip colours — paired with @ref TooltipData.
 	struct TooltipStyle {
 		SDL::Color bgColor   = { 30,  32,  44, 245};
 		SDL::Color bdColor   = { 75,  80, 108, 255};
@@ -322,7 +315,7 @@ namespace SDL::UI {
 	// Tier 3 — Reusable add-ons (opt-in feature components)
 	// ==================================================================================
 
-	/// @brief Decorative icon attached to a widget (Button, MenuBar item, …).
+	/// @brief Decorative icon attached to a widget.
 	struct IconData {
 		std::string key;
 		float       pad = 4.f;
@@ -334,19 +327,22 @@ namespace SDL::UI {
 
 		SDL::Color tintNormalColor   = {255, 255, 255, 255};
 		SDL::Color tintHoveredColor  = {255, 255, 255, 255};
-		SDL::Color tintPressedColor = {220, 220, 220, 255};
+		SDL::Color tintPressedColor  = {220, 220, 220, 255};
 		SDL::Color tintDisabledColor = {180, 180, 180, 255};
 	};
 
-	/// @brief Hover-tooltip behaviour. Visual styling lives in @ref TooltipStyle.
+	/// @brief Hover-tooltip behaviour.
+	///        The factory creates a sub-entity (container + label) stored in `entity`.
+	///        Use TooltipMixin builder methods to style the label.
 	struct TooltipData {
-		std::string text;
-		float       delay   = 1.f;
-		bool        visible = true;
+		std::string   text;
+		float         delay         = 1.f;
+		bool          visible       = true;
+		ECS::EntityId entity        = ECS::NullEntity; ///< Tooltip container entity
+		ECS::EntityId labelEntity   = ECS::NullEntity; ///< Label entity inside container
 	};
 
-	/// @brief 9-slice tileset skin — when present, replaces the default
-	///        background/border drawing with sliced tiles from a tileset texture.
+	/// @brief 9-slice tileset skin.
 	struct TilesetData {
 		int   tileW        = 16;
 		int   tileH        = 16;
@@ -373,7 +369,7 @@ namespace SDL::UI {
 		SDL::Text text;
 	};
 
-	// ── TextEdit + TextSelection (shared by Input and TextArea) ──────────────────
+	// ── TextEdit + TextSelection (shared by Input, TextArea and Label) ───────────
 	struct TextEdit {
 		std::string text;
 		std::string placeholder;
@@ -419,6 +415,8 @@ namespace SDL::UI {
 		[[nodiscard]] int  Max()          const noexcept { return std::max(anchor, focus); }
 		[[nodiscard]] bool HasSelection() const noexcept { return anchor != focus; }
 		void Clear() noexcept { anchor = focus = 0; }
+		void Set(int a, int f) noexcept { anchor = a; focus = f; }
+		void Set(int a, int f, int /*cursor*/) noexcept { anchor = a; focus = f; }
 
 		[[nodiscard]] std::string GetSelected(const std::string& src) const {
 			if (!HasSelection()) return {};
@@ -437,14 +435,20 @@ namespace SDL::UI {
 		}
 	};
 
+	/// @brief Per-span rich text style — used by Label, TextArea, Input.
+	///        Fields left at default (color={0,0,0,0}, fontSize=0, fontKey="") inherit
+	///        from the widget's TextStyle.
 	struct TextSpanStyle {
 		bool       bold          = false;
 		bool       italic        = false;
 		bool       underline     = false;
 		bool       strikethrough = false;
 		bool       highlight     = false;
+		bool       reversed      = false;      ///< Invert text/background colours
 		SDL::Color color          = {0, 0, 0, 0};
 		SDL::Color highlightColor = {255, 255, 100, 80};
+		std::string fontKey;                   ///< Override font key (empty = inherit)
+		float       fontSize = 0.f;            ///< Override font size (0 = inherit)
 	};
 
 	struct TextSpans {
@@ -502,7 +506,6 @@ namespace SDL::UI {
 		SDL::Color lineColor     = {55, 60, 88, 160};
 		float      lineThickness = 1.f;
 
-		// Computed each frame by the layout pass.
 		std::vector<float> colWidths;
 		std::vector<float> rowHeights;
 	};
@@ -560,7 +563,6 @@ namespace SDL::UI {
 		std::string group;
 		bool        checked = false;
 	};
-	using RadioData = RadioData;
 
 	// ── SeparatorData ─────────────────────────────────────────────────────────────
 	struct SeparatorData {
@@ -602,8 +604,13 @@ namespace SDL::UI {
 		ECS::EntityId incrementButton = ECS::NullEntity;
 		ECS::EntityId decrementButton = ECS::NullEntity;
 
-		bool   pressUp   = false;
-		bool   pressDown = false;
+		bool   pressUp      = false;
+		bool   pressDown    = false;
+		bool   passwordMode = false;
+
+		std::function<bool(char)> customFilter; ///< For InputFilterType::Custom, return true to allow character
+		std::function<void()> onIncrement;        ///< Called when increment button is pressed
+		std::function<void()> onDecrement;        ///< Called when decrement button is pressed
 	};
 
 	// ── ImageData ─────────────────────────────────────────────────────────────────
@@ -620,6 +627,7 @@ namespace SDL::UI {
 	};
 
 	// ── ListBoxData ───────────────────────────────────────────────────────────────
+	/// @brief Dynamic list of selectable items rendered as child button entities.
 	struct ListBoxData {
 		bool reorderable = false;
 
@@ -629,6 +637,9 @@ namespace SDL::UI {
 		float dragY      = 0.f;
 		float dragStartY = 0.f;
 		bool  dragMoved  = false;
+
+		ECS::EntityId              scrollView   = ECS::NullEntity; ///< Scroll container child
+		std::vector<ECS::EntityId> itemButtons;                     ///< Per-item button entities
 	};
 
 	// ── TextAreaData ──────────────────────────────────────────────────────────────
@@ -658,33 +669,47 @@ namespace SDL::UI {
 	};
 
 	// ── ComboBoxData ──────────────────────────────────────────────────────────────
+	/// @brief ComboBox composed of a toggle button + scrollable overlay container.
+	///        Sub-entities are created by UIFactory::MakeComboBox.
 	struct ComboBoxData {
 		bool  open         = false;
 		float scrollOffset = 0.f;
 		FRect dropRect     = {};
+
+		ECS::EntityId toggleButton = ECS::NullEntity; ///< Button showing current selection
+		ECS::EntityId overlay      = ECS::NullEntity; ///< Popup overlay container (Fixed)
 	};
 
 	// ── TabViewData ───────────────────────────────────────────────────────────────
+	/// @brief TabView composed of a tab-bar row (button per tab) + content area.
+	///        Sub-entities are created by UIFactory::MakeTabView.
 	struct TabViewData {
 		struct Tab {
-			std::string label;
-			bool        closable = false;
+			std::string   label;
+			bool          closable    = false;
+			ECS::EntityId tabButton   = ECS::NullEntity; ///< Button in the tab bar
+			ECS::EntityId tabContent  = ECS::NullEntity; ///< Content container for this tab
 		};
 		std::vector<Tab> tabs;
 		int   activeTab  = 0;
 		float tabHeight  = 32.f;
-		bool  tabsBottom = false;
-		std::vector<float> tabWidths;
 		TabLocation tabLocation = TabLocation::Top;
 		std::function<void(int)> onTabChange;
+
+		ECS::EntityId tabBar      = ECS::NullEntity; ///< Row container holding tab buttons
+		ECS::EntityId contentArea = ECS::NullEntity; ///< Container showing active tab content
 	};
 
 	// ── ExpanderData ──────────────────────────────────────────────────────────────
+	/// @brief Expander composed of a header button + collapsible content container.
+	///        Sub-entities are created by UIFactory::MakeExpander.
 	struct ExpanderData {
-		std::string label;
-		bool        expanded = true;
-		float       animT    = 1.f;
-		float       headerH  = 28.f;
+		bool  expanded = true;
+		float animT    = 1.f;
+		float headerH  = 28.f;
+
+		ECS::EntityId headerButton  = ECS::NullEntity; ///< Toggle button (shows label + arrow)
+		ECS::EntityId contentEntity = ECS::NullEntity; ///< Collapsible content container
 	};
 
 	// ── SplitterData ──────────────────────────────────────────────────────────────
@@ -748,7 +773,7 @@ namespace SDL::UI {
 		bool  draggable = true;
 		bool  resizable = false;
 		bool  modal     = false;
-		bool  open      = true;
+		bool  open      = false;
 		float headerH   = 28.f;
 
 		bool        dragging   = false;
@@ -777,14 +802,18 @@ namespace SDL::UI {
 		bool expanded    = false;
 	};
 
+	/// @brief Tree composed of a scroll container with per-node row entities.
+	///        Node rows are re-built by the system when nodes are added/cleared.
 	struct TreeData {
 		std::vector<TreeNodeData> nodes;
 		int   selectedIndex = -1;
 		float itemHeight    = 22.f;
 		float indentSize    = 16.f;
 		float iconSize      = 14.f;
-		float scrollY       = 0.f;
 		std::function<void(int, bool)> onToggleNode;
+
+		ECS::EntityId              scrollView = ECS::NullEntity; ///< Scroll container child
+		std::vector<ECS::EntityId> nodeRows;                     ///< Per-node button entities
 	};
 
 	// ── MenuBar ───────────────────────────────────────────────────────────────────
@@ -808,19 +837,19 @@ namespace SDL::UI {
 		bool enabled = true;
 	};
 
+	/// @brief MenuBar composed of a menu-title button row + popup overlay per menu.
+	///        Sub-entities are created/updated by UIFactory methods.
 	struct MenuBarData {
 		std::vector<MenuBarMenu> menus;
-		std::vector<std::string> items;
 		int openMenu = -1;
 		int hovMenu  = -1;
 		int hovItem  = -1;
-
-		struct MenuBtnRect { float x = 0.f, w = 0.f; };
-		std::vector<MenuBtnRect> menuBtnRects;
-		FRect dropRect = {};
-		std::vector<FRect> itemRects;
-
 		std::function<void(int)> onItemSelect;
+
+		ECS::EntityId              menuRow         = ECS::NullEntity; ///< Row of menu-title buttons
+		std::vector<ECS::EntityId> menuButtons;                        ///< Per-menu title buttons
+		ECS::EntityId              overlay         = ECS::NullEntity; ///< Dropdown overlay (Fixed)
+		std::vector<ECS::EntityId> overlayItems;                       ///< Per-item buttons in overlay
 	};
 
 } // namespace SDL::UI

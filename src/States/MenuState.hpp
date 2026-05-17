@@ -76,7 +76,7 @@ private:
 		m_ui->SetDefaultFont("DejaVuSans", 16.f);
 
 		// ── Background canvas ─────────────────────────────────────────────────────
-		auto background = m_ui->CanvasWidget("background", nullptr, nullptr,
+		auto background = m_ui->Canvas("background", nullptr, nullptr,
 			[this, kAcc](SDL::RendererRef r, SDL::FRect rect) {
 				_DrawBackground(r, rect, kAcc);
 			})

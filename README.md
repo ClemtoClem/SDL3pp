@@ -254,8 +254,8 @@ All widgets are ECS entities driven through a Measure → Place → Clip → Inp
 | `ScrollBar` | `ui.ScrollBar(name, contentSize, viewSize)` | Standalone scrollbar (H or V). `OnScroll(float)` callback returns normalised offset. |
 | `Progress` | `ui.Progress(name, value, max)` | Read-only progress bar (H or V). Value set programmatically via `ui.SetValue()`. |
 | `Separator` | `ui.Separator(name)` | Non-interactive 1 px divider line (H or V depending on parent layout). |
-| `Image` | `ui.ImageWidget(name, textureKey, fit)` | Displays a texture from the resource pool. Fit modes: `Contain`, `Cover`, `Fill`, `Tile`, `None`. |
-| `Canvas` | `ui.CanvasWidget(name, onEvent, onUpdate, onRender)` | Custom draw area. The render callback receives the `RendererRef` and the widget's screen `FRect`. |
+| `Image` | `ui.Image(name, textureKey, fit)` | Displays a texture from the resource pool. Fit modes: `Contain`, `Cover`, `Fill`, `Tile`, `None`. |
+| `Canvas` | `ui.Canvas(name, onEvent, onUpdate, onRender)` | Custom draw area. The render callback receives the `RendererRef` and the widget's screen `FRect`. |
 | `TextArea` | `ui.TextArea(name, text)` | Multi-line rich text editor: cursor, selection, copy/paste, drag-to-select, vertical scroll. Supports styled spans (`AddTextAreaSpan`) with bold, italic and per-character colour. Can be set read-only. `OnTextChange` callback. |
 | `ListBox` | `ui.ListBoxWidget(name, items)` | Scrollable list of text items; keyboard navigation (↑↓, Home, End). `OnClick` callback; `ui.GetListBoxSelection()` returns current index. |
 | `Graph` | `ui.GradedGraph(name)` | Data plot with graduated X/Y axes, optional grid, fill area, bar or line mode, log-frequency axis. |
@@ -654,8 +654,8 @@ Chaque widget est une entité ECS pilotée par le pipeline Mesure → Placement 
 | `ScrollBar` | `ui.ScrollBar(nom, tailleContenu, tailleVue)` | Barre de défilement autonome (H ou V). Callback `OnScroll(float)` retournant le décalage normalisé. |
 | `Progress` | `ui.Progress(nom, valeur, max)` | Barre de progression en lecture seule (H ou V). Valeur définie par `ui.SetValue()`. |
 | `Separator` | `ui.Separator(nom)` | Ligne de séparation non interactive de 1 px (H ou V selon le layout parent). |
-| `Image` | `ui.ImageWidget(nom, clé, fit)` | Affiche une texture issue du pool de ressources. Modes de fit : `Contain`, `Cover`, `Fill`, `Tile`, `None`. |
-| `Canvas` | `ui.CanvasWidget(nom, onEvent, onUpdate, onRender)` | Zone de dessin personnalisée. Le callback de rendu reçoit le `RendererRef` et le `FRect` écran du widget. |
+| `Image` | `ui.Image(nom, clé, fit)` | Affiche une texture issue du pool de ressources. Modes de fit : `Contain`, `Cover`, `Fill`, `Tile`, `None`. |
+| `Canvas` | `ui.Canvas(nom, onEvent, onUpdate, onRender)` | Zone de dessin personnalisée. Le callback de rendu reçoit le `RendererRef` et le `FRect` écran du widget. |
 | `TextArea` | `ui.TextArea(nom, texte)` | Éditeur de texte riche multi-lignes : curseur, sélection, copier/coller, glisser pour sélectionner, défilement vertical. Supporte les spans stylisés (`AddTextAreaSpan`) avec gras, italique et couleur par caractère. Peut être mis en lecture seule. Callback `OnTextChange`. |
 | `ListBox` | `ui.ListBoxWidget(nom, items)` | Liste défilante d'éléments texte ; navigation clavier (↑↓, Début, Fin). Callback `OnClick` ; `ui.GetListBoxSelection()` retourne l'index courant. |
 | `Graph` | `ui.GradedGraph(nom)` | Tracé de données avec axes X/Y gradués, grille optionnelle, zone de remplissage, mode lignes ou barres, axe à fréquence logarithmique. |

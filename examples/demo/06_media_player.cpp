@@ -124,15 +124,16 @@ static std::string PlaylistEntryLabel(const PlaylistEntry& e, int idx) {
 	return std::format("{:3d}. {}", idx + 1, name);
 }
 
+static const std::array<std::string, 18> kMediaExtensions {{
+	".mp4", ".mkv", ".avi", ".webm", ".mov", ".flv", ".m4v", ".wmv",
+	".mp3", ".flac", ".ogg", ".wav", ".aac", ".m4a", ".opus",
+	".ts",  ".mpg", ".mpeg"
+}};
+
 static bool IsMediaFile(const std::string& path) {
-	static const std::array<std::string, 18> exts {{
-		".mp4", ".mkv", ".avi", ".webm", ".mov", ".flv", ".m4v", ".wmv",
-		".mp3", ".flac", ".ogg", ".wav", ".aac", ".m4a", ".opus",
-		".ts",  ".mpg", ".mpeg"
-	}};
 	std::string lo = path;
 	for (char& c : lo) c = (char)std::tolower((unsigned char)c);
-	for (const auto& e : exts)
+	for (const auto& e : kMediaExtensions)
 		if (lo.size() >= e.size() && lo.substr(lo.size() - e.size()) == e)
 			return true;
 	return false;
@@ -317,7 +318,7 @@ struct Main {
 
 		// Double clic sur la vidéo = mode plein écran immersif
 		if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN) {
-			if (ev.button.button == SDL_BUTTON_LEFT && ev.button.clicks >= 2) {
+			if (ev.button.button == SDL::BUTTON_LEFT && ev.button.clicks >= 2) {
 				if (ui.IsHovered(eMediaCanvas)) {
 					_ToggleFullscreen();
 					return SDL::APP_CONTINUE;
@@ -572,7 +573,7 @@ private:
 		// ── Media canvas ──────────────────────────────────────────────────────
 
 		eMediaCanvas =
-			ui.CanvasWidget("videoCanvas", nullptr, nullptr,
+			ui.Canvas("videoCanvas", nullptr, nullptr,
 				[this](SDL::RendererRef r, SDL::FRect rect) {
 					_DrawMediaCanvas(r, rect);
 				})
@@ -865,11 +866,18 @@ private:
 	// ─────────────────────────────────────────────────────────────────────────
 
 	void _ShowOpenDialog() {
+
+		std::vector<SDL::DialogFileFilter> filter;
+		for (const auto& ext : kMediaExtensions) {
+			filter.push_back(SDL::DialogFileFilter{ext.c_str(), ext.c_str()});
+		}
+		filter.push_back({"All Files", "*"});
+
 		SDL::ShowOpenFileDialog(
 			[](void* ud, const char* const* files, int) {
 				if (!files || !files[0]) return;
 				static_cast<Main*>(ud)->pendingOpenPath = files[0];
-			}, this, window);
+			}, this, window, filter, SDL::GetUserFolder(SDL::FOLDER_VIDEOS), true);
 	}
 
 	void _OpenFile(const std::string& path) {
@@ -1296,7 +1304,7 @@ private:
 		// ── Preview ───────────────────────────────────────────────────────────
 
 		eSubPreview =
-			ui.CanvasWidget("subPreview", nullptr, nullptr,
+			ui.Canvas("subPreview", nullptr, nullptr,
 				[this](SDL::RendererRef r, SDL::FRect rect) {
 					r.SetDrawColor({10, 12, 20, 255});
 					r.RenderFillRect(rect);

@@ -31,7 +31,7 @@ public:
 		m_ui->SetDefaultFont("DejaVuSans", 16.f);
 
 		// Full-screen canvas — drives all drawing
-		m_ui->CanvasWidget("canvas", nullptr, nullptr,
+		m_ui->Canvas("canvas", nullptr, nullptr,
 			[this](SDL::RendererRef r, SDL::FRect rect){ _Draw(r, rect); })
 			.W(SDL::UI::Value::Ww(100.f))
 			.H(SDL::UI::Value::Wh(100.f))

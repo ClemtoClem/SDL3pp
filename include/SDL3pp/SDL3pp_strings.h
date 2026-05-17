@@ -125,6 +125,8 @@ public:
 	 * unless the objects it was constructed from are corrupted.
 	 */
 	operator const char*() const { return c_str(); }
+
+
 };
 
 #else // SDL3PP_ENABLE_STRING_PARAM

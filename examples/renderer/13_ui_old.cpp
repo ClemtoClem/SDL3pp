@@ -1,5 +1,5 @@
 /**
- * @file 13_ui.cpp
+ * @file 13_ui_old.cpp
  * @brief SDL3pp UI system — complete widget showcase (all widget types).
  *
  * Tabs:
@@ -69,7 +69,7 @@ struct Main {
 			else if (arg == "--info")    priority = SDL::LOG_PRIORITY_INFO;
 		}
 		SDL::SetLogPriorities(priority);
-		SDL::SetAppMetadata("SDL3pp UI Showcase", "2.0", "com.example.ui");
+		SDL::SetAppMetadata("SDL3pp UI", "1.0", "com.example.ui_old");
 		SDL::Init(SDL::INIT_VIDEO);
 		SDL::TTF::Init();
 		SDL::MIX::Init();
@@ -85,11 +85,10 @@ struct Main {
 	static SDL::Window InitWindow() {
 		return SDL::CreateWindowAndRenderer(
 			"SDL3pp - UI Showcase (all widgets)", kWinSz,
-			SDL_WINDOW_RESIZABLE, nullptr);
+			SDL::WINDOW_RESIZABLE, nullptr);
 	}
 
 	// ── Resources & core objects ──────────────────────────────────────────────────
-
 	SDL::MixerRef mixer{ SDL::CreateMixerDevice(
 		SDL::AUDIO_DEVICE_DEFAULT_PLAYBACK,
 		SDL::AudioSpec{.format=SDL::AUDIO_F32, .channels=2, .freq=48000}) };
@@ -104,13 +103,11 @@ struct Main {
 	SDL::UI::System  ui{ ecs_context, renderer, mixer, uiPool };
 
 	// ── Tabs ──────────────────────────────────────────────────────────────────────
-
 	std::array<SDL::ECS::EntityId, kPageCount> pages   {};
 	std::array<SDL::ECS::EntityId, kPageCount> tabBtns {};
 	int currentPage = 6;
 
 	// ── Live-updated labels ───────────────────────────────────────────────────────
-
 	SDL::ECS::EntityId progAnimated = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId lblProgress  = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId lblEcho      = SDL::ECS::NullEntity;
@@ -130,7 +127,6 @@ struct Main {
 	SDL::ECS::EntityId scrollContent= SDL::ECS::NullEntity;
 
 	// ── Text & Lists page ─────────────────────────────────────────────────────────
-
 	SDL::ECS::EntityId lblTaLen     = SDL::ECS::NullEntity; // TextArea char count
 	SDL::ECS::EntityId lblListSel   = SDL::ECS::NullEntity; // ListBox selection echo
 	SDL::ECS::EntityId graphLine    = SDL::ECS::NullEntity; // animated line graph
@@ -727,7 +723,7 @@ struct Main {
 		auto mkImg = [&](const char* id, const char* lbl, SDL::UI::ImageFit fit, const char* tip){
 			auto col = ui.Column(std::string(id) + "_c", 4.f, 0.f);
 			col.Children(
-				ui.ImageWidget(id, key::CRATE, fit).W(90).H(90)
+				ui.Image(id, key::CRATE, fit).W(90).H(90)
 					.WithStyle([](auto& s){ s.radius = SDL::FCorners(4.f); })
 					.Tooltip(tip),
 				ui.Label(std::string(id) + "_l", lbl).TextColor(pal::GREY)
@@ -746,7 +742,7 @@ struct Main {
 		// ── Canvas ────────────────────────────────────────────────────────────────
 		auto cardCvs = ui.Card("card_cvs");
 		cardCvs.Child(ui.SectionTitle("Canvas widget (custom SDL rendering)"));
-		auto canvas = ui.CanvasWidget("canvas", nullptr, nullptr,
+		auto canvas = ui.Canvas("canvas", nullptr, nullptr,
 			[this](SDL::RendererRef r, SDL::FRect rect) {
 				// Background + checkerboard
 				r.SetDrawColor({30,34,52,255});

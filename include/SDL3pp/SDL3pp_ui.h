@@ -199,8 +199,8 @@
  *     ui.ScrollBar("sb",300.f,100.f).OnScroll([](float v){}),
  *     ui.Radio("r1","grp","Option A"),
  *     ui.Radio("r2","grp","Option B"),
- *     ui.ImageWidget("bgColor","assets/bgColor.png",SDL::ImageFit::Cover).H(200),
- *     ui.CanvasWidget("game",[](SDL::RendererRef r, SDL::FRect rect){
+ *     ui.Image("bgColor","assets/bgColor.png",SDL::ImageFit::Cover).H(200),
+ *     ui.Canvas("game",[](SDL::RendererRef r, SDL::FRect rect){
  *         r.SetDrawColor({255,0,0,255});
  *         r.RenderFillRect(rect);
  *     })

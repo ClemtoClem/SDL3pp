@@ -1055,6 +1055,18 @@ namespace UI {
 			sys.SetListBoxOnReorder(id, std::move(cb));
 			return *this;
 		}
+		/** @brief Set per-item style overrides for a ListBox widget.
+		 *  Each ListBoxItemStyle can override textColor and/or bgColor for that row.
+		 *  Fields with alpha == 0 fall back to the widget-level Style. */
+		Builder &ItemStyles(std::vector<ListBoxItemStyle> styles) {
+			sys.SetListBoxItemStyles(id, std::move(styles));
+			return *this;
+		}
+		/** @brief Set the style override for a single ListBox item. */
+		Builder &ItemStyle(int idx, const ListBoxItemStyle& st) {
+			sys.SetListBoxItemStyle(id, idx, st);
+			return *this;
+		}
 		/** @brief Register a callback invoked when the mouse cursor enters the widget. */
 		Builder &OnHoverEnter(std::function<void()> cb) {
 			sys.OnHoverEnter(id, std::move(cb));
@@ -1176,8 +1188,8 @@ namespace UI {
 	inline Builder System::Knob(std::string_view n, T minValue, T maxValue, T value, T step, KnobShape shape) {
 		return {*this, MakeKnob<T>(n, minValue, maxValue, value, step, shape)};
 	}
-	inline Builder System::ImageWidget(std::string_view n, const std::string &p, ImageFit f) { return {*this, MakeImage(n, p, f)}; }
-	inline Builder System::CanvasWidget(std::string_view n,
+	inline Builder System::Image(std::string_view n, const std::string &p, ImageFit f) { return {*this, MakeImage(n, p, f)}; }
+	inline Builder System::Canvas(std::string_view n,
 		std::function<void(SDL::Event&)> cb_event, 
 		std::function<void(float)> cb_update,
 		std::function<void(RendererRef, FRect)> cb_render) { return {*this, MakeCanvas(n, std::move(cb_event), std::move(cb_update), std::move(cb_render))}; }

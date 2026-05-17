@@ -795,7 +795,7 @@ private:
             .AttachTo(titleRow);
 
         // Canvas grille
-        wInvCanvas = ui.CanvasWidget("inv_canvas",
+        wInvCanvas = ui.Canvas("inv_canvas",
             nullptr,  // event
             nullptr,  // update
             [this](SDL::RendererRef r, SDL::FRect rect) {

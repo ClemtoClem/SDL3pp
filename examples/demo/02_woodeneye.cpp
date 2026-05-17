@@ -1933,7 +1933,7 @@ struct Main
 	SDL::ECS::EntityId _BuildHudPage()
 	{
 		// Full-window transparent Canvas that draws the 2D HUD on top of the 3D scene
-		auto canvas = ui.CanvasWidget("hud_canvas", nullptr, nullptr,
+		auto canvas = ui.Canvas("hud_canvas", nullptr, nullptr,
 									  [this](SDL::RendererRef /*r*/, SDL::FRect rect)
 									  {
 										  _DrawHUD(rect);

@@ -484,9 +484,17 @@ namespace UI {
 	// ListBoxData — ECS component for the ListBox widget
 	// ==================================================================================
 
+	/// @brief Per-item style override for a ListBox row.
+	/// Fields with alpha == 0 are ignored (the widget-level Style is used instead).
+	struct ListBoxItemStyle {
+		SDL::Color textColor = {0, 0, 0, 0}; ///< Override text color (alpha=0 → use Style default).
+		SDL::Color bgColor   = {0, 0, 0, 0}; ///< Override background color (alpha=0 → transparent).
+	};
+
 	/// @brief Scrollable list of selectable text items.
 	struct ListBoxData {
-		std::vector<std::string> items;      ///< All items in the list.
+		std::vector<std::string>        items;       ///< All items in the list.
+		std::vector<ListBoxItemStyle>   itemStyles;  ///< Optional per-item style overrides (may be shorter than items).
 		int   selectedIndex = -1;            ///< Currently selected item (-1 = none).
 		float itemHeight    = 22.f;          ///< Pixel height of each row.
 		bool  reorderable   = false;         ///< Enable drag-to-reorder items.

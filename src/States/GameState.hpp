@@ -302,7 +302,7 @@ private:
 			.Children(hpGrp, m_lblPoints, m_lblMapName);
 
 		// ── Game canvas (grows to fill remaining space) ───────────────────────
-		auto canvas = m_ui->CanvasWidget("game", nullptr, nullptr,
+		auto canvas = m_ui->Canvas("game", nullptr, nullptr,
 			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderGame(r, rect); })
 			.Grow(100.f);
 

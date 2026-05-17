@@ -48,13 +48,15 @@ namespace pal {
     constexpr SDL::Color WIRE_TMP = { 255, 220,  60, 180 };
 }
 
-enum class BlockType  { AudioIn, AudioOut, Filter, Amp, Mixer, Scope, Spectrum, Osc, Delay, Playlist };
-enum class FilterMode { LowPass, HighPass, BandStop };
-enum class MixMode    { Add, Multiply, Average };
-enum class PortDir    { In, Out };
-enum class OscShape   { Sine = 0, Square, Triangle, Sawtooth, Noise };
+enum class BlockType   { AudioIn, AudioOut, Filter, Amp, Mixer, Scope, Spectrum, Osc, Delay, Playlist };
+enum class FilterMode  { LowPass, HighPass, BandStop };
+enum class MixMode     { Add, Multiply, Average };
+enum class PortDir     { In, Out };
+enum class OscShape    { Sine = 0, Square, Triangle, Sawtooth, Noise };
+enum class TriggerMode { Free = 0, Rising, Falling };
 
-static constexpr const char* kOscShapeLabel[] = {"Sin","Sqr","Tri","Saw","Nse"};
+static constexpr const char* kOscShapeLabel[]  = {"Sin","Sqr","Tri","Saw","Nse"};
+static constexpr const char* kTrigModeLabel[]  = {"Free","Rise\xe2\x86\x91","Fall\xe2\x86\x93"};
 
 static constexpr int kSampleRates[] = {8000, 16000, 22050, 44100, 48000};
 static constexpr int kBufferSizes[] = {256, 512, 1024, 2048, 4096};
@@ -92,11 +94,30 @@ static MBI MI(std::string label, std::string shortcut = {}, const char *icon = n
 static MBI MSep() { return MBI::Sep(); }
 
 static bool LoadAudioToFloatMono(const std::string& path, int targetSampleRate, std::vector<float>& outSamples) {
-    SDL_AudioSpec spec;
+    outSamples.clear();
+    // Primary: SDL_mixer AudioDecoder handles WAV, OGG, FLAC, MP3.
+    try {
+        SDL::AudioSpec dstSpec{};
+        dstSpec.format   = SDL::AUDIO_F32;
+        dstSpec.channels = 1;
+        dstSpec.freq     = targetSampleRate;
+        SDL::AudioDecoder decoder(path);
+        constexpr size_t CHUNK       = 8192;
+        constexpr size_t kMaxSamples = 44100 * 600; // 10-minute cap
+        std::vector<float> tmp(CHUNK);
+        while (outSamples.size() < kMaxSamples) {
+            int got = decoder.DecodeAudio(std::span<float>{tmp.data(), CHUNK}, dstSpec);
+            if (got <= 0) break;
+            size_t n = (size_t)(got / (int)sizeof(float));
+            outSamples.insert(outSamples.end(), tmp.data(), tmp.data() + n);
+        }
+        if (!outSamples.empty()) return true;
+    } catch (...) {}
+    // Fallback: SDL_LoadWAV for plain WAV.
+    SDL_AudioSpec spec{};
     Uint8* buf = nullptr;
     Uint32 len = 0;
     if (!SDL_LoadWAV(path.c_str(), &spec, &buf, &len)) return false;
-
     SDL_AudioSpec targetSpec = { SDL_AUDIO_F32, 1, targetSampleRate };
     SDL_AudioStream* stream = SDL_CreateAudioStream(&spec, &targetSpec);
     if (stream) {
@@ -108,7 +129,7 @@ static bool LoadAudioToFloatMono(const std::string& path, int targetSampleRate, 
         SDL_DestroyAudioStream(stream);
     }
     SDL_free(buf);
-    return true;
+    return !outSamples.empty();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -187,14 +208,31 @@ struct SpectrumState {
 };
 
 struct ScopeState {
+    // Display frame
     std::vector<float> displayData;
+
+    // Trigger config (written from main thread, read from audio thread)
+    TriggerMode trigMode  = TriggerMode::Free;
+    float       trigLevel = 0.f;
+    float       vScale    = 1.f;   // vertical gain (1 = ±1.0 fills screen)
+
+    // Internal trigger state (audio thread only)
+    bool  trigArmed    = true;
+    float prevSample   = 0.f;
+    bool  collecting   = false;
+    int   collectCount = 0;
+    std::vector<float> collectBuf;
+
+    // UI entities
+    SDL::ECS::EntityId lblTrigLevel;
+    SDL::ECS::EntityId lblVScale;
 };
 
 struct OscState {
-    OscShape shape = OscShape::Sine;
-    float freq = 440.f;
-    float amp = 0.5f;
-    float phase = 0.f;
+    OscShape  shape = OscShape::Sine;
+    float     freq  = 440.f;
+    float     amp   = 0.5f;
+    uint64_t  playbackNs = 0; // nanoseconds of audio committed to AudioOut
     SDL::ECS::EntityId lblFreq, lblAmp;
 };
 
@@ -226,7 +264,7 @@ struct Connection {
 // Application Principale
 // ─────────────────────────────────────────────────────────────────────────────
 struct Main {
-    SDL::Window      window { SDL::CreateWindowAndRenderer("SDL3pp – Audio Patchbay ECS (Multithreaded)", {1400, 800}, SDL_WINDOW_RESIZABLE, nullptr) };
+    SDL::Window      window { SDL::CreateWindowAndRenderer("SDL3pp -  Audio Patchbay ECS (Multithreaded)", {1400, 800}, SDL_WINDOW_RESIZABLE, nullptr) };
     SDL::RendererRef renderer{ window.GetRenderer() };
 
     SDL::ResourceManager rm;
@@ -254,9 +292,17 @@ struct Main {
     std::mutex m_audioMutex;
     std::condition_variable m_audioCv;
 
-    static SDL::AppResult Init(Main** out, SDL::AppArgs) {
+    static SDL::AppResult Init(Main** out, SDL::AppArgs args) {
+        SDL::SetLogPriorities(SDL::LOG_PRIORITY_WARN);
+		for (auto arg : args) {
+			if (arg == "--verbose") SDL::SetLogPriorities(SDL::LOG_PRIORITY_VERBOSE);
+			if (arg == "--debug")   SDL::SetLogPriorities(SDL::LOG_PRIORITY_DEBUG);
+		}
+		SDL::SetAppMetadata("SDL3pp audio patchbay", "1.0",
+							"com.example.audio_patchbay");
         SDL::Init(SDL::INIT_VIDEO | SDL::INIT_AUDIO);
         SDL::TTF::Init();
+        SDL::MIX::Init();
         *out = new Main();
         return SDL::APP_CONTINUE;
     }
@@ -265,11 +311,13 @@ struct Main {
         m->m_audioCv.notify_all();
         if (m->m_audioThread.joinable()) m->m_audioThread.join();
         delete m;
+        SDL::MIX::Quit();
         SDL::TTF::Quit();
         SDL::Quit();
     }
 
     Main() {
+		window.StartTextInput();
         timer.Begin();
         ui.LoadFont("font", "assets/fonts/DejaVuSans.ttf");
         ui.SetDefaultFont("font", 12.f);
@@ -445,7 +493,7 @@ struct Main {
             case BlockType::Filter:   title="Filter"; sz={210, 220}; color=pal::ORANGE; numIn=1; numOut=1; break;
             case BlockType::Amp:      title="Amplifier"; sz={175, 95}; color=pal::GREEN; numIn=1; numOut=1; break;
             case BlockType::Mixer:    title="Mixer"; sz={180, 160}; color=pal::TEAL; numIn=3; numOut=1; break;
-            case BlockType::Scope:    title="Scope"; sz={260, 210}; color=pal::GREEN; numIn=1; numOut=0; break;
+            case BlockType::Scope:    title="Scope"; sz={260, 290}; color=pal::GREEN; numIn=1; numOut=0; break;
             case BlockType::Spectrum: title="Spectrum"; sz={320, 300}; color=pal::ACCENT; numIn=1; numOut=0; break;
             case BlockType::Osc:      title="Oscillator"; sz={220, 270}; color=pal::RED; numIn=0; numOut=1; break;
             case BlockType::Delay:    title="Delay"; sz={200, 120}; color=pal::PURPLE; numIn=1; numOut=1; break;
@@ -589,26 +637,129 @@ struct Main {
                 break;
             }
             case BlockType::Scope: {
-                ecs.Add<ScopeState>(eId, {});
-                auto cv = ui.CanvasWidget("cvs_" + bid, nullptr, nullptr, [this, eId](SDL::RendererRef r, SDL::FRect rect) {
-                    r.SetDrawColor({20, 24, 36, 255}); r.RenderFillRect(rect);
+                ScopeState st;
+
+                // ── Canvas ──────────────────────────────────────────────────
+                auto cv = ui.Canvas("cvs_" + bid, nullptr, nullptr,
+                [this, eId](SDL::RendererRef r, SDL::FRect rect) {
+                    constexpr int kCols = 10, kRows = 8;
+                    const float cx = rect.x, cy = rect.y, cw = rect.w, ch = rect.h;
+                    const float midY = cy + ch * 0.5f, midX = cx + cw * 0.5f;
+
+                    // Background
+                    r.SetDrawColor({10, 13, 22, 255}); r.RenderFillRect(rect);
+
+                    // Grid
+                    for (int i = 0; i <= kCols; ++i) {
+                        float x = cx + cw * (float)i / kCols;
+                        bool center = (i == kCols / 2);
+                        r.SetDrawColor(center ? SDL::Color{40,50,75,255} : SDL::Color{20,24,38,255});
+                        r.RenderLine({x, cy}, {x, cy + ch});
+                        // Sub-ticks on center horizontal
+                        r.SetDrawColor({30, 36, 55, 255});
+                        for (int j = 1; j < 5; ++j) {
+                            float sx = cx + cw * ((float)(i * 5 + j) / (kCols * 5));
+                            r.RenderLine({sx, midY - 2.f}, {sx, midY + 2.f});
+                        }
+                    }
+                    for (int i = 0; i <= kRows; ++i) {
+                        float y = cy + ch * (float)i / kRows;
+                        bool center = (i == kRows / 2);
+                        r.SetDrawColor(center ? SDL::Color{40,50,75,255} : SDL::Color{20,24,38,255});
+                        r.RenderLine({cx, y}, {cx + cw, y});
+                        // Sub-ticks on center vertical
+                        r.SetDrawColor({30, 36, 55, 255});
+                        for (int j = 1; j < 5; ++j) {
+                            float sy = cy + ch * ((float)(i * 5 + j) / (kRows * 5));
+                            r.RenderLine({midX - 2.f, sy}, {midX + 2.f, sy});
+                        }
+                    }
+
                     std::lock_guard<std::mutex> lk(m_audioMutex);
-                    if (auto* st = ecs.Get<ScopeState>(eId)) {
-                        if (st->displayData.empty()) return;
-                        float midY = rect.y + rect.h * 0.5f;
-                        r.SetDrawColor({40, 44, 60, 255}); r.RenderLine({rect.x, midY}, {rect.x + rect.w, midY});
+                    auto* st = ecs.Get<ScopeState>(eId);
+                    if (!st) return;
+
+                    // Trigger level line (dashed orange)
+                    if (st->trigMode != TriggerMode::Free) {
+                        float ty = SDL::Clamp(midY - st->trigLevel * st->vScale * ch * 0.5f, cy, cy + ch);
+                        r.SetDrawColor({230, 145, 30, 200});
+                        for (float x = cx; x < cx + cw - 1.f; x += 8.f)
+                            r.RenderLine({x, ty}, {SDL::Min(x + 5.f, cx + cw - 1.f), ty});
+                        // Edge marker (arrow-like)
+                        r.SetDrawColor({230, 145, 30, 255});
+                        float dir = (st->trigMode == TriggerMode::Rising) ? -4.f : 4.f;
+                        r.RenderLine({cx,      ty},       {cx + 6.f, ty});
+                        r.RenderLine({cx + 6.f, ty},      {cx + 6.f, ty + dir});
+                        r.RenderLine({cx + 6.f, ty + dir},{cx + 12.f, ty + dir});
+                    }
+
+                    // Waveform
+                    if (!st->displayData.empty()) {
                         r.SetDrawColor(pal::GREEN);
                         int n = (int)st->displayData.size();
-                        float px = rect.x, py = midY - st->displayData[0] * (rect.h * 0.45f);
+                        float half = ch * 0.48f;
+                        float px = cx;
+                        float py = SDL::Clamp(midY - st->displayData[0] * st->vScale * half, cy, cy + ch);
                         for (int i = 1; i < n; ++i) {
-                            float nx = rect.x + rect.w * ((float)i / n);
-                            float ny = SDL::Clamp(midY - st->displayData[i] * (rect.h * 0.45f), rect.y, rect.y + rect.h);
+                            float nx = cx + cw * ((float)i / (float)(n - 1));
+                            float ny = SDL::Clamp(midY - st->displayData[i] * st->vScale * half, cy, cy + ch);
                             r.RenderLine({px, py}, {nx, ny});
                             px = nx; py = ny;
                         }
                     }
+
+                    // Border
+                    r.SetDrawColor({40, 50, 75, 200}); r.RenderRect(rect);
                 }).GrowW(100.f).GrowH(100.f);
-                b.Child(cv);
+
+                // ── Trigger mode ─────────────────────────────────────────────
+                auto trigRow = ui.Row("trow_" + bid, 4.f).GrowW(100.f);
+                trigRow.Child(ui.Label("trlbl_" + bid, "Trig:").FontSize(9.f));
+                for (int i = 0; i < 3; ++i) {
+                    auto rb = ui.Radio("trg" + std::to_string(i) + "_" + bid, "tgrp_" + bid, kTrigModeLabel[i])
+                        .FontSize(9.f)
+                        .OnToggle([this, eId, i](bool v) {
+                            if (!v) return;
+                            std::lock_guard<std::mutex> lk(m_audioMutex);
+                            if (auto* s = ecs.Get<ScopeState>(eId)) {
+                                s->trigMode  = (TriggerMode)i;
+                                s->trigArmed = true;
+                                s->collecting = false;
+                                s->collectCount = 0;
+                            }
+                        });
+                    if (i == 0) ui.SetChecked(rb.Id(), true);
+                    trigRow.Child(rb);
+                }
+
+                // ── Trigger level ─────────────────────────────────────────────
+                st.lblTrigLevel = ui.Label("tll_" + bid, "Level: 0.00").FontSize(9.f).Id();
+                auto trigSlider = ui.Slider("tls_" + bid, -1.f, 1.f, 0.f, 0.005f).GrowW(100.f)
+                    .OnChange<float>([this, eId](float v) {
+                        {
+                            std::lock_guard<std::mutex> lk(m_audioMutex);
+                            if (auto* s = ecs.Get<ScopeState>(eId)) s->trigLevel = v;
+                        }
+                        if (auto* s = ecs.Get<ScopeState>(eId))
+                            ui.SetText(s->lblTrigLevel, std::format("Level: {:+.2f}", v));
+                    });
+
+                // ── V-Scale ───────────────────────────────────────────────────
+                st.lblVScale = ui.Label("vsl_" + bid, "V-Scale: ×1.00").FontSize(9.f).Id();
+                auto vScaleSlider = ui.Slider("vss_" + bid, 0.1f, 4.f, 1.f, 0.05f).GrowW(100.f)
+                    .OnChange<float>([this, eId](float v) {
+                        {
+                            std::lock_guard<std::mutex> lk(m_audioMutex);
+                            if (auto* s = ecs.Get<ScopeState>(eId)) s->vScale = v;
+                        }
+                        if (auto* s = ecs.Get<ScopeState>(eId))
+                            ui.SetText(s->lblVScale, std::format("V-Scale: ×{:.2f}", v));
+                    });
+
+                b.Children(cv, trigRow,
+                           ui.GetBuilder(st.lblTrigLevel), trigSlider,
+                           ui.GetBuilder(st.lblVScale),    vScaleSlider);
+                ecs.Add<ScopeState>(eId, std::move(st));
                 break;
             }
             case BlockType::Amp: {
@@ -837,8 +988,10 @@ struct Main {
                     auto* st = ecs.Get<AudioOutState>(e);
                     auto* inBus = node->inputs[0].bus.get();
                     if (st && st->enabled && st->stream && inBus && inBus->valid) {
-                        if (st->stream.GetQueued() < node->sampleRate * 0.1f * sizeof(float))
+                        if (st->stream.GetQueued() < node->sampleRate * 0.1f * sizeof(float)) {
                             st->stream.PutData(std::span<const float>{inBus->samples.data(), inBus->samples.size()});
+                            inBus->valid = false; // marque comme consommé pour synchroniser les sources
+                        }
                     }
                     break;
                 }
@@ -914,7 +1067,41 @@ struct Main {
                 case BlockType::Scope: {
                     auto* st = ecs.Get<ScopeState>(e);
                     auto* inBus = node->inputs[0].bus.get();
-                    if (st && inBus && inBus->valid) st->displayData.assign(inBus->samples.begin(), inBus->samples.end());
+                    if (!st || !inBus || !inBus->valid) break;
+
+                    const auto& src = inBus->samples;
+                    int dispSz = node->bufferSize;
+
+                    if (st->trigMode == TriggerMode::Free) {
+                        st->displayData.assign(src.begin(), src.end());
+                        break;
+                    }
+
+                    if ((int)st->collectBuf.size() != dispSz)
+                        st->collectBuf.assign(dispSz, 0.f);
+
+                    for (float s : src) {
+                        if (st->collecting) {
+                            st->collectBuf[st->collectCount++] = s;
+                            if (st->collectCount >= dispSz) {
+                                st->displayData = st->collectBuf;
+                                st->collecting  = false;
+                                st->trigArmed   = true;
+                                st->collectCount = 0;
+                            }
+                        } else if (st->trigArmed) {
+                            bool trig = (st->trigMode == TriggerMode::Rising)
+                                ? (st->prevSample < st->trigLevel && s >= st->trigLevel)
+                                : (st->prevSample > st->trigLevel && s <= st->trigLevel);
+                            if (trig) {
+                                st->collectBuf[0] = s;
+                                st->collectCount  = 1;
+                                st->collecting    = true;
+                                st->trigArmed     = false;
+                            }
+                        }
+                        st->prevSample = s;
+                    }
                     break;
                 }
                 case BlockType::Spectrum: {
@@ -946,28 +1133,40 @@ struct Main {
                     auto* st = ecs.Get<OscState>(e);
                     auto& out = *node->outputs[0].bus;
                     if (!st) break;
-                    const float phStep = 2.f * SDL::PI_F * st->freq / node->sampleRate;
-                    float ph = st->phase;
+                    if (out.valid) break; // buffer précédent pas encore consommé par AudioOut
+
+                    // Temps de lecture en nanosecondes (base de temps SDL exacte)
+                    // Chaque sample avance de 1 000 000 000 / sampleRate ns
+                    const uint64_t nsPerBuffer = (uint64_t)node->bufferSize * 1'000'000'000ULL
+                                                  / (uint64_t)node->sampleRate;
+                    const double twoPi  = 2.0 * M_PI;
+                    const double nsToSec = 1e-9;
+
                     for (int i = 0; i < node->bufferSize; ++i) {
+                        uint64_t sampleNs = st->playbackNs
+                                          + (uint64_t)i * 1'000'000'000ULL / (uint64_t)node->sampleRate;
+                        double t  = (double)sampleNs * nsToSec;
+                        double ph = std::fmod((double)st->freq * t, 1.0) * twoPi;
                         float s = 0.f;
-                        if (st->shape == OscShape::Sine) s = std::sin(ph);
-                        else if (st->shape == OscShape::Square) s = ph < SDL::PI_F ? 1.f : -1.f;
-                        else if (st->shape == OscShape::Triangle) s = 1.f - 4.f * std::abs(ph / (2.f * SDL::PI_F) - 0.5f);
-                        else if (st->shape == OscShape::Sawtooth) s = ph / SDL::PI_F - 1.f;
+                        if (st->shape == OscShape::Sine)          s = (float)std::sin(ph);
+                        else if (st->shape == OscShape::Square)   s = ph < M_PI ? 1.f : -1.f;
+                        else if (st->shape == OscShape::Triangle) s = (float)(1.0 - 4.0 * std::abs(ph / twoPi - 0.5));
+                        else if (st->shape == OscShape::Sawtooth) s = (float)(ph / M_PI - 1.0);
                         else s = (float)std::rand() / (float)RAND_MAX * 2.f - 1.f;
                         out.samples[i] = st->amp * s;
-                        ph = std::fmod(ph + phStep, 2.f * SDL::PI_F);
                     }
-                    st->phase = ph;
+                    st->playbackNs += nsPerBuffer;
                     out.valid = true;
                     break;
                 }
                 case BlockType::Playlist: {
                     auto* st = ecs.Get<PlaylistState>(e);
                     auto& out = *node->outputs[0].bus;
-                    out.Clear();
-                    
-                    if (st && st->isPlaying && !st->currentAudioData.empty()) {
+
+                    if (!st || !st->isPlaying) { out.Clear(); break; }
+                    if (out.valid) break; // buffer précédent pas encore consommé par AudioOut
+
+                    if (!st->currentAudioData.empty()) {
                         int toCopy = node->bufferSize;
                         int available = (int)st->currentAudioData.size() - (int)st->playbackPos;
                         
@@ -1006,7 +1205,7 @@ struct Main {
     void _BuildUI() {
         m_rootId = ui.Container("root").W(SDL::UI::Value::Ww(100.f)).H(SDL::UI::Value::Wh(100.f)).Padding(0.f).AsRoot().Id();
 
-        ui.CanvasWidget("wires", nullptr, nullptr, [this](SDL::RendererRef r, SDL::FRect rect){ 
+        ui.Canvas("wires", nullptr, nullptr, [this](SDL::RendererRef r, SDL::FRect rect){ 
             r.SetDrawColor(pal::CANVAS); r.RenderFillRect(rect);
             r.SetDrawColor(pal::GRID);
             for (float y = std::fmod(rect.y, 32.f); y < rect.y + rect.h; y += 32.f)

@@ -639,9 +639,9 @@ namespace UI {
 		                   T minValue = T(0), T maxValue = T(100),
 		                   T value    = T(0), T step     = T(1), KnobShape shape = KnobShape::Arc);
 		/** @brief Create an Image widget and return a Builder for it. */
-		inline Builder ImageWidget(std::string_view n, const std::string &p = "", ImageFit f = ImageFit::Contain);
+		inline Builder Image(std::string_view n, const std::string &p = "", ImageFit f = ImageFit::Contain);
 		/** @brief Create a Canvas widget and return a Builder for it. */
-		inline Builder CanvasWidget(std::string_view n,
+		inline Builder Canvas(std::string_view n,
 			std::function<void(SDL::Event&)> cb_event = nullptr,
 			std::function<void(float)> cb_update = nullptr,
 			std::function<void(RendererRef, FRect)> cb_render = nullptr);
@@ -787,9 +787,52 @@ namespace UI {
 			auto *lp = m_ctx.Get<LayoutProps>(e);
 			if (lb && lp) {
 				lb->items = std::move(items);
+				lb->itemStyles.clear();
 				lp->scrollY = 0.f;
 				if (lb->selectedIndex >= (int)lb->items.size())
 					lb->selectedIndex = -1;
+			}
+		}
+		/**
+		 * @brief Replace the item list and per-item styles at once.
+		 * @param e       Target ListBox entity.
+		 * @param items   New item strings.
+		 * @param styles  Per-item style overrides (may be shorter than items; excess items use defaults).
+		 */
+		void SetListBoxItems(ECS::EntityId e, std::vector<std::string> items,
+		                     std::vector<ListBoxItemStyle> styles) {
+			auto *lb = m_ctx.Get<ListBoxData>(e);
+			auto *lp = m_ctx.Get<LayoutProps>(e);
+			if (lb && lp) {
+				lb->items      = std::move(items);
+				lb->itemStyles = std::move(styles);
+				lp->scrollY    = 0.f;
+				if (lb->selectedIndex >= (int)lb->items.size())
+					lb->selectedIndex = -1;
+			}
+		}
+		/**
+		 * @brief Set the per-item style overrides without changing the item strings.
+		 * @param e       Target ListBox entity.
+		 * @param styles  Per-item style overrides.
+		 */
+		void SetListBoxItemStyles(ECS::EntityId e, std::vector<ListBoxItemStyle> styles) {
+			if (auto *lb = m_ctx.Get<ListBoxData>(e))
+				lb->itemStyles = std::move(styles);
+		}
+		/**
+		 * @brief Set the style for a single ListBox item.
+		 * @param e    Target ListBox entity.
+		 * @param idx  Item index.
+		 * @param st   Style override.
+		 */
+		void SetListBoxItemStyle(ECS::EntityId e, int idx, const ListBoxItemStyle& st) {
+			if (auto *lb = m_ctx.Get<ListBoxData>(e)) {
+				if (idx >= 0) {
+					if (idx >= (int)lb->itemStyles.size())
+						lb->itemStyles.resize(idx + 1);
+					lb->itemStyles[(size_t)idx] = st;
+				}
 			}
 		}
 		/**
@@ -5903,19 +5946,34 @@ namespace UI {
 							   && m_mousePos.y >= ry && m_mousePos.y < ry + ih
 							   && m_mousePos.x >= r.x && m_mousePos.x < r.x + r.w - (showY ? t : 0.f));
 
+				// Per-item style (only applies when not selected)
+				const ListBoxItemStyle* ist =
+					(!isSel && i < (int)lb->itemStyles.size()) ? &lb->itemStyles[(size_t)i] : nullptr;
+
 				if (isSel) {
 					SDL::Color c = s.bgCheckedColor;
 					c.a = SDL::Clamp8((int)((float)c.a * s.opacity));
 					m_renderer.SetDrawColor(c);
 					m_renderer.RenderFillRect(itemR);
-				} else if (isHov) {
-					SDL::Color c = s.bgHoveredColor;
-					c.a = SDL::Clamp8((int)((float)c.a * s.opacity * 0.55f));
-					m_renderer.SetDrawColor(c);
-					m_renderer.RenderFillRect(itemR);
+				} else {
+					// Per-item background (if alpha > 0)
+					if (ist && ist->bgColor.a > 0) {
+						SDL::Color c = ist->bgColor;
+						c.a = SDL::Clamp8((int)((float)c.a * s.opacity));
+						m_renderer.SetDrawColor(c);
+						m_renderer.RenderFillRect(itemR);
+					} else if (isHov) {
+						SDL::Color c = s.bgHoveredColor;
+						c.a = SDL::Clamp8((int)((float)c.a * s.opacity * 0.55f));
+						m_renderer.SetDrawColor(c);
+						m_renderer.RenderFillRect(itemR);
+					}
 				}
 
-				SDL::Color tc = isSel ? s.textCheckedColor : s.textColor;
+				// Text color: selection > per-item override > widget default
+				SDL::Color tc = isSel ? s.textCheckedColor
+				              : (ist && ist->textColor.a > 0) ? ist->textColor
+				              : s.textColor;
 				_Text(e, lb->items[(size_t)i],
 					  px, ry + (ih - charH) * 0.5f,
 					  tc, s.opacity, s);

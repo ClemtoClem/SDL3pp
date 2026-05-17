@@ -420,7 +420,7 @@ struct Main {
 		eid_gotoInp = eid("goto_inp");
 
 		// ── Centre: hex canvas + notes panel ──────────────────────────────
-		auto hexCanvas = ui.CanvasWidget("hexcanvas",
+		auto hexCanvas = ui.Canvas("hexcanvas",
 			// Event callback: keyboard & mouse in hex area
 			[this](SDL::Event &ev){ onHexCanvasEvent(ev); },
 			nullptr,

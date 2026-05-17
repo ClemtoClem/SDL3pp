@@ -1466,7 +1466,7 @@ struct Main {
 	// ── Map canvas (center, grows) ────────────────────────────────────────────
 
 	SDL::ECS::EntityId _BuildMapCanvas() {
-		eMapCanvas = ui.CanvasWidget("map_canvas",
+		eMapCanvas = ui.Canvas("map_canvas",
 			[this](SDL::Event& ev){ _OnMapEvent(ev); },
 			nullptr,
 			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderMap(r, rect); }
@@ -1493,7 +1493,7 @@ struct Main {
 		panel.Child(eTilesetName);
 
 		// Tileset canvas (palette view)
-		eTilesetCanvas = ui.CanvasWidget("ts_canvas",
+		eTilesetCanvas = ui.Canvas("ts_canvas",
 			[this](SDL::Event& ev){ _OnTilesetEvent(ev); },
 			nullptr,
 			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderTileset(r, rect); }

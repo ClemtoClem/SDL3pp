@@ -16,10 +16,11 @@ namespace SDL::UI {
 	// BuilderBase — CRTP base used by every builder.
 	//
 	// Holds ONLY universal API:
-	//   - Layout (size, position, alignment)            → LayoutProps
-	//   - Behavior flags (Show / Hide / Enable / …)     → Widget
-	//   - Hierarchy (Child / Children / AttachTo)       → Children, Parent
-	//   - Pointer & focus callbacks                     → Callbacks
+	//   - Tag (searchable label, opt-in)				   → Tag
+	//   - Layout (size, position, alignment)              → LayoutProps
+	//   - Behavior flags (Show / Hide / Enable / …)       → Widget
+	//   - Hierarchy (Child / Children / AttachTo)         → Children, Parent
+	//   - Pointer & focus callbacks                       → Callbacks
 	//
 	// Every visual aspect lives in a dedicated mixin (Background, Border, Text,
 	// Spacing, Transform, Accent, Sound, …) so that a Separator builder doesn't
@@ -35,6 +36,16 @@ namespace SDL::UI {
 
 		operator ECS::EntityId() const noexcept { return id; }
 		[[nodiscard]] ECS::EntityId Id() const noexcept { return id; }
+
+		// ── Tag ─────────────────────────────────────────────────────────────
+		Derived& SetTag(std::string_view tag) {
+			_Ensure<Tag>().value = std::string(tag);
+			return _self();
+		}
+		[[nodiscard]] std::string GetTag() const {
+			if (auto* t = system.GetCtx().template Get<Tag>(id)) return t->value;
+			return {};
+		}
 
 		// ── Layout — size ───────────────────────────────────────────────────
 		Derived& W(float px)       { system.GetCtx().template Get<LayoutProps>(id)->width  = Value::Px(px); return _self(); }
@@ -61,9 +72,9 @@ namespace SDL::UI {
 			l.alignSelfH = ha; l.alignSelfV = va;
 			return _self();
 		}
-		Derived& AlignH(SDL::UI::Align a)      { system.GetCtx().template Get<LayoutProps>(id)->alignSelfH = a; return _self(); }
-		Derived& AlignV(SDL::UI::Align a)      { system.GetCtx().template Get<LayoutProps>(id)->alignSelfV = a; return _self(); }
-		Derived& Attach(AttachLayout a)        { system.GetCtx().template Get<LayoutProps>(id)->attach     = a; return _self(); }
+		Derived& AlignH(SDL::UI::Align a)       { system.GetCtx().template Get<LayoutProps>(id)->alignSelfH = a; return _self(); }
+		Derived& AlignV(SDL::UI::Align a)       { system.GetCtx().template Get<LayoutProps>(id)->alignSelfV = a; return _self(); }
+		Derived& Attach(AttachLayout a)         { system.GetCtx().template Get<LayoutProps>(id)->attach     = a; return _self(); }
 		Derived& BoxSizing(SDL::UI::BoxSizing s){ system.GetCtx().template Get<LayoutProps>(id)->boxSizing = s; return _self(); }
 
 		// ── Behavior — visibility / enable ──────────────────────────────────
@@ -110,14 +121,8 @@ namespace SDL::UI {
 	protected:
 		Derived& _self() noexcept { return static_cast<Derived&>(*this); }
 
-		/// @brief Lazy-attach helper: returns a reference to component @p T,
-		///        adding it with default-constructed values if absent.
-		///
-		///        This is the cornerstone of the "à la carte" model — a mixin
-		///        method can mutate its target component without forcing the
-		///        factory to attach it up-front. If a Separator is later asked
-		///        for a BackgroundStyle (it doesn't have one by default), the
-		///        component is created on demand only.
+		/// Lazy-attach helper: returns a reference to component @p T,
+		/// adding it with default-constructed values if absent.
 		template <typename T>
 		T& _Ensure() {
 			auto& ctx = system.GetCtx();
@@ -183,9 +188,9 @@ namespace SDL::UI {
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct ScrollableMixin : Base {
 		using Base::Base;
-		Derived& SetAutoScrollable(bool both)        { this->system.SetAutoScrollable(this->id, both, both); return this->_self(); }
-		Derived& SetAutoScrollable(bool x, bool y)   { this->system.SetAutoScrollable(this->id, x, y);       return this->_self(); }
-		Derived& ScrollbarThickness(float t)         {
+		Derived& SetAutoScrollable(bool both)      { this->system.SetAutoScrollable(this->id, both, both); return this->_self(); }
+		Derived& SetAutoScrollable(bool x, bool y) { this->system.SetAutoScrollable(this->id, x, y);       return this->_self(); }
+		Derived& ScrollbarThickness(float t) {
 			this->template _Ensure<ScrollbarStyle>().thickness = t;
 			return this->_self();
 		}
@@ -199,28 +204,25 @@ namespace SDL::UI {
 	// Visual mixins — each touches a SINGLE specialized style component
 	// ==================================================================================
 
-	/// @brief Mutates BackgroundStyle only.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct BackgroundMixin : Base {
 		using Base::Base;
 
 		Derived& BgColor        (const SDL::Color& c) { this->template _Ensure<BackgroundStyle>().color         = c; return this->_self(); }
 		Derived& BgHoveredColor (const SDL::Color& c) { this->template _Ensure<BackgroundStyle>().hoveredColor  = c; return this->_self(); }
-		Derived& BgPressedColor(const SDL::Color& c) { this->template _Ensure<BackgroundStyle>().selectedColor = c; return this->_self(); }
+		Derived& BgPressedColor (const SDL::Color& c) { this->template _Ensure<BackgroundStyle>().selectedColor = c; return this->_self(); }
 		Derived& BgCheckedColor (const SDL::Color& c) { this->template _Ensure<BackgroundStyle>().checkedColor  = c; return this->_self(); }
 		Derived& BgFocusedColor (const SDL::Color& c) { this->template _Ensure<BackgroundStyle>().focusedColor  = c; return this->_self(); }
 		Derived& BgDisabledColor(const SDL::Color& c) { this->template _Ensure<BackgroundStyle>().disabledColor = c; return this->_self(); }
 
-		/// @brief Sets the embedded gradient. The single-state stop2 colour is
-		///        used; per-state stop2 colours can be edited via @ref WithBgGradient.
 		Derived& BgGradient(SDL::Color color2,
 		                    GradientAnchor start = GradientAnchor::Top,
 		                    GradientAnchor end   = GradientAnchor::Bottom) {
 			SDL::UI::BgGradient g;
 			g.color2         = color2;
-			g.color2Hovered  = {SDL::Clamp8(color2.r + 20),     SDL::Clamp8(color2.g + 20),     SDL::Clamp8(color2.b + 20),     color2.a};
-			g.color2Selected = {SDL::Clamp8(color2.r * 0.7f),   SDL::Clamp8(color2.g * 0.7f),   SDL::Clamp8(color2.b * 0.7f),   color2.a};
-			g.color2Disabled = {SDL::Clamp8(color2.r * 0.5f),   SDL::Clamp8(color2.g * 0.5f),   SDL::Clamp8(color2.b * 0.5f),   160};
+			g.color2Hovered  = {SDL::Clamp8(color2.r + 20),   SDL::Clamp8(color2.g + 20),   SDL::Clamp8(color2.b + 20),   color2.a};
+			g.color2Selected = {SDL::Clamp8(color2.r * 0.7f), SDL::Clamp8(color2.g * 0.7f), SDL::Clamp8(color2.b * 0.7f), color2.a};
+			g.color2Disabled = {SDL::Clamp8(color2.r * 0.5f), SDL::Clamp8(color2.g * 0.5f), SDL::Clamp8(color2.b * 0.5f), 160};
 			g.start = start; g.end = end;
 			this->template _Ensure<BackgroundStyle>().gradient = g;
 			return this->_self();
@@ -247,14 +249,13 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Mutates BorderStyle only.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct BorderMixin : Base {
 		using Base::Base;
 
 		Derived& BdColor        (const SDL::Color& c) { this->template _Ensure<BorderStyle>().color         = c; return this->_self(); }
 		Derived& BdHoveredColor (const SDL::Color& c) { this->template _Ensure<BorderStyle>().hoveredColor  = c; return this->_self(); }
-		Derived& BdPressedColor(const SDL::Color& c) { this->template _Ensure<BorderStyle>().selectedColor = c; return this->_self(); }
+		Derived& BdPressedColor (const SDL::Color& c) { this->template _Ensure<BorderStyle>().selectedColor = c; return this->_self(); }
 		Derived& BdCheckedColor (const SDL::Color& c) { this->template _Ensure<BorderStyle>().checkedColor  = c; return this->_self(); }
 		Derived& BdFocusedColor (const SDL::Color& c) { this->template _Ensure<BorderStyle>().focusedColor  = c; return this->_self(); }
 		Derived& BdDisabledColor(const SDL::Color& c) { this->template _Ensure<BorderStyle>().disabledColor = c; return this->_self(); }
@@ -271,21 +272,20 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Mutates TextStyle only.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct TextStyleMixin : Base {
 		using Base::Base;
 
 		Derived& TextColor           (const SDL::Color& c) { this->template _Ensure<TextStyle>().color            = c; return this->_self(); }
 		Derived& TextHoveredColor    (const SDL::Color& c) { this->template _Ensure<TextStyle>().hoveredColor     = c; return this->_self(); }
-		Derived& TextPressedColor   (const SDL::Color& c) { this->template _Ensure<TextStyle>().selectedColor    = c; return this->_self(); }
+		Derived& TextPressedColor    (const SDL::Color& c) { this->template _Ensure<TextStyle>().selectedColor    = c; return this->_self(); }
 		Derived& TextCheckedColor    (const SDL::Color& c) { this->template _Ensure<TextStyle>().checkedColor     = c; return this->_self(); }
 		Derived& TextDisabledColor   (const SDL::Color& c) { this->template _Ensure<TextStyle>().disabledColor    = c; return this->_self(); }
 		Derived& TextPlaceholderColor(const SDL::Color& c) { this->template _Ensure<TextStyle>().placeholderColor = c; return this->_self(); }
 
-		Derived& FontKey (std::string_view key) { this->template _Ensure<TextStyle>().fontKey = std::string(key); return this->_self(); }
-		Derived& FontSize(float sz)             { this->template _Ensure<TextStyle>().fontSize = sz;              return this->_self(); }
-		Derived& UseFont (FontType ft)          { this->template _Ensure<TextStyle>().usedFont = ft;              return this->_self(); }
+		Derived& FontKey (std::string_view key) { this->template _Ensure<TextStyle>().fontKey  = std::string(key); return this->_self(); }
+		Derived& FontSize(float sz)             { this->template _Ensure<TextStyle>().fontSize = sz;               return this->_self(); }
+		Derived& UseFont (FontType ft)          { this->template _Ensure<TextStyle>().usedFont = ft;               return this->_self(); }
 
 		Derived& TextAlign (TextHAlign h, TextVAlign v) {
 			auto& ts = this->template _Ensure<TextStyle>();
@@ -302,7 +302,6 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Mutates SpacingStyle only.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct SpacingMixin : Base {
 		using Base::Base;
@@ -354,7 +353,6 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Mutates TransformStyle only (currently opacity).
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct TransformMixin : Base {
 		using Base::Base;
@@ -364,7 +362,6 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Mutates AccentStyle only — used by Slider/Knob/Progress/ScrollBar.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct AccentMixin : Base {
 		using Base::Base;
@@ -374,7 +371,6 @@ namespace SDL::UI {
 		Derived& SeparatorColor(const SDL::Color& c) { this->template _Ensure<AccentStyle>().separatorColor = c; return this->_self(); }
 	};
 
-	/// @brief Mutates SoundStyle only.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct SoundMixin : Base {
 		using Base::Base;
@@ -385,29 +381,42 @@ namespace SDL::UI {
 		Derived& HideSound  (std::string_view k) { this->template _Ensure<SoundStyle>().hideKey   = std::string(k); return this->_self(); }
 	};
 
-	/// @brief Mutates TooltipData (+ TooltipStyle for colours).
+	/// @brief Tooltip mixin — attaches a tooltip container+label sub-entity.
+	///        The returned LabelBuilder lets you style the tooltip text independently.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct TooltipMixin : Base {
 		using Base::Base;
+
 		Derived& Tooltip(std::string_view text, float delay = 1.f) {
-			auto& td = this->template _Ensure<TooltipData>();
-			td.text  = std::string(text);
-			td.delay = delay;
+			this->system.EnsureTooltip(this->id, text, delay);
 			return this->_self();
 		}
-		Derived& SetTooltipText (std::string_view t)        { this->template _Ensure<TooltipData>().text    = std::string(t); return this->_self(); }
-		Derived& SetTooltipDelay(float delay)               { this->template _Ensure<TooltipData>().delay   = delay;          return this->_self(); }
-		Derived& SetTooltipVisible(bool v)                  { this->template _Ensure<TooltipData>().visible = v;              return this->_self(); }
-		Derived& ShowTooltip()                              { return SetTooltipVisible(true); }
-		Derived& HideTooltip()                              { return SetTooltipVisible(false); }
-		Derived& RemoveTooltip()                            { this->system.GetCtx().template Remove<TooltipData>(this->id); return this->_self(); }
+		Derived& SetTooltipText   (std::string_view t)  { this->system.SetTooltipText(this->id, t);    return this->_self(); }
+		Derived& SetTooltipDelay  (float delay)          { this->system.SetTooltipDelay(this->id, delay); return this->_self(); }
+		Derived& SetTooltipVisible(bool v)               { this->system.SetTooltipVisible(this->id, v); return this->_self(); }
+		Derived& ShowTooltip()                           { return SetTooltipVisible(true); }
+		Derived& HideTooltip()                           { return SetTooltipVisible(false); }
+		Derived& RemoveTooltip()                         { this->system.RemoveTooltip(this->id); return this->_self(); }
 
 		Derived& TooltipBgColor  (const SDL::Color& c) { this->template _Ensure<TooltipStyle>().bgColor   = c; return this->_self(); }
 		Derived& TooltipBdColor  (const SDL::Color& c) { this->template _Ensure<TooltipStyle>().bdColor   = c; return this->_self(); }
 		Derived& TooltipTextColor(const SDL::Color& c) { this->template _Ensure<TooltipStyle>().textColor = c; return this->_self(); }
+
+		/// @brief Access the tooltip's inner label builder to apply rich styles.
+		///        Creates the tooltip sub-entity if it doesn't exist yet.
+		template <typename F>
+		Derived& WithTooltipLabel(F&& fn) {
+			this->system.EnsureTooltip(this->id, "", 1.f);
+			if (auto* td = this->system.GetCtx().template Get<TooltipData>(this->id)) {
+				if (td->labelEntity != ECS::NullEntity) {
+					LabelBuilder lb{this->system, td->labelEntity};
+					fn(lb);
+				}
+			}
+			return this->_self();
+		}
 	};
 
-	/// @brief Mutates IconData only — for buttons / menu items / list entries.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct IconMixin : Base {
 		using Base::Base;
@@ -422,10 +431,9 @@ namespace SDL::UI {
 	};
 
 	// ==================================================================================
-	// Content / data mixins — operate on widget-specific data components
+	// Content / data mixins
 	// ==================================================================================
 
-	/// @brief Mutates TextEdit only — for any widget that owns editable text.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct EditableMixin : Base {
 		using Base::Base;
@@ -451,7 +459,6 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Cell placement of a child inside a Layout::InGrid container.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct GridChildMixin : Base {
 		using Base::Base;
@@ -461,7 +468,6 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Mutates NumericValue<T> — Slider/Knob/Progress/Input(Value).
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct NumericMixin : Base {
 		using Base::Base;
@@ -471,7 +477,6 @@ namespace SDL::UI {
 		template <typename T> Derived& MaxValue (T v)                       { this->system.template SetMaxValue<T>(this->id, v);            return this->_self(); }
 	};
 
-	/// @brief Mutates ToggleData / RadioData (checked state).
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct StateableMixin : Base {
 		using Base::Base;
@@ -483,7 +488,6 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Mutates ImageData only.
 	template <typename Derived, typename Base = BuilderBase<Derived>>
 	struct ImageMixin : Base {
 		using Base::Base;
@@ -495,13 +499,9 @@ namespace SDL::UI {
 
 	// ==================================================================================
 	// Typed builders — composed à la carte from the mixins above.
-	//
-	// Each builder inherits ONLY the mixins that make sense for its widget type.
-	// A SeparatorBuilder has no .TextColor() — that method simply does not exist
-	// in its API. An ImageBuilder has no .BgGradient(). And so on.
 	// ==================================================================================
 
-	// ── Separator: only border + spacing + transform (no text, no background) ────
+	// ── Separator ────────────────────────────────────────────────────────────────
 	struct SeparatorBuilder
 		: BorderMixin<SeparatorBuilder,
 		  SpacingMixin<SeparatorBuilder,
@@ -520,7 +520,17 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── Image: no text, no border, no background — just a raster on screen ───────
+	// ── Graph ─────────────────────────────────────────────────────────────────────
+	struct GraphBuilder
+		: AccentMixin<GraphBuilder,
+		  SpacingMixin<GraphBuilder,
+		  TransformMixin<GraphBuilder,
+		  TooltipMixin<GraphBuilder>>>>
+	{
+		using AccentMixin::AccentMixin;
+	};
+
+	// ── Image ─────────────────────────────────────────────────────────────────────
 	struct ImageBuilder
 		: ImageMixin<ImageBuilder,
 		  SpacingMixin<ImageBuilder,
@@ -535,18 +545,74 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── Label: text-bearing, no background, no border ────────────────────────────
+	// ── Label ─────────────────────────────────────────────────────────────────────
+	/// @brief Label supports global text style + per-span rich styles.
+	///        The label text may contain '\n' and '\t'; layout measures multi-line size.
 	struct LabelBuilder
-		: TextStyleMixin<LabelBuilder,
+		: BackgroundMixin<LabelBuilder,
+		  BorderMixin<LabelBuilder,
+		  TextStyleMixin<LabelBuilder,
 		  SpacingMixin<LabelBuilder,
 		  TransformMixin<LabelBuilder,
 		  EditableMixin<LabelBuilder,
-		  TooltipMixin<LabelBuilder>>>>>
+		  TooltipMixin<LabelBuilder>>>>>>>
 	{
-		using TextStyleMixin::TextStyleMixin;
+		using BackgroundMixin::BackgroundMixin;
+
+		// ── Rich-text span API ───────────────────────────────────────────────
+		LabelBuilder& AddSpan(int start, int end, TextSpanStyle style) {
+			this->template _Ensure<TextSpans>().Add(start, end, style);
+			return this->_self();
+		}
+		LabelBuilder& ClearSpans() {
+			if (auto* ts = this->system.GetCtx().template Get<TextSpans>(this->id))
+				ts->Clear();
+			return this->_self();
+		}
+
+		/// @brief Shortcut: colour a character range.
+		LabelBuilder& SpanColor(int start, int end, SDL::Color c) {
+			TextSpanStyle s; s.color = c;
+			return AddSpan(start, end, s);
+		}
+		/// @brief Shortcut: bold a character range.
+		LabelBuilder& SpanBold(int start, int end) {
+			TextSpanStyle s; s.bold = true;
+			return AddSpan(start, end, s);
+		}
+		/// @brief Shortcut: italic a character range.
+		LabelBuilder& SpanItalic(int start, int end) {
+			TextSpanStyle s; s.italic = true;
+			return AddSpan(start, end, s);
+		}
+		/// @brief Shortcut: underline a character range.
+		LabelBuilder& SpanUnderline(int start, int end) {
+			TextSpanStyle s; s.underline = true;
+			return AddSpan(start, end, s);
+		}
+		/// @brief Shortcut: strikethrough a character range.
+		LabelBuilder& SpanStrike(int start, int end) {
+			TextSpanStyle s; s.strikethrough = true;
+			return AddSpan(start, end, s);
+		}
+		/// @brief Shortcut: highlight a character range.
+		LabelBuilder& SpanHighlight(int start, int end, SDL::Color hlColor = {255, 255, 100, 80}) {
+			TextSpanStyle s; s.highlight = true; s.highlightColor = hlColor;
+			return AddSpan(start, end, s);
+		}
+		/// @brief Shortcut: reverse (inverted) text in a character range.
+		LabelBuilder& SpanReversed(int start, int end) {
+			TextSpanStyle s; s.reversed = true;
+			return AddSpan(start, end, s);
+		}
+		/// @brief Shortcut: override font key/size for a character range.
+		LabelBuilder& SpanFont(int start, int end, std::string_view fontKey, float fontSize = 0.f) {
+			TextSpanStyle s; s.fontKey = std::string(fontKey); s.fontSize = fontSize;
+			return AddSpan(start, end, s);
+		}
 	};
 
-	// ── Button: full visual surface + state + sound + tooltip ────────────────────
+	// ── Button ────────────────────────────────────────────────────────────────────
 	struct ButtonBuilder
 		: BackgroundMixin<ButtonBuilder,
 		  BorderMixin<ButtonBuilder,
@@ -562,7 +628,7 @@ namespace SDL::UI {
 		using BackgroundMixin::BackgroundMixin;
 	};
 
-	// ── Toggle / Radio: same surface as Button + checked state ─────────────
+	// ── Toggle / Radio ────────────────────────────────────────────────────────────
 	struct ToggleBuilder
 		: BackgroundMixin<ToggleBuilder,
 		  BorderMixin<ToggleBuilder,
@@ -595,13 +661,14 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── Container: visual surface + scrollable + grid layout ─────────────────────
+	// ── Container ─────────────────────────────────────────────────────────────────
 	struct ContainerBuilder
 		: BackgroundMixin<ContainerBuilder,
 		  BorderMixin<ContainerBuilder,
 		  SpacingMixin<ContainerBuilder,
 		  TransformMixin<ContainerBuilder,
-		  ScrollableMixin<ContainerBuilder>>>>>
+		  ScrollableMixin<ContainerBuilder,
+		  TooltipMixin<ContainerBuilder>>>>>>
 	{
 		using BackgroundMixin::BackgroundMixin;
 
@@ -610,7 +677,22 @@ namespace SDL::UI {
 			return this->_self();
 		}
 
-		// Grid placement on this container (children call .Cell() via GridChildMixin).
+		ContainerBuilder& ChildrenAlign(SDL::UI::Align h, SDL::UI::Align v) {
+			auto& lp = *this->system.GetCtx().template Get<LayoutProps>(this->id);
+			lp.alignChildrenH = h; lp.alignChildrenV = v;
+			return this->_self();
+		}
+
+		ContainerBuilder& Child(ECS::EntityId e) {
+			this->system.AppendChild(this->id, e);
+			return this->_self();
+		}
+		template <typename C,
+		          typename = std::enable_if_t<std::is_convertible_v<C, ECS::EntityId>>>
+		ContainerBuilder& Child(C&& c) {
+			this->system.AppendChild(this->id, static_cast<ECS::EntityId>(c));
+			return this->_self();
+		}
 		ContainerBuilder& Child(ECS::EntityId e, int col, int row, int colSpan = 1, int rowSpan = 1) {
 			this->system.AppendChild(this->id, e);
 			this->system.SetGridCell(e, col, row, colSpan, rowSpan);
@@ -624,21 +706,16 @@ namespace SDL::UI {
 			return this->_self();
 		}
 
-		ContainerBuilder& GridCols(int n)                    { this->system.SetGridCols(this->id, n);              return this->_self(); }
-		ContainerBuilder& GridRows(int n)                    { this->system.SetGridRows(this->id, n);              return this->_self(); }
-		ContainerBuilder& GridColSizing(GridSizing s)        { this->system.SetGridColSizing(this->id, s);         return this->_self(); }
-		ContainerBuilder& GridRowSizing(GridSizing s)        { this->system.SetGridRowSizing(this->id, s);         return this->_self(); }
-		ContainerBuilder& GridLineStyle(GridLines l)         { this->system.SetGridLines(this->id, l);             return this->_self(); }
-		ContainerBuilder& GridLineColor(const SDL::Color& c) { this->system.SetGridLineColor(this->id, c);         return this->_self(); }
-		ContainerBuilder& GridLineThickness(float t)         { this->system.SetGridLineThickness(this->id, t);     return this->_self(); }
-		ContainerBuilder& GridSizingMode(GridSizing cols, GridSizing rows) {
-			this->system.SetGridColSizing(this->id, cols);
-			this->system.SetGridRowSizing(this->id, rows);
-			return this->_self();
-		}
+		ContainerBuilder& GridCols        (int n)              { this->system.SetGridCols(this->id, n);          return this->_self(); }
+		ContainerBuilder& GridRows        (int n)              { this->system.SetGridRows(this->id, n);          return this->_self(); }
+		ContainerBuilder& GridColSizing   (GridSizing s)       { this->system.SetGridColSizing(this->id, s);     return this->_self(); }
+		ContainerBuilder& GridRowSizing   (GridSizing s)       { this->system.SetGridRowSizing(this->id, s);     return this->_self(); }
+		ContainerBuilder& GridLineStyle   (GridLines l)        { this->system.SetGridLines(this->id, l);         return this->_self(); }
+		ContainerBuilder& GridLineColor   (const SDL::Color& c){ this->system.SetGridLineColor(this->id, c);     return this->_self(); }
+		ContainerBuilder& GridLineThickness(float t)           { this->system.SetGridLineThickness(this->id, t); return this->_self(); }
 	};
 
-	// ── Slider / Knob / Progress / ScrollBar: surface + accent + numeric ─────────
+	// ── Slider / Knob / Progress / ScrollBar ──────────────────────────────────────
 	struct SliderBuilder
 		: BackgroundMixin<SliderBuilder,
 		  BorderMixin<SliderBuilder,
@@ -710,7 +787,7 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── Input: visual surface + editable + numeric (when numeric) ────────────────
+	// ── Input ─────────────────────────────────────────────────────────────────────
 	struct InputBuilder
 		: BackgroundMixin<InputBuilder,
 		  BorderMixin<InputBuilder,
@@ -723,9 +800,14 @@ namespace SDL::UI {
 	{
 		using BackgroundMixin::BackgroundMixin;
 
-		InputBuilder& InputFilterType(SDL::UI::InputFilterType filter) {
+		InputBuilder& InputFilter(SDL::UI::InputFilterType filter) {
 			if (auto* in = this->system.GetCtx().template Get<InputData>(this->id))
 				in->filter = filter;
+			return this->_self();
+		}
+		InputBuilder& InputCustomFilter(std::function<bool(char)> filterFn) {
+			if (auto* in = this->system.GetCtx().template Get<InputData>(this->id))
+				in->customFilter = std::move(filterFn);
 			return this->_self();
 		}
 		InputBuilder& InputFormat(std::string_view format = "{}") {
@@ -733,9 +815,25 @@ namespace SDL::UI {
 				in->format = std::string(format);
 			return this->_self();
 		}
+		InputBuilder& PassworldMode(bool v = true) {
+			if (auto* in = this->system.GetCtx().template Get<InputData>(this->id))
+				in->passwordMode = v;
+			return this->_self();
+		}
+		InputBuilder& OnIncrement(std::function<void()> cb) {
+			if (auto* in = this->system.GetCtx().template Get<InputData>(this->id))
+				in->onIncrement = std::move(cb);
+			return this->_self();
+		}
+		InputBuilder& OnDecrement(std::function<void()> cb) {
+			if (auto* in = this->system.GetCtx().template Get<InputData>(this->id))
+				in->onDecrement = std::move(cb);
+			return this->_self();
+		}
+
 	};
 
-	// ── TextArea: input + scrollable + grid placement ────────────────────────────
+	// ── TextArea ──────────────────────────────────────────────────────────────────
 	struct TextAreaBuilder
 		: BackgroundMixin<TextAreaBuilder,
 		  BorderMixin<TextAreaBuilder,
@@ -749,13 +847,22 @@ namespace SDL::UI {
 	{
 		using BackgroundMixin::BackgroundMixin;
 
-		TextAreaBuilder& TextAreaTabSize(int n) {
+		TextAreaBuilder& AddSpan(int start, int end, TextSpanStyle style) {
+			this->system.AddTextAreaSpan(this->id, start, end, style);
+			return this->_self();
+		}
+		TextAreaBuilder& ClearSpans() {
+			this->system.ClearTextAreaSpans(this->id);
+			return this->_self();
+		}
+		TextAreaBuilder& TabSize(int n) {
 			this->system.SetTextAreaTabSize(this->id, n);
 			return this->_self();
 		}
 	};
 
-	// ── ListBox / ComboBox / Tree: scrollable item lists ─────────────────────────
+	// ── ListBox ───────────────────────────────────────────────────────────────────
+	/// @brief ListBox composed of a scroll view + per-item button entities.
 	struct ListBoxBuilder
 		: BackgroundMixin<ListBoxBuilder,
 		  BorderMixin<ListBoxBuilder,
@@ -774,29 +881,63 @@ namespace SDL::UI {
 			this->system.SetListBoxOnReorder(this->id, std::move(cb));
 			return this->_self();
 		}
+
+		/// @brief Apply a style callback to every item button (called per entity).
+		template <typename F>
+		ListBoxBuilder& WithItemStyle(F&& fn) {
+			this->system.ApplyListBoxItemStyle(this->id, std::forward<F>(fn));
+			return this->_self();
+		}
 	};
 
+	// ── ComboBox ──────────────────────────────────────────────────────────────────
+	/// @brief ComboBox composed of a toggle button + overlay with item buttons.
 	struct ComboBoxBuilder
 		: BackgroundMixin<ComboBoxBuilder,
 		  BorderMixin<ComboBoxBuilder,
 		  TextStyleMixin<ComboBoxBuilder,
 		  SpacingMixin<ComboBoxBuilder,
 		  TransformMixin<ComboBoxBuilder,
-		  ScrollableMixin<ComboBoxBuilder,
-		  EditableMixin<ComboBoxBuilder,
-		  TooltipMixin<ComboBoxBuilder>>>>>>>>
+		  TooltipMixin<ComboBoxBuilder>>>>>>
 	{
 		using BackgroundMixin::BackgroundMixin;
 
 		ComboBoxBuilder& Items   (std::vector<std::string> items) { this->system.SetComboBoxItems(this->id, std::move(items)); return this->_self(); }
 		ComboBoxBuilder& Selected(int idx)                        { this->system.SetComboBoxSelection(this->id, idx);          return this->_self(); }
+
 		template <typename T>
 		ComboBoxBuilder& OnChange(std::function<void(T)> cb) {
 			this->system.template OnChange<T>(this->id, std::move(cb));
 			return this->_self();
 		}
+
+		/// @brief Style the toggle button.
+		template <typename F>
+		ComboBoxBuilder& WithToggleButton(F&& fn) {
+			if (auto* cb = this->system.GetCtx().template Get<ComboBoxData>(this->id)) {
+				if (cb->toggleButton != ECS::NullEntity) {
+					ButtonBuilder bb{this->system, cb->toggleButton};
+					fn(bb);
+				}
+			}
+			return this->_self();
+		}
+
+		/// @brief Style the dropdown overlay container.
+		template <typename F>
+		ComboBoxBuilder& WithOverlay(F&& fn) {
+			if (auto* cb = this->system.GetCtx().template Get<ComboBoxData>(this->id)) {
+				if (cb->overlay != ECS::NullEntity) {
+					ContainerBuilder ob{this->system, cb->overlay};
+					fn(ob);
+				}
+			}
+			return this->_self();
+		}
 	};
 
+	// ── Tree ──────────────────────────────────────────────────────────────────────
+	/// @brief Tree composed of a scroll container with row button entities per node.
 	struct TreeBuilder
 		: BackgroundMixin<TreeBuilder,
 		  BorderMixin<TreeBuilder,
@@ -826,7 +967,7 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── Canvas: pure render surface, no built-in visuals ─────────────────────────
+	// ── Canvas ────────────────────────────────────────────────────────────────────
 	struct CanvasBuilder
 		: SpacingMixin<CanvasBuilder,
 		  TransformMixin<CanvasBuilder,
@@ -851,7 +992,7 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── Spinner / Splitter / Badge — minimal builders ───────────────────────────
+	// ── Spinner / Splitter / Badge ────────────────────────────────────────────────
 	struct SpinnerBuilder
 		: TransformMixin<SpinnerBuilder,
 		  AccentMixin<SpinnerBuilder,
@@ -898,7 +1039,7 @@ namespace SDL::UI {
 		}
 	};
 
-	// ── ColorPicker: visual surface + numeric (no text) ──────────────────────────
+	// ── ColorPicker ───────────────────────────────────────────────────────────────
 	struct ColorPickerBuilder
 		: BackgroundMixin<ColorPickerBuilder,
 		  BorderMixin<ColorPickerBuilder,
@@ -920,15 +1061,9 @@ namespace SDL::UI {
 		ColorPickerBuilder& PickedColor(SDL::Color c)  { this->system.SetPickedColor(this->id, c); return this->_self(); }
 		ColorPickerBuilder& PickerColorA(SDL::Color c) { if (auto* cp = this->system.GetCtx().template Get<ColorPickerData>(this->id)) cp->colorA = c; return this->_self(); }
 		ColorPickerBuilder& PickerColorB(SDL::Color c) { if (auto* cp = this->system.GetCtx().template Get<ColorPickerData>(this->id)) cp->colorB = c; return this->_self(); }
-
-		template <typename T>
-		ColorPickerBuilder& OnChange(std::function<void(T)> cb) {
-			this->system.template OnChange<T>(this->id, std::move(cb));
-			return this->_self();
-		}
 	};
 
-	// ── Popup: container that's draggable / resizable / closable ─────────────────
+	// ── Popup ─────────────────────────────────────────────────────────────────────
 	struct PopupBuilder
 		: BackgroundMixin<PopupBuilder,
 		  BorderMixin<PopupBuilder,
@@ -949,14 +1084,14 @@ namespace SDL::UI {
 		PopupBuilder& PopupOpen(bool v = true) { this->system.SetPopupOpen(this->id, v); return this->_self(); }
 	};
 
-	// ── TabView / Expander / MenuBar — composite container builders ─────────────
+	// ── TabView ───────────────────────────────────────────────────────────────────
+	/// @brief TabView composed of a tab-bar row of buttons + content area.
 	struct TabViewBuilder
 		: BackgroundMixin<TabViewBuilder,
 		  BorderMixin<TabViewBuilder,
 		  SpacingMixin<TabViewBuilder,
 		  TransformMixin<TabViewBuilder,
-		  ScrollableMixin<TabViewBuilder,
-		  TooltipMixin<TabViewBuilder>>>>>>
+		  TooltipMixin<TabViewBuilder>>>>>
 	{
 		using BackgroundMixin::BackgroundMixin;
 
@@ -970,21 +1105,52 @@ namespace SDL::UI {
 				tv->onTabChange = std::move(cb);
 			return this->_self();
 		}
+		/// @brief Add a tab and return a ContainerBuilder for its content area.
+		///        Call this after the TabView is created; sub-entities must exist.
 		TabViewBuilder& AddTab(std::string_view label, bool closable = false) {
-			if (auto* tv = this->system.GetCtx().template Get<TabViewData>(this->id))
-				tv->tabs.push_back({std::string(label), closable});
+			this->system.AddTabViewTab(this->id, label, closable);
 			return this->_self();
+		}
+		/// @brief Style the tab-bar container.
+		template <typename F>
+		TabViewBuilder& WithTabBar(F&& fn) {
+			if (auto* tv = this->system.GetCtx().template Get<TabViewData>(this->id)) {
+				if (tv->tabBar != ECS::NullEntity) {
+					ContainerBuilder cb{this->system, tv->tabBar};
+					fn(cb);
+				}
+			}
+			return this->_self();
+		}
+		/// @brief Style the content area container.
+		template <typename F>
+		TabViewBuilder& WithContentArea(F&& fn) {
+			if (auto* tv = this->system.GetCtx().template Get<TabViewData>(this->id)) {
+				if (tv->contentArea != ECS::NullEntity) {
+					ContainerBuilder cb{this->system, tv->contentArea};
+					fn(cb);
+				}
+			}
+			return this->_self();
+		}
+		/// @brief Access the content container of tab at @p index.
+		[[nodiscard]] ECS::EntityId GetTabContent(int index) const {
+			if (auto* tv = this->system.GetCtx().template Get<TabViewData>(this->id)) {
+				if (index >= 0 && index < (int)tv->tabs.size())
+					return tv->tabs[index].tabContent;
+			}
+			return ECS::NullEntity;
 		}
 	};
 
+	// ── Expander ──────────────────────────────────────────────────────────────────
+	/// @brief Expander composed of a header button + collapsible content container.
 	struct ExpanderBuilder
 		: BackgroundMixin<ExpanderBuilder,
 		  BorderMixin<ExpanderBuilder,
-		  TextStyleMixin<ExpanderBuilder,
 		  SpacingMixin<ExpanderBuilder,
 		  TransformMixin<ExpanderBuilder,
-		  EditableMixin<ExpanderBuilder,
-		  TooltipMixin<ExpanderBuilder>>>>>>>
+		  TooltipMixin<ExpanderBuilder>>>>>
 	{
 		using BackgroundMixin::BackgroundMixin;
 
@@ -993,22 +1159,53 @@ namespace SDL::UI {
 			this->system.OnExpanderToggle(this->id, std::move(cb));
 			return this->_self();
 		}
+
+		/// @brief Style the header button (shows label + expand arrow).
+		template <typename F>
+		ExpanderBuilder& WithHeader(F&& fn) {
+			if (auto* ed = this->system.GetCtx().template Get<ExpanderData>(this->id)) {
+				if (ed->headerButton != ECS::NullEntity) {
+					ButtonBuilder bb{this->system, ed->headerButton};
+					fn(bb);
+				}
+			}
+			return this->_self();
+		}
+
+		/// @brief Style or populate the collapsible content container.
+		template <typename F>
+		ExpanderBuilder& WithContent(F&& fn) {
+			if (auto* ed = this->system.GetCtx().template Get<ExpanderData>(this->id)) {
+				if (ed->contentEntity != ECS::NullEntity) {
+					ContainerBuilder cb{this->system, ed->contentEntity};
+					fn(cb);
+				}
+			}
+			return this->_self();
+		}
+
+		/// @brief Returns the content container entity for direct child attachment.
+		[[nodiscard]] ECS::EntityId GetContentEntity() const {
+			if (auto* ed = this->system.GetCtx().template Get<ExpanderData>(this->id))
+				return ed->contentEntity;
+			return ECS::NullEntity;
+		}
 	};
 
+	// ── MenuBar ───────────────────────────────────────────────────────────────────
+	/// @brief MenuBar composed of menu-title buttons + per-menu overlay with item buttons.
 	struct MenuBarBuilder
 		: BackgroundMixin<MenuBarBuilder,
 		  BorderMixin<MenuBarBuilder,
 		  TextStyleMixin<MenuBarBuilder,
 		  SpacingMixin<MenuBarBuilder,
 		  TransformMixin<MenuBarBuilder,
-		  ScrollableMixin<MenuBarBuilder,
-		  TooltipMixin<MenuBarBuilder>>>>>>>
+		  TooltipMixin<MenuBarBuilder>>>>>>
 	{
 		using BackgroundMixin::BackgroundMixin;
 
-		MenuBarBuilder& Items(std::vector<std::string> items) {
-			if (auto* mb = this->system.GetCtx().template Get<MenuBarData>(this->id))
-				mb->items = std::move(items);
+		MenuBarBuilder& AddMenu(MenuBarMenu menu) {
+			this->system.AddMenuBarMenu(this->id, std::move(menu));
 			return this->_self();
 		}
 		MenuBarBuilder& OnItemSelect(std::function<void(int)> cb) {
@@ -1030,14 +1227,11 @@ namespace SDL::UI {
 	};
 
 	// ==================================================================================
-	// Theme — predefined style presets, now expressed as composable lambdas that
-	//         take the appropriate component type. Apply via a builder's
-	//         WithBackground / WithBorder / WithText helpers.
+	// Theme — predefined style presets as composable lambdas
 	// ==================================================================================
 
 	namespace Theme {
 
-		/// @brief Primary button preset — flat fill, no border, tight radius.
 		inline auto PrimaryButton(SDL::Color color) {
 			return [color](auto& builder) {
 				builder
@@ -1050,7 +1244,6 @@ namespace SDL::UI {
 			};
 		}
 
-		/// @brief Ghost button preset — transparent until hovered.
 		inline auto GhostButton() {
 			return [](auto& builder) {
 				builder
@@ -1063,7 +1256,6 @@ namespace SDL::UI {
 			};
 		}
 
-		/// @brief Fully transparent surface — useful for layout-only containers.
 		inline auto Transparent() {
 			return [](auto& builder) {
 				builder
@@ -1077,99 +1269,102 @@ namespace SDL::UI {
 	} // namespace Theme
 
 	// ==================================================================================
-	// Builder Factory Method Implementations
+	// Builder Factory Method Implementations (deferred — System must be complete)
 	// ==================================================================================
 
-	inline ContainerBuilder System::Container(std::string_view n) {
-		return ContainerBuilder{*this, MakeContainer(n)};
+	inline ContainerBuilder System::Container() {
+		return ContainerBuilder{*this, MakeContainer()};
 	}
 
-	inline LabelBuilder System::Label(std::string_view n, std::string_view text) {
-		return LabelBuilder{*this, MakeLabel(n, text)};
+	inline LabelBuilder System::Label(std::string_view text) {
+		return LabelBuilder{*this, MakeLabel(text)};
 	}
 
-	inline ButtonBuilder System::Button(std::string_view n, std::string_view text) {
-		return ButtonBuilder{*this, MakeButton(n, text)};
+	inline ButtonBuilder System::Button(std::string_view text) {
+		return ButtonBuilder{*this, MakeButton(text)};
 	}
 
-	inline ToggleBuilder System::Toggle(std::string_view n, std::string_view text) {
-		return ToggleBuilder{*this, MakeToggle(n, text)};
+	inline ToggleBuilder System::Toggle(std::string_view text) {
+		return ToggleBuilder{*this, MakeToggle(text)};
 	}
 
-	inline RadioBuilder System::Radio(std::string_view n, std::string_view group, std::string_view text) {
-		return RadioBuilder{*this, MakeRadio(n, group, text)};
+	inline RadioBuilder System::Radio(std::string_view group, std::string_view text) {
+		return RadioBuilder{*this, MakeRadio(group, text)};
 	}
 
-	inline ScrollBarBuilder System::ScrollBar(std::string_view n, float contentSize, float viewSize, Orientation o) {
-		return ScrollBarBuilder{*this, MakeScrollBar(n, contentSize, viewSize, 10.f, o)};
+	inline ScrollBarBuilder System::ScrollBar(float contentSize, float viewSize, Orientation o) {
+		return ScrollBarBuilder{*this, MakeScrollBar(contentSize, viewSize, 10.f, o)};
 	}
 
-	inline SeparatorBuilder System::Separator(std::string_view n) {
-		return SeparatorBuilder{*this, MakeSeparator(n)};
+	inline SeparatorBuilder System::Separator() {
+		return SeparatorBuilder{*this, MakeSeparator()};
 	}
 
-	inline InputBuilder System::Input(std::string_view n, std::string_view placeholder) {
-		return InputBuilder{*this, MakeInput(n, placeholder)};
+	inline InputBuilder System::Input(std::string_view placeholder) {
+		return InputBuilder{*this, MakeInput(placeholder)};
 	}
 
-	inline ImageBuilder System::ImageWidget(std::string_view n, std::string_view key, ImageFit fit) {
-		return ImageBuilder{*this, MakeImage(n, key, fit)};
+	inline ImageBuilder System::Image(std::string_view key, ImageFit fit) {
+		return ImageBuilder{*this, MakeImage(key, fit)};
 	}
 
-	inline CanvasBuilder System::CanvasWidget(std::string_view n,
-	                                          std::function<void(SDL::Event&)> eventCb,
+	inline CanvasBuilder System::Canvas(std::function<void(SDL::Event&)> eventCb,
 	                                          std::function<void(float)> updateCb,
 	                                          std::function<void(RendererRef, FRect)> renderCb) {
-		return CanvasBuilder{*this, MakeCanvas(n, eventCb, updateCb, renderCb)};
+		return CanvasBuilder{*this, MakeCanvas(std::move(eventCb), std::move(updateCb), std::move(renderCb))};
 	}
 
-	inline TextAreaBuilder System::TextArea(std::string_view n, std::string_view text, std::string_view placeholder) {
-		return TextAreaBuilder{*this, MakeTextArea(n, text, placeholder)};
+	inline TextAreaBuilder System::TextArea(std::string_view text, std::string_view placeholder) {
+		return TextAreaBuilder{*this, MakeTextArea(text, placeholder)};
 	}
 
-	inline ListBoxBuilder System::ListBoxWidget(std::string_view n, const std::vector<std::string>& items) {
-		return ListBoxBuilder{*this, MakeListBox(n, items)};
+	inline ListBoxBuilder System::ListBoxWidget(const std::vector<std::string>& items) {
+		return ListBoxBuilder{*this, MakeListBox(items)};
 	}
 
-	inline Builder System::GradedGraph(std::string_view n) {
-		return Builder{*this, MakeGraph(n)};
+	inline GraphBuilder System::GradedGraph() {
+		return GraphBuilder{*this, MakeGraph()};
 	}
 
-	inline ComboBoxBuilder System::ComboBox(std::string_view n, const std::vector<std::string>& items, int sel) {
-		return ComboBoxBuilder{*this, MakeComboBox(n, items, sel)};
+	inline ComboBoxBuilder System::ComboBox(const std::vector<std::string>& items, int sel) {
+		return ComboBoxBuilder{*this, MakeComboBox(items, sel)};
 	}
 
-	inline TabViewBuilder System::TabView(std::string_view n) {
-		return TabViewBuilder{*this, MakeTabView(n)};
+	inline TabViewBuilder System::TabView() {
+		return TabViewBuilder{*this, MakeTabView()};
 	}
 
-	inline ExpanderBuilder System::Expander(std::string_view n, std::string_view label, bool expanded) {
-		return ExpanderBuilder{*this, MakeExpander(n, label, expanded)};
+	inline ExpanderBuilder System::Expander(std::string_view label, bool expanded) {
+		return ExpanderBuilder{*this, MakeExpander(label, expanded)};
 	}
 
-	inline SplitterBuilder System::Splitter(std::string_view n, Orientation o, float ratio) {
-		return SplitterBuilder{*this, MakeSplitter(n, o, ratio)};
+	inline SplitterBuilder System::Splitter(Orientation o, float ratio) {
+		return SplitterBuilder{*this, MakeSplitter(o, ratio)};
 	}
 
-	inline SpinnerBuilder System::Spinner(std::string_view n, float speed) {
-		return SpinnerBuilder{*this, MakeSpinner(n, speed)};
+	inline SpinnerBuilder System::Spinner(float speed) {
+		return SpinnerBuilder{*this, MakeSpinner(speed)};
 	}
 
-	inline BadgeBuilder System::Badge(std::string_view n, std::string_view text) {
-		return BadgeBuilder{*this, MakeBadge(n, text)};
+	inline BadgeBuilder System::Badge(std::string_view text) {
+		return BadgeBuilder{*this, MakeBadge(text)};
 	}
 
-	inline ColorPickerBuilder System::ColorPicker(std::string_view n, ColorPickerPalette palette, float step) {
-		return ColorPickerBuilder{*this, MakeColorPicker(n, palette, step)};
+	inline ColorPickerBuilder System::ColorPicker(ColorPickerPalette palette, float step) {
+		return ColorPickerBuilder{*this, MakeColorPicker(palette, step)};
 	}
 
-	inline PopupBuilder System::Popup(std::string_view n, std::string_view title,
+	inline PopupBuilder System::Popup(std::string_view title,
 	                                  bool closable, bool draggable, bool resizable) {
-		return PopupBuilder{*this, MakePopup(n, title, closable, draggable, resizable)};
+		return PopupBuilder{*this, MakePopup(title, closable, draggable, resizable)};
 	}
 
-	inline TreeBuilder System::Tree(std::string_view n) {
-		return TreeBuilder{*this, MakeTree(n)};
+	inline TreeBuilder System::Tree() {
+		return TreeBuilder{*this, MakeTree()};
+	}
+
+	inline MenuBarBuilder System::MenuBar() {
+		return MenuBarBuilder{*this, MakeMenuBar()};
 	}
 
 } // namespace SDL::UI

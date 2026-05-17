@@ -137,12 +137,13 @@ namespace SDL::UI {
 		Focusable       = 1 << 4,
 		Resizable       = 1 << 5,
 		Draggable       = 1 << 6,
-		ScrollableX     = 1 << 7,
-		ScrollableY     = 1 << 8,
-		AutoScrollableX = 1 << 9,
-		AutoScrollableY = 1 << 10,
-		DispatchEvent   = 1 << 11, ///< Dispatch unused event to parent widgets.
-		All             = 0x0FFF
+		Editable        = 1 << 7,
+		ScrollableX     = 1 << 8,
+		ScrollableY     = 1 << 9,
+		AutoScrollableX = 1 << 10,
+		AutoScrollableY = 1 << 11,
+		DispatchEvent   = 1 << 12, ///< Dispatch unused event to parent widgets.
+		All             = 0x1FFF
 	};
 	SDL_UI_DECLARE_FLAG_OPERATORS(WidgetBehaviorFlag, Uint16)
 
