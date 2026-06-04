@@ -229,7 +229,8 @@
 #include "SDL3pp_ui/UILayoutSystem.h"
 #include "SDL3pp_ui/UIEventSystem.h"
 #include "SDL3pp_ui/UIRenderSystem.h"
-#include "SDL3pp_ui/UISystem.h"
+#include "SDL3pp_ui/UIContext.h"
+#include "SDL3pp_ui/UIPipeline.h"
 #include "SDL3pp_ui/UIBuilder.h"
 #endif
 #endif /* SDL3PP_UI_H_ */

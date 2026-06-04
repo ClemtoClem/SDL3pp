@@ -33,7 +33,7 @@ namespace SDL::UI {
 		T value = T(0);
 		T min   = std::numeric_limits<T>::lowest();
 		T max   = std::numeric_limits<T>::max();
-		T step  = T(0);
+		T step  = T(0); // 0 means any step is allowed
 		std::string format = "{}";
 
 		constexpr NumericValue() = default;
@@ -122,7 +122,7 @@ namespace SDL::UI {
 	};
 
 	// ==================================================================================
-	// Tier 1 — Universal components (every widget gets these via UIFactory::_Spawn)
+	// Tier 1 — Universal components (every widget gets these via Factory::_Spawn)
 	// ==================================================================================
 
 	/// @brief Optional searchable tag — enables path-based lookup ("/tag1/tag2/@id").
@@ -145,7 +145,6 @@ namespace SDL::UI {
 	};
 
 	/// @brief Layout-only properties (size, position, flow, alignment, scroll state).
-	///        Spacing-related fields (margin/padding/gap) live in @ref SpacingStyle.
 	struct LayoutProps {
 		// ── Position & size ─────────────────────────────────────────────────
 		Value absX      = Value::Px(0);
@@ -179,8 +178,85 @@ namespace SDL::UI {
 		FRect  absolute   = {}; ///< Final screen rect after Place pass
 		FRect  inner_clip = {}; ///< Inner clip rect
 		FRect  outer_clip = {}; ///< Outer clip rect
+		bool   culled     = false; ///< Set by CullingSystem when fully off-screen.
 	};
 
+	// ── Animation ────────────────────────────────────────────────────────────────
+
+	/// @brief Evaluate an easing curve at normalized time @p t (clamped to [0,1]).
+	[[nodiscard]] inline float EaseEval(Easing e, float t) noexcept {
+		t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+		switch (e) {
+		case Easing::Linear:    return t;
+		case Easing::EaseIn:    return t * t;
+		case Easing::EaseOut:   return t * (2.f - t);
+		case Easing::EaseInOut: return t * t * (3.f - 2.f * t);            // smoothstep
+		case Easing::EaseOutBack: {
+			constexpr float c1 = 1.70158f, c3 = c1 + 1.f;
+			float u = t - 1.f;
+			return 1.f + c3 * u * u * u + c1 * u * u;
+		}
+		}
+		return t;
+	}
+
+	/// @brief Per-widget transition configuration — the CSS-`transition` equivalent.
+	///
+	/// Declares how long state changes take and which channels animate. Attach it
+	/// (with a companion AnimationState) to opt a widget into smooth transitions;
+	/// without it, widgets snap instantly (the AnimationSystem treats the boolean
+	/// state as a 0/1 target, preserving the original look).
+	struct AnimationStyle {
+		float       duration = 0.15f;                 ///< Seconds for a 0→1 channel transition.
+		float       delay    = 0.f;                   ///< Seconds before a transition starts.
+		Easing      easing   = Easing::EaseOut;       ///< Timing function applied at read time.
+		AnimChannel channels = AnimChannel::Color | AnimChannel::Toggle | AnimChannel::Opacity;
+		float       scrollTime = 0.12f;               ///< Smooth-scroll time constant (0 = instant).
+	};
+
+	/// @brief Per-widget animation runtime — interpolated linear progress per channel.
+	///
+	/// Scalars hold *linear* progress in [0,1]; the easing curve is applied where the
+	/// value is consumed (DrawCtx color blend, toggle knob, …) so retargeting mid-
+	/// transition stays smooth in both directions.
+	struct AnimationState {
+		float hoverT   = 0.f;   ///< → 1 while Hovered.
+		float pressT   = 0.f;   ///< → 1 while Pressed.
+		float focusT   = 0.f;   ///< → 1 while Focused.
+		float checkedT = 0.f;   ///< → 1 while Checked.
+		float opacity  = 1.f;   ///< Current fade opacity.
+		bool  closing  = false; ///< Fade-out in progress; Widget hidden when opacity≈0.
+
+		// Smooth-scroll: displayed offset eases toward the logical target written by
+		// the event system into LayoutProps::scrollX/scrollY.
+		float scrollDispX = 0.f, scrollDispY = 0.f;
+		bool  scrollInit  = false;
+	};
+
+	/// @brief Z-ordering + portal attachment for a widget.
+	///
+	/// Defines the plane on which the widget is drawn and hit-tested, independently
+	/// of its position in the entity tree. Resolved by IndexSystem into a single
+	/// ordered draw/event list shared by RenderSystem and EventSystem.
+	struct LayerProps {
+		UILayer       layer        = UILayer::Content;   ///< Base plane.
+		int           zOffset      = 0;                  ///< Fine ordering within the layer.
+		bool          inherit      = true;               ///< Inherit parent's resolved layer when on Content.
+		PopupAttach   attach       = PopupAttach::Parent;///< Portal anchor for positioning + clipping.
+		ECS::EntityId attachTarget = ECS::NullEntity;    ///< Used when attach == PopupAttach::Target.
+	};
+
+	/// @brief One entry of the flattened, z-ordered draw/event list produced by
+	///        IndexSystem and consumed by RenderSystem (front→back) and the
+	///        EventSystem hit-test (back→front).
+	struct DrawCall {
+		ECS::EntityId entity   = ECS::NullEntity;
+		FRect         clipRect = {};                 ///< Inner clip rect for this widget.
+		int           layer    = 0;                  ///< Resolved layer (UILayer as int).
+		Uint32        seq      = 0;                  ///< Document order (tree pre-order index).
+	};
+
+	// ── Hierarchy — vector-based (O(1) lookup by index) ──────────────────────────
 	struct Parent {
 		ECS::EntityId id = ECS::NullEntity;
 	};
@@ -191,36 +267,97 @@ namespace SDL::UI {
 		void Remove(ECS::EntityId e) { std::erase(ids, e); }
 	};
 
-	/// @brief Centralized callback bag for pointer / focus / value-change events.
-	struct Callbacks {
-		// ── Pointer ─────────────────────────────────────────────────────────
-		std::function<void(SDL::MouseButton)>      onPress;
-		std::function<void(SDL::MouseButton)>      onRelease;
-		std::function<void(SDL::MouseButton)>      onClick;
-		std::function<void(SDL::MouseButton)>      onDoubleClick;
-		std::function<void(SDL::MouseButton, int)> onMultiClick;
-		std::function<void()>                      onMouseEnter;
-		std::function<void()>                      onMouseLeave;
-		std::function<void(SDL::FPoint)>           onDrag;
+	// ── ECS Relations — linked-list hierarchy (O(1) insert/remove) ───────────────
 
-		// ── Focus ───────────────────────────────────────────────────────────
+	/// @brief Targets the parent entity — complementary to Parent for archetype queries.
+	struct ChildOf {
+		ECS::EntityId parent = ECS::NullEntity;
+	};
+
+	/// @brief Doubly-linked sibling chain within the same parent.
+	struct SiblingLink {
+		ECS::EntityId next = ECS::NullEntity;
+		ECS::EntityId prev = ECS::NullEntity;
+	};
+
+	/// @brief Head and tail of the child linked-list, stored on the parent entity.
+	struct ChildLinks {
+		ECS::EntityId first = ECS::NullEntity;
+		ECS::EntityId last  = ECS::NullEntity;
+	};
+
+	// ── Callbacks — split by concern ─────────────────────────────────────────────
+
+	/// @brief Pointer (mouse / touch) event callbacks.
+	struct PointerCbs {
+		std::function<void(SDL::MouseButton)>             onPress;
+		std::function<void(SDL::MouseButton)>             onRelease;
+		std::function<void(SDL::MouseButton)>             onClick;
+		std::function<void(SDL::MouseButton)>             onDoubleClick;
+		std::function<void(SDL::MouseButton, int)>        onMultiClick;
+		std::function<void()>                             onMouseEnter;
+		std::function<void()>                             onMouseLeave;
+		std::function<void(SDL::FPoint)>                  onDrag;
+		std::function<void(const SDL::TouchFingerEvent&)> onTouchFinger;
+	};
+
+	/// @brief Focus lifecycle callbacks.
+	struct FocusCbs {
 		std::function<void()> onFocusGain;
 		std::function<void()> onFocusLose;
+	};
 
-		// ── Value-change ────────────────────────────────────────────────────
+	/// @brief Value-change callbacks for scalars, colors, text and boolean toggles.
+	struct ValueCbs {
 		std::function<void(float)>                    onChange;
 		std::function<void(SDL::Color)>               onColorChange;
 		std::function<void(const std::string&)>       onTextChange;
 		std::function<void(bool)>                     onToggle;
 		std::function<void(float)>                    onScroll;
 		std::function<void(SDL::FPoint, SDL::FPoint)> onScrollChange;
+	};
 
-		// ── Touch ───────────────────────────────────────────────────────────
-		std::function<void(const SDL::TouchFingerEvent&)> onTouchFinger;
+	/// @brief Item-list callbacks (selection and reorder).
+	struct ItemCbs {
+		std::function<void(int, bool)> onTreeSelect;
+		std::function<void(int, int)>  onItemReorder;
+	};
 
-		// ── Item-list ───────────────────────────────────────────────────────
-		std::function<void(int, bool)>  onTreeSelect;
-		std::function<void(int, int)>   onItemReorder;
+	// ── Focus / Navigation ────────────────────────────────────────────────────────
+
+	/// @brief Marks a widget as keyboard-focusable and assigns its tab order.
+	struct Focusable {
+		int  tabIndex  = 0;
+		bool autoIndex = true; ///< Assigned automatically by factory insertion order
+	};
+
+	/// @brief Explicit spatial / logical navigation links (override tab-order traversal).
+	struct NavigationLinks {
+		ECS::EntityId up    = ECS::NullEntity;
+		ECS::EntityId down  = ECS::NullEntity;
+		ECS::EntityId left  = ECS::NullEntity;
+		ECS::EntityId right = ECS::NullEntity;
+		ECS::EntityId next  = ECS::NullEntity;
+		ECS::EntityId prev  = ECS::NullEntity;
+	};
+
+	// ── CSS-like Style Tags ───────────────────────────────────────────────────────
+
+	/// @brief Holds a list of named style references applied to a widget (CSS class analogue).
+	struct StyleTag {
+		std::vector<std::string> styles;
+
+		void Add(std::string_view name) {
+			if (!Has(name)) styles.emplace_back(name);
+		}
+		void Remove(std::string_view name) {
+			std::erase_if(styles, [name](const std::string& s){ return s == name; });
+		}
+		void Clear() noexcept { styles.clear(); }
+		[[nodiscard]] bool Has(std::string_view name) const noexcept {
+			return std::any_of(styles.begin(), styles.end(),
+			                   [name](const std::string& s){ return s == name; });
+		}
 	};
 
 	// ==================================================================================
@@ -280,7 +417,7 @@ namespace SDL::UI {
 		float opacity = 1.f;
 	};
 
-	/// @brief Accent colours used by track/fill/thumb-style widgets.
+	/// @brief Accent colours used by track / fill / thumb-style widgets.
 	struct AccentStyle {
 		SDL::Color trackColor     = { 42,  44,  58, 255};
 		SDL::Color fillColor      = { 70, 130, 210, 255};
@@ -311,6 +448,19 @@ namespace SDL::UI {
 		SDL::Color textColor = {215, 218, 228, 255};
 	};
 
+	// ── CSS-like Style Bundle (defined after Tier 2 types it references) ──────────
+
+	/// @brief A named bundle of optional style overrides stored in StyleRegistry.
+	///        Fields left as std::nullopt inherit from the widget's own components.
+	struct StyleBundle {
+		std::optional<BackgroundStyle> bg;
+		std::optional<BorderStyle>     bd;
+		std::optional<TextStyle>       ts;
+		std::optional<SpacingStyle>    sp;
+		std::optional<AccentStyle>     ac;
+		std::optional<TransformStyle>  tr;
+	};
+
 	// ==================================================================================
 	// Tier 3 — Reusable add-ons (opt-in feature components)
 	// ==================================================================================
@@ -332,8 +482,6 @@ namespace SDL::UI {
 	};
 
 	/// @brief Hover-tooltip behaviour.
-	///        The factory creates a sub-entity (container + label) stored in `entity`.
-	///        Use TooltipMixin builder methods to style the label.
 	struct TooltipData {
 		std::string   text;
 		float         delay         = 1.f;
@@ -416,7 +564,7 @@ namespace SDL::UI {
 		[[nodiscard]] bool HasSelection() const noexcept { return anchor != focus; }
 		void Clear() noexcept { anchor = focus = 0; }
 		void Set(int a, int f) noexcept { anchor = a; focus = f; }
-		void Set(int a, int f, int /*cursor*/) noexcept { anchor = a; focus = f; }
+		void Set(int a, int f, int) noexcept { anchor = a; focus = f; }
 
 		[[nodiscard]] std::string GetSelected(const std::string& src) const {
 			if (!HasSelection()) return {};
@@ -435,20 +583,18 @@ namespace SDL::UI {
 		}
 	};
 
-	/// @brief Per-span rich text style — used by Label, TextArea, Input.
-	///        Fields left at default (color={0,0,0,0}, fontSize=0, fontKey="") inherit
-	///        from the widget's TextStyle.
+	/// @brief Per-span rich text style override — fields at default inherit from TextStyle.
 	struct TextSpanStyle {
 		bool       bold          = false;
 		bool       italic        = false;
 		bool       underline     = false;
 		bool       strikethrough = false;
 		bool       highlight     = false;
-		bool       reversed      = false;      ///< Invert text/background colours
+		bool       reversed      = false;
 		SDL::Color color          = {0, 0, 0, 0};
 		SDL::Color highlightColor = {255, 255, 100, 80};
-		std::string fontKey;                   ///< Override font key (empty = inherit)
-		float       fontSize = 0.f;            ///< Override font size (0 = inherit)
+		std::string fontKey;
+		float       fontSize = 0.f;
 	};
 
 	struct TextSpans {
@@ -518,72 +664,103 @@ namespace SDL::UI {
 	};
 
 	// ==================================================================================
-	// Tier 4 — Widget-specific data
+	// Tier 4 — Widget-specific data (split into Config / State / Interaction)
 	// ==================================================================================
 
-	// ── SliderData ────────────────────────────────────────────────────────────────
-	struct SliderData {
-		Orientation        orientation  = Orientation::Horizontal;
-		std::vector<float> markers;
+	// ── Toggle ─────────────────────────────────────────────────────────────────────
 
+	/// @brief Logical checked state (mutated on click by the event system).
+	struct ToggleState {
+		bool checked = false;
+	};
+
+	/// @brief Smooth animation state (updated each frame, read by the renderer).
+	struct ToggleAnim {
+		float animT = 0.f;
+	};
+
+	// ── Radio ──────────────────────────────────────────────────────────────────────
+
+	/// @brief Radio button logical state — group key is shared across siblings.
+	struct RadioState {
+		std::string group;
+		bool        checked = false;
+	};
+
+	// ── Progress ──────────────────────────────────────────────────────────────────
+	struct ProgressData {
+		Orientation orientation     = Orientation::Horizontal;
+		bool        isIndeterminate = false;
+	};
+
+	// ── Separator ─────────────────────────────────────────────────────────────────
+	struct SeparatorData {
+		float       thickness   = 1.f;
+		SDL::Color  color       = {55, 58, 78, 255};
+		Orientation orientation = Orientation::Horizontal;
+	};
+
+	// ── Slider ────────────────────────────────────────────────────────────────────
+
+	/// @brief Static slider configuration.
+	struct SliderConfig {
+		Orientation        orientation = Orientation::Horizontal;
+		std::vector<float> markers;
+	};
+
+	/// @brief Transient slider drag state (written by event system, cleared on release).
+	struct SliderInteraction {
 		bool   drag         = false;
 		float  dragStartPos = 0.f;
 		double dragStartVal = 0.0;
 	};
 
-	// ── KnobData ──────────────────────────────────────────────────────────────────
+	// ── Knob ──────────────────────────────────────────────────────────────────────
+
 	enum class KnobShape : Uint8 {
 		Arc,
 		Potentiometer
 	};
 
-	struct KnobData {
+	/// @brief Static knob configuration.
+	struct KnobConfig {
 		KnobShape shape = KnobShape::Arc;
+	};
 
+	/// @brief Transient knob drag state.
+	struct KnobInteraction {
 		bool   drag           = false;
 		float  dragStartY     = 0.f;
 		double dragStartVal   = 0.0;
 		float  dragStartAngle = 0.f;
 	};
 
-	// ── ProgressData ──────────────────────────────────────────────────────────────
-	struct ProgressData {
-		Orientation orientation     = Orientation::Horizontal;
-		bool        isIndeterminate = false;
-	};
+	// ── ScrollBar ─────────────────────────────────────────────────────────────────
 
-	// ── ToggleData ────────────────────────────────────────────────────────────────
-	struct ToggleData {
-		bool  checked = false;
-		float animT   = 0.f;
-	};
-
-	// ── RadioData ─────────────────────────────────────────────────────────────────
-	struct RadioData {
-		std::string group;
-		bool        checked = false;
-	};
-
-	// ── SeparatorData ─────────────────────────────────────────────────────────────
-	struct SeparatorData {
-		Orientation orientation = Orientation::Horizontal;
-	};
-
-	// ── ScrollBarData ─────────────────────────────────────────────────────────────
-	struct ScrollBarData {
+	/// @brief Static scrollbar configuration.
+	struct ScrollBarConfig {
 		Orientation orientation = Orientation::Vertical;
-		float       contentSize = 0.f;
-		float       viewSize    = 0.f;
-		float       offset      = 0.f;
 		float       trackSize   = 8.f;
+	};
 
+	/// @brief Runtime scroll state (content size / view size / current offset).
+	struct ScrollBarState {
+		float contentSize = 0.f;
+		float viewSize    = 0.f;
+		float offset      = 0.f;
+	};
+
+	/// @brief Transient scrollbar drag state.
+	struct ScrollBarInteraction {
 		bool  drag         = false;
 		float dragStartPos = 0.f;
 		float dragStartOff = 0.f;
 	};
 
-	// ── ContainerScrollState ──────────────────────────────────────────────────────
-	struct ContainerScrollState {
+	// ── Container Scroll Thumb ────────────────────────────────────────────────────
+
+	/// @brief Inline thumb geometry and drag state for scrollable containers.
+	struct ScrollThumbInteraction {
 		FRect thumbX = {};
 		FRect thumbY = {};
 
@@ -591,12 +768,12 @@ namespace SDL::UI {
 		float dragStartX   = 0.f;
 		float dragStartOff = 0.f;
 
-		bool  dragY          = false;
-		float dragStartY     = 0.f;
-		float dragStartOffY  = 0.f;
+		bool  dragY         = false;
+		float dragStartY    = 0.f;
+		float dragStartOffY = 0.f;
 	};
 
-	// ── InputData ─────────────────────────────────────────────────────────────────
+	// ── Input ─────────────────────────────────────────────────────────────────────
 	struct InputData {
 		InputFilterType filter = InputFilterType::Text;
 		std::string     format = "{}";
@@ -608,26 +785,25 @@ namespace SDL::UI {
 		bool   pressDown    = false;
 		bool   passwordMode = false;
 
-		std::function<bool(char)> customFilter; ///< For InputFilterType::Custom, return true to allow character
-		std::function<void()> onIncrement;        ///< Called when increment button is pressed
-		std::function<void()> onDecrement;        ///< Called when decrement button is pressed
+		std::function<bool(char)> customFilter;
+		std::function<void()>     onIncrement;
+		std::function<void()>     onDecrement;
 	};
 
-	// ── ImageData ─────────────────────────────────────────────────────────────────
+	// ── Image ─────────────────────────────────────────────────────────────────────
 	struct ImageData {
 		std::string key;
 		ImageFit    fit = ImageFit::Contain;
 	};
 
-	// ── CanvasData ────────────────────────────────────────────────────────────────
+	// ── Canvas ────────────────────────────────────────────────────────────────────
 	struct CanvasData {
 		std::function<void(SDL::Event&)>           eventCb;
 		std::function<void(float)>                 updateCb;
 		std::function<void(RendererRef, FRect)>    renderCb;
 	};
 
-	// ── ListBoxData ───────────────────────────────────────────────────────────────
-	/// @brief Dynamic list of selectable items rendered as child button entities.
+	// ── ListBox ───────────────────────────────────────────────────────────────────
 	struct ListBoxData {
 		bool reorderable = false;
 
@@ -638,16 +814,16 @@ namespace SDL::UI {
 		float dragStartY = 0.f;
 		bool  dragMoved  = false;
 
-		ECS::EntityId              scrollView   = ECS::NullEntity; ///< Scroll container child
-		std::vector<ECS::EntityId> itemButtons;                     ///< Per-item button entities
+		ECS::EntityId              scrollView   = ECS::NullEntity;
+		std::vector<ECS::EntityId> itemButtons;
 	};
 
-	// ── TextAreaData ──────────────────────────────────────────────────────────────
+	// ── TextArea ──────────────────────────────────────────────────────────────────
 	struct TextAreaData {
 		float scrollY = 0.f;
 	};
 
-	// ── GraphData ─────────────────────────────────────────────────────────────────
+	// ── Graph ─────────────────────────────────────────────────────────────────────
 	struct GraphData {
 		std::vector<float> data;
 		float minVal     = 0.f;
@@ -668,27 +844,23 @@ namespace SDL::UI {
 		bool logFreq  = false;
 	};
 
-	// ── ComboBoxData ──────────────────────────────────────────────────────────────
-	/// @brief ComboBox composed of a toggle button + scrollable overlay container.
-	///        Sub-entities are created by UIFactory::MakeComboBox.
+	// ── ComboBox ──────────────────────────────────────────────────────────────────
 	struct ComboBoxData {
 		bool  open         = false;
 		float scrollOffset = 0.f;
 		FRect dropRect     = {};
 
-		ECS::EntityId toggleButton = ECS::NullEntity; ///< Button showing current selection
-		ECS::EntityId overlay      = ECS::NullEntity; ///< Popup overlay container (Fixed)
+		ECS::EntityId toggleButton = ECS::NullEntity;
+		ECS::EntityId overlay      = ECS::NullEntity;
 	};
 
-	// ── TabViewData ───────────────────────────────────────────────────────────────
-	/// @brief TabView composed of a tab-bar row (button per tab) + content area.
-	///        Sub-entities are created by UIFactory::MakeTabView.
+	// ── TabView ───────────────────────────────────────────────────────────────────
 	struct TabViewData {
 		struct Tab {
 			std::string   label;
 			bool          closable    = false;
-			ECS::EntityId tabButton   = ECS::NullEntity; ///< Button in the tab bar
-			ECS::EntityId tabContent  = ECS::NullEntity; ///< Content container for this tab
+			ECS::EntityId tabButton   = ECS::NullEntity;
+			ECS::EntityId tabContent  = ECS::NullEntity;
 		};
 		std::vector<Tab> tabs;
 		int   activeTab  = 0;
@@ -696,36 +868,43 @@ namespace SDL::UI {
 		TabLocation tabLocation = TabLocation::Top;
 		std::function<void(int)> onTabChange;
 
-		ECS::EntityId tabBar      = ECS::NullEntity; ///< Row container holding tab buttons
-		ECS::EntityId contentArea = ECS::NullEntity; ///< Container showing active tab content
+		ECS::EntityId tabBar      = ECS::NullEntity;
+		ECS::EntityId contentArea = ECS::NullEntity;
 	};
 
-	// ── ExpanderData ──────────────────────────────────────────────────────────────
-	/// @brief Expander composed of a header button + collapsible content container.
-	///        Sub-entities are created by UIFactory::MakeExpander.
+	// ── Expander ──────────────────────────────────────────────────────────────────
 	struct ExpanderData {
 		bool  expanded = true;
 		float animT    = 1.f;
 		float headerH  = 28.f;
 
-		ECS::EntityId headerButton  = ECS::NullEntity; ///< Toggle button (shows label + arrow)
-		ECS::EntityId contentEntity = ECS::NullEntity; ///< Collapsible content container
+		ECS::EntityId headerButton  = ECS::NullEntity;
+		ECS::EntityId contentEntity = ECS::NullEntity;
 	};
 
-	// ── SplitterData ──────────────────────────────────────────────────────────────
-	struct SplitterData {
+	// ── Splitter ──────────────────────────────────────────────────────────────────
+
+	/// @brief Static splitter configuration.
+	struct SplitterConfig {
 		Orientation orientation = Orientation::Horizontal;
-		float ratio      = 0.5f;
 		float minRatio   = 0.05f;
 		float maxRatio   = 0.95f;
 		float handleSize = 6.f;
+	};
 
+	/// @brief Runtime splitter ratio (mutable during drag).
+	struct SplitterState {
+		float ratio = 0.5f;
+	};
+
+	/// @brief Transient splitter drag state.
+	struct SplitterInteraction {
 		bool  dragging  = false;
 		float dragStart = 0.f;
 		float dragRatio = 0.f;
 	};
 
-	// ── SpinnerData ───────────────────────────────────────────────────────────────
+	// ── Spinner ───────────────────────────────────────────────────────────────────
 	struct SpinnerData {
 		float angle     = 0.f;
 		float speed     = 6.28f;
@@ -733,7 +912,7 @@ namespace SDL::UI {
 		float thickness = 3.f;
 	};
 
-	// ── BadgeData ─────────────────────────────────────────────────────────────────
+	// ── Badge ─────────────────────────────────────────────────────────────────────
 	struct BadgeData {
 		std::string text;
 		std::string variant;
@@ -741,7 +920,8 @@ namespace SDL::UI {
 		SDL::Color  textColor = {255, 255, 255, 255};
 	};
 
-	// ── ColorPickerData ───────────────────────────────────────────────────────────
+	// ── ColorPicker ───────────────────────────────────────────────────────────────
+
 	enum class ColorPickerPalette : Uint8 {
 		Grayscale,
 		RGB8,
@@ -749,40 +929,40 @@ namespace SDL::UI {
 		GradientAB
 	};
 
-	struct ColorPickerData {
+	/// @brief Static color picker configuration.
+	struct ColorPickerConfig {
 		ColorPickerPalette palette       = ColorPickerPalette::RGB8;
-		SDL::Color         currentColor  = {255, 100,  50, 255};
 		SDL::Color         colorA        = {  0,   0,   0, 255};
 		SDL::Color         colorB        = {255, 255, 255, 255};
 		float              precisionStep = 1.f / 255.f;
 		bool               allowAlpha    = false;
+	};
 
+	/// @brief Runtime color picker state (hue/sat/val + current color).
+	struct ColorPickerState {
+		SDL::Color currentColor = {255, 100,  50, 255};
 		float hue   = 0.f;
 		float sat   = 1.f;
 		float val   = 1.f;
 		float gradT = 0.f;
+	};
 
+	/// @brief Transient color picker drag state.
+	struct ColorPickerInteraction {
 		bool dragging    = false;
 		bool draggingHue = false;
 	};
 
-	// ── PopupData ─────────────────────────────────────────────────────────────────
-	struct PopupData {
+	// ── Popup ─────────────────────────────────────────────────────────────────────
+
+	/// @brief Static popup configuration (title, chrome options, header buttons).
+	struct PopupConfig {
 		std::string title;
 		bool  closable  = true;
 		bool  draggable = true;
 		bool  resizable = false;
 		bool  modal     = false;
-		bool  open      = false;
 		float headerH   = 28.f;
-
-		bool        dragging   = false;
-		SDL::FPoint dragOffset = {};
-		SDL::FPoint pressPos   = {};
-
-		bool        resizing        = false;
-		SDL::FPoint resizeStart     = {};
-		SDL::FPoint resizeStartSize = {};
 
 		struct HeaderBtn {
 			std::string           iconKey;
@@ -791,6 +971,22 @@ namespace SDL::UI {
 		std::vector<HeaderBtn> headerButtons;
 
 		std::function<void()> onClose;
+	};
+
+	/// @brief Runtime popup open / closed state.
+	struct PopupState {
+		bool open = false;
+	};
+
+	/// @brief Transient popup drag / resize state.
+	struct PopupInteraction {
+		bool        dragging        = false;
+		SDL::FPoint dragOffset      = {};
+		SDL::FPoint pressPos        = {};
+
+		bool        resizing        = false;
+		SDL::FPoint resizeStart     = {};
+		SDL::FPoint resizeStartSize = {};
 	};
 
 	// ── Tree ──────────────────────────────────────────────────────────────────────
@@ -802,8 +998,6 @@ namespace SDL::UI {
 		bool expanded    = false;
 	};
 
-	/// @brief Tree composed of a scroll container with per-node row entities.
-	///        Node rows are re-built by the system when nodes are added/cleared.
 	struct TreeData {
 		std::vector<TreeNodeData> nodes;
 		int   selectedIndex = -1;
@@ -812,8 +1006,8 @@ namespace SDL::UI {
 		float iconSize      = 14.f;
 		std::function<void(int, bool)> onToggleNode;
 
-		ECS::EntityId              scrollView = ECS::NullEntity; ///< Scroll container child
-		std::vector<ECS::EntityId> nodeRows;                     ///< Per-node button entities
+		ECS::EntityId              scrollView = ECS::NullEntity;
+		std::vector<ECS::EntityId> nodeRows;
 	};
 
 	// ── MenuBar ───────────────────────────────────────────────────────────────────
@@ -837,8 +1031,6 @@ namespace SDL::UI {
 		bool enabled = true;
 	};
 
-	/// @brief MenuBar composed of a menu-title button row + popup overlay per menu.
-	///        Sub-entities are created/updated by UIFactory methods.
 	struct MenuBarData {
 		std::vector<MenuBarMenu> menus;
 		int openMenu = -1;
@@ -846,10 +1038,10 @@ namespace SDL::UI {
 		int hovItem  = -1;
 		std::function<void(int)> onItemSelect;
 
-		ECS::EntityId              menuRow         = ECS::NullEntity; ///< Row of menu-title buttons
-		std::vector<ECS::EntityId> menuButtons;                        ///< Per-menu title buttons
-		ECS::EntityId              overlay         = ECS::NullEntity; ///< Dropdown overlay (Fixed)
-		std::vector<ECS::EntityId> overlayItems;                       ///< Per-item buttons in overlay
+		ECS::EntityId              menuRow     = ECS::NullEntity;
+		std::vector<ECS::EntityId> menuButtons;
+		ECS::EntityId              overlay     = ECS::NullEntity;
+		std::vector<ECS::EntityId> overlayItems;
 	};
 
 } // namespace SDL::UI

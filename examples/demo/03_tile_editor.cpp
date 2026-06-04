@@ -21,17 +21,31 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <format>
+#include <functional>
+#include <future>
+#include <memory>
 #include <queue>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
 #include <vector>
 
-#define TILE_EDITOR_VERSION "1.0.0"
+#ifdef SDL3PP_TILE_EDITOR_LUA
+extern "C" {
+	#include <lua.h>
+	#include <lauxlib.h>
+	#include <lualib.h>
+}
+#endif
+
+#define TILE_EDITOR_VERSION "2.0.0"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resource / pool keys
@@ -71,6 +85,11 @@ namespace icon_key {
 	constexpr const char* RIGHT      = "icon_right_arrow";
 	constexpr const char* LOCK       = "icon_collision";
 	constexpr const char* STAMP      = "icon_stamp";
+	// Object tool icons (re-use existing icons)
+	constexpr const char* OBJ_SELECT = "icon_select"; // alias
+	constexpr const char* OBJ_RECT   = "icon_stamp";  // alias for box object
+	constexpr const char* OBJ_POINT  = "icon_grid";   // alias
+	constexpr const char* OBJ_POLY   = "icon_pencil"; // alias for polygon
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,21 +97,35 @@ namespace icon_key {
 // ─────────────────────────────────────────────────────────────────────────────
 
 namespace pal {
-	constexpr SDL::Color BG       = { 14,  14,  20, 255};
-	constexpr SDL::Color HEADER   = { 20,  20,  30, 255};
-	constexpr SDL::Color PANEL    = { 18,  18,  26, 255};
-	constexpr SDL::Color ACCENT   = { 70, 130, 210, 255};
-	constexpr SDL::Color NEUTRAL  = { 30,  30,  40, 255};
-	constexpr SDL::Color BORDER   = { 50,  52,  72, 255};
-	constexpr SDL::Color WHITE    = {220, 220, 225, 255};
-	constexpr SDL::Color GREY     = {130, 132, 145, 255};
-	constexpr SDL::Color GREEN    = { 50, 195, 100, 255};
-	constexpr SDL::Color ORANGE   = {230, 145,  30, 255};
-	constexpr SDL::Color RED      = {200,  60,  50, 255};
-	constexpr SDL::Color SELECTED = {255, 200,  50, 255};
-	constexpr SDL::Color GRID     = { 60,  62,  80, 110};
-	constexpr SDL::Color OBJ_COL  = {100, 160, 100, 180};
-	constexpr SDL::Color OBJ_SEL  = {  0, 200, 255, 180};
+	// Modern dark-blue editor theme (subtle gradient between surface levels)
+	constexpr SDL::Color BG        = { 14,  16,  24, 255}; // canvas / app background
+	constexpr SDL::Color HEADER    = { 22,  26,  38, 255}; // top bar / status bar
+	constexpr SDL::Color PANEL     = { 19,  22,  32, 255}; // side panels
+	constexpr SDL::Color SURFACE   = { 28,  32,  46, 255}; // inputs / list items
+	constexpr SDL::Color SURFACE2  = { 36,  41,  58, 255}; // hover layer
+	constexpr SDL::Color ACCENT    = { 88, 156, 245, 255}; // primary brand
+	constexpr SDL::Color ACCENT2   = {124, 178, 255, 255}; // accent hover
+	constexpr SDL::Color ACCENT3   = { 56, 124, 220, 255}; // accent pressed
+	constexpr SDL::Color NEUTRAL   = { 36,  40,  54, 255};
+	constexpr SDL::Color NEUTRAL2  = { 52,  58,  78, 255};
+	constexpr SDL::Color BORDER    = { 50,  56,  78, 255};
+	constexpr SDL::Color BORDER2   = { 70,  78, 104, 255};
+	constexpr SDL::Color WHITE     = {228, 230, 238, 255};
+	constexpr SDL::Color TEXT      = {215, 220, 232, 255};
+	constexpr SDL::Color TEXT_DIM  = {148, 156, 178, 255};
+	constexpr SDL::Color GREY      = {130, 138, 158, 255};
+	constexpr SDL::Color GREEN     = { 72, 200, 130, 255};
+	constexpr SDL::Color ORANGE    = {235, 158,  50, 255};
+	constexpr SDL::Color RED       = {230,  85,  90, 255};
+	constexpr SDL::Color YELLOW    = {255, 210,  80, 255};
+	constexpr SDL::Color SELECTED  = {255, 210,  80, 255};
+	constexpr SDL::Color GRID      = { 70,  78, 104, 130};
+	constexpr SDL::Color OBJ_COL   = {110, 195, 130, 170};
+	constexpr SDL::Color OBJ_SEL   = { 80, 200, 255, 200};
+	constexpr SDL::Color OBJ_RECT  = {120, 180, 230, 200};
+	constexpr SDL::Color OBJ_POLY  = {200, 130, 220, 200};
+	constexpr SDL::Color OBJ_ELLIP = {255, 170, 100, 200};
+	constexpr SDL::Color OBJ_POINT = {255, 210,  80, 220};
 }
 
 // =============================================================================
@@ -148,8 +181,14 @@ struct TileMetadata {
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 enum class LayerType  { Tile, Object };
-enum class ObjectType { Rect, Ellipse, Point, Polygon, Tile };
-enum class MapOrient  { Orthogonal, Isometric, Hexagonal };
+enum class ObjectType { Rect, Ellipse, Point, Polygon, Tile, MapLink };
+enum class MapOrient  {
+	Orthogonal,
+	Isometric,
+	HexFlat,            ///< Hexagonal, flat-top (hex columns).
+	HexPointy,          ///< Hexagonal, pointy-top (hex rows).
+	Hexagonal = HexFlat ///< Back-compat alias (saves predating the flat/pointy split).
+};
 
 // ── Tileset ───────────────────────────────────────────────────────────────────
 struct TilesetDef {
@@ -280,6 +319,66 @@ struct TileMap {
 		};
 	}
 
+	// ── Orientation-aware coordinate transforms ───────────────────────────────
+	//
+	// Returns the world-space pixel position of the top-left corner of tile
+	// (tx, ty) under the current orientation. Tile pixel size is (tileW, tileH).
+	SDL::FPoint TileToWorld(int tx, int ty) const noexcept {
+		const float tw = float(tileW), th = float(tileH);
+		switch (orientation) {
+			case MapOrient::Orthogonal: return {tx * tw, ty * th};
+			case MapOrient::Isometric:
+				return {(tx - ty) * tw * 0.5f, (tx + ty) * th * 0.5f};
+			case MapOrient::HexFlat: {
+				// Flat-top: column offset, odd cols shifted down by half.
+				float x = tx * tw * 0.75f;
+				float y = ty * th + ((tx & 1) ? th * 0.5f : 0.f);
+				return {x, y};
+			}
+			case MapOrient::HexPointy: {
+				// Pointy-top: row offset, odd rows shifted right by half.
+				float x = tx * tw + ((ty & 1) ? tw * 0.5f : 0.f);
+				float y = ty * th * 0.75f;
+				return {x, y};
+			}
+		}
+		return {tx * tw, ty * th};
+	}
+
+	// Inverse of TileToWorld: world-space pixel coords → tile coords.
+	// Picking is approximate for hex/iso (uses bounding-rect mapping; good
+	// enough for editor purposes — game-side picking can refine if needed).
+	void WorldToTile(float wx, float wy, int& tx, int& ty) const noexcept {
+		const float tw = float(tileW), th = float(tileH);
+		switch (orientation) {
+			case MapOrient::Orthogonal:
+				tx = (int)std::floor(wx / tw);
+				ty = (int)std::floor(wy / th);
+				return;
+			case MapOrient::Isometric: {
+				float fx = wx / (tw * 0.5f);
+				float fy = wy / (th * 0.5f);
+				tx = (int)std::floor((fx + fy) * 0.5f);
+				ty = (int)std::floor((fy - fx) * 0.5f);
+				return;
+			}
+			case MapOrient::HexFlat: {
+				tx = (int)std::floor(wx / (tw * 0.75f));
+				float yShift = (tx & 1) ? th * 0.5f : 0.f;
+				ty = (int)std::floor((wy - yShift) / th);
+				return;
+			}
+			case MapOrient::HexPointy: {
+				ty = (int)std::floor(wy / (th * 0.75f));
+				float xShift = (ty & 1) ? tw * 0.5f : 0.f;
+				tx = (int)std::floor((wx - xShift) / tw);
+				return;
+			}
+		}
+		tx = (int)std::floor(wx / tw);
+		ty = (int)std::floor(wy / th);
+	}
+
 	// ── Auto-tile ─────────────────────────────────────────────────────────────
 
 	/// Bit mask of 4-way neighbours with the same tile ID: N=1 E=2 S=4 W=8.
@@ -347,10 +446,133 @@ struct UndoRedo {
 };
 
 // =============================================================================
+// Project: shared state and cross-workspace event bus
+//
+// A Project bundles every resource that the editor knows how to author —
+// the current map (with its tilesets, layers, objects), the Lua scripts,
+// the cinematic timelines, and the node-graphs. Workspaces are views over
+// this Project; mutations are broadcast via the dirty-flag bus so a tab
+// that's currently hidden picks up changes when it becomes active.
+// =============================================================================
+
+enum class WorkspaceKind : uint32_t {
+	None      = 0,
+	Map       = 1 << 0,
+	Scripts   = 1 << 1,
+	Cinematic = 1 << 2,
+	NodeGraph = 1 << 3,
+	Test      = 1 << 4,
+	All       = 0xFFFFFFFFu,
+};
+inline WorkspaceKind operator|(WorkspaceKind a, WorkspaceKind b) noexcept {
+	return (WorkspaceKind)((uint32_t)a | (uint32_t)b);
+}
+inline WorkspaceKind operator&(WorkspaceKind a, WorkspaceKind b) noexcept {
+	return (WorkspaceKind)((uint32_t)a & (uint32_t)b);
+}
+inline bool HasFlag(WorkspaceKind a, WorkspaceKind b) noexcept {
+	return ((uint32_t)a & (uint32_t)b) != 0;
+}
+
+// ── Lua script document ──────────────────────────────────────────────────
+struct ScriptDoc {
+	std::string name = "main.lua";
+	std::string code =
+		"-- Lua script. Available globals:\n"
+		"--   engine.log(msg), engine.tile(layer, x, y), engine.set_tile(layer, x, y, id)\n"
+		"--   engine.player_pos(), engine.set_player(x, y), engine.dialog(text)\n"
+		"--   engine.size(), engine.tick(dt) (called once per test frame if defined)\n"
+		"engine.log('Hello from Lua!')\n";
+};
+
+// ── Cinematic timeline ──────────────────────────────────────────────────
+enum class CineTrackKind : uint8_t { Image, Music, Sfx, Dialog };
+struct CineClip {
+	float start = 0.f;      ///< seconds
+	float length = 2.f;     ///< seconds
+	std::string asset;      ///< file path or dialogue text
+};
+struct CineTrack {
+	std::string name;
+	CineTrackKind kind = CineTrackKind::Image;
+	std::vector<CineClip> clips;
+};
+struct CineDoc {
+	std::string name = "intro";
+	float duration = 10.f;            ///< seconds
+	std::vector<CineTrack> tracks;    ///< default-empty list of tracks
+};
+
+// ── Node-graph ──────────────────────────────────────────────────────────
+enum class NodeKind : uint8_t {
+	Event,     ///< Trigger / entry point (no inputs).
+	Script,    ///< Runs a Lua script block.
+	Dialog,    ///< Shows a dialogue text (Pokemon-style).
+	Cinematic, ///< Plays a CineDoc.
+	Wait,      ///< Delays a configurable number of seconds.
+	Branch,    ///< Conditional fork (Lua expression → 2 outputs).
+};
+struct NodePort {
+	SDL::FPoint local = {0.f, 0.f}; ///< Offset from node origin (px).
+	std::string label;
+};
+struct NodeDef {
+	int id = 0;
+	NodeKind kind = NodeKind::Script;
+	SDL::FPoint pos = {0.f, 0.f};   ///< Top-left in node-graph world space (px).
+	SDL::FPoint size = {180.f, 80.f};
+	std::string title;
+	std::string body;                ///< Lua snippet, dialogue text, cinematic name, etc.
+	std::vector<NodePort> inputs;
+	std::vector<NodePort> outputs;
+};
+struct NodeWire {
+	int srcNode = 0, srcPort = 0;
+	int dstNode = 0, dstPort = 0;
+};
+struct NodeGraphDoc {
+	std::string name = "main";
+	std::vector<NodeDef> nodes;
+	std::vector<NodeWire> wires;
+	int nextNodeId = 1;
+};
+
+// ── Project: the shared model ───────────────────────────────────────────
+struct Project {
+	// Cross-workspace dirty bus. Setting a bit asks each workspace to refresh
+	// itself the next time it becomes active. A workspace clears its own bit
+	// after consuming it. Mutated from any workspace; read from Iterate().
+	WorkspaceKind dirtyFor = WorkspaceKind::None;
+	void Touch(WorkspaceKind w) noexcept { dirtyFor = dirtyFor | w; }
+
+	// Scripts: a small map of named documents (open file → string).
+	std::vector<ScriptDoc>    scripts;
+	int                       activeScript = 0;
+
+	// Cinematics: one document per cinematic; the user adds more as needed.
+	std::vector<CineDoc>      cinematics;
+	int                       activeCinematic = 0;
+
+	// Node-graphs: each one is its own runnable mini-flow.
+	std::vector<NodeGraphDoc> graphs;
+	int                       activeGraph = 0;
+
+	void Init() {
+		scripts    = { ScriptDoc{} };
+		cinematics = { CineDoc{} };
+		graphs     = { NodeGraphDoc{} };
+	}
+};
+
+// =============================================================================
 // Editor state
 // =============================================================================
 
-enum class ToolType { Pencil, Brush, Fill, Erase, Select };
+enum class ToolType {
+	Pencil, Brush, Fill, Erase, Select,
+	// Object tools (active on Object layers)
+	ObjSelect, ObjRect, ObjEllipse, ObjPoint, ObjPolygon
+};
 
 struct EditorState {
 	ToolType tool     = ToolType::Pencil;
@@ -391,10 +613,24 @@ struct EditorState {
 	float  tsTileZoom    = 0.f;  // 0 = auto-fit; positive = explicit zoom scale
 	float  tsScale       = 1.0f;
 
-	// Object layer drag
+	// Object layer drag (for shape creation)
 	bool      objDrag  = false;
 	SDL::FPoint objStart = {};
 	int       nextObjId  = 1;
+
+	// Object selection / move state
+	int  selectedObjLayer = -1;  ///< Layer index of selected object (-1 = none).
+	int  selectedObjId    = -1;  ///< ObjectDef::id of selected object.
+	bool objMoving        = false;
+	SDL::FPoint objMoveStart  = {};   ///< World coords of mouse at move start.
+	SDL::FPoint objMoveOrigin = {};   ///< Original obj.x / obj.y at move start.
+
+	// Polygon-in-progress
+	std::vector<SDL::FPoint> polyPoints; ///< World-space points (relative to first point).
+	SDL::FPoint               polyOrigin = {};
+
+	// Animation playback timer
+	float animTime = 0.f;
 
 	// Brush tool size (1, 3, 5, 7, 9)
 	int brushSize = 3;
@@ -477,7 +713,8 @@ static void SaveMap(const TileMap& map, const std::string& path) {
 		a->set("infinite",    SDL::BoolDataNode::Make(map.infinite));
 		const char* ori = "orthogonal";
 		if (map.orientation == MapOrient::Isometric) ori = "isometric";
-		if (map.orientation == MapOrient::Hexagonal) ori = "hexagonal";
+		if (map.orientation == MapOrient::HexFlat)   ori = "hexagonal";       // flat-top
+		if (map.orientation == MapOrient::HexPointy) ori = "hexagonal-pointy";
 		a->set("orientation", SDL::StringDataNode::Make(ori));
 		mNode->set("@attributes", a);
 	}
@@ -710,9 +947,10 @@ static bool LoadMap(TileMap& map, const std::string& path) {
 		map.tileH    = XmlInt(*ma, "tileheight",    32);
 		map.infinite = XmlBool(*ma, "infinite",    false);
 		auto ori     = XmlStr(*ma, "orientation",  "orthogonal");
-		if      (ori == "isometric") map.orientation = MapOrient::Isometric;
-		else if (ori == "hexagonal") map.orientation = MapOrient::Hexagonal;
-		else                         map.orientation = MapOrient::Orthogonal;
+		if      (ori == "isometric")        map.orientation = MapOrient::Isometric;
+		else if (ori == "hexagonal")        map.orientation = MapOrient::HexFlat;
+		else if (ori == "hexagonal-pointy") map.orientation = MapOrient::HexPointy;
+		else                                map.orientation = MapOrient::Orthogonal;
 	}
 	map.filePath   = path;
 	map.properties = LoadProperties(*mn);
@@ -878,7 +1116,7 @@ static bool LoadMap(TileMap& map, const std::string& path) {
 // Flood fill
 // =============================================================================
 
-static Command FloodFill(TileMap& map, int layer, int startX, int startY,
+[[maybe_unused]] static Command FloodFill(TileMap& map, int layer, int startX, int startY,
 						 TileID newId, int maxTiles = 50000) {
 	Command cmd;
 	if (layer < 0 || layer >= (int)map.layers.size()) return cmd;
@@ -918,11 +1156,13 @@ static Command FloodFill(TileMap& map, int layer, int startX, int startY,
 // =============================================================================
 
 struct Main {
-	static constexpr SDL::Point kWinSz  = {1400, 820};
+	static constexpr SDL::Point kWinSz  = {1440, 860};
 	static constexpr int kMaxLayers = 32;
-	static constexpr int kToolCount = 5;
-	static constexpr int kLeftW     = 172;
-	static constexpr int kRightW    = 212;
+	static constexpr int kTileToolCount = 5; ///< Pencil / Brush / Fill / Erase / Select
+	static constexpr int kObjToolCount  = 5; ///< Select / Rect / Ellipse / Point / Polygon
+	static constexpr int kLeftW     = 210;
+	static constexpr int kRightW    = 250;
+	static constexpr int kBottomH   = 0;     ///< reserved for future use
 
 	// ── SDL objects ───────────────────────────────────────────────────────────
 	static SDL::Window MakeWindow() {
@@ -949,6 +1189,61 @@ struct Main {
 	TileMap     map;
 	EditorState state;
 	UndoRedo    ur;
+	Project     project;  ///< Shared model for non-map workspaces.
+
+	// ── Workspace tab IDs ─────────────────────────────────────────────────────
+	enum WsTab { WsMap = 0, WsScripts, WsCine, WsGraph, WsTest, WsCount };
+	int  m_activeTab = WsMap;
+	bool m_tabRebuiltOnce = false;  ///< Tab content is built lazily on first display.
+
+	SDL::ECS::EntityId eTabView      = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eTabContent[WsCount] = {}; ///< per-tab content container.
+
+	// ── Scripts workspace UI ─────────────────────────────────────────────────
+	SDL::ECS::EntityId eScriptArea   = SDL::ECS::NullEntity; ///< TextArea editor.
+	SDL::ECS::EntityId eScriptName   = SDL::ECS::NullEntity; ///< Label / breadcrumb.
+	SDL::ECS::EntityId eScriptCons   = SDL::ECS::NullEntity; ///< Console TextArea.
+	std::string        m_consoleLog;                         ///< Buffered Lua output.
+
+	// ── Cinematic workspace UI ───────────────────────────────────────────────
+	SDL::ECS::EntityId eCineCanvas   = SDL::ECS::NullEntity; ///< Timeline canvas.
+	SDL::ECS::EntityId eCinePlayhead = SDL::ECS::NullEntity; ///< Label showing time.
+	float              m_cineTime    = 0.f;                  ///< Current playhead (s).
+	bool               m_cinePlaying = false;
+	int                m_cineDragTrack = -1, m_cineDragClip = -1;
+	bool               m_cineResize  = false;
+
+	// ── NodeGraph workspace UI ───────────────────────────────────────────────
+	SDL::ECS::EntityId eGraphCanvas  = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eGraphStatus  = SDL::ECS::NullEntity;
+	float              m_graphViewX  = 0.f, m_graphViewY = 0.f;
+	float              m_graphZoom   = 1.f;
+	int                m_selectedNode = -1;
+	bool               m_graphPanning = false;
+	bool               m_graphNodeDrag = false;
+	SDL::FPoint        m_graphDragOrigin = {};
+	SDL::FPoint        m_graphDragNodeStart = {};
+	// Wire-in-progress: from a node:port to the cursor.
+	int                m_wireFromNode = -1, m_wireFromPort = -1;
+
+	// ── Test workspace state (Mario-like physics) ────────────────────────────
+	struct PlayerPhys {
+		SDL::FPoint pos     = {64.f, 64.f};  ///< world px
+		SDL::FPoint vel     = {0.f, 0.f};
+		SDL::FPoint size    = {28.f, 44.f};
+		bool        onGround = false;
+		bool        alive    = true;
+	};
+	PlayerPhys         m_player;
+	bool               m_testPlaying = false;
+	SDL::ECS::EntityId eTestCanvas   = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eTestStatus   = SDL::ECS::NullEntity;
+	int                m_testCollisionLayer = 0; ///< layer used for tile collision.
+	std::unordered_set<int> m_testKeysHeld;     ///< SDL keycodes currently down.
+
+#ifdef SDL3PP_TILE_EDITOR_LUA
+	lua_State*         m_lua         = nullptr; ///< Persistent Lua state for the project.
+#endif
 
 	// ── UI entity IDs ─────────────────────────────────────────────────────────
 	SDL::ECS::EntityId eMapCanvas      = SDL::ECS::NullEntity;
@@ -957,13 +1252,36 @@ struct Main {
 	SDL::ECS::EntityId eTilesetName    = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eTileInfo       = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eLayerContent   = SDL::ECS::NullEntity;
-	SDL::ECS::EntityId toolBtns[kToolCount] = {};
+	SDL::ECS::EntityId tileToolBtns[kTileToolCount] = {};
+	SDL::ECS::EntityId objToolBtns [kObjToolCount]  = {};
+	SDL::ECS::EntityId eToolRowTile    = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eToolRowObj     = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eGridBtn        = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eMapTileW       = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eMapTileH       = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eTsTileW        = SDL::ECS::NullEntity;
 	SDL::ECS::EntityId eTsTileH        = SDL::ECS::NullEntity;
+	// Properties panel (right side bottom)
+	SDL::ECS::EntityId ePropsHdr       = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePropsBody      = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePropsName      = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePropsX         = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePropsY         = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePropsW         = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePropsH         = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePropsRot       = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId ePropsTypeLbl   = SDL::ECS::NullEntity;
+	// Active layer opacity slider (in layer panel)
+	SDL::ECS::EntityId eOpacitySlider  = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eOpacityLabel   = SDL::ECS::NullEntity;
+	// Map properties popup
+	SDL::ECS::EntityId eMapPropsPopup  = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eMapPropW       = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eMapPropH       = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eMapPropInf     = SDL::ECS::NullEntity;
+	SDL::ECS::EntityId eMapPropOri     = SDL::ECS::NullEntity;
 	int                m_syncedTs      = -2;
+	int                m_lastSelObjId  = -2;
 
 	struct LayerSlot {
 		SDL::ECS::EntityId row     = SDL::ECS::NullEntity;
@@ -1000,10 +1318,19 @@ struct Main {
 	Main() {
 		window.StartTextInput();
 		map.Init();
+		project.Init();
 		_LoadResources();
+#ifdef SDL3PP_TILE_EDITOR_LUA
+		_LuaInit();
+#endif
 		_BuildUI();
 	}
-	~Main() { resources.ReleaseAll(); }
+	~Main() {
+#ifdef SDL3PP_TILE_EDITOR_LUA
+		_LuaShutdown();
+#endif
+		resources.ReleaseAll();
+	}
 
 	// ── Event ─────────────────────────────────────────────────────────────────
 
@@ -1024,11 +1351,23 @@ struct Main {
 			if ((ctrl && key == SDL::KEYCODE_Y) ||
 				(ctrl && shift && key == SDL::KEYCODE_Z))  { _Redo();       return SDL::APP_CONTINUE; }
 			if (!ctrl) {
-				if (key == SDL::KEYCODE_P) _SetTool(ToolType::Pencil);
-				if (key == SDL::KEYCODE_B) _SetTool(ToolType::Brush);
-				if (key == SDL::KEYCODE_F) _SetTool(ToolType::Fill);
-				if (key == SDL::KEYCODE_E) _SetTool(ToolType::Erase);
-				if (key == SDL::KEYCODE_S) _SetTool(ToolType::Select);
+				bool objLayer = _ActiveLayerIsObject();
+				if (!objLayer) {
+					if (key == SDL::KEYCODE_P) _SetTool(ToolType::Pencil);
+					if (key == SDL::KEYCODE_B) _SetTool(ToolType::Brush);
+					if (key == SDL::KEYCODE_F) _SetTool(ToolType::Fill);
+					if (key == SDL::KEYCODE_E) _SetTool(ToolType::Erase);
+					if (key == SDL::KEYCODE_S) _SetTool(ToolType::Select);
+				} else {
+					if (key == SDL::KEYCODE_V)      _SetTool(ToolType::ObjSelect);
+					if (key == SDL::KEYCODE_R)      _SetTool(ToolType::ObjRect);
+					if (key == SDL::KEYCODE_C)      _SetTool(ToolType::ObjEllipse);
+					if (key == SDL::KEYCODE_PERIOD) _SetTool(ToolType::ObjPoint);
+					if (shift && key == SDL::KEYCODE_P) _SetTool(ToolType::ObjPolygon);
+					if (key == SDL::KEYCODE_DELETE) _DeleteSelectedObject();
+					if (key == SDL::KEYCODE_RETURN) _FinishPolygon();
+					if (key == SDL::KEYCODE_ESCAPE) state.polyPoints.clear();
+				}
 				if (key == SDL::KEYCODE_G) { state.showGrid = !state.showGrid; _RefreshGridBtn(); }
 				if (key == SDL::KEYCODE_EQUALS || key == SDL::KEYCODE_KP_PLUS)
 					_ZoomAt(1.25f, {kWinSz.x / 2.f, kWinSz.y / 2.f});
@@ -1106,6 +1445,21 @@ struct Main {
 
 		_UpdateStatus(dt);
 		_UpdateLayerSlots();
+		_UpdateToolRowVisibility();
+		_UpdatePropertiesPanel();
+		_SyncOpacitySlider();
+
+		// Per-tab updates
+		if (m_activeTab == WsCine) _CineUpdate(dt);
+
+		// Drain main-thread closures queued by graph workers (Lua isn't
+		// thread-safe). Always do this — workers might be running while we
+		// browse another tab.
+		_DrainPendingMain();
+		_ConsoleFlushToUI();
+
+		// Animation clock for animated tiles
+		state.animTime += dt;
 
 		renderer.SetDrawColor(pal::BG);
 		renderer.RenderClear();
@@ -1113,6 +1467,18 @@ struct Main {
 		renderer.Present();
 		frameTimer.End();
 		return SDL::APP_CONTINUE;
+	}
+
+	void _SyncOpacitySlider() {
+		if (eOpacitySlider == SDL::ECS::NullEntity) return;
+		if (map.activeLayer < 0 || map.activeLayer >= (int)map.layers.size()) return;
+		static int lastLayer = -1;
+		if (lastLayer != map.activeLayer) {
+			lastLayer = map.activeLayer;
+			float op = map.layers[map.activeLayer].opacity;
+			ui.SetValue(eOpacitySlider, op);
+			ui.SetText(eOpacityLabel, std::format("{:.0f}%", op * 100.f));
+		}
 	}
 
 	// =========================================================================
@@ -1158,6 +1524,11 @@ struct Main {
 	// =========================================================================
 
 	void _BuildUI() {
+		_BuildMapPropsPopup();
+
+		// Workspace tab bar — sits between the toolbar and the per-tab content.
+		auto tabBar = _BuildWorkspaceTabBar();
+
 		ui.Column("root", 0.f, 0.f)
 			.BgColor(pal::BG)
 			.WithStyle([](auto& s){
@@ -1167,8 +1538,194 @@ struct Main {
 			.W(SDL::UI::Value::Ww(100.f))
 			.H(SDL::UI::Value::Wh(100.f))
 			.Padding(0.f)
-			.Children(_BuildToolbar(), _BuildMainContent(), _BuildStatusBar())
+			.Children(
+				_BuildToolbar(),
+				tabBar,
+				_BuildWorkspaceContainer(),  // hosts the active workspace
+				_BuildStatusBar(),
+				eMapPropsPopup
+			)
 			.AsRoot();
+	}
+
+	// ── Workspace tab bar (sits below the toolbar) ────────────────────────────
+	SDL::ECS::EntityId _BuildWorkspaceTabBar() {
+		auto bar = ui.Row("workspace_tabs", 4.f, 0.f)
+			.W(SDL::UI::Value::Ww(100.f)).H(30.f)
+			.PaddingH(8.f).PaddingV(2.f)
+			.BgColor(pal::HEADER)
+			.WithStyle([](auto& s){
+				s.borders = SDL::FBox(0.f, 0.f, 1.f, 0.f);
+				s.bdColor = pal::BORDER;
+				s.radius  = SDL::FCorners(0.f);
+			});
+
+		static constexpr struct { WsTab tab; const char* label; const char* tip; } kTabs[] = {
+			{WsMap,     "Map",        "World / map editor"},
+			{WsScripts, "Scripts",    "Lua script editor + REPL"},
+			{WsCine,    "Cinematic",  "Cinematic timeline"},
+			{WsGraph,   "Node Graph", "Async block graph (events, dialog, scripts)"},
+			{WsTest,    "Test",       "Play the map with physics (Mario-style)"},
+		};
+		for (const auto& t : kTabs) {
+			WsTab tab = t.tab;
+			auto b = ui.Button(std::format("ws_tab_{}", (int)tab), t.label)
+				.W(SDL::UI::Value::Auto()).H(26.f).PaddingH(12.f)
+				.Font(res_key::FONT, 12.f)
+				.Tooltip(t.tip, 0.6f)
+				.ClickSound(res_key::CLICK)
+				.WithStyle([](auto& s){
+					s.borders = SDL::FBox(0.f);
+					s.radius  = SDL::FCorners(4.f);
+					s.bgColor        = SDL::Color(0,0,0,0);
+					s.bgHoveredColor = pal::SURFACE2;
+					s.bgPressedColor = pal::ACCENT3;
+					s.textColor      = pal::TEXT;
+				})
+				.OnClick([this, tab]{ _SwitchTab(tab); })
+				.Id();
+			bar.Child(b);
+			eTabContent[tab] = SDL::ECS::NullEntity; // resolved when its panel is built
+		}
+		return bar;
+	}
+
+	// ── Workspace content container (single child = active workspace) ──────
+	SDL::ECS::EntityId _BuildWorkspaceContainer() {
+		// We pre-build all 5 workspace panels and toggle visibility on tab switch.
+		eTabContent[WsMap]     = _BuildMainContent();
+		eTabContent[WsScripts] = _BuildScriptsWorkspace();
+		eTabContent[WsCine]    = _BuildCinematicWorkspace();
+		eTabContent[WsGraph]   = _BuildNodeGraphWorkspace();
+		eTabContent[WsTest]    = _BuildTestWorkspace();
+
+		// Hide all but the default active tab.
+		for (int i = 0; i < WsCount; ++i)
+			if (eTabContent[i] != SDL::ECS::NullEntity)
+				ui.SetVisible(eTabContent[i], i == m_activeTab);
+
+		return ui.Column("workspace_host", 0.f, 0.f)
+			.Grow(100.f)
+			.WithStyle([](auto& s){ s.borders = SDL::FBox(0.f); s.radius = SDL::FCorners(0.f); })
+			.Children(eTabContent[WsMap], eTabContent[WsScripts],
+			          eTabContent[WsCine], eTabContent[WsGraph], eTabContent[WsTest]);
+	}
+
+	void _SwitchTab(WsTab tab) {
+		if (tab < 0 || tab >= WsCount) return;
+		if (m_activeTab == tab) return;
+		// Stop the test simulation if we leave the Test tab.
+		if (m_activeTab == WsTest) m_testPlaying = false;
+		m_activeTab = tab;
+		for (int i = 0; i < WsCount; ++i)
+			if (eTabContent[i] != SDL::ECS::NullEntity)
+				ui.SetVisible(eTabContent[i], i == m_activeTab);
+		_OnTabActivated(tab);
+	}
+
+	void _OnTabActivated(WsTab tab) {
+		// Refresh side workspaces from project state when they become visible.
+		switch (tab) {
+			case WsScripts:
+				if (eScriptArea != SDL::ECS::NullEntity && !project.scripts.empty()) {
+					int idx = std::clamp(project.activeScript, 0, (int)project.scripts.size()-1);
+					ui.SetText(eScriptArea, project.scripts[idx].code);
+					ui.SetText(eScriptName, std::format("Script: {}", project.scripts[idx].name));
+				}
+				project.dirtyFor = project.dirtyFor & (WorkspaceKind)~(uint32_t)WorkspaceKind::Scripts;
+				break;
+			case WsCine:
+				project.dirtyFor = project.dirtyFor & (WorkspaceKind)~(uint32_t)WorkspaceKind::Cinematic;
+				break;
+			case WsGraph:
+				project.dirtyFor = project.dirtyFor & (WorkspaceKind)~(uint32_t)WorkspaceKind::NodeGraph;
+				break;
+			case WsTest:
+				_TestReset();
+				project.dirtyFor = project.dirtyFor & (WorkspaceKind)~(uint32_t)WorkspaceKind::Test;
+				break;
+			default:
+				break;
+		}
+	}
+
+	// ── Map properties popup ─────────────────────────────────────────────────
+	void _BuildMapPropsPopup() {
+		using namespace SDL::UI;
+		constexpr float popW = 320.f, popH = 240.f;
+
+		Style hdr;
+		hdr.bgColor   = pal::SURFACE;
+		hdr.textColor = pal::ACCENT;
+		hdr.fontKey   = res_key::FONT;
+		hdr.fontSize  = 11.f;
+
+		eMapPropW = ui.InputValue<int>("inp_mp_w", 1, 8192, map.width, 1)
+			.Grow(100.f).H(22.f)
+			.OnChange<int>([this](int v){ map.width  = SDL::Max(1,v); map.dirty=true; })
+			.Id();
+		eMapPropH = ui.InputValue<int>("inp_mp_h", 1, 8192, map.height, 1)
+			.Grow(100.f).H(22.f)
+			.OnChange<int>([this](int v){ map.height = SDL::Max(1,v); map.dirty=true; })
+			.Id();
+		eMapPropInf = ui.ComboBox("cmb_mp_inf",
+			{"Bounded (fixed)", "Infinite (chunks)"}, map.infinite ? 1 : 0)
+			.Grow(100.f).H(22.f).Font(res_key::FONT, 11.f)
+			.OnChange<int>([this](int v){ map.infinite = (v == 1); map.dirty=true; })
+			.Id();
+		eMapPropOri = ui.ComboBox("cmb_mp_ori",
+			{"Orthogonal", "Isometric", "Hex (flat)", "Hex (pointy)"},
+			map.orientation == MapOrient::Isometric ? 1 :
+			map.orientation == MapOrient::HexFlat   ? 2 :
+			map.orientation == MapOrient::HexPointy ? 3 : 0)
+			.Grow(100.f).H(22.f).Font(res_key::FONT, 11.f)
+			.OnChange<int>([this](int v){
+				switch (v) {
+					case 1: map.orientation = MapOrient::Isometric; break;
+					case 2: map.orientation = MapOrient::HexFlat;   break;
+					case 3: map.orientation = MapOrient::HexPointy; break;
+					default:map.orientation = MapOrient::Orthogonal;break;
+				}
+				map.dirty = true;
+			})
+			.Id();
+
+		auto mkRow = [&](const char* id, const char* lbl, SDL::ECS::EntityId widget) {
+			return ui.Row(id, 6.f, 6.f).GrowW(100.f).H(28.f)
+				.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
+				.AlignChildrenV(Align::Center)
+				.Children(
+					ui.Label(std::format("{}_l", id), lbl)
+						.W(90).TextColor(pal::TEXT).Font(res_key::FONT, 12.f),
+					widget
+				);
+		};
+
+		auto content = ui.Column("mp_col", 4.f, 6.f)
+			.GrowW(100.f).BgColor(pal::BG)
+			.PaddingH(10.f).PaddingV(8.f)
+			.Children(
+				mkRow("mp_r_w",   "Width (tiles)",  eMapPropW),
+				mkRow("mp_r_h",   "Height (tiles)", eMapPropH),
+				mkRow("mp_r_inf", "Storage",        eMapPropInf),
+				mkRow("mp_r_ori", "Orientation",    eMapPropOri)
+			);
+
+		eMapPropsPopup = ui.Popup("popup_map_props", "Map properties", true, true, false)
+			.W(popW).H(popH)
+			.Fixed(Value::Ww(50.f) - popW * 0.5f,
+			       Value::Wh(50.f) - popH * 0.5f)
+			.BgColor(pal::PANEL)
+			.Children(content).Id();
+		ui.SetPopupOpen(eMapPropsPopup, false);
+	}
+
+	void _ShowMapPropsPopup() {
+		if (eMapPropW != SDL::ECS::NullEntity) {
+			ui.SetValue(eMapPropW, float(map.width));
+			ui.SetValue(eMapPropH, float(map.height));
+		}
+		ui.SetPopupOpen(eMapPropsPopup, true);
 	}
 
 	// ── Toolbar ──────────────────────────────────────────────────────────────
@@ -1215,23 +1772,42 @@ struct Main {
 				});
 		};
 
-		// Tool buttons — built ahead so we can pass entity IDs to bar.Children()
+		// Tile tool buttons — built ahead so we can pass entity IDs to bar.Children()
 		static constexpr struct { ToolType type; const char* icon; const char* tip; }
-		kTools[kToolCount] = {
+		kTileTools[kTileToolCount] = {
 			{ToolType::Pencil, icon_key::PENCIL, "Pencil (P)"},
 			{ToolType::Brush,  icon_key::BRUSH,  "Brush  (B)"},
 			{ToolType::Fill,   icon_key::FILL,   "Fill   (F)"},
 			{ToolType::Erase,  icon_key::ERASE,  "Erase  (E)"},
-			{ToolType::Select, icon_key::SELECT,  "Select (S)"},
+			{ToolType::Select, icon_key::SELECT, "Select (S)"},
 		};
-		for (int i = 0; i < kToolCount; ++i) {
-			ToolType t = kTools[i].type;
-			auto b = ui.Button(std::format("btn_tool{}", i)).W(32).H(32).Padding(0.f)
-				.Icon(kTools[i].icon, 5.f).IconOpacity(1.f)
-				.Tooltip(kTools[i].tip, 0.6f)
+		for (int i = 0; i < kTileToolCount; ++i) {
+			ToolType t = kTileTools[i].type;
+			auto b = ui.Button(std::format("btn_ttool{}", i)).W(32).H(32).Padding(0.f)
+				.Icon(kTileTools[i].icon, 5.f).IconOpacity(1.f)
+				.Tooltip(kTileTools[i].tip, 0.6f)
 				.ClickSound(res_key::CLICK)
 				.OnClick([this, t]{ _SetTool(t); });
-			toolBtns[i] = flat(b).Id();
+			tileToolBtns[i] = flat(b).Id();
+		}
+
+		// Object tool buttons (Select / Rect / Ellipse / Point / Polygon)
+		static constexpr struct { ToolType type; const char* icon; const char* tip; }
+		kObjTools[kObjToolCount] = {
+			{ToolType::ObjSelect,  icon_key::SELECT,  "Object Select & Move (V)"},
+			{ToolType::ObjRect,    icon_key::STAMP,   "Rectangle Object / Collision Box (R)"},
+			{ToolType::ObjEllipse, icon_key::FILL,    "Ellipse Object (C)"},
+			{ToolType::ObjPoint,   icon_key::GRID,    "Point Object (.)"},
+			{ToolType::ObjPolygon, icon_key::PENCIL,  "Polygon Collision (Shift-P)"},
+		};
+		for (int i = 0; i < kObjToolCount; ++i) {
+			ToolType t = kObjTools[i].type;
+			auto b = ui.Button(std::format("btn_otool{}", i)).W(32).H(32).Padding(0.f)
+				.Icon(kObjTools[i].icon, 5.f).IconOpacity(1.f)
+				.Tooltip(kObjTools[i].tip, 0.6f)
+				.ClickSound(res_key::CLICK)
+				.OnClick([this, t]{ _SetTool(t); });
+			objToolBtns[i] = flat(b).Id();
 		}
 
 		// Grid toggle button — tint is updated by _RefreshGridBtn()
@@ -1254,6 +1830,18 @@ struct Main {
 			btnZoomReset = flat(b).Id();
 		}
 
+		// Tile tools row container — visibility toggled by _UpdateToolRowVisibility()
+		eToolRowTile = ui.Row("tile_tools_row", 2.f, 0.f)
+			.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
+			.Children(tileToolBtns[0], tileToolBtns[1], tileToolBtns[2],
+			          tileToolBtns[3], tileToolBtns[4]);
+
+		// Object tools row container — visible only when active layer is an Object layer
+		eToolRowObj = ui.Row("obj_tools_row", 2.f, 0.f)
+			.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
+			.Children(objToolBtns[0], objToolBtns[1], objToolBtns[2],
+			          objToolBtns[3], objToolBtns[4]);
+
 		bar.Children(
 			// File ops
 			mkBtn("btn_new",     icon_key::NEW,     "New Map  (Ctrl+N)",       [this]{ _NewMap();    }),
@@ -1261,13 +1849,14 @@ struct Main {
 			mkBtn("btn_save",    icon_key::SAVE,    "Save     (Ctrl+S)",       [this]{ _SaveMap();   }),
 			mkBtn("btn_save_as", icon_key::SAVE_AS, "Save As  (Ctrl+Shift+S)", [this]{ _SaveMapAs(); }),
 			mkSep("sep1"),
-			// Layer / tileset ops
-			mkBtn("btn_import",  icon_key::IMPORT,    "Import Tileset",    [this]{ _ImportTileset();  }),
-			mkBtn("btn_add_lyr", icon_key::LAYER_ADD, "Add Tile Layer",    [this]{ _AddTileLayer();   }),
-			mkBtn("btn_add_obj", icon_key::STAMP,     "Add Object Layer",  [this]{ _AddObjectLayer(); }),
+			// Map / layer / tileset ops
+			mkBtn("btn_map_prop", icon_key::GRID,      "Map Properties...", [this]{ _ShowMapPropsPopup(); }),
+			mkBtn("btn_import",   icon_key::IMPORT,    "Import Tileset",    [this]{ _ImportTileset();     }),
+			mkBtn("btn_add_lyr",  icon_key::LAYER_ADD, "Add Tile Layer",    [this]{ _AddTileLayer();      }),
+			mkBtn("btn_add_obj",  icon_key::STAMP,     "Add Object Layer",  [this]{ _AddObjectLayer();    }),
 			mkSep("sep2"),
-			// Tools
-			toolBtns[0], toolBtns[1], toolBtns[2], toolBtns[3], toolBtns[4],
+			// Active tool row (one of the two is shown depending on layer type)
+			eToolRowTile, eToolRowObj,
 			mkSep("sep3"),
 			// Undo / Redo
 			mkBtn("btn_undo",    icon_key::UNDO, "Undo (Ctrl+Z)", [this]{ _Undo(); }),
@@ -1422,6 +2011,40 @@ struct Main {
 					mkLayerOpBtn("btn_lyr_dn",  icon_key::DOWN,      "Move Layer Down", pal::ACCENT, [this]{ _MoveActiveLayer(+1);    }),
 					mkLayerOpBtn("btn_lyr_add", icon_key::LAYER_ADD, "Add Tile Layer",  pal::GREEN,  [this]{ _AddTileLayer();         }),
 					mkLayerOpBtn("btn_lyr_del", icon_key::LAYER_DEL, "Delete Layer",    pal::RED,    [this]{ _DeleteActiveLayer();    })
+				)
+		);
+
+		// Active layer opacity row
+		eOpacityLabel = ui.Label("lbl_op_val", "100%")
+			.W(34).TextColor(pal::TEXT_DIM).Font(res_key::FONT, 11.f)
+			.AlignH(SDL::UI::Align::End);
+		eOpacitySlider = ui.Slider<float>("sld_layer_opacity", 0.f, 1.f, 1.f, 0.05f)
+			.Grow(100.f).H(18.f)
+			.FillColor(pal::ACCENT)
+			.OnChange<float>([this](float v){
+				if (map.activeLayer < 0 || map.activeLayer >= (int)map.layers.size()) return;
+				map.layers[map.activeLayer].opacity = SDL::Clamp(v, 0.f, 1.f);
+				map.dirty = true;
+				ui.SetText(eOpacityLabel, std::format("{:.0f}%", v * 100.f));
+			}).Id();
+		panel.Child(
+			ui.Column("opacity_sect", 2.f, 0.f)
+				.W(SDL::UI::Value::Pw(100.f))
+				.WithStyle([](auto& s){
+					s.bgColor = SDL::Color(0,0,0,0);
+					s.borders = SDL::FBox(1.f,0.f,0.f,0.f);
+					s.bdColor = pal::BORDER;
+					s.radius  = SDL::FCorners(0.f);
+				})
+				.Children(
+					ui.Label("lbl_op_hdr", "Layer opacity")
+						.W(SDL::UI::Value::Pw(100.f))
+						.TextColor(pal::TEXT_DIM).Font(res_key::FONT, 11.f)
+						.PaddingH(8).PaddingV(2),
+					ui.Row("opacity_row", 6.f, 4.f)
+						.W(SDL::UI::Value::Pw(100.f)).H(24.f)
+						.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
+						.Children(eOpacitySlider, eOpacityLabel)
 				)
 		);
 
@@ -1623,7 +2246,7 @@ struct Main {
 				.W(SDL::UI::Value::Pw(100.f)).H(26.f)
 				.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
 				.Children(
-					ui.Label("lbl_brush_sz", "Brush:").W(44).TextColor(pal::GREY),
+					ui.Label("lbl_brush_sz", "Brush:").W(44).TextColor(pal::TEXT_DIM),
 					ui.Slider<int>("sld_brush", 1, 9, state.brushSize, 1)
 						.Grow(100.f)
 						.FillColor(pal::ACCENT)
@@ -1633,7 +2256,444 @@ struct Main {
 				)
 		);
 
+		// ── Object properties section (shown when an object is selected) ───
+		panel.Child(_BuildPropertiesSection());
+
 		return panel;
+	}
+
+	// ── Object properties section (right panel bottom) ─────────────────────────
+	SDL::ECS::EntityId _BuildPropertiesSection() {
+		SDL::UI::Style sectionHdrStyle;
+		sectionHdrStyle.bgColor   = pal::SURFACE;
+		sectionHdrStyle.textColor = pal::ACCENT;
+		sectionHdrStyle.fontKey   = res_key::FONT;
+		sectionHdrStyle.fontSize  = 11.f;
+
+		auto smallLbl = [&](const char* id, const char* text, float w) {
+			return ui.Label(id, text)
+				.W(w).TextColor(pal::TEXT_DIM).Font(res_key::FONT, 11.f);
+		};
+		auto numInput = [&](const char* id, float init) {
+			return ui.InputValue<float>(id, -100000.f, 100000.f, init, 1.f)
+				.Grow(100.f).H(20.f).Font(res_key::FONT, 11.f);
+		};
+
+		ePropsHdr = ui.Label("lbl_props_hdr", "PROPERTIES")
+			.Style(sectionHdrStyle).PaddingH(8).PaddingV(3)
+			.W(SDL::UI::Value::Pw(100.f));
+
+		ePropsTypeLbl = ui.Label("lbl_props_type", "—")
+			.TextColor(pal::ORANGE).Font(res_key::FONT, 10.f)
+			.W(SDL::UI::Value::Pw(100.f)).PaddingH(8).PaddingV(0);
+
+		ePropsName = ui.InputValue<float>("inp_props_name_dummy", -1000.f, 1000.f, 0.f, 1.f)
+			.Grow(100.f).H(20.f); // placeholder; name shown via type label for now
+
+		ePropsX = numInput("inp_obj_x", 0)
+			.OnChange<float>([this](float v){ if (auto* o = _SelObj()) { o->x = v; map.dirty=true; } })
+			.Id();
+		ePropsY = numInput("inp_obj_y", 0)
+			.OnChange<float>([this](float v){ if (auto* o = _SelObj()) { o->y = v; map.dirty=true; } })
+			.Id();
+		ePropsW = numInput("inp_obj_w", 32)
+			.OnChange<float>([this](float v){ if (auto* o = _SelObj()) { o->w = SDL::Max(1.f,v); map.dirty=true; } })
+			.Id();
+		ePropsH = numInput("inp_obj_h", 32)
+			.OnChange<float>([this](float v){ if (auto* o = _SelObj()) { o->h = SDL::Max(1.f,v); map.dirty=true; } })
+			.Id();
+		ePropsRot = ui.InputValue<float>("inp_obj_rot", -360.f, 360.f, 0.f, 1.f)
+			.Grow(100.f).H(20.f).Font(res_key::FONT, 11.f)
+			.OnChange<float>([this](float v){ if (auto* o = _SelObj()) { o->rotation = v; map.dirty=true; } })
+			.Id();
+
+		ePropsBody = ui.Column("props_body", 4.f, 0.f)
+			.W(SDL::UI::Value::Pw(100.f))
+			.WithStyle([](auto& s){
+				s.bgColor = SDL::Color(0,0,0,0);
+				s.borders = SDL::FBox(0.f);
+			})
+			.Children(
+				ePropsTypeLbl,
+				ui.Row("rprop_xy", 4.f, 4.f).W(SDL::UI::Value::Pw(100.f)).H(22.f)
+					.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
+					.Children(smallLbl("lblX","X",10), ePropsX, smallLbl("lblY","Y",10), ePropsY),
+				ui.Row("rprop_wh", 4.f, 4.f).W(SDL::UI::Value::Pw(100.f)).H(22.f)
+					.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
+					.Children(smallLbl("lblW","W",10), ePropsW, smallLbl("lblH","H",10), ePropsH),
+				ui.Row("rprop_rot", 4.f, 4.f).W(SDL::UI::Value::Pw(100.f)).H(22.f)
+					.WithStyle([](auto& s){ s.bgColor=SDL::Color(0,0,0,0); s.borders=SDL::FBox(0.f); })
+					.Children(smallLbl("lblR","Rot",24), ePropsRot),
+				ui.Button("btn_obj_del", "Delete object").W(SDL::UI::Value::Pw(100.f)).H(22.f)
+					.BgColor(SDL::Color{120,40,46,255}).BgHoveredColor(SDL::Color{160,52,60,255})
+					.TextColor(pal::WHITE).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.radius=SDL::FCorners(4.f); s.borders=SDL::FBox(0.f); })
+					.ClickSound(res_key::CLICK)
+					.OnClick([this]{ _DeleteSelectedObject(); })
+			);
+
+		return ui.Column("props_section", 0.f, 0.f)
+			.W(SDL::UI::Value::Pw(100.f))
+			.WithStyle([](auto& s){
+				s.bgColor = SDL::Color(0,0,0,0);
+				s.borders = SDL::FBox(1.f,0.f,0.f,0.f);
+				s.bdColor = pal::BORDER;
+				s.radius  = SDL::FCorners(0.f);
+			})
+			.Children(ePropsHdr, ePropsBody);
+	}
+
+	ObjectDef* _SelObj() {
+		if (state.selectedObjLayer < 0 ||
+		    state.selectedObjLayer >= (int)map.layers.size()) return nullptr;
+		auto& L = map.layers[state.selectedObjLayer];
+		if (L.type != LayerType::Object) return nullptr;
+		for (auto& o : L.objects)
+			if (o.id == state.selectedObjId) return &o;
+		return nullptr;
+	}
+
+	void _UpdatePropertiesPanel() {
+		ObjectDef* o = _SelObj();
+		// Avoid pushing values back into widgets we're not changing
+		if (o) {
+			if (m_lastSelObjId != o->id) {
+				m_lastSelObjId = o->id;
+				ui.SetValue(ePropsX,   o->x);
+				ui.SetValue(ePropsY,   o->y);
+				ui.SetValue(ePropsW,   o->w);
+				ui.SetValue(ePropsH,   o->h);
+				ui.SetValue(ePropsRot, o->rotation);
+			}
+			const char* tname = "Rect";
+			switch (o->type) {
+				case ObjectType::Rect:    tname = "Rectangle";  break;
+				case ObjectType::Ellipse: tname = "Ellipse";    break;
+				case ObjectType::Point:   tname = "Point";      break;
+				case ObjectType::Polygon: tname = "Polygon";    break;
+				case ObjectType::Tile:    tname = "Tile";       break;
+				case ObjectType::MapLink: tname = "Map Link";   break;
+			}
+			ui.SetText(ePropsTypeLbl,
+				std::format("{} #{}  '{}'", tname, o->id, o->name));
+			ui.SetVisible(ePropsBody, true);
+		} else {
+			if (m_lastSelObjId != -1) {
+				m_lastSelObjId = -1;
+				ui.SetText(ePropsTypeLbl, "No object selected");
+			}
+			ui.SetVisible(ePropsBody, false);
+		}
+	}
+
+	void _DeleteSelectedObject() {
+		ObjectDef* o = _SelObj();
+		if (!o) return;
+		auto& L = map.layers[state.selectedObjLayer];
+		L.objects.erase(std::remove_if(L.objects.begin(), L.objects.end(),
+			[id=o->id](const ObjectDef& x){ return x.id == id; }), L.objects.end());
+		state.selectedObjId    = -1;
+		state.selectedObjLayer = -1;
+		map.dirty = true;
+	}
+
+	void _FinishPolygon() {
+		if (state.tool != ToolType::ObjPolygon || state.polyPoints.size() < 2) return;
+		if (!_ActiveLayerIsObject()) { state.polyPoints.clear(); return; }
+		auto& L = map.layers[map.activeLayer];
+		if (L.locked) { state.polyPoints.clear(); return; }
+		ObjectDef obj;
+		obj.id     = state.nextObjId++;
+		obj.name   = std::format("Polygon{}", obj.id);
+		obj.type   = ObjectType::Polygon;
+		obj.x      = state.polyOrigin.x;
+		obj.y      = state.polyOrigin.y;
+		obj.points = state.polyPoints;
+		// Bounding box
+		float minX=obj.points[0].x, maxX=minX, minY=obj.points[0].y, maxY=minY;
+		for (auto& p : obj.points) {
+			minX = SDL::Min(minX, p.x); maxX = SDL::Max(maxX, p.x);
+			minY = SDL::Min(minY, p.y); maxY = SDL::Max(maxY, p.y);
+		}
+		obj.w = maxX - minX;
+		obj.h = maxY - minY;
+		L.objects.push_back(std::move(obj));
+		state.polyPoints.clear();
+		map.dirty = true;
+	}
+
+	// =========================================================================
+	// Workspace builders
+	// =========================================================================
+
+	// ── Scripts workspace ────────────────────────────────────────────────────
+	//
+	// Two columns: on the left a panel with the list of script docs + new/run
+	// buttons; on the right the text area editor + console.
+	SDL::ECS::EntityId _BuildScriptsWorkspace() {
+		using namespace SDL::UI;
+
+		// Left side panel: scripts list (simple buttons for now)
+		auto leftSide = ui.Column("ws_scripts_side", 0.f, 0.f)
+			.W(220.f).BgColor(pal::PANEL)
+			.WithStyle([](auto& s){
+				s.borders = SDL::FBox(0.f, 0.f, 0.f, 1.f);
+				s.bdColor = pal::BORDER;
+				s.radius  = SDL::FCorners(0.f);
+			});
+		leftSide.Child(ui.Label("ws_scr_hdr", "Scripts")
+			.TextColor(pal::ACCENT).PaddingH(8).PaddingV(4)
+			.BgColor(pal::HEADER).W(Value::Pw(100.f)));
+		leftSide.Child(ui.Button("ws_scr_new", "+ New script")
+			.W(Value::Pw(100.f)).H(26.f).Font(res_key::FONT, 11.f)
+			.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+			.TextColor(pal::TEXT)
+			.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(0.f); })
+			.ClickSound(res_key::CLICK)
+			.OnClick([this]{
+				ScriptDoc d;
+				d.name = std::format("script_{}.lua", project.scripts.size()+1);
+				d.code = "-- New script\n";
+				project.scripts.push_back(std::move(d));
+				project.activeScript = (int)project.scripts.size()-1;
+				_OnTabActivated(WsScripts);
+			}));
+		leftSide.Child(ui.Button("ws_scr_run", "▶ Run")
+			.W(Value::Pw(100.f)).H(28.f).Font(res_key::FONT, 12.f)
+			.BgColor(pal::ACCENT).BgHoveredColor(pal::ACCENT2)
+			.BgPressedColor(pal::ACCENT3).TextColor(pal::WHITE)
+			.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+			.ClickSound(res_key::CLICK)
+			.OnClick([this]{ _LuaRunActiveScript(); }));
+		leftSide.Child(ui.Button("ws_scr_clear", "Clear console")
+			.W(Value::Pw(100.f)).H(22.f).Font(res_key::FONT, 10.f)
+			.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+			.TextColor(pal::TEXT_DIM)
+			.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(0.f); })
+			.OnClick([this]{
+				m_consoleLog.clear();
+				if (eScriptCons != SDL::ECS::NullEntity)
+					ui.SetText(eScriptCons, "");
+			}));
+
+		// Editor column: name + textarea + console
+		eScriptName = ui.Label("ws_scr_name",
+			std::format("Script: {}",
+				project.scripts.empty() ? "—" : project.scripts[0].name))
+			.TextColor(pal::ACCENT).PaddingH(8).PaddingV(4)
+			.BgColor(pal::HEADER).W(Value::Pw(100.f));
+
+		eScriptArea = ui.TextArea("ws_scr_area",
+			project.scripts.empty() ? "" : project.scripts[0].code)
+			.W(Value::Pw(100.f)).Grow(100.f)
+			.BgColor(pal::SURFACE).TextColor(pal::TEXT)
+			.Font(res_key::FONT, 12.f).PaddingH(8).PaddingV(6)
+			.OnTextChange([this](const std::string& txt){
+				if (project.scripts.empty()) return;
+				int i = std::clamp(project.activeScript, 0, (int)project.scripts.size()-1);
+				project.scripts[i].code = txt;
+			}).Id();
+
+		eScriptCons = ui.TextArea("ws_scr_console", "")
+			.W(Value::Pw(100.f)).H(140.f)
+			.BgColor({10, 12, 18, 255}).TextColor(pal::GREEN)
+			.Font(res_key::FONT, 11.f).PaddingH(8).PaddingV(6)
+			.ReadOnly(true).Id();
+
+		auto editorCol = ui.Column("ws_scr_editor", 0.f, 0.f)
+			.Grow(100.f)
+			.WithStyle([](auto& s){ s.bgColor = pal::BG; s.borders=SDL::FBox(0.f); })
+			.Children(eScriptName, eScriptArea,
+				ui.Label("ws_scr_clbl", "Console")
+					.TextColor(pal::TEXT_DIM).PaddingH(8).PaddingV(2)
+					.BgColor(pal::HEADER).W(Value::Pw(100.f)),
+				eScriptCons);
+
+		return ui.Row("ws_scripts", 0.f, 0.f)
+			.Grow(100.f)
+			.WithStyle([](auto& s){ s.bgColor = pal::BG; s.borders=SDL::FBox(0.f); })
+			.Children(leftSide, editorCol);
+	}
+
+	// ── Cinematic workspace ─────────────────────────────────────────────────
+	//
+	// Top bar with playhead controls + the timeline canvas drawn manually
+	// (track headers on the left, clip rectangles on the right).
+	SDL::ECS::EntityId _BuildCinematicWorkspace() {
+		using namespace SDL::UI;
+
+		eCinePlayhead = ui.Label("ws_cine_time", "0.00s / 10.00s")
+			.TextColor(pal::TEXT).Font(res_key::FONT, 11.f)
+			.W(Value::Auto()).PaddingH(8).PaddingV(2);
+
+		auto controls = ui.Row("ws_cine_ctrl", 6.f, 4.f)
+			.W(Value::Pw(100.f)).H(34.f).PaddingH(8.f).PaddingV(4.f)
+			.BgColor(pal::HEADER)
+			.WithStyle([](auto& s){
+				s.borders = SDL::FBox(0.f, 0.f, 1.f, 0.f);
+				s.bdColor = pal::BORDER;
+			})
+			.Children(
+				ui.Button("ws_cine_play", "▶ Play")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::ACCENT).BgHoveredColor(pal::ACCENT2)
+					.TextColor(pal::WHITE).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ m_cinePlaying = !m_cinePlaying; }),
+				ui.Button("ws_cine_stop", "⏹ Stop")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+					.TextColor(pal::TEXT).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ m_cinePlaying = false; m_cineTime = 0.f; }),
+				ui.Button("ws_cine_add_img", "+ Image")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+					.TextColor(pal::TEXT).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ _CineAddTrack(CineTrackKind::Image); }),
+				ui.Button("ws_cine_add_mus", "+ Music")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+					.TextColor(pal::TEXT).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ _CineAddTrack(CineTrackKind::Music); }),
+				ui.Button("ws_cine_add_sfx", "+ Sfx")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+					.TextColor(pal::TEXT).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ _CineAddTrack(CineTrackKind::Sfx); }),
+				ui.Button("ws_cine_add_dlg", "+ Dialog")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+					.TextColor(pal::TEXT).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ _CineAddTrack(CineTrackKind::Dialog); }),
+				ui.Container("ws_cine_sp").Grow(100.f).BgColor({0,0,0,0})
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); }),
+				eCinePlayhead
+			);
+
+		eCineCanvas = ui.Canvas("ws_cine_canvas",
+			[this](SDL::Event& ev){ _OnCineEvent(ev); },
+			nullptr,
+			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderCine(r, rect); }
+		).Grow(100.f).Padding(0.f).Id();
+
+		return ui.Column("ws_cine", 0.f, 0.f)
+			.Grow(100.f)
+			.WithStyle([](auto& s){ s.bgColor = pal::BG; s.borders=SDL::FBox(0.f); })
+			.Children(controls, eCineCanvas);
+	}
+
+	// ── NodeGraph workspace ─────────────────────────────────────────────────
+	//
+	// Toolbar with "Add node" buttons + a canvas. The canvas pans (middle
+	// mouse), zooms (wheel), and supports drag-to-move-node and drag-wire
+	// from an output port to an input port.
+	SDL::ECS::EntityId _BuildNodeGraphWorkspace() {
+		using namespace SDL::UI;
+
+		auto addBtn = [&](const char* id, const char* lbl, NodeKind k) {
+			return ui.Button(id, lbl)
+				.W(Value::Auto()).H(26.f).PaddingH(10.f)
+				.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+				.TextColor(pal::TEXT).Font(res_key::FONT, 11.f)
+				.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+				.OnClick([this, k]{ _GraphAddNode(k); });
+		};
+
+		eGraphStatus = ui.Label("ws_graph_status", "Drag from output → input to wire")
+			.TextColor(pal::TEXT_DIM).Font(res_key::FONT, 11.f)
+			.W(Value::Auto()).PaddingH(8);
+
+		auto controls = ui.Row("ws_graph_ctrl", 6.f, 4.f)
+			.W(Value::Pw(100.f)).H(34.f).PaddingH(8.f).PaddingV(4.f)
+			.BgColor(pal::HEADER)
+			.WithStyle([](auto& s){
+				s.borders = SDL::FBox(0.f, 0.f, 1.f, 0.f);
+				s.bdColor = pal::BORDER;
+			})
+			.Children(
+				addBtn("ws_graph_add_evt", "+ Event",     NodeKind::Event),
+				addBtn("ws_graph_add_scr", "+ Script",    NodeKind::Script),
+				addBtn("ws_graph_add_dlg", "+ Dialog",    NodeKind::Dialog),
+				addBtn("ws_graph_add_cin", "+ Cinematic", NodeKind::Cinematic),
+				addBtn("ws_graph_add_wt",  "+ Wait",      NodeKind::Wait),
+				addBtn("ws_graph_add_br",  "+ Branch",    NodeKind::Branch),
+				ui.Button("ws_graph_run", "▶ Run async")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::ACCENT).BgHoveredColor(pal::ACCENT2)
+					.BgPressedColor(pal::ACCENT3).TextColor(pal::WHITE)
+					.Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ _GraphRunAsync(); }),
+				ui.Container("ws_graph_sp").Grow(100.f).BgColor({0,0,0,0})
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); }),
+				eGraphStatus
+			);
+
+		eGraphCanvas = ui.Canvas("ws_graph_canvas",
+			[this](SDL::Event& ev){ _OnGraphEvent(ev); },
+			nullptr,
+			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderGraph(r, rect); }
+		).Grow(100.f).Padding(0.f).Id();
+
+		return ui.Column("ws_graph", 0.f, 0.f)
+			.Grow(100.f)
+			.WithStyle([](auto& s){ s.bgColor = pal::BG; s.borders=SDL::FBox(0.f); })
+			.Children(controls, eGraphCanvas);
+	}
+
+	// ── Test workspace ──────────────────────────────────────────────────────
+	//
+	// Plays the active map with simple AABB physics + gravity + jump. The
+	// "collision layer" property of object-layer rectangles marks them as
+	// solid walls; tile layers also act as solid ground per non-empty tile.
+	SDL::ECS::EntityId _BuildTestWorkspace() {
+		using namespace SDL::UI;
+
+		eTestStatus = ui.Label("ws_test_status",
+			"Click in the canvas, then use WASD/arrows + Space to jump")
+			.TextColor(pal::TEXT_DIM).Font(res_key::FONT, 11.f)
+			.W(Value::Auto()).PaddingH(8);
+
+		auto controls = ui.Row("ws_test_ctrl", 6.f, 4.f)
+			.W(Value::Pw(100.f)).H(34.f).PaddingH(8.f).PaddingV(4.f)
+			.BgColor(pal::HEADER)
+			.WithStyle([](auto& s){
+				s.borders = SDL::FBox(0.f, 0.f, 1.f, 0.f);
+				s.bdColor = pal::BORDER;
+			})
+			.Children(
+				ui.Button("ws_test_play", "▶ Play")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::ACCENT).BgHoveredColor(pal::ACCENT2)
+					.TextColor(pal::WHITE).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ m_testPlaying = !m_testPlaying; }),
+				ui.Button("ws_test_reset", "↺ Reset")
+					.W(Value::Auto()).H(26.f).PaddingH(10.f)
+					.BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+					.TextColor(pal::TEXT).Font(res_key::FONT, 11.f)
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); s.radius=SDL::FCorners(4.f); })
+					.OnClick([this]{ _TestReset(); }),
+				ui.Container("ws_test_sp").Grow(100.f).BgColor({0,0,0,0})
+					.WithStyle([](auto& s){ s.borders=SDL::FBox(0.f); }),
+				eTestStatus
+			);
+
+		eTestCanvas = ui.Canvas("ws_test_canvas",
+			[this](SDL::Event& ev){ _OnTestEvent(ev); },
+			[this](float dt){ _TestUpdate(dt); },
+			[this](SDL::RendererRef r, SDL::FRect rect){ _RenderTest(r, rect); }
+		).Grow(100.f).Padding(0.f).Id();
+
+		return ui.Column("ws_test", 0.f, 0.f)
+			.Grow(100.f)
+			.WithStyle([](auto& s){ s.bgColor = pal::BG; s.borders=SDL::FBox(0.f); })
+			.Children(controls, eTestCanvas);
 	}
 
 	// ── Status bar ────────────────────────────────────────────────────────────
@@ -1667,8 +2727,12 @@ struct Main {
 	}
 	void ScreenToTile(float sx, float sy, int& tx, int& ty) const {
 		auto [wx, wy] = ScreenToWorld(sx, sy);
-		tx = (int)std::floor(wx / map.tileW);
-		ty = (int)std::floor(wy / map.tileH);
+		map.WorldToTile(wx, wy, tx, ty);
+	}
+	// Inverse — useful for highlight/preview rendering under any orientation.
+	SDL::FPoint TileToScreen(int tx, int ty) const {
+		auto wp = map.TileToWorld(tx, ty);
+		return WorldToScreen(wp.x, wp.y);
 	}
 
 	// =========================================================================
@@ -1728,9 +2792,34 @@ struct Main {
 					auto texH = pool_ui.Get<SDL::Texture>(ts->key);
 					if (!texH) continue;
 
-					auto src = map.TileSrcRect(*ts, tid);
-					auto p   = WorldToScreen(float(tx * map.tileW),
-											 float(ty * map.tileH));
+					// Tile animation playback: if this tile has frames, swap to
+					// the active frame's local ID based on the editor anim clock.
+					TileID renderId = tid;
+					{
+						int local = (int)(tid - ts->firstGid);
+						if (const TileMetadata* m = ts->MetaFor(local)) {
+							if (!m->anim.empty()) {
+								int totalMs = 0;
+								for (const auto& f : m->anim)
+									totalMs += SDL::Max(1, f.durationMs);
+								if (totalMs > 0) {
+									int t = (int)(state.animTime * 1000.f) % totalMs;
+									int acc = 0;
+									for (const auto& f : m->anim) {
+										acc += SDL::Max(1, f.durationMs);
+										if (t < acc) {
+											renderId = (TileID)(ts->firstGid + f.localId);
+											break;
+										}
+									}
+								}
+							}
+						}
+					}
+
+					auto src = map.TileSrcRect(*ts, renderId);
+					auto wp  = map.TileToWorld(tx, ty);
+					auto p   = WorldToScreen(wp.x, wp.y);
 					SDL::FRect dst{p.x, p.y, tw, th};
 
 					SDL::TextureRef tex{*texH};
@@ -1739,39 +2828,72 @@ struct Main {
 					if (layer.opacity < 1.f) tex.SetAlphaModFloat(1.f);
 				}
 			} else {
-				// Object layer
+				// Object layer — per-type color, filled fill + outline, selection halo
 				for (const auto& obj : layer.objects) {
 					auto p  = WorldToScreen(obj.x, obj.y);
 					float dw = obj.w * state.zoom;
 					float dh = obj.h * state.zoom;
 					SDL::FRect dr{p.x, p.y, dw, dh};
-					SDL::Color fc = obj.selected ? pal::OBJ_SEL : pal::OBJ_COL;
-					SDL::Color bc = obj.selected
-						? SDL::Color{0, 220, 255, 255}
-						: SDL::Color{140, 210, 140, 255};
 
-					if (obj.type == ObjectType::Rect) {
-						r.SetDrawColor(fc); r.RenderFillRect(dr);
-						r.SetDrawColor(bc); r.RenderRect(dr);
+					SDL::Color typeC;
+					switch (obj.type) {
+						case ObjectType::Rect:    typeC = pal::OBJ_RECT;  break;
+						case ObjectType::Ellipse: typeC = pal::OBJ_ELLIP; break;
+						case ObjectType::Polygon: typeC = pal::OBJ_POLY;  break;
+						case ObjectType::Point:   typeC = pal::OBJ_POINT; break;
+						case ObjectType::Tile:    typeC = pal::OBJ_COL;   break;
+						case ObjectType::MapLink: typeC = {200, 120, 240, 220}; break;
+					}
+					SDL::Color fill   = {typeC.r, typeC.g, typeC.b, (Uint8)(80 * layer.opacity)};
+					SDL::Color stroke = obj.selected ? pal::OBJ_SEL : typeC;
+
+					if (obj.type == ObjectType::Rect || obj.type == ObjectType::Tile) {
+						r.SetDrawColor(fill);   r.RenderFillRect(dr);
+						r.SetDrawColor(stroke); r.RenderRect(dr);
+						if (obj.selected) {
+							SDL::FRect halo{dr.x-2, dr.y-2, dr.w+4, dr.h+4};
+							r.SetDrawColor(pal::OBJ_SEL); r.RenderRect(halo);
+						}
 					} else if (obj.type == ObjectType::Ellipse) {
 						float cx = dr.x + dr.w * .5f, cy = dr.y + dr.h * .5f;
 						float rx = dr.w * .5f,         ry = dr.h * .5f;
-						constexpr int SEG = 32;
+						constexpr int SEG = 48;
 						std::vector<SDL::FPoint> pts(SEG + 1);
 						for (int i = 0; i <= SEG; ++i) {
 							float a = float(i) / SEG * 2.f * SDL::PI_F;
 							pts[i] = {cx + std::cos(a) * rx, cy + std::sin(a) * ry};
 						}
-						r.SetDrawColor(bc); r.RenderLines(pts);
+						r.SetDrawColor(stroke); r.RenderLines(pts);
+						if (obj.selected) {
+							r.SetDrawColor(pal::OBJ_SEL);
+							r.RenderRect(dr);
+						}
 					} else if (obj.type == ObjectType::Point) {
-						r.SetDrawColor({255, 200, 50, 255});
-						r.RenderFillCircle(p, 4.f * state.zoom);
+						float rad = 6.f;
+						r.SetDrawColor(fill);
+						r.RenderFillCircle(p, rad);
+						r.SetDrawColor(stroke);
+						r.RenderCircle(p, rad);
+						if (obj.selected) {
+							r.SetDrawColor(pal::OBJ_SEL);
+							r.RenderCircle(p, rad + 3);
+						}
 					} else if (obj.type == ObjectType::Polygon && obj.points.size() >= 2) {
 						std::vector<SDL::FPoint> pts;
 						for (auto& pt : obj.points)
 							pts.push_back(WorldToScreen(obj.x + pt.x, obj.y + pt.y));
 						pts.push_back(pts.front());
-						r.SetDrawColor(bc); r.RenderLines(pts);
+						r.SetDrawColor(stroke); r.RenderLines(pts);
+						// vertex markers
+						for (size_t i = 0; i + 1 < pts.size(); ++i) {
+							r.SetDrawColor(stroke);
+							r.RenderFillRect(SDL::FRect{pts[i].x-2, pts[i].y-2, 4, 4});
+						}
+						if (obj.selected) {
+							SDL::FRect bb{p.x, p.y, dw, dh};
+							r.SetDrawColor(pal::OBJ_SEL);
+							r.RenderRect(bb);
+						}
 					}
 				}
 			}
@@ -1788,26 +2910,45 @@ struct Main {
 				r.RenderLine({rect.x, y}, {rect.x + rect.w, y});
 		}
 
-		// Cursor tile highlight + brush preview
+		// Cursor tile highlight + tool-specific preview
 		float mx, my;
 		SDL::GetMouseState(mx, my);
 		if (mx >= rect.x && mx < rect.x + rect.w &&
 			my >= rect.y && my < rect.y + rect.h) {
 			int ecs_context, cty;
 			ScreenToTile(mx, my, ecs_context, cty);
+
 			if (state.tool == ToolType::Brush) {
 				int half = state.brushSize / 2;
 				for (int dy = -half; dy <= half; ++dy)
 				for (int dx = -half; dx <= half; ++dx) {
 					int bx = ecs_context + dx, by = cty + dy;
 					if (!map.infinite && (bx < 0 || by < 0 || bx >= map.width || by >= map.height)) continue;
-					auto bp = WorldToScreen(float(bx*map.tileW), float(by*map.tileH));
+					auto bp = TileToScreen(bx, by);
 					r.SetDrawColor({100, 180, 255, 55});
 					r.RenderFillRect(SDL::FRect{bp.x, bp.y, tw, th});
 				}
 			}
+
+			// Pencil / Fill: preview the NxM stamp footprint (multi-tile)
+			if ((state.tool == ToolType::Pencil || state.tool == ToolType::Fill) &&
+			    (state.selTileW > 1 || state.selTileH > 1)) {
+				for (int dy = 0; dy < state.selTileH; ++dy)
+				for (int dx = 0; dx < state.selTileW; ++dx) {
+					int bx = ecs_context + dx, by = cty + dy;
+					if (!map.infinite && (bx < 0 || by < 0 || bx >= map.width || by >= map.height)) continue;
+					auto bp = TileToScreen(bx, by);
+					r.SetDrawColor({120, 200, 255, 65});
+					r.RenderFillRect(SDL::FRect{bp.x, bp.y, tw, th});
+				}
+				auto bp = TileToScreen(ecs_context, cty);
+				r.SetDrawColor({120, 200, 255, 220});
+				r.RenderRect(SDL::FRect{bp.x, bp.y,
+				                        state.selTileW * tw, state.selTileH * th});
+			}
+
 			if (map.infinite || (ecs_context >= 0 && cty >= 0 && ecs_context < map.width && cty < map.height)) {
-				auto cp = WorldToScreen(float(ecs_context*map.tileW), float(cty*map.tileH));
+				auto cp = TileToScreen(ecs_context, cty);
 				r.SetDrawColor({255, 255, 100, 75});
 				r.RenderFillRect(SDL::FRect{cp.x, cp.y, tw, th});
 				r.SetDrawColor({255, 255, 100, 190});
@@ -1817,22 +2958,45 @@ struct Main {
 
 		// Map selection rectangle
 		if (state.hasMapSel && state.selW > 0 && state.selH > 0) {
-			auto tl = WorldToScreen(float(state.selX * map.tileW),
-									float(state.selY * map.tileH));
+			auto tl = TileToScreen(state.selX, state.selY);
 			float sw = float(state.selW) * tw, sh = float(state.selH) * th;
 			r.SetDrawColor({255, 200, 50, 45}); r.RenderFillRect(SDL::FRect{tl.x, tl.y, sw, sh});
 			r.SetDrawColor({255, 200, 50, 220}); r.RenderRect(SDL::FRect{tl.x, tl.y, sw, sh});
 		}
 
-		// Object drag preview
+		// Object drag preview (rectangle / ellipse creation)
 		if (state.objDrag) {
 			SDL::GetMouseState(mx, my);
 			float ox2 = SDL::Min(state.objStart.x, mx);
 			float oy2 = SDL::Min(state.objStart.y, my);
 			float ow  = SDL::Abs(mx - state.objStart.x);
 			float oh  = SDL::Abs(my - state.objStart.y);
-			r.SetDrawColor(pal::OBJ_SEL);
+			SDL::Color preview = state.tool == ToolType::ObjEllipse
+				? pal::OBJ_ELLIP : pal::OBJ_RECT;
+			r.SetDrawColor({preview.r, preview.g, preview.b, 60});
+			r.RenderFillRect(SDL::FRect{ox2, oy2, ow, oh});
+			r.SetDrawColor(preview);
 			r.RenderRect(SDL::FRect{ox2, oy2, ow, oh});
+		}
+
+		// Polygon-in-progress preview
+		if (state.tool == ToolType::ObjPolygon && !state.polyPoints.empty()) {
+			SDL::GetMouseState(mx, my);
+			auto [wx, wy] = ScreenToWorld(mx, my);
+			std::vector<SDL::FPoint> pts;
+			for (auto& p : state.polyPoints)
+				pts.push_back(WorldToScreen(state.polyOrigin.x + p.x,
+				                            state.polyOrigin.y + p.y));
+			pts.push_back({mx, my}); // live tail at cursor
+			if (pts.size() >= 2) {
+				r.SetDrawColor(pal::OBJ_POLY);
+				r.RenderLines(pts);
+			}
+			for (auto& sp : pts) {
+				r.SetDrawColor(pal::OBJ_POLY);
+				r.RenderFillRect(SDL::FRect{sp.x-3, sp.y-3, 6, 6});
+			}
+			(void)wx; (void)wy;
 		}
 	}
 
@@ -1950,14 +3114,8 @@ struct Main {
 				state.mapLDown = true;
 				state.lastTile = {-1.f, -1.f};
 				state.stroke   = {};
-				// Object layer?
-				bool activeIsObj =
-					map.activeLayer >= 0 &&
-					map.activeLayer < (int)map.layers.size() &&
-					map.layers[map.activeLayer].type == LayerType::Object;
-				if (activeIsObj) {
-					state.objDrag  = true;
-					state.objStart = {mx, my};
+				if (_ActiveLayerIsObject()) {
+					_OnObjectLeftDown(mx, my, ev.button.clicks);
 					return;
 				}
 				_ApplyToolAt(mx, my);
@@ -1980,6 +3138,9 @@ struct Main {
 					state.objDrag = false;
 					_FinishObjectDrag(ev.button.x, ev.button.y);
 				}
+				if (state.objMoving) {
+					state.objMoving = false;
+				}
 				if (!state.stroke.changes.empty()) {
 					ur.Push(std::move(state.stroke));
 					state.stroke = {};
@@ -2001,12 +3162,118 @@ struct Main {
 				state.viewY = state.panViewStart.y - (my - state.panStart.y) / state.zoom;
 				return;
 			}
-			if (state.mapLDown && !state.objDrag) _ApplyToolAt(mx, my);
-			if (state.mapRDown) {
+			if (state.objMoving) {
+				if (auto* o = _SelObj()) {
+					auto [wx, wy] = ScreenToWorld(mx, my);
+					o->x = state.objMoveOrigin.x + (wx - state.objMoveStart.x);
+					o->y = state.objMoveOrigin.y + (wy - state.objMoveStart.y);
+					map.dirty = true;
+				}
+				return;
+			}
+			if (state.mapLDown && !state.objDrag && !_ActiveLayerIsObject())
+				_ApplyToolAt(mx, my);
+			if (state.mapRDown && !_ActiveLayerIsObject()) {
 				int tx, ty; ScreenToTile(mx, my, tx, ty);
 				_PaintTile(tx, ty, EMPTY_TILE);
 			}
 		}
+	}
+
+	// ── Object editing event handlers ─────────────────────────────────────────
+	void _OnObjectLeftDown(float mx, float my, int clicks) {
+		auto& L = map.layers[map.activeLayer];
+		if (L.locked) return;
+		auto [wx, wy] = ScreenToWorld(mx, my);
+
+		switch (state.tool) {
+			case ToolType::ObjSelect: {
+				// Pick topmost object containing the world point.
+				state.selectedObjLayer = -1;
+				state.selectedObjId    = -1;
+				for (auto& obj : L.objects) obj.selected = false;
+				for (auto it = L.objects.rbegin(); it != L.objects.rend(); ++it) {
+					if (_HitObject(*it, wx, wy)) {
+						it->selected = true;
+						state.selectedObjLayer = map.activeLayer;
+						state.selectedObjId    = it->id;
+						state.objMoving        = true;
+						state.objMoveStart     = {wx, wy};
+						state.objMoveOrigin    = {it->x, it->y};
+						break;
+					}
+				}
+				return;
+			}
+			case ToolType::ObjRect:
+			case ToolType::ObjEllipse: {
+				state.objDrag  = true;
+				state.objStart = {mx, my};
+				return;
+			}
+			case ToolType::ObjPoint: {
+				ObjectDef obj;
+				obj.id   = state.nextObjId++;
+				obj.name = std::format("Point{}", obj.id);
+				obj.type = ObjectType::Point;
+				obj.x = wx; obj.y = wy; obj.w = 4; obj.h = 4;
+				L.objects.push_back(std::move(obj));
+				map.dirty = true;
+				return;
+			}
+			case ToolType::ObjPolygon: {
+				if (state.polyPoints.empty()) {
+					state.polyOrigin = {wx, wy};
+					state.polyPoints.push_back({0.f, 0.f});
+				} else {
+					state.polyPoints.push_back({wx - state.polyOrigin.x,
+					                            wy - state.polyOrigin.y});
+				}
+				// Double click closes the polygon
+				if (clicks >= 2) _FinishPolygon();
+				return;
+			}
+			default: break;
+		}
+	}
+
+	// Hit-test an object against a world-space point.
+	bool _HitObject(const ObjectDef& o, float wx, float wy) const {
+		switch (o.type) {
+			case ObjectType::Rect:
+			case ObjectType::Tile:
+			case ObjectType::MapLink:
+				return wx >= o.x && wy >= o.y &&
+				       wx <= o.x + o.w && wy <= o.y + o.h;
+			case ObjectType::Ellipse: {
+				float cx = o.x + o.w * .5f, cy = o.y + o.h * .5f;
+				float rx = SDL::Max(o.w * .5f, 1.f), ry = SDL::Max(o.h * .5f, 1.f);
+				float dx = (wx - cx) / rx, dy = (wy - cy) / ry;
+				return dx*dx + dy*dy <= 1.f;
+			}
+			case ObjectType::Point: {
+				float dx = wx - o.x, dy = wy - o.y;
+				return dx*dx + dy*dy <= 100.f; // 10 world-pixel pick radius
+			}
+			case ObjectType::Polygon: {
+				// AABB pre-test
+				if (o.points.size() < 3) return false;
+				float lx = wx - o.x, ly = wy - o.y;
+				// Ray-cast even-odd test
+				bool inside = false;
+				size_t n = o.points.size();
+				for (size_t i = 0, j = n-1; i < n; j = i++) {
+					const auto& pi = o.points[i];
+					const auto& pj = o.points[j];
+					bool cross = ((pi.y > ly) != (pj.y > ly)) &&
+					             (lx < (pj.x - pi.x) * (ly - pi.y) /
+					                   (pj.y - pi.y + 1e-9f) + pi.x);
+					if (cross) inside = !inside;
+				}
+				return inside;
+			}
+		}
+		return false;
 	}
 
 	// ── Tool application ──────────────────────────────────────────────────────
@@ -2032,21 +3299,112 @@ struct Main {
 		state.selDrag = false;
 
 		if (state.tool == ToolType::Fill) {
-			TileID paint = _SelectedTileID();
-			auto cmd = FloodFill(map, map.activeLayer, tx, ty, paint);
-			ur.Push(std::move(cmd));
+			// Pattern flood-fill: fill the connected region with the selected
+			// NxM tileset stamp, repeating it.
+			_PatternFloodFill(tx, ty);
 			return;
 		}
 
-		TileID paint = (state.tool == ToolType::Erase) ? EMPTY_TILE : _SelectedTileID();
+		if (state.tool == ToolType::Erase) {
+			// Erase ignores the multi-tile stamp.
+			_PaintTile(tx, ty, EMPTY_TILE);
+			return;
+		}
 
 		if (state.tool == ToolType::Brush) {
+			TileID paint = _SelectedTileID();
 			int half = state.brushSize / 2;
 			for (int dy = -half; dy <= half; ++dy)
 			for (int dx = -half; dx <= half; ++dx)
 				_PaintTile(tx + dx, ty + dy, paint);
-		} else {  // Pencil or Erase
-			_PaintTile(tx, ty, paint);
+			return;
+		}
+
+		// Pencil — stamp the selected NxM region from the tileset (or a single
+		// tile when the selection is 1x1).
+		_StampSelectionAt(tx, ty);
+	}
+
+	// Paint the currently-selected NxM tileset region anchored at (tx0, ty0).
+	void _StampSelectionAt(int tx0, int ty0) {
+		if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
+		const auto& ts = map.tilesets[state.activeTileset];
+		int sw = SDL::Max(1, state.selTileW);
+		int sh = SDL::Max(1, state.selTileH);
+		// Anchor the stamp using the tile under the cursor (avoids repaint
+		// loops in lastTile by walking deterministically per cell).
+		for (int dy = 0; dy < sh; ++dy)
+		for (int dx = 0; dx < sw; ++dx) {
+			int gx = state.selTileX + dx;
+			int gy = state.selTileY + dy;
+			if (gx >= ts.columns || gy >= ts.rows) continue;
+			TileID id = ts.firstGid + (TileID)(gy * ts.columns + gx);
+			_PaintTileNoDup(tx0 + dx, ty0 + dy, id);
+		}
+	}
+
+	// Variant of _PaintTile that doesn't filter on lastTile (so stamps work).
+	void _PaintTileNoDup(int tx, int ty, TileID id) {
+		if (!map.infinite && (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height)) return;
+		if (map.activeLayer < 0 || map.activeLayer >= (int)map.layers.size()) return;
+		TileID old = map.GetTile(map.activeLayer, tx, ty);
+		if (old == id) return;
+		map.SetTile(map.activeLayer, tx, ty, id);
+		state.stroke.changes.push_back({map.activeLayer, tx, ty, old, id});
+		if (id != EMPTY_TILE && !map.tilesets.empty()) {
+			const TilesetDef* ts = map.FindTileset(id);
+			if (ts && ts->smart) _SmartUpdate(map.activeLayer, tx, ty);
+		}
+	}
+
+	// Pattern flood-fill: select all tiles in the connected region of the same
+	// id, then paint the selected tileset region over it, tiling the stamp.
+	void _PatternFloodFill(int startX, int startY) {
+		if (map.activeLayer < 0 || map.activeLayer >= (int)map.layers.size()) return;
+		const auto& L = map.layers[map.activeLayer];
+		if (L.type != LayerType::Tile || L.locked) return;
+		if (map.tilesets.empty() || state.activeTileset >= (int)map.tilesets.size()) return;
+		const auto& ts = map.tilesets[state.activeTileset];
+		int sw = SDL::Max(1, state.selTileW);
+		int sh = SDL::Max(1, state.selTileH);
+
+		// Pre-compute the tile IDs in the stamp for fast lookup.
+		auto tileFor = [&](int dx, int dy) -> TileID {
+			int gx = state.selTileX + dx;
+			int gy = state.selTileY + dy;
+			if (gx >= ts.columns || gy >= ts.rows) return EMPTY_TILE;
+			return ts.firstGid + (TileID)(gy * ts.columns + gx);
+		};
+
+		TileID target = map.GetTile(map.activeLayer, startX, startY);
+		// Walk the connected region (4-neighbour) and paint per-cell using stamp tiling.
+		auto key = [](int x, int y) -> uint64_t {
+			return (uint64_t)(uint32_t)x | ((uint64_t)(uint32_t)y << 32);
+		};
+		std::unordered_set<uint64_t> visited;
+		std::queue<std::pair<int,int>> q;
+		q.push({startX, startY});
+		Command cmd;
+		while (!q.empty() && (int)cmd.changes.size() < 200000) {
+			auto [x, y] = q.front(); q.pop();
+			if (!map.infinite && (x < 0 || y < 0 || x >= map.width || y >= map.height)) continue;
+			if (!visited.insert(key(x, y)).second) continue;
+			if (map.GetTile(map.activeLayer, x, y) != target) continue;
+			// Tile index in the stamp pattern (origin = start cell)
+			int rx = ((x - startX) % sw + sw) % sw;
+			int ry = ((y - startY) % sh + sh) % sh;
+			TileID newId = tileFor(rx, ry);
+			TileID old   = target;
+			if (newId != old) {
+				map.SetTile(map.activeLayer, x, y, newId);
+				cmd.changes.push_back({map.activeLayer, x, y, old, newId});
+			}
+			q.push({x+1,y}); q.push({x-1,y});
+			q.push({x,y+1}); q.push({x,y-1});
+		}
+		if (!cmd.changes.empty()) {
+			ur.Push(std::move(cmd));
+			map.dirty = true;
 		}
 	}
 
@@ -2111,10 +3469,15 @@ struct Main {
 									  SDL::Min(state.objStart.y, ey));
 		ObjectDef obj;
 		obj.id   = state.nextObjId++;
-		obj.name = std::format("Object{}", obj.id);
 		obj.x = wx; obj.y = wy;
 		obj.w = dx / state.zoom; obj.h = dy / state.zoom;
-		obj.type = ObjectType::Rect;
+		if (state.tool == ToolType::ObjEllipse) {
+			obj.type = ObjectType::Ellipse;
+			obj.name = std::format("Ellipse{}", obj.id);
+		} else {
+			obj.type = ObjectType::Rect;
+			obj.name = std::format("Rect{}", obj.id);
+		}
 		layer.objects.push_back(std::move(obj));
 		map.dirty = true;
 	}
@@ -2267,7 +3630,7 @@ struct Main {
 				(i == map.activeLayer) ? pal::SELECTED : pal::WHITE;
 			ui.GetStyle(slot.row).bgColor =
 				(i == map.activeLayer)
-				? SDL::Color{32, 48, 76, 255}
+				? SDL::Color{ pal::ACCENT3.r, pal::ACCENT3.g, pal::ACCENT3.b, 200 }
 				: SDL::Color{0, 0, 0, 0};
 			// Visibility button: green tint + full opacity when visible, dimmed when hidden
 			auto& icVis = ui.GetOrAddIconData(slot.btnVis);
@@ -2290,28 +3653,61 @@ struct Main {
 
 	void _SetTool(ToolType t) {
 		state.tool = t;
-		static constexpr ToolType kTypes[kToolCount] = {
+
+		// Cancel any in-progress polygon when switching tools
+		if (t != ToolType::ObjPolygon) state.polyPoints.clear();
+
+		auto applyStyle = [this](SDL::ECS::EntityId id, bool active) {
+			if (id == SDL::ECS::NullEntity) return;
+			auto& s = ui.GetStyle(id);
+			if (active) {
+				s.bgColor        = pal::ACCENT;
+				s.bgHoveredColor = pal::ACCENT2;
+				s.bgPressedColor = pal::ACCENT3;
+				s.borders        = SDL::FBox(1.f);
+				s.bdColor        = {pal::ACCENT.r, pal::ACCENT.g, pal::ACCENT.b, 160};
+			} else {
+				s.bgColor        = {0, 0, 0, 0};
+				s.bgHoveredColor = pal::SURFACE2;
+				s.bgPressedColor = pal::ACCENT3;
+				s.borders        = SDL::FBox(0.f);
+				s.bdColor        = pal::BORDER;
+			}
+		};
+		static constexpr ToolType kTile[kTileToolCount] = {
 			ToolType::Pencil, ToolType::Brush, ToolType::Fill,
 			ToolType::Erase,  ToolType::Select
 		};
-		for (int i = 0; i < kToolCount; ++i) {
-			if (toolBtns[i] == SDL::ECS::NullEntity) continue;
-			bool active = (kTypes[i] == t);
-			auto& s = ui.GetStyle(toolBtns[i]);
-			if (active) {
-				s.bgColor   = pal::ACCENT;
-				s.bgHoveredColor = pal::ACCENT;
-				s.bgPressedColor = SDL::Color(pal::ACCENT).Darken(20);
-				s.borders   = SDL::FBox(1.f);
-				s.bdColor   = {pal::ACCENT.r, pal::ACCENT.g, pal::ACCENT.b, 140};
-			} else {
-				s.bgColor   = {0, 0, 0, 0};
-				s.bgHoveredColor = {42, 54, 78, 220};
-				s.bgPressedColor = SDL::Color(pal::ACCENT).Darken(20);
-				s.borders   = SDL::FBox(0.f);
-				s.bdColor   = pal::BORDER;
-			}
-		}
+		static constexpr ToolType kObj[kObjToolCount] = {
+			ToolType::ObjSelect, ToolType::ObjRect, ToolType::ObjEllipse,
+			ToolType::ObjPoint,  ToolType::ObjPolygon
+		};
+		for (int i = 0; i < kTileToolCount; ++i)
+			applyStyle(tileToolBtns[i], kTile[i] == t);
+		for (int i = 0; i < kObjToolCount; ++i)
+			applyStyle(objToolBtns[i],  kObj[i]  == t);
+	}
+
+	bool _ActiveLayerIsObject() const {
+		return map.activeLayer >= 0
+		    && map.activeLayer < (int)map.layers.size()
+		    && map.layers[map.activeLayer].type == LayerType::Object;
+	}
+
+	void _UpdateToolRowVisibility() {
+		bool obj = _ActiveLayerIsObject();
+		if (eToolRowTile != SDL::ECS::NullEntity) ui.SetVisible(eToolRowTile, !obj);
+		if (eToolRowObj  != SDL::ECS::NullEntity) ui.SetVisible(eToolRowObj,  obj);
+		// When switching to an object layer, default to ObjSelect if the
+		// current tool isn't an object tool (and vice versa).
+		bool curIsObj =
+			state.tool == ToolType::ObjSelect ||
+			state.tool == ToolType::ObjRect    ||
+			state.tool == ToolType::ObjEllipse ||
+			state.tool == ToolType::ObjPoint   ||
+			state.tool == ToolType::ObjPolygon;
+		if (obj && !curIsObj)  _SetTool(ToolType::ObjSelect);
+		if (!obj && curIsObj)  _SetTool(ToolType::Pencil);
 	}
 
 	void _RefreshGridBtn() {
@@ -2322,6 +3718,825 @@ struct Main {
 		ic.tintHoveredColor = tint;
 		auto& s = ui.GetStyle(eGridBtn);
 		s.bgColor = state.showGrid ? SDL::Color{26,58,38,220} : SDL::Color{0,0,0,0};
+	}
+
+	// =========================================================================
+	// Lua scripting (engine API)
+	// =========================================================================
+
+	void _ConsolePush(const std::string& line) {
+		// _ConsolePush can run from worker threads (graph runner) — append
+		// under a mutex and let Iterate() push the visible text into the UI.
+		std::lock_guard<std::mutex> lk(m_consoleMutex);
+		m_consoleLog += line;
+		if (!line.empty() && line.back() != '\n') m_consoleLog += '\n';
+		// Keep the console bounded — drop oldest lines when > 200 lines.
+		size_t lines = std::count(m_consoleLog.begin(), m_consoleLog.end(), '\n');
+		while (lines > 200) {
+			auto p = m_consoleLog.find('\n');
+			if (p == std::string::npos) break;
+			m_consoleLog.erase(0, p + 1);
+			--lines;
+		}
+		m_consoleDirty = true;
+	}
+	bool m_consoleDirty = false;
+	void _ConsoleFlushToUI() {
+		if (!m_consoleDirty) return;
+		std::string copy;
+		{
+			std::lock_guard<std::mutex> lk(m_consoleMutex);
+			if (!m_consoleDirty) return;
+			copy = m_consoleLog;
+			m_consoleDirty = false;
+		}
+		if (eScriptCons != SDL::ECS::NullEntity)
+			ui.SetText(eScriptCons, copy);
+	}
+
+#ifdef SDL3PP_TILE_EDITOR_LUA
+	// ── Lua interop: per-binding C functions read `this` from the registry ───
+	static Main* _LuaGetMain(lua_State* L) {
+		lua_getfield(L, LUA_REGISTRYINDEX, "__main_this");
+		Main* m = (Main*)lua_touserdata(L, -1);
+		lua_pop(L, 1);
+		return m;
+	}
+	static int _Lua_log(lua_State* L) {
+		Main* m = _LuaGetMain(L);
+		int n = lua_gettop(L);
+		std::string out;
+		for (int i = 1; i <= n; ++i) {
+			const char* s = luaL_tolstring(L, i, nullptr);
+			if (s) out += s;
+			lua_pop(L, 1);
+			if (i < n) out += "\t";
+		}
+		if (m) m->_ConsolePush(out);
+		return 0;
+	}
+	static int _Lua_size(lua_State* L) {
+		Main* m = _LuaGetMain(L);
+		if (!m) return 0;
+		lua_pushinteger(L, m->map.width);
+		lua_pushinteger(L, m->map.height);
+		return 2;
+	}
+	static int _Lua_tile(lua_State* L) {
+		Main* m = _LuaGetMain(L);
+		if (!m) { lua_pushinteger(L, 0); return 1; }
+		int layer = (int)luaL_checkinteger(L, 1);
+		int x     = (int)luaL_checkinteger(L, 2);
+		int y     = (int)luaL_checkinteger(L, 3);
+		lua_pushinteger(L, (lua_Integer)m->map.GetTile(layer, x, y));
+		return 1;
+	}
+	static int _Lua_set_tile(lua_State* L) {
+		Main* m = _LuaGetMain(L);
+		if (!m) return 0;
+		int layer = (int)luaL_checkinteger(L, 1);
+		int x     = (int)luaL_checkinteger(L, 2);
+		int y     = (int)luaL_checkinteger(L, 3);
+		int id    = (int)luaL_checkinteger(L, 4);
+		m->map.SetTile(layer, x, y, (TileID)id);
+		m->project.Touch(WorkspaceKind::Map | WorkspaceKind::Test);
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+	static int _Lua_player_pos(lua_State* L) {
+		Main* m = _LuaGetMain(L);
+		if (!m) return 0;
+		lua_pushnumber(L, m->m_player.pos.x);
+		lua_pushnumber(L, m->m_player.pos.y);
+		return 2;
+	}
+	static int _Lua_set_player(lua_State* L) {
+		Main* m = _LuaGetMain(L);
+		if (!m) return 0;
+		m->m_player.pos.x = (float)luaL_checknumber(L, 1);
+		m->m_player.pos.y = (float)luaL_checknumber(L, 2);
+		m->m_player.vel = {0.f, 0.f};
+		return 0;
+	}
+	static int _Lua_dialog(lua_State* L) {
+		Main* m = _LuaGetMain(L);
+		const char* msg = luaL_checkstring(L, 1);
+		if (m) m->_ConsolePush(std::string("[dialog] ") + msg);
+		return 0;
+	}
+
+	void _LuaInit() {
+		m_lua = luaL_newstate();
+		if (!m_lua) return;
+		luaL_openlibs(m_lua);
+		// Register `this` so static thunks can find the Main instance.
+		lua_pushlightuserdata(m_lua, this);
+		lua_setfield(m_lua, LUA_REGISTRYINDEX, "__main_this");
+		// engine = { log=..., size=..., tile=..., set_tile=..., player_pos=..., set_player=..., dialog=... }
+		lua_newtable(m_lua);
+		struct { const char* name; lua_CFunction fn; } kFns[] = {
+			{"log",         _Lua_log},
+			{"size",        _Lua_size},
+			{"tile",        _Lua_tile},
+			{"set_tile",    _Lua_set_tile},
+			{"player_pos",  _Lua_player_pos},
+			{"set_player",  _Lua_set_player},
+			{"dialog",      _Lua_dialog},
+		};
+		for (const auto& f : kFns) {
+			lua_pushcfunction(m_lua, f.fn);
+			lua_setfield(m_lua, -2, f.name);
+		}
+		lua_setglobal(m_lua, "engine");
+	}
+
+	void _LuaShutdown() {
+		if (m_lua) { lua_close(m_lua); m_lua = nullptr; }
+	}
+
+	bool _LuaRun(const std::string& code, const std::string& chunkname) {
+		if (!m_lua) return false;
+		if (luaL_loadbuffer(m_lua, code.c_str(), code.size(), chunkname.c_str()) != LUA_OK) {
+			_ConsolePush(std::string("[error] ") + lua_tostring(m_lua, -1));
+			lua_pop(m_lua, 1);
+			return false;
+		}
+		if (lua_pcall(m_lua, 0, 0, 0) != LUA_OK) {
+			_ConsolePush(std::string("[runtime] ") + lua_tostring(m_lua, -1));
+			lua_pop(m_lua, 1);
+			return false;
+		}
+		return true;
+	}
+
+	void _LuaCallGlobal(const char* name, float dt) {
+		if (!m_lua) return;
+		lua_getglobal(m_lua, name);
+		if (!lua_isfunction(m_lua, -1)) { lua_pop(m_lua, 1); return; }
+		lua_pushnumber(m_lua, dt);
+		if (lua_pcall(m_lua, 1, 0, 0) != LUA_OK) {
+			_ConsolePush(std::string("[runtime] ") + lua_tostring(m_lua, -1));
+			lua_pop(m_lua, 1);
+		}
+	}
+#else
+	void _LuaInit()        {}
+	void _LuaShutdown()    {}
+	bool _LuaRun(const std::string&, const std::string&) {
+		_ConsolePush("[lua] runtime disabled — rebuild with -DSDL3PP_TILE_EDITOR_LUA");
+		return false;
+	}
+	void _LuaCallGlobal(const char*, float) {}
+#endif
+
+	void _LuaRunActiveScript() {
+		if (project.scripts.empty()) return;
+		int i = std::clamp(project.activeScript, 0, (int)project.scripts.size()-1);
+		const auto& s = project.scripts[i];
+		_ConsolePush(std::string("[run] ") + s.name);
+		_LuaRun(s.code, s.name);
+	}
+
+	// =========================================================================
+	// Cinematic workspace impl
+	// =========================================================================
+
+	void _CineAddTrack(CineTrackKind kind) {
+		if (project.cinematics.empty()) project.cinematics.push_back({});
+		auto& doc = project.cinematics[project.activeCinematic];
+		CineTrack t;
+		t.kind = kind;
+		switch (kind) {
+			case CineTrackKind::Image:  t.name = std::format("Image {}", doc.tracks.size()+1); break;
+			case CineTrackKind::Music:  t.name = std::format("Music {}", doc.tracks.size()+1); break;
+			case CineTrackKind::Sfx:    t.name = std::format("Sfx {}",   doc.tracks.size()+1); break;
+			case CineTrackKind::Dialog: t.name = std::format("Dialog {}",doc.tracks.size()+1); break;
+		}
+		// Add one starter clip at the current playhead.
+		CineClip c;
+		c.start = m_cineTime;
+		c.length = 2.f;
+		c.asset = (kind == CineTrackKind::Dialog) ? "Hello world!" : "";
+		t.clips.push_back(std::move(c));
+		doc.tracks.push_back(std::move(t));
+		project.Touch(WorkspaceKind::Cinematic);
+	}
+
+	void _RenderCine(SDL::RendererRef r, SDL::FRect rect) {
+		// Background
+		r.SetDrawColor({18, 20, 28, 255});
+		r.RenderFillRect(rect);
+		if (project.cinematics.empty()) return;
+		auto& doc = project.cinematics[project.activeCinematic];
+
+		constexpr float headerW = 110.f;
+		constexpr float trackH  = 38.f;
+		const float secW = (rect.w - headerW) / SDL::Max(0.5f, doc.duration);
+
+		// Time ruler (every second)
+		for (int s = 0; s <= (int)std::ceil(doc.duration); ++s) {
+			float x = rect.x + headerW + s * secW;
+			r.SetDrawColor((s % 5 == 0) ? SDL::Color{90, 96, 130, 200}
+			                            : SDL::Color{60, 65, 90, 160});
+			r.RenderLine({x, rect.y}, {x, rect.y + rect.h});
+		}
+		r.SetDrawColor({90, 96, 130, 230});
+		r.RenderLine({rect.x + headerW, rect.y}, {rect.x + headerW, rect.y + rect.h});
+
+		// Tracks
+		for (int ti = 0; ti < (int)doc.tracks.size(); ++ti) {
+			float y = rect.y + 4.f + ti * trackH;
+			// Header
+			SDL::FRect hdr{rect.x, y, headerW, trackH - 4.f};
+			SDL::Color trackBg;
+			switch (doc.tracks[ti].kind) {
+				case CineTrackKind::Image:  trackBg = {70, 100, 160, 255}; break;
+				case CineTrackKind::Music:  trackBg = {120, 70, 160, 255}; break;
+				case CineTrackKind::Sfx:    trackBg = {160, 110, 60, 255}; break;
+				case CineTrackKind::Dialog: trackBg = {80, 140, 90, 255};  break;
+			}
+			r.SetDrawColor(trackBg); r.RenderFillRect(hdr);
+			r.SetDrawColor({0, 0, 0, 90}); r.RenderRect(hdr);
+
+			// Clips
+			for (int ci = 0; ci < (int)doc.tracks[ti].clips.size(); ++ci) {
+				const auto& c = doc.tracks[ti].clips[ci];
+				SDL::FRect clip{rect.x + headerW + c.start * secW, y,
+				                c.length * secW, trackH - 4.f};
+				SDL::Color cc = trackBg; cc.a = 220;
+				r.SetDrawColor(cc); r.RenderFillRect(clip);
+				r.SetDrawColor({255, 255, 255, 180}); r.RenderRect(clip);
+			}
+		}
+
+		// Playhead
+		float phX = rect.x + headerW + m_cineTime * secW;
+		r.SetDrawColor({255, 100, 100, 240});
+		r.RenderLine({phX, rect.y}, {phX, rect.y + rect.h});
+	}
+
+	void _OnCineEvent(SDL::Event& ev) {
+		if (project.cinematics.empty()) return;
+		auto& doc = project.cinematics[project.activeCinematic];
+		constexpr float headerW = 110.f;
+		constexpr float trackH  = 38.f;
+		const float rectx = 0.f; // canvas-relative; we use mouse coords directly via state-less hit.
+		(void)rectx;
+
+		if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN && ev.button.button == SDL::BUTTON_LEFT) {
+			float mx = ev.button.x, my = ev.button.y;
+			// Find which track / clip was hit (approximate: relies on UI placing
+			// the canvas at the rect we used last frame; conservative for now).
+			// Locate track by Y delta from canvas top — for simplicity we walk
+			// every track / clip and test world-space rectangles.
+			float canvasTop = 0.f, canvasLeft = 0.f;
+			if (auto* cr = ecs_context.Get<SDL::UI::ComputedRect>(eCineCanvas)) {
+				canvasTop  = cr->screen.y;
+				canvasLeft = cr->screen.x;
+			}
+			float canvasW = 0.f;
+			if (auto* cr = ecs_context.Get<SDL::UI::ComputedRect>(eCineCanvas))
+				canvasW = cr->screen.w;
+			float secW = (canvasW - headerW) / SDL::Max(0.5f, doc.duration);
+			for (int ti = 0; ti < (int)doc.tracks.size(); ++ti) {
+				float y = canvasTop + 4.f + ti * trackH;
+				for (int ci = 0; ci < (int)doc.tracks[ti].clips.size(); ++ci) {
+					const auto& c = doc.tracks[ti].clips[ci];
+					float x = canvasLeft + headerW + c.start * secW;
+					float w = c.length * secW;
+					if (mx >= x && mx <= x + w && my >= y && my <= y + trackH - 4.f) {
+						m_cineDragTrack = ti;
+						m_cineDragClip = ci;
+						// Hit right-edge → resize; otherwise move.
+						m_cineResize = (mx > x + w - 6.f);
+						return;
+					}
+				}
+			}
+		} else if (ev.type == SDL::EVENT_MOUSE_MOTION
+		           && m_cineDragTrack >= 0 && m_cineDragClip >= 0) {
+			float canvasLeft = 0.f, canvasW = 0.f;
+			if (auto* cr = ecs_context.Get<SDL::UI::ComputedRect>(eCineCanvas)) {
+				canvasLeft = cr->screen.x;
+				canvasW = cr->screen.w;
+			}
+			float secW = (canvasW - headerW) / SDL::Max(0.5f, doc.duration);
+			auto& clip = doc.tracks[m_cineDragTrack].clips[m_cineDragClip];
+			if (m_cineResize) {
+				clip.length = SDL::Max(0.1f, (ev.motion.x - canvasLeft - headerW)/secW - clip.start);
+			} else {
+				clip.start += ev.motion.xrel / secW;
+				if (clip.start < 0.f) clip.start = 0.f;
+			}
+		} else if (ev.type == SDL::EVENT_MOUSE_BUTTON_UP) {
+			m_cineDragTrack = -1; m_cineDragClip = -1; m_cineResize = false;
+		}
+	}
+
+	void _CineUpdate(float dt) {
+		if (!m_cinePlaying) return;
+		auto& doc = project.cinematics[project.activeCinematic];
+		m_cineTime += dt;
+		if (m_cineTime > doc.duration) { m_cineTime = doc.duration; m_cinePlaying = false; }
+		ui.SetText(eCinePlayhead,
+			std::format("{:.2f}s / {:.2f}s", m_cineTime, doc.duration));
+	}
+
+	// =========================================================================
+	// NodeGraph workspace impl
+	// =========================================================================
+
+	void _GraphAddNode(NodeKind k) {
+		if (project.graphs.empty()) project.graphs.push_back({});
+		auto& g = project.graphs[project.activeGraph];
+		NodeDef n;
+		n.id   = g.nextNodeId++;
+		n.kind = k;
+		n.pos  = {(float)(60 + (g.nodes.size()%6) * 200),
+		          (float)(60 + (g.nodes.size()/6) * 130)};
+		switch (k) {
+			case NodeKind::Event:     n.title = "Event";     n.outputs = {{{(float)n.size.x, n.size.y*0.5f},"out"}}; break;
+			case NodeKind::Script:    n.title = "Script";    n.body = "engine.log('hi')";
+				n.inputs = {{{0,n.size.y*0.5f},"in"}}; n.outputs = {{{(float)n.size.x,n.size.y*0.5f},"out"}}; break;
+			case NodeKind::Dialog:    n.title = "Dialog";    n.body = "Hello!";
+				n.inputs = {{{0,n.size.y*0.5f},"in"}}; n.outputs = {{{(float)n.size.x,n.size.y*0.5f},"next"}}; break;
+			case NodeKind::Cinematic: n.title = "Cinematic"; n.body = "intro";
+				n.inputs = {{{0,n.size.y*0.5f},"play"}}; n.outputs = {{{(float)n.size.x,n.size.y*0.5f},"done"}}; break;
+			case NodeKind::Wait:      n.title = "Wait";      n.body = "1.0";
+				n.inputs = {{{0,n.size.y*0.5f},"in"}}; n.outputs = {{{(float)n.size.x,n.size.y*0.5f},"after"}}; break;
+			case NodeKind::Branch:    n.title = "Branch";    n.body = "engine.player_pos() > 100";
+				n.inputs = {{{0,n.size.y*0.5f},"cond"}};
+				n.outputs = {{{(float)n.size.x,n.size.y*0.33f},"true"},
+				             {{(float)n.size.x,n.size.y*0.67f},"false"}}; break;
+		}
+		g.nodes.push_back(std::move(n));
+		project.Touch(WorkspaceKind::NodeGraph);
+	}
+
+	SDL::FPoint _GraphWorldToScreen(SDL::FRect canvas, float wx, float wy) const {
+		return {canvas.x + (wx - m_graphViewX) * m_graphZoom,
+		        canvas.y + (wy - m_graphViewY) * m_graphZoom};
+	}
+	SDL::FPoint _GraphScreenToWorld(SDL::FRect canvas, float sx, float sy) const {
+		return {(sx - canvas.x) / m_graphZoom + m_graphViewX,
+		        (sy - canvas.y) / m_graphZoom + m_graphViewY};
+	}
+
+	void _RenderGraph(SDL::RendererRef r, SDL::FRect rect) {
+		r.SetDrawColor({16, 18, 26, 255});
+		r.RenderFillRect(rect);
+		if (project.graphs.empty()) return;
+
+		// Grid
+		float step = 32.f * m_graphZoom;
+		if (step > 6.f) {
+			r.SetDrawColor({30, 34, 50, 255});
+			float ox = std::fmod(-m_graphViewX * m_graphZoom, step);
+			float oy = std::fmod(-m_graphViewY * m_graphZoom, step);
+			for (float x = rect.x + ox; x < rect.x + rect.w; x += step)
+				r.RenderLine({x, rect.y}, {x, rect.y + rect.h});
+			for (float y = rect.y + oy; y < rect.y + rect.h; y += step)
+				r.RenderLine({rect.x, y}, {rect.x + rect.w, y});
+		}
+
+		const auto& g = project.graphs[project.activeGraph];
+		auto findNode = [&](int id) -> const NodeDef* {
+			for (const auto& n : g.nodes) if (n.id == id) return &n;
+			return nullptr;
+		};
+
+		// Wires
+		for (const auto& w : g.wires) {
+			const NodeDef* a = findNode(w.srcNode);
+			const NodeDef* b = findNode(w.dstNode);
+			if (!a || !b) continue;
+			if (w.srcPort >= (int)a->outputs.size() || w.dstPort >= (int)b->inputs.size()) continue;
+			auto p1 = _GraphWorldToScreen(rect,
+				a->pos.x + a->outputs[w.srcPort].local.x,
+				a->pos.y + a->outputs[w.srcPort].local.y);
+			auto p2 = _GraphWorldToScreen(rect,
+				b->pos.x + b->inputs[w.dstPort].local.x,
+				b->pos.y + b->inputs[w.dstPort].local.y);
+			r.SetDrawColor({210, 185, 60, 220});
+			r.RenderLine(p1, p2);
+		}
+
+		// Wire-in-progress
+		if (m_wireFromNode >= 0) {
+			const NodeDef* a = findNode(m_wireFromNode);
+			if (a && m_wireFromPort < (int)a->outputs.size()) {
+				auto p1 = _GraphWorldToScreen(rect,
+					a->pos.x + a->outputs[m_wireFromPort].local.x,
+					a->pos.y + a->outputs[m_wireFromPort].local.y);
+				float mx, my; SDL::GetMouseState(mx, my);
+				r.SetDrawColor({255, 220, 60, 200});
+				r.RenderLine(p1, {mx, my});
+			}
+		}
+
+		// Nodes
+		for (const auto& n : g.nodes) {
+			auto tl = _GraphWorldToScreen(rect, n.pos.x, n.pos.y);
+			SDL::FRect nr{tl.x, tl.y, n.size.x * m_graphZoom, n.size.y * m_graphZoom};
+			SDL::Color body;
+			switch (n.kind) {
+				case NodeKind::Event:     body = {50, 110, 160, 240}; break;
+				case NodeKind::Script:    body = {110, 80, 160, 240}; break;
+				case NodeKind::Dialog:    body = {80, 140, 90, 240};  break;
+				case NodeKind::Cinematic: body = {160, 90, 140, 240}; break;
+				case NodeKind::Wait:      body = {140, 130, 60, 240}; break;
+				case NodeKind::Branch:    body = {160, 70, 70, 240};  break;
+			}
+			r.SetDrawColor(body); r.RenderFillRect(nr);
+			SDL::Color border = (n.id == m_selectedNode) ? SDL::Color{255, 220, 60, 255}
+			                                              : SDL::Color{0, 0, 0, 200};
+			r.SetDrawColor(border); r.RenderRect(nr);
+			// Title bar
+			SDL::FRect tb{nr.x, nr.y, nr.w, 16.f * m_graphZoom};
+			SDL::Color tbc = body; tbc.r = (Uint8)SDL::Min(255, tbc.r + 30);
+			tbc.g = (Uint8)SDL::Min(255, tbc.g + 30); tbc.b = (Uint8)SDL::Min(255, tbc.b + 30);
+			r.SetDrawColor(tbc); r.RenderFillRect(tb);
+			// Ports
+			float pr = 5.f * m_graphZoom;
+			for (const auto& p : n.inputs) {
+				auto sp = _GraphWorldToScreen(rect, n.pos.x + p.local.x, n.pos.y + p.local.y);
+				r.SetDrawColor({60, 140, 220, 255});
+				r.RenderFillRect(SDL::FRect{sp.x - pr, sp.y - pr, pr*2, pr*2});
+			}
+			for (const auto& p : n.outputs) {
+				auto sp = _GraphWorldToScreen(rect, n.pos.x + p.local.x, n.pos.y + p.local.y);
+				r.SetDrawColor({45, 195, 110, 255});
+				r.RenderFillRect(SDL::FRect{sp.x - pr, sp.y - pr, pr*2, pr*2});
+			}
+		}
+	}
+
+	void _OnGraphEvent(SDL::Event& ev) {
+		SDL::FRect rect{};
+		if (auto* cr = ecs_context.Get<SDL::UI::ComputedRect>(eGraphCanvas))
+			rect = cr->screen;
+		if (rect.w <= 0.f) return;
+		if (project.graphs.empty()) return;
+		auto& g = project.graphs[project.activeGraph];
+
+		auto hitPort = [&](float mx, float my, bool wantOutput, int& outNode, int& outPort) -> bool {
+			float pr = 6.f * m_graphZoom;
+			for (const auto& n : g.nodes) {
+				const auto& ports = wantOutput ? n.outputs : n.inputs;
+				for (int i = 0; i < (int)ports.size(); ++i) {
+					auto sp = _GraphWorldToScreen(rect,
+						n.pos.x + ports[i].local.x, n.pos.y + ports[i].local.y);
+					if (std::abs(mx - sp.x) <= pr && std::abs(my - sp.y) <= pr) {
+						outNode = n.id; outPort = i;
+						return true;
+					}
+				}
+			}
+			return false;
+		};
+		auto hitNode = [&](float mx, float my, int& outIdx) -> bool {
+			for (int i = (int)g.nodes.size() - 1; i >= 0; --i) {
+				const auto& n = g.nodes[i];
+				auto tl = _GraphWorldToScreen(rect, n.pos.x, n.pos.y);
+				SDL::FRect nr{tl.x, tl.y, n.size.x * m_graphZoom, n.size.y * m_graphZoom};
+				if (nr.Contains(SDL::FPoint{mx, my})) { outIdx = i; return true; }
+			}
+			return false;
+		};
+
+		if (ev.type == SDL::EVENT_MOUSE_WHEEL) {
+			float mx = ev.wheel.mouse_x, my = ev.wheel.mouse_y;
+			if (!rect.Contains(SDL::FPoint{mx, my})) return;
+			float old = m_graphZoom;
+			m_graphZoom = std::clamp(m_graphZoom * (ev.wheel.y > 0 ? 1.2f : 1.f/1.2f), 0.2f, 4.f);
+			// Keep mouse anchor stable.
+			float k = m_graphZoom / old;
+			m_graphViewX += (mx - rect.x) / old * (1.f - 1.f/k);
+			m_graphViewY += (my - rect.y) / old * (1.f - 1.f/k);
+			return;
+		}
+		if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN) {
+			float mx = ev.button.x, my = ev.button.y;
+			if (!rect.Contains(SDL::FPoint{mx, my})) return;
+			if (ev.button.button == SDL::BUTTON_MIDDLE) {
+				m_graphPanning = true;
+				m_graphDragOrigin = {mx, my};
+				m_graphDragNodeStart = {m_graphViewX, m_graphViewY};
+				return;
+			}
+			if (ev.button.button == SDL::BUTTON_LEFT) {
+				int sn, sp;
+				if (hitPort(mx, my, /*wantOutput=*/true, sn, sp)) {
+					m_wireFromNode = sn; m_wireFromPort = sp;
+					return;
+				}
+				int idx;
+				if (hitNode(mx, my, idx)) {
+					m_selectedNode = g.nodes[idx].id;
+					m_graphNodeDrag = true;
+					m_graphDragOrigin = {mx, my};
+					m_graphDragNodeStart = g.nodes[idx].pos;
+					ui.SetText(eGraphStatus,
+						std::format("Selected: {} #{}", g.nodes[idx].title, g.nodes[idx].id));
+					return;
+				}
+				m_selectedNode = -1;
+			}
+		} else if (ev.type == SDL::EVENT_MOUSE_BUTTON_UP) {
+			float mx = ev.button.x, my = ev.button.y;
+			if (ev.button.button == SDL::BUTTON_MIDDLE) m_graphPanning = false;
+			if (ev.button.button == SDL::BUTTON_LEFT) {
+				if (m_wireFromNode >= 0) {
+					int dn, dp;
+					if (hitPort(mx, my, /*wantOutput=*/false, dn, dp)) {
+						NodeWire w; w.srcNode=m_wireFromNode; w.srcPort=m_wireFromPort;
+						w.dstNode=dn; w.dstPort=dp;
+						g.wires.push_back(w);
+					}
+					m_wireFromNode = -1; m_wireFromPort = -1;
+				}
+				m_graphNodeDrag = false;
+			}
+		} else if (ev.type == SDL::EVENT_MOUSE_MOTION) {
+			float mx = ev.motion.x, my = ev.motion.y;
+			if (m_graphPanning) {
+				m_graphViewX = m_graphDragNodeStart.x - (mx - m_graphDragOrigin.x)/m_graphZoom;
+				m_graphViewY = m_graphDragNodeStart.y - (my - m_graphDragOrigin.y)/m_graphZoom;
+			} else if (m_graphNodeDrag && m_selectedNode >= 0) {
+				for (auto& n : g.nodes) {
+					if (n.id != m_selectedNode) continue;
+					n.pos.x = m_graphDragNodeStart.x + (mx - m_graphDragOrigin.x)/m_graphZoom;
+					n.pos.y = m_graphDragNodeStart.y + (my - m_graphDragOrigin.y)/m_graphZoom;
+					break;
+				}
+			}
+		} else if (ev.type == SDL::EVENT_KEY_DOWN) {
+			if (ev.key.key == SDL::KEYCODE_DELETE && m_selectedNode >= 0) {
+				int id = m_selectedNode;
+				g.nodes.erase(std::remove_if(g.nodes.begin(), g.nodes.end(),
+					[id](const NodeDef& n){ return n.id == id; }), g.nodes.end());
+				g.wires.erase(std::remove_if(g.wires.begin(), g.wires.end(),
+					[id](const NodeWire& w){ return w.srcNode==id || w.dstNode==id; }), g.wires.end());
+				m_selectedNode = -1;
+			}
+		}
+	}
+
+	// Asynchronous run: walks the graph starting from every Event node and
+	// schedules block execution on a worker thread. Dialog/Wait nodes yield
+	// for real time; Script nodes run their Lua snippet on the main thread
+	// (because Lua state isn't thread-safe).
+	void _GraphRunAsync() {
+		if (project.graphs.empty()) return;
+		// Snapshot the graph; the worker walks the snapshot — concurrent edits
+		// in the UI keep working without locks.
+		auto snap = std::make_shared<NodeGraphDoc>(project.graphs[project.activeGraph]);
+		auto self = this;
+		std::thread([self, snap]{
+			try {
+				self->_GraphWalk(*snap);
+			} catch (...) {
+				self->_ConsolePush("[graph] exception during async run");
+			}
+		}).detach();
+		_ConsolePush("[graph] running async");
+	}
+
+	void _GraphWalk(const NodeGraphDoc& g) {
+		auto findNode = [&](int id) -> const NodeDef* {
+			for (const auto& n : g.nodes) if (n.id == id) return &n;
+			return nullptr;
+		};
+		auto runNode = [&](const NodeDef& n) {
+			switch (n.kind) {
+				case NodeKind::Event:
+					_ConsolePush(std::format("[event] {}", n.title));
+					break;
+				case NodeKind::Script: {
+					// Lua state is not thread-safe — hop to main via a flag.
+					std::string code = n.body;
+					auto done = std::make_shared<std::atomic<bool>>(false);
+					{
+						std::lock_guard<std::mutex> lk(m_pendingMutex);
+						m_pendingMain.push_back([this, code, done]{
+							_LuaRun(code, "graph-script");
+							done->store(true);
+						});
+					}
+					while (!done->load())
+						std::this_thread::sleep_for(std::chrono::milliseconds(5));
+					break;
+				}
+				case NodeKind::Dialog:
+					_ConsolePush(std::string("[dialog] ") + n.body);
+					std::this_thread::sleep_for(std::chrono::milliseconds(800));
+					break;
+				case NodeKind::Cinematic:
+					_ConsolePush(std::string("[cine] play ") + n.body);
+					std::this_thread::sleep_for(std::chrono::milliseconds(500));
+					break;
+				case NodeKind::Wait: {
+					float secs = 1.f;
+					try { secs = std::stof(n.body); } catch (...) {}
+					std::this_thread::sleep_for(std::chrono::milliseconds((int)(secs * 1000)));
+					break;
+				}
+				case NodeKind::Branch:
+					_ConsolePush(std::string("[branch] ") + n.body);
+					break;
+			}
+		};
+
+		// BFS from each Event node, exec each node, then fan out through wires.
+		std::queue<int> q;
+		std::unordered_set<int> visited;
+		for (const auto& n : g.nodes) if (n.kind == NodeKind::Event) q.push(n.id);
+
+		while (!q.empty()) {
+			int id = q.front(); q.pop();
+			if (!visited.insert(id).second) continue;
+			const NodeDef* n = findNode(id);
+			if (!n) continue;
+			runNode(*n);
+			for (const auto& w : g.wires)
+				if (w.srcNode == id) q.push(w.dstNode);
+		}
+		_ConsolePush("[graph] done");
+	}
+
+	// =========================================================================
+	// Test workspace impl (Mario-like physics)
+	// =========================================================================
+
+	void _TestReset() {
+		m_player.pos  = {64.f, 64.f};
+		m_player.vel  = {0.f, 0.f};
+		m_player.onGround = false;
+		m_player.alive = true;
+		m_testCollisionLayer = -1;
+		// Default to layer 0 unless an "objects" layer is named Collision.
+		for (int i = 0; i < (int)map.layers.size(); ++i) {
+			if (map.layers[i].name == "Collision") { m_testCollisionLayer = i; break; }
+		}
+		if (m_testCollisionLayer < 0) m_testCollisionLayer = 0;
+	}
+
+	bool _TestSolidAt(float wx, float wy) const {
+		// A world-point is solid if any tile layer (≥ collision layer) has a
+		// non-empty tile under it, OR a Rect/Polygon object on an object layer
+		// contains it.
+		int tx, ty;
+		map.WorldToTile(wx, wy, tx, ty);
+		for (int li = 0; li < (int)map.layers.size(); ++li) {
+			const auto& L = map.layers[li];
+			if (!L.visible) continue;
+			if (L.type == LayerType::Tile) {
+				if (map.GetTile(li, tx, ty) != EMPTY_TILE) return true;
+			} else {
+				for (const auto& obj : L.objects) {
+					if (obj.type == ObjectType::Rect &&
+					    wx >= obj.x && wx <= obj.x + obj.w &&
+					    wy >= obj.y && wy <= obj.y + obj.h)
+						return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	void _TestUpdate(float dt) {
+		if (m_activeTab != WsTest) return;
+
+		// Drain any pending main-thread closures queued by graph workers.
+		_DrainPendingMain();
+
+		// Optional Lua tick hook.
+		_LuaCallGlobal("on_tick", dt);
+
+		if (!m_testPlaying) return;
+
+		// Read held keys for input.
+		bool left  = m_testKeysHeld.count(SDL::KEYCODE_LEFT)  || m_testKeysHeld.count(SDL::KEYCODE_A);
+		bool right = m_testKeysHeld.count(SDL::KEYCODE_RIGHT) || m_testKeysHeld.count(SDL::KEYCODE_D);
+		bool jump  = m_testKeysHeld.count(SDL::KEYCODE_SPACE) || m_testKeysHeld.count(SDL::KEYCODE_W);
+
+		// Horizontal accel + drag.
+		const float ACC = 1400.f, MAX_V = 220.f, GRAV = 1300.f, JUMP_V = 460.f;
+		float ax = 0.f;
+		if (left)  ax -= ACC;
+		if (right) ax += ACC;
+		m_player.vel.x += ax * dt;
+		// Drag when no input
+		if (!left && !right) m_player.vel.x *= std::max(0.f, 1.f - 8.f * dt);
+		m_player.vel.x = std::clamp(m_player.vel.x, -MAX_V, MAX_V);
+
+		// Gravity + jump
+		m_player.vel.y += GRAV * dt;
+		if (jump && m_player.onGround) {
+			m_player.vel.y = -JUMP_V;
+			m_player.onGround = false;
+		}
+
+		// Integrate + collide axis-by-axis.
+		auto sweepAxis = [&](float dx, float dy, bool xAxis) {
+			SDL::FPoint half = {m_player.size.x * 0.5f, m_player.size.y * 0.5f};
+			float steps = std::ceil(std::max(std::abs(dx), std::abs(dy)) / 4.f);
+			if (steps < 1.f) steps = 1.f;
+			float sx = dx / steps, sy = dy / steps;
+			for (int s = 0; s < (int)steps; ++s) {
+				SDL::FPoint next = {m_player.pos.x + sx, m_player.pos.y + sy};
+				// 4 corners + midpoints.
+				bool blocked = false;
+				for (int cy = -1; cy <= 1; ++cy)
+				for (int cx = -1; cx <= 1; ++cx) {
+					float wx = next.x + cx * half.x * 0.95f;
+					float wy = next.y + cy * half.y * 0.95f;
+					if (_TestSolidAt(wx, wy)) { blocked = true; break; }
+				}
+				if (blocked) {
+					if (xAxis) m_player.vel.x = 0.f;
+					else {
+						if (sy > 0.f) m_player.onGround = true;
+						m_player.vel.y = 0.f;
+					}
+					return;
+				}
+				m_player.pos = next;
+			}
+			if (!xAxis) m_player.onGround = false; // override only when no collision
+		};
+		// First X, then Y (classic platformer order).
+		sweepAxis(m_player.vel.x * dt, 0.f, true);
+		// Pre-check Y to set onGround correctly even with 0 vel.y when standing
+		m_player.onGround = false;
+		sweepAxis(0.f, m_player.vel.y * dt, false);
+	}
+
+	void _RenderTest(SDL::RendererRef r, SDL::FRect rect) {
+		// Reuse the map renderer with a fixed pinned camera following the
+		// player. We update state.mapRect/viewX/viewY temporarily.
+		auto saveRect  = state.mapRect;
+		auto saveViewX = state.viewX, saveViewY = state.viewY;
+		auto saveZoom  = state.zoom;
+		state.mapRect  = rect;
+		state.zoom     = 1.0f;
+		state.viewX    = m_player.pos.x - rect.w * 0.5f;
+		state.viewY    = m_player.pos.y - rect.h * 0.5f;
+		_RenderMap(r, rect);
+
+		// Draw the player
+		auto pp = WorldToScreen(m_player.pos.x - m_player.size.x*0.5f,
+		                        m_player.pos.y - m_player.size.y*0.5f);
+		r.SetDrawColor({230, 90, 70, 255});
+		r.RenderFillRect(SDL::FRect{pp.x, pp.y, m_player.size.x, m_player.size.y});
+		r.SetDrawColor({0, 0, 0, 200});
+		r.RenderRect(SDL::FRect{pp.x, pp.y, m_player.size.x, m_player.size.y});
+
+		state.mapRect = saveRect;
+		state.viewX = saveViewX; state.viewY = saveViewY;
+		state.zoom = saveZoom;
+
+		ui.SetText(eTestStatus,
+			std::format("{}  pos ({:.0f}, {:.0f})  vel ({:.0f}, {:.0f})  ground={}",
+				m_testPlaying ? "PLAY" : "PAUSE",
+				m_player.pos.x, m_player.pos.y,
+				m_player.vel.x, m_player.vel.y,
+				m_player.onGround));
+	}
+
+	void _OnTestEvent(SDL::Event& ev) {
+		if (ev.type == SDL::EVENT_KEY_DOWN) m_testKeysHeld.insert(ev.key.key);
+		if (ev.type == SDL::EVENT_KEY_UP)   m_testKeysHeld.erase (ev.key.key);
+		if (ev.type == SDL::EVENT_MOUSE_BUTTON_DOWN
+		    && ev.button.button == SDL::BUTTON_LEFT) {
+			// Place the player at the click position (handy for quick testing).
+			SDL::FRect rect{};
+			if (auto* cr = ecs_context.Get<SDL::UI::ComputedRect>(eTestCanvas))
+				rect = cr->screen;
+			float wx = ev.button.x - rect.x + (m_player.pos.x - rect.w * 0.5f);
+			float wy = ev.button.y - rect.y + (m_player.pos.y - rect.h * 0.5f);
+			m_player.pos = {wx, wy};
+			m_player.vel = {0.f, 0.f};
+		}
+	}
+
+	// =========================================================================
+	// Cross-workspace plumbing
+	// =========================================================================
+
+	// Queue closures that must run on the main thread (Lua calls from graph
+	// worker threads, primarily). Protected by m_pendingMutex.
+	std::vector<std::function<void()>> m_pendingMain;
+	std::mutex                         m_pendingMutex;
+	std::mutex                         m_consoleMutex;
+
+	void _DrainPendingMain() {
+		std::vector<std::function<void()>> drained;
+		{
+			std::lock_guard<std::mutex> lk(m_pendingMutex);
+			drained.swap(m_pendingMain);
+		}
+		for (auto& fn : drained) fn();
 	}
 
 	// =========================================================================
@@ -2459,8 +4674,10 @@ struct Main {
 			my >= state.mapRect.y && my < state.mapRect.y + state.mapRect.h)
 			ScreenToTile(mx, my, tx, ty);
 
-		static const char* const kToolNames[] =
-			{"Pencil","Brush","Fill","Erase","Select"};
+		static const char* const kToolNames[] = {
+			"Pencil","Brush","Fill","Erase","Select",
+			"ObjSelect","ObjRect","ObjEllipse","ObjPoint","ObjPolygon"
+		};
 
 		std::string tilePos = (tx >= 0) ? std::format("[{},{}]", tx, ty) : "---";
 
@@ -2474,13 +4691,24 @@ struct Main {
 			mapSize = std::format("{}x{}", map.width, map.height);
 		}
 
+		const char* layerKind = _ActiveLayerIsObject() ? "Obj" : "Tile";
+
+		std::string extra;
+		if (state.tool == ToolType::ObjPolygon && !state.polyPoints.empty()) {
+			extra = std::format(" | poly: {} pts (Enter=finish, Esc=cancel)",
+								(int)state.polyPoints.size());
+		} else if (ObjectDef* o = const_cast<Main*>(this)->_SelObj()) {
+			extra = std::format(" | sel: '{}' #{}", o->name, o->id);
+		}
+
 		std::string s = std::format(
-			"{} | Map {} ({}x{}px) | Layer {}/{} | Zoom {:.0f}% | {}{}",
+			"{} | Map {} ({}x{}px) | L {}/{} [{}] | Zoom {:.0f}% | {}{}{}",
 			kToolNames[(int)state.tool],
 			mapSize, map.tileW, map.tileH,
-			map.activeLayer + 1, (int)map.layers.size(),
+			map.activeLayer + 1, (int)map.layers.size(), layerKind,
 			state.zoom * 100.f,
 			tilePos,
+			extra,
 			map.dirty ? " [unsaved]" : ""
 		);
 		ui.SetText(eStatusLabel, s);

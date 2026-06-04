@@ -167,7 +167,7 @@ struct Main {
 		LOG_INFO << std::format("=== {} {} ===", kDefaultTitle, kAppVersion);
 
 		// ── Config ─────────────────────────────────────────────────────────────
-		const std::string assetsBase = std::string(SDL::GetBasePath()) + "assets/";
+		const std::string assetsBase = std::string(SDL::GetBasePath()) + "../../assets/";
 		core::ScriptObjectPtr config;
 		try {
 			config = core::ParseConfFile(assetsBase + "configs/config.script");
@@ -199,7 +199,7 @@ struct Main {
 		m_ctx.pool        = &pool;
 		m_ctx.config      = config;
 		m_ctx.assetsBasePath = assetsBase;
-		m_ctx.savePath    = std::string(SDL::GetBasePath()) + "data/game_save.dat";
+		m_ctx.savePath    = std::string(SDL::GetBasePath()) + "../../data/game_save.dat";
 
 		m_ctx.quit = [this] {
 			m_wantsQuit = true;

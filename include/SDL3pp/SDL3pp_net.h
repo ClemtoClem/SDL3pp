@@ -1,6 +1,7 @@
 #ifndef SDL3PP_NET_H_
 #define SDL3PP_NET_H_
 
+#include "SDL3pp_properties.h"
 #include "SDL3pp_error.h"
 #include "SDL3pp_stdinc.h"
 #include "SDL3pp_version.h"
@@ -100,6 +101,19 @@ struct DatagramRef;
 		SDL_NET_MICRO_VERSION >= Z))
 
 #endif // SDL3PP_DOC
+
+namespace prop::Net {
+
+constexpr auto DATAGRAM_SOCKET_REUSEADDR_BOOLEAN
+	= NET_PROP_DATAGRAM_SOCKET_REUSEADDR_BOOLEAN;
+
+constexpr auto DATAGRAM_SOCKET_ALLOW_BROADCAST_BOOLEAN
+	= NET_PROP_DATAGRAM_SOCKET_ALLOW_BROADCAST_BOOLEAN;
+
+constexpr auto SERVER_REUSEADDR_BOOLEAN
+	= NET_PROP_SERVER_REUSEADDR_BOOLEAN;
+
+}
 
 namespace NET {
 
@@ -467,6 +481,7 @@ public:
 	 *
 	 * @param address the address of the remote server to connect to.
 	 * @param port the port on the remote server to connect to.
+	 * @param props properties for this connection; currently unused, should be 0.
 	 * @post a new StreamSocket, pending connection, on success.
 	 * @throws Error on failure.
 	 *
@@ -477,7 +492,7 @@ public:
 	 * @sa StreamSocket.WaitUntilConnected
 	 * @sa StreamSocket.GetConnectionStatus
 	 */
-	StreamSocket(AddressRef address, Uint16 port);
+	StreamSocket(AddressRef address, Uint16 port, PropertiesID props = 0);
 
 	/// Destructor
 	~StreamSocket() { NET_DestroyStreamSocket(m_resource); }
@@ -738,6 +753,7 @@ public:
 	 *
 	 * @param addr the local address to listen on, or nullptr.
 	 * @param port the port on the local address to listen on.
+	 * @param props properties for this server; currently unused, should be 0.
 	 * @post a new Server on success.
 	 * @throws Error on failure.
 	 *
@@ -747,7 +763,7 @@ public:
 	 *
 	 * @sa Server.AcceptClient
 	 */
-	Server(AddressRef addr, Uint16 port);
+	Server(AddressRef addr, Uint16 port, PropertiesID props = 0);
 
 	/// Destructor
 	~Server() { NET_DestroyServer(m_resource); }
@@ -931,6 +947,7 @@ public:
 	 *
 	 * @param addr the local address to bind on, or nullptr.
 	 * @param port the port on the local address to bind on, or 0.
+	 * @param props properties for this socket; currently unused, should be 0.
 	 * @post a new DatagramSocket on success.
 	 * @throws Error on failure.
 	 *
@@ -938,7 +955,7 @@ public:
 	 *
 	 * @since This function is available since SDL_net 3.0.0.
 	 */
-	DatagramSocket(AddressRef addr, Uint16 port);
+	DatagramSocket(AddressRef addr, Uint16 port, PropertiesID props = 0);
 
 	/// Destructor
 	~DatagramSocket() { NET_DestroyDatagramSocket(m_resource); }
@@ -1423,8 +1440,8 @@ inline int Address::Compare(const Address& other) const {
 	return NET_CompareAddresses(m_resource, other.m_resource);
 }
 
-inline StreamSocket::StreamSocket(AddressRef address, Uint16 port)
-	: m_resource(CheckError(NET_CreateClient(address.Get(), port))) {
+inline StreamSocket::StreamSocket(AddressRef address, Uint16 port, PropertiesID props)
+	: m_resource(CheckError(NET_CreateClient(address.Get(), port, props))) {
 }
 
 inline void StreamSocket::Destroy() { NET_DestroyStreamSocket(Release()); }
@@ -1461,8 +1478,8 @@ inline void StreamSocket::SimulatePacketLoss(int percent_loss) {
 	NET_SimulateStreamPacketLoss(m_resource, percent_loss);
 }
 
-inline Server::Server(AddressRef addr, Uint16 port)
-	: m_resource(CheckError(NET_CreateServer(addr.Get(), port))) {
+inline Server::Server(AddressRef addr, Uint16 port, PropertiesID props)
+	: m_resource(CheckError(NET_CreateServer(addr.Get(), port, props))) {
 }
 
 inline void Server::Destroy() { NET_DestroyServer(Release()); }
@@ -1480,8 +1497,8 @@ inline StreamSocket Server::AcceptClient() {
 	return StreamSocket(raw);
 }
 
-inline DatagramSocket::DatagramSocket(AddressRef addr, Uint16 port)
-	: m_resource(CheckError(NET_CreateDatagramSocket(addr.Get(), port))) {
+inline DatagramSocket::DatagramSocket(AddressRef addr, Uint16 port, PropertiesID props)
+	: m_resource(CheckError(NET_CreateDatagramSocket(addr.Get(), port, props))) {
 }
 
 inline void DatagramSocket::Destroy() { NET_DestroyDatagramSocket(Release()); }

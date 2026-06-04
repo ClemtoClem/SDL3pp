@@ -66,21 +66,31 @@ namespace icon_key {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Colour palette
+// Colour palette — modern dark theme inspired by contemporary media players
 // ─────────────────────────────────────────────────────────────────────────────
 
 namespace pal {
-	constexpr SDL::Color BG     = {  12,  12,  18, 255};
-	constexpr SDL::Color HEADER = {  18,  18,  28, 255};
-	constexpr SDL::Color PANEL  = {  16,  16,  24, 255};
-	constexpr SDL::Color PANEL2 = {  24,  24,  36, 255};
-	constexpr SDL::Color ACCENT = {  70, 130, 210, 255};
-	constexpr SDL::Color NEUTRAL= {  30,  30,  44, 255};
-	constexpr SDL::Color BORDER = {  50,  52,  72, 255};
-	constexpr SDL::Color WHITE  = { 220, 220, 225, 255};
-	constexpr SDL::Color GREY   = { 130, 132, 145, 255};
-	constexpr SDL::Color GREEN  = {  50, 195, 100, 255};
-	constexpr SDL::Color TRANSP = {   0,   0,   0,   0};
+	constexpr SDL::Color BG       = {  14,  16,  22, 255}; // app background
+	constexpr SDL::Color HEADER   = {  20,  23,  32, 255}; // top / control bars
+	constexpr SDL::Color PANEL    = {  18,  21,  29, 255}; // side panel
+	constexpr SDL::Color PANEL2   = {  26,  30,  41, 255}; // section header bg
+	constexpr SDL::Color SURFACE  = {  30,  34,  47, 255}; // inputs, lists
+	constexpr SDL::Color ACCENT   = {  88, 156, 245, 255}; // brand / primary
+	constexpr SDL::Color ACCENT2  = { 124, 178, 255, 255}; // hover/lighter accent
+	constexpr SDL::Color ACCENT3  = {  56, 124, 220, 255}; // pressed/darker accent
+	constexpr SDL::Color NEUTRAL  = {  36,  40,  54, 255}; // neutral button
+	constexpr SDL::Color NEUTRAL2 = {  52,  58,  78, 255}; // neutral hover
+	constexpr SDL::Color NEUTRAL3 = {  28,  31,  42, 255}; // neutral pressed
+	constexpr SDL::Color BORDER   = {  46,  52,  72, 255};
+	constexpr SDL::Color BORDER2  = {  62,  70,  94, 255}; // emphasized border
+	constexpr SDL::Color WHITE    = { 228, 230, 238, 255};
+	constexpr SDL::Color TEXT     = { 215, 220, 232, 255};
+	constexpr SDL::Color TEXT_DIM = { 152, 160, 180, 255};
+	constexpr SDL::Color GREY     = { 120, 128, 148, 255};
+	constexpr SDL::Color GREEN    = {  72, 200, 130, 255};
+	constexpr SDL::Color WARN     = { 240, 180,  70, 255};
+	constexpr SDL::Color DANGER   = { 230,  85,  90, 255};
+	constexpr SDL::Color TRANSP   = {   0,   0,   0,   0};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,12 +167,12 @@ struct SubtitleConfig {
 // =============================================================================
 
 struct Main {
-	static constexpr SDL::Point kWinSz      = {1280, 760};
-	static constexpr int        kSidePanelW = 290;
-	static constexpr float      kTopBarH    = 48.f;
-	static constexpr float      kSeekH      = 30.f;
-	static constexpr float      kCtrlH      = 54.f;
-	static constexpr float      kStatusH    = 22.f;
+	static constexpr SDL::Point kWinSz      = {1320, 800};
+	static constexpr int        kSidePanelW = 310;
+	static constexpr float      kTopBarH    = 52.f;
+	static constexpr float      kSeekH      = 28.f;
+	static constexpr float      kCtrlH      = 64.f;
+	static constexpr float      kStatusH    = 24.f;
 
 	// ── SDL objects ───────────────────────────────────────────────────────────
 
@@ -241,8 +251,10 @@ struct Main {
 	bool        fullscreen     = false;
 
 	// Ergonomie / Plein écran
-	float       mouseIdleTimer = 0.f;
-	bool        cursorVisible  = true;
+	float       mouseIdleTimer    = 0.f;
+	bool        cursorVisible     = true;
+	bool        fullscreenUIShown = false; ///< current UI visibility in fullscreen (toggles on mouse activity)
+	static constexpr float kIdleHideSeconds = 2.5f;
 
 	// ── Playlist state ────────────────────────────────────────────────────────
 
@@ -307,12 +319,15 @@ struct Main {
 	SDL::AppResult Event(const SDL::Event& ev) {
 		if (ev.type == SDL::EVENT_QUIT) return SDL::APP_SUCCESS;
 
-		// Gestion de l'inactivité de la souris pour masquer le curseur
+		// Gestion de l'inactivité de la souris pour masquer le curseur et l'UI
 		if (ev.type == SDL::EVENT_MOUSE_MOTION) {
 			mouseIdleTimer = 0.f;
 			if (!cursorVisible) {
 				SDL_ShowCursor();
 				cursorVisible = true;
+			}
+			if (fullscreen && !fullscreenUIShown) {
+				_SetFullscreenUIVisible(true);
 			}
 		}
 
@@ -360,12 +375,6 @@ struct Main {
 			return SDL::APP_CONTINUE;
 		}
 
-		// OS drag-and-drop: add media files to the playlist
-		if (ev.type == SDL::EVENT_DROP_FILE && ev.drop.data) {
-			_AddToPlaylist(std::string(ev.drop.data), true);
-			return SDL::APP_CONTINUE;
-		}
-
 		ui.ProcessEvent(ev);
 		return SDL::APP_CONTINUE;
 	}
@@ -376,12 +385,17 @@ struct Main {
 		frameTimer.Begin();
 		const float dt = frameTimer.GetDelta();
 
-		// Masquer le curseur de la souris après 2 secondes d'inactivité en plein écran
+		// Masquer le curseur et l'UI après quelques secondes d'inactivité en plein écran
 		if (fullscreen) {
 			mouseIdleTimer += dt;
-			if (mouseIdleTimer > 2.0f && cursorVisible) {
-				SDL_HideCursor();
-				cursorVisible = false;
+			if (mouseIdleTimer > kIdleHideSeconds) {
+				if (cursorVisible) {
+					SDL_HideCursor();
+					cursorVisible = false;
+				}
+				if (fullscreenUIShown) {
+					_SetFullscreenUIVisible(false);
+				}
 			}
 		} else {
 			if (!cursorVisible) {
@@ -508,25 +522,26 @@ private:
 								const std::string& label = "",
 								const std::string& tooltip = "") -> Builder {
 			Builder btn = ui.Button(name, label)
-				.H(42.f)
+				.H(40.f)
 				.BgColor(pal::NEUTRAL)
-				.BgHoveredColor({45,45,65,255})
-				.BgPressedColor({25,25,40,255})
+				.BgHoveredColor(pal::NEUTRAL2)
+				.BgPressedColor(pal::NEUTRAL3)
 				.BdColor(pal::BORDER)
 				.Borders(SDL::FBox(1.f))
-				.Radius(SDL::FCorners(6.f))
-				.TextColor(pal::WHITE);
+				.Radius(SDL::FCorners(8.f))
+				.TextColor(pal::TEXT);
 			if (label.empty()) {
 				btn.Font(res_key::FONT, 13.f)
-				.W(Value::Px(42.f))
+				.W(Value::Px(40.f))
 				.PaddingH(4.f);
 			} else {
 				btn.W(Value::Auto())
-				.PaddingH(8.f);
+				.PaddingH(12.f)
+				.Font(res_key::FONT, 12.f);
 			}
 			if (!iconK.empty()) {
 				btn.Icon(iconK, 4.f)
-					.IconOpacity(0.65f, 1.f, 0.9f);
+					.IconOpacity(0.75f, 1.f, 0.95f);
 			}
 			if (!tooltip.empty()) {
 				btn.Tooltip(tooltip);
@@ -537,7 +552,7 @@ private:
 		auto labelStyle = [&]() -> Style {
 			Style s;
 			s.bgColor   = pal::TRANSP;
-			s.textColor = pal::WHITE;
+			s.textColor = pal::TEXT;
 			s.fontKey   = res_key::FONT;
 			s.fontSize  = 13.f;
 			return s;
@@ -550,24 +565,38 @@ private:
 				.Style(labelStyle())
 				.GrowW(100.f)
 				.AlignH(Align::Start)
+				.AlignV(Align::Center)
+				.PaddingH(4.f)
 				.Font(res_key::FONT, 15.f);
 
+		auto appBadge =
+			ui.Label("appBadge", "SDL3pp")
+				.BgColor(pal::ACCENT)
+				.TextColor(pal::WHITE)
+				.Font(res_key::FONT, 12.f)
+				.H(26.f).W(Value::Auto())
+				.PaddingH(10.f).PaddingV(0.f)
+				.Radius(SDL::FCorners(6.f))
+				.AlignH(Align::Center).AlignV(Align::Center);
+
 		eTopBar =
-			ui.Row("topBar", 6.f, 2.f)
+			ui.Row("topBar", 8.f, 6.f)
 				.H(kTopBarH)
 				.GrowW(100.f)
 				.BgColor(pal::HEADER)
 				.BorderBottom(1).BdColor(pal::BORDER)
 				.AlignChildrenV(Align::Center)
+				.PaddingH(10.f)
 				.Children(
+					appBadge,
 					makeIconBtn("btnOpen", icon_key::OPEN, "", "Ouvrir un fichier média (Ctrl+O)")
 					.OnClick([this]{ _ShowOpenDialog(); }),
-					ui.Separator("topSep").W(1.f).H(kTopBarH-16.f).BgColor(pal::BORDER),
+					ui.Separator("topSep").W(1.f).H(kTopBarH-20.f).BgColor(pal::BORDER),
 					eTitleLabel,
-					makeIconBtn("btnFullTop", icon_key::FULL, "", "Basculer en mode plein écran")
-					.OnClick([this]{ _ToggleFullscreen(); }),
 					makeIconBtn("btnPanelTop", icon_key::PANEL, "", "Basculer le panneau latéral")
-					.OnClick([this]{ _ToggleSidePanel(); })
+					.OnClick([this]{ _ToggleSidePanel(); }),
+					makeIconBtn("btnFullTop", icon_key::FULL, "", "Plein écran (F)")
+					.OnClick([this]{ _ToggleFullscreen(); })
 				);
 
 		// ── Media canvas ──────────────────────────────────────────────────────
@@ -586,13 +615,13 @@ private:
 			ui.Slider<float>("seekSlider", 0.f, 1.f, 0.f, 0.f, Orientation::Horizontal)
 				.GrowW(100.f)
 				.H(kSeekH)
-				.BgColor({30,30,46,255})
+				.BgColor(pal::TRANSP)
 				.WithStyle([](Style& s){
-					s.trackColor = {40,40,58,255};
-					s.fillColor  = {70,130,210,255};
-					s.thumbColor = {100,160,235,255};
+					s.trackColor = {44, 50, 70, 255};
+					s.fillColor  = pal::ACCENT;
+					s.thumbColor = pal::ACCENT2;
 				})
-				.Radius(SDL::FCorners(4.f))
+				.Radius(SDL::FCorners(6.f))
 				.OnChange<float>([this](float v) {
 					double dur = player.GetDuration();
 					if (dur > 0.0) player.Seek((double)v * dur);
@@ -601,89 +630,102 @@ private:
 		eTimeLabel =
 			ui.Label("timeLabel", "--:-- / --:--")
 			  .BgColor(pal::TRANSP)
-			  .TextColor({160,165,185,255})
+			  .TextColor(pal::TEXT_DIM)
 			  .Font(res_key::FONT, 12.f)
-			  .PaddingH(8.f);
+			  .W(Value::Auto())
+			  .PaddingH(12.f);
 
 		eChapterLabel =
 			ui.Label("chapterLabel", "")
 			  .BgColor(pal::TRANSP)
-			  .TextColor({180, 150, 60, 255})
+			  .TextColor(pal::WARN)
 			  .Font(res_key::FONT, 11.f)
-			  .PaddingH(8.f);
+			  .W(Value::Auto())
+			  .PaddingH(10.f);
 		ui.SetVisible(eChapterLabel, false);
 
 		eSeekRow =
-			ui.Row("seekRow", 0.f, 4.f)
-			  .H(kSeekH + 8.f)
-			  .BgColor(pal::PANEL)
+			ui.Row("seekRow", 8.f, 10.f)
+			  .H(kSeekH + 12.f)
+			  .BgColor(pal::HEADER)
+			  .BorderTop(1).BdColor(pal::BORDER)
 			  .AlignChildrenV(Align::Center)
-			  .Children(eSeekSlider, eTimeLabel, eChapterLabel);
+			  .PaddingH(14.f)
+			  .Children(eSeekSlider, eChapterLabel, eTimeLabel);
 
 		// ── Control bar ───────────────────────────────────────────────────────
 
+		// Large prominent play/pause button
 		ePlayBtn =
-			makeIconBtn("btnPlay", icon_key::PLAY, "", "Lecture / Pause")
+			ui.Button("btnPlay", "")
+				.W(Value::Px(50.f)).H(50.f)
 				.BgColor(pal::ACCENT)
-				.BgHoveredColor({90,150,230,255})
-				.BgPressedColor({50,110,190,255})
-				.Radius(SDL::FCorners(8.f))
+				.BgHoveredColor(pal::ACCENT2)
+				.BgPressedColor(pal::ACCENT3)
+				.BdColor(pal::ACCENT3)
+				.Borders(SDL::FBox(0.f))
+				.Radius(SDL::FCorners(25.f))
+				.TextColor(pal::WHITE)
+				.Icon(icon_key::PLAY, 0.f)
+				.IconOpacity(1.f, 1.f, 1.f)
+				.Tooltip("Lecture / Pause (Espace)")
 				.OnClick([this]{ player.TogglePlayPause(); _RefreshPlayBtn(); });
 
 		eMuteBtn =
-			makeIconBtn("btnMute", icon_key::VOL, "", "Muet / Son activé")
+			makeIconBtn("btnMute", icon_key::VOL, "", "Muet / Son activé (M)")
 			  .OnClick([this]{ player.ToggleMute(); _RefreshMuteBtn(); });
 
 		eVolumeSlider =
-			ui.Slider<float>("volSlider", 0.f, 1.f, 1.f, 0.1f, Orientation::Horizontal)
-				.W(90.f).H(20.f)
+			ui.Slider<float>("volSlider", 0.f, 1.f, 1.f, 0.05f, Orientation::Horizontal)
+				.W(110.f).H(18.f)
 				.WithStyle([](Style& s){
-					s.bgColor = {30,30,46,255};
-					s.trackColor   = {40,40,58,255};
-					s.fillColor    = {70,130,210,255};
-					s.thumbColor   = {100,160,235,255};
+					s.bgColor    = pal::TRANSP;
+					s.trackColor = {44, 50, 70, 255};
+					s.fillColor  = pal::ACCENT;
+					s.thumbColor = pal::ACCENT2;
 				})
-				.Radius(SDL::FCorners(3.f))
-				.Tooltip("Volume")
+				.Radius(SDL::FCorners(4.f))
+				.Tooltip("Volume (↑/↓)")
 				.OnChange<float>([this](float v) {
 					player.SetVolume(v);
 					_RefreshMuteBtn();
 					if (eVolPctLabel != SDL::ECS::NullEntity)
-						ui.SetText(eVolPctLabel, std::format("{:.0f}%", v * 100.f));
+						ui.SetText(eVolPctLabel, std::format("{:3.0f}%", v * 100.f));
 				});
 
 		eVolPctLabel =
 			ui.Label("volPctLabel", "100%")
 			  .BgColor(pal::TRANSP)
-			  .TextColor(pal::GREY)
+			  .TextColor(pal::TEXT_DIM)
 			  .Font(res_key::FONT, 11.f)
-			  .W(32.f);
+			  .W(38.f)
+			  .AlignH(Align::Start);
 
 		eLoopBtn =
-			makeIconBtn("btnLoop", icon_key::LOOP, "", "Mode boucle")
+			makeIconBtn("btnLoop", icon_key::LOOP, "", "Mode boucle (L)")
 			  .OnClick([this]{ player.SetLoop(!player.IsLooping()); _RefreshLoopBtn(); });
 
 		eCtrlBar =
-			ui.Row("ctrlBar", 6.f, 10.f)
+			ui.Row("ctrlBar", 6.f, 12.f)
 				.H(kCtrlH)
 				.BgColor(pal::HEADER)
 				.BorderTop(1).BdColor(pal::BORDER)
 				.AlignChildrenV(Align::Center)
+				.PaddingH(14.f)
 				.Children(
 					makeIconBtn("btnChapPrev", icon_key::PREV, "", "Chapitre précédent")
 						.OnClick([this]{ _SeekPrevChapter(); }),
-					makeIconBtn("btnPrev", "", "-10s", "Reculer de 10 secondes")
+					makeIconBtn("btnPrev", "", "-10s", "Reculer de 10 secondes (←)")
 						.OnClick([this]{ player.SeekRelative(-10.0); }),
 					ePlayBtn,
-					makeIconBtn("btnStop", icon_key::STOP, "", "Arrêter")
+					makeIconBtn("btnStop", icon_key::STOP, "", "Arrêter (S)")
 						.OnClick([this]{ player.Stop(); _RefreshPlayBtn(); }),
-					makeIconBtn("btnNext", "", "+10s", "Avancer de 10 secondes")
+					makeIconBtn("btnNext", "", "+10s", "Avancer de 10 secondes (→)")
 						.OnClick([this]{ player.SeekRelative(+10.0); }),
 					makeIconBtn("btnChapNext", icon_key::NEXT, "", "Chapitre suivant")
 						.OnClick([this]{ _SeekNextChapter(); }),
-					// spacer via growing container
-					ui.Container("ctrlSpacer1")
-						.W(4.f).H(1.f).BgColor(pal::TRANSP),
+					// vertical separator + small gap
+					ui.Separator("ctrlSep1").W(1.f).H(kCtrlH - 24.f).BgColor(pal::BORDER),
 					eMuteBtn,
 					eVolumeSlider,
 					eVolPctLabel,
@@ -691,11 +733,11 @@ private:
 					ui.Container("ctrlSpacerR")
 						.GrowW(100.f).BgColor(pal::TRANSP),
 					eLoopBtn,
-					makeIconBtn("btnSubCfg", "", "SUB", "Configurer les sous-titres")
+					makeIconBtn("btnSubCfg", "", "Sub", "Configurer les sous-titres")
 						.OnClick([this]{ _ShowSubtitlePopup(); }),
 					makeIconBtn("btnPlaylist", icon_key::PLAYLIST, "", "Playlist")
 						.OnClick([this]{ _ShowPlaylistPopup(); }),
-					makeIconBtn("btnFullCtrl", icon_key::FULL, "", "Plein écran")
+					makeIconBtn("btnFullCtrl", icon_key::FULL, "", "Plein écran (F)")
 						.OnClick([this]{ _ToggleFullscreen(); })
 				);
 
@@ -705,10 +747,11 @@ private:
 			ui.Label("statusBar", "Ouvrez un fichier (Ctrl+O)")
 				.H(kStatusH)
 				.GrowW(100.f)
-				.BgColor({10,10,16,255})
-				.TextColor({90,95,120,255})
+				.BgColor({10, 12, 18, 255})
+				.TextColor(pal::TEXT_DIM)
+				.BorderTop(1).BdColor(pal::BORDER)
 				.Font(res_key::FONT, 11.f)
-				.PaddingH(10.f)
+				.PaddingH(14.f)
 				.AlignV(Align::Center);
 
 		// ── Main column ───────────────────────────────────────────────────────
@@ -751,23 +794,29 @@ private:
 		sectionHdrStyle.fontKey   = res_key::FONT;
 		sectionHdrStyle.fontSize  = 11.f;
 
+		Style countBadgeStyle;
+		countBadgeStyle.bgColor   = pal::NEUTRAL;
+		countBadgeStyle.textColor = pal::TEXT_DIM;
+		countBadgeStyle.fontKey   = res_key::FONT;
+		countBadgeStyle.fontSize  = 10.f;
+
 		// ── Metadata ──────────────────────────────────────────────────────────
 
 		eMetadataArea =
 			ui.TextArea("metadataArea", "(aucune métadonnée)")
 				.GrowH(100.f)
-				.BgColor({18,18,30,255})
-				.TextColor({175,178,200,255})
+				.BgColor(pal::SURFACE)
+				.TextColor(pal::TEXT)
 				.Font(res_key::FONT, 11.f)
-				.PaddingH(8.f).PaddingV(6.f);
+				.PaddingH(10.f).PaddingV(8.f);
 
 		auto metaSection =
 			ui.Column("metaSection", 0.f, 0.f)
-				.H(Value::Auto(160.f))
+				.H(Value::Auto(170.f))
 				.Children(
 					ui.Label("metaHdr", "MÉTADONNÉES")
 						.Font(res_key::FONT, 11.f)
-						.Style(sectionHdrStyle).H(20.f).PaddingH(10.f),
+						.Style(sectionHdrStyle).H(24.f).PaddingH(12.f).AlignV(Align::Center),
 					eMetadataArea
 				);
 
@@ -775,21 +824,24 @@ private:
 
 		eAudioTrackList =
 			ui.ListBoxWidget("audioList", {"(aucune piste)"})
-				.H(80.f)
-				.BgColor({18,18,30,255})
-				.TextColor({200,202,220,255})
+				.H(86.f)
+				.BgColor(pal::SURFACE)
+				.TextColor(pal::TEXT)
 				.Font(res_key::FONT, 11.f)
 				.OnChange<int>([this](int idx){ _OnAudioTrackSelected((int)idx); });
 
 		eAudCountLabel =
 			ui.Label("audCountLbl", "0")
-			  	.Style(sectionHdrStyle).W(Value::Auto());
+			  	.Style(countBadgeStyle).W(Value::Auto())
+			  	.PaddingH(8.f).Radius(SDL::FCorners(8.f))
+			  	.AlignH(Align::Center).AlignV(Align::Center);
 
 		auto audioSection =
 			ui.Column("audioSection", 0.f, 0.f)
 				.Children(
-					ui.Row("audHdrRow", 4.f, 8.f).H(22.f).BgColor(pal::PANEL2)
+					ui.Row("audHdrRow", 6.f, 10.f).H(24.f).BgColor(pal::PANEL2)
 					.AlignChildrenV(Align::Center)
+					.PaddingH(8.f)
 					.Children(
 						ui.Label("audHdrLbl","PISTES AUDIO")
 							.Style(sectionHdrStyle).GrowW(100.f),
@@ -802,21 +854,24 @@ private:
 
 		eSubTrackList =
 			ui.ListBoxWidget("subList", {"(désactivés)"})
-				.H(80.f)
-				.BgColor({18,18,30,255})
-				.TextColor({200,202,220,255})
+				.H(86.f)
+				.BgColor(pal::SURFACE)
+				.TextColor(pal::TEXT)
 				.Font(res_key::FONT, 11.f)
 				.OnChange<int>([this](int idx){ _OnSubTrackSelected((int)idx); });
 
 		eSubCountLabel =
 			ui.Label("subCountLbl", "0")
-			  	.Style(sectionHdrStyle).W(Value::Auto());
+			  	.Style(countBadgeStyle).W(Value::Auto())
+			  	.PaddingH(8.f).Radius(SDL::FCorners(8.f))
+			  	.AlignH(Align::Center).AlignV(Align::Center);
 
 		auto subSection =
 			ui.Column("subSection", 0.f, 0.f)
 				.Children(
-					ui.Row("subHdrRow", 4.f, 8.f).H(22.f).BgColor(pal::PANEL2)
+					ui.Row("subHdrRow", 6.f, 10.f).H(24.f).BgColor(pal::PANEL2)
 					.AlignChildrenV(Align::Center)
+					.PaddingH(8.f)
 					.Children(
 						ui.Label("subHdrLbl","SOUS-TITRES")
 							.Style(sectionHdrStyle).GrowW(100.f),
@@ -829,17 +884,17 @@ private:
 
 		eInfoLabel =
 			ui.TextArea("infoLabel", "")
-				.H(90.f)
-				.BgColor({18,18,30,255})
-				.TextColor({140,145,170,255})
+				.H(100.f)
+				.BgColor(pal::SURFACE)
+				.TextColor(pal::TEXT_DIM)
 				.Font(res_key::FONT, 10.f)
-				.PaddingH(8.f).PaddingV(6.f);
+				.PaddingH(10.f).PaddingV(8.f);
 
 		auto infoSection =
 			ui.Column("infoSection", 0.f, 0.f)
 				.Children(
 					ui.Label("infoHdr","INFORMATIONS")
-						.Style(sectionHdrStyle).H(20.f).PaddingH(10.f),
+						.Style(sectionHdrStyle).H(24.f).PaddingH(12.f).AlignV(Align::Center),
 					eInfoLabel
 				);
 
@@ -929,7 +984,7 @@ private:
 
 	void _RefreshLoopBtn() {
 		ui.GetStyle(eLoopBtn).bgColor =
-			player.IsLooping() ? SDL::Color{40,80,150,255} : pal::NEUTRAL;
+			player.IsLooping() ? pal::ACCENT3 : pal::NEUTRAL;
 	}
 
 	void _RefreshVolumeSlider() {
@@ -1417,8 +1472,8 @@ private:
 		ePlaylistList =
 			ui.ListBoxWidget("playlistList", {})
 				.Grow(100.f)
-				.BgColor({18, 18, 30, 255})
-				.TextColor({200, 202, 220, 255})
+				.BgColor(pal::SURFACE)
+				.TextColor(pal::TEXT)
 				.Font(res_key::FONT, 12.f)
 				.Reorderable(true)
 				.OnReorder([this](int from, int to) {
@@ -1441,21 +1496,23 @@ private:
 		// Toolbar buttons
 		auto btnAdd =
 			ui.Button("plBtnAdd", "+ Ajouter")
-			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
-			  .BgColor(pal::NEUTRAL).BgHoveredColor({45,45,65,255})
+			  .H(30.f).W(Value::Auto()).PaddingH(12.f)
+			  .BgColor(pal::NEUTRAL).BgHoveredColor(pal::NEUTRAL2)
+			  .BgPressedColor(pal::NEUTRAL3)
 			  .BdColor(pal::BORDER).Borders(SDL::FBox(1.f))
-			  .Radius(SDL::FCorners(4.f))
-			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
+			  .Radius(SDL::FCorners(6.f))
+			  .TextColor(pal::TEXT).Font(res_key::FONT, 12.f)
 			  .Tooltip("Ajouter un fichier média")
 			  .OnClick([this]{ _ShowOpenDialog(); });
 
 		auto btnRemove =
-			ui.Button("plBtnRemove", "- Supprimer")
-			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
-			  .BgColor(pal::NEUTRAL).BgHoveredColor({65,25,25,255})
+			ui.Button("plBtnRemove", "− Supprimer")
+			  .H(30.f).W(Value::Auto()).PaddingH(12.f)
+			  .BgColor(pal::NEUTRAL).BgHoveredColor({78, 38, 44, 255})
+			  .BgPressedColor({58, 28, 32, 255})
 			  .BdColor(pal::BORDER).Borders(SDL::FBox(1.f))
-			  .Radius(SDL::FCorners(4.f))
-			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
+			  .Radius(SDL::FCorners(6.f))
+			  .TextColor(pal::TEXT).Font(res_key::FONT, 12.f)
 			  .Tooltip("Supprimer l\'élément sélectionné")
 			  .OnClick([this]{
 					int sel = ui.GetListBoxSelection(ePlaylistList);
@@ -1469,11 +1526,12 @@ private:
 
 		auto btnClear =
 			ui.Button("plBtnClear", "Vider")
-			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
-			  .BgColor(pal::NEUTRAL).BgHoveredColor({65,25,25,255})
+			  .H(30.f).W(Value::Auto()).PaddingH(12.f)
+			  .BgColor(pal::NEUTRAL).BgHoveredColor({78, 38, 44, 255})
+			  .BgPressedColor({58, 28, 32, 255})
 			  .BdColor(pal::BORDER).Borders(SDL::FBox(1.f))
-			  .Radius(SDL::FCorners(4.f))
-			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
+			  .Radius(SDL::FCorners(6.f))
+			  .TextColor(pal::TEXT).Font(res_key::FONT, 12.f)
 			  .Tooltip("Vider la playlist")
 			  .OnClick([this]{
 					m_playlist.clear();
@@ -1483,10 +1541,11 @@ private:
 
 		auto btnPlay =
 			ui.Button("plBtnPlay", "▶ Lire")
-			  .H(28.f).W(Value::Auto()).PaddingH(10.f)
-			  .BgColor(pal::ACCENT).BgHoveredColor({90,150,230,255})
-			  .BdColor(pal::BORDER).Borders(SDL::FBox(1.f))
-			  .Radius(SDL::FCorners(4.f))
+			  .H(30.f).W(Value::Auto()).PaddingH(14.f)
+			  .BgColor(pal::ACCENT).BgHoveredColor(pal::ACCENT2)
+			  .BgPressedColor(pal::ACCENT3)
+			  .BdColor(pal::ACCENT3).Borders(SDL::FBox(1.f))
+			  .Radius(SDL::FCorners(6.f))
 			  .TextColor(pal::WHITE).Font(res_key::FONT, 12.f)
 			  .Tooltip("Lire l\'élément sélectionné")
 			  .OnClick([this]{
@@ -1496,8 +1555,8 @@ private:
 			  });
 
 		auto hint =
-			ui.Label("plHint", "Glissez des fichiers ici ou dans la fenêtre")
-			  .H(20.f).GrowW(100.f)
+			ui.Label("plHint", "Astuce : glissez des fichiers ici ou dans la fenêtre")
+			  .H(22.f).GrowW(100.f)
 			  .BgColor(pal::TRANSP)
 			  .TextColor(pal::GREY)
 			  .Font(res_key::FONT, 10.f)
@@ -1587,25 +1646,34 @@ private:
 		fullscreen = !fullscreen;
 		window.SetFullscreen(fullscreen);
 
-		// En plein écran immersif, on cache tous les éléments d'UI sauf le canvas vidéo
-		bool showUI = !fullscreen;
-		ui.SetVisible(eTopBar, showUI);
-		ui.SetVisible(eSeekRow, showUI);
-		ui.SetVisible(eCtrlBar, showUI);
-		ui.SetVisible(eStatusBar, showUI);
-
 		if (fullscreen) {
+			// En plein écran, on masque l'UI au repos ; elle réapparaît
+			// dès que la souris bouge (cf. Event() / Iterate()).
+			fullscreenUIShown = true;          // visible juste après le toggle
+			mouseIdleTimer    = 0.f;
 			ui.SetVisible(eSidePanel, false);
 		} else {
-			// Restaure l'état précédent du panneau latéral en sortant du plein écran
+			// En sortie de plein écran, on restaure l'UI complète.
+			ui.SetVisible(eTopBar,    true);
+			ui.SetVisible(eSeekRow,   true);
+			ui.SetVisible(eCtrlBar,   true);
+			ui.SetVisible(eStatusBar, true);
 			ui.SetVisible(eSidePanel, showSidePanel);
-			
-			// Force l'affichage de la souris si elle était cachée
+
 			if (!cursorVisible) {
 				SDL_ShowCursor();
 				cursorVisible = true;
 			}
 		}
+	}
+
+	void _SetFullscreenUIVisible(bool visible) {
+		fullscreenUIShown = visible;
+		// On garde le canvas vidéo plein écran ; on n'affiche/cache que les bandes
+		ui.SetVisible(eTopBar,    visible);
+		ui.SetVisible(eSeekRow,   visible);
+		ui.SetVisible(eCtrlBar,   visible);
+		ui.SetVisible(eStatusBar, visible);
 	}
 };
 

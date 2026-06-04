@@ -276,8 +276,8 @@ namespace UI {
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(30.f);
 
 			InputData d{};
-			d.type = std::is_integral_v<T> ? InputFilterType::IntegerValue
-			                               : InputFilterType::FloatValue;
+			d.type = std::is_integral_v<T> ? InputFilterType::Integer
+			                               : InputFilterType::Float;
 			m_ctx.Add<InputData>(e, d);
 
 			// Typed numeric value via the NumericValue<T> wrapper; the data is
@@ -464,16 +464,18 @@ namespace UI {
 		                        const std::string &title = "",
 		                        bool closable  = true,
 		                        bool draggable = true,
-		                        bool resizable = false) {
+		                        bool resizable = false,
+		                        AttachLayout attach = AttachLayout::Fixed) {
 			ECS::EntityId e = _Make(n, WidgetType::Popup);
 			auto &d  = m_ctx.Add<PopupData>(e);
 			d.title    = title;
 			d.closable = closable;
 			d.draggable= draggable;
 			d.resizable= resizable;
-			// Reserve top padding for the header bar
+			// Reserve top padding for the header bar and default to drawing on top.
 			if (auto *lp = m_ctx.Get<LayoutProps>(e)) {
-				lp->attach  = AttachLayout::Fixed;
+				lp->attach  = attach;            // Fixed (root-relative) by default; override with Absolute/Parent.
+				lp->zOffset = 1000;              // popups float above siblings; override with .Z(...)
 				lp->padding = {4.f, 4.f, 4.f, d.headerH + 4.f};
 			}
 			return e;
@@ -667,9 +669,14 @@ namespace UI {
 		inline Builder ColorPicker(std::string_view n,
 		                           ColorPickerPalette palette = ColorPickerPalette::RGB8,
 		                           float step = 1.f / 255.f);
-		/** @brief Create a Popup window and return a Builder for it. */
+		/** @brief Create a Popup window and return a Builder for it.
+		 *  @param attach Initial layout attachment (Fixed = root-relative, the
+		 *                classic modal style; Absolute = anchored to its parent;
+		 *                Relative = participates in the parent's normal flow). */
 		inline Builder Popup(std::string_view n, const std::string &title = "",
-		                     bool closable = true, bool draggable = true, bool resizable = false);
+		                     bool closable = true, bool draggable = true,
+		                     bool resizable = false,
+		                     AttachLayout attach = AttachLayout::Fixed);
 		/** @brief Create a Tree widget and return a Builder for it. */
 		inline Builder Tree(std::string_view n);
 		/** @brief Create a MenuBar widget and return a Builder for it. */
@@ -1878,29 +1885,62 @@ namespace UI {
 		/// Returns the per-frame "permissive" regex used to validate the
 		/// prospective text after an insertion. Compiled once per pattern.
 		static const std::regex& _GetInputRegex(InputFilterType t) {
-			static const std::regex reText(".*", std::regex::optimize);
-			static const std::regex reInt (R"(-?\d*)",          std::regex::optimize);
-			static const std::regex reFlt (R"(-?\d*\.?\d*)",    std::regex::optimize);
-			static const std::regex reMail(R"([A-Za-z0-9._@+\-]*)",        std::regex::optimize);
-			static const std::regex reUrl (R"([A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%\-]*)", std::regex::optimize);
+			static const std::regex reText (".*",                                                              std::regex::optimize);
+			static const std::regex reInt  (R"(-?\d*)",                                                        std::regex::optimize);
+			static const std::regex reFlt  (R"(-?\d*\.?\d*([eE][+\-]?\d*)?)",                                  std::regex::optimize);
+			static const std::regex reHex  (R"((0[xX])?[0-9A-Fa-f]*)",                                         std::regex::optimize);
+			static const std::regex reMail (R"([A-Za-z0-9._@+\-]*)",                                           std::regex::optimize);
+			static const std::regex reUrl  (R"([A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%\-]*)",                       std::regex::optimize);
+			static const std::regex rePhone(R"([\d +()\-.]*)",                                                 std::regex::optimize);
+			static const std::regex reUser (R"([A-Za-z0-9_.\-]*)",                                             std::regex::optimize);
+			static const std::regex reDigit(R"(\d*)",                                                          std::regex::optimize);
+			static const std::regex reAlpha(R"([A-Za-z]*)",                                                    std::regex::optimize);
+			static const std::regex reAlnum(R"([A-Za-z0-9]*)",                                                 std::regex::optimize);
+			static const std::regex reSlug (R"([a-z0-9\-]*)",                                                  std::regex::optimize);
+			static const std::regex reFile (R"([^/\\:*?\"<>|]*)",                                              std::regex::optimize);
 			switch (t) {
-				case InputFilterType::IntegerValue: return reInt;
-				case InputFilterType::FloatValue:   return reFlt;
-				case InputFilterType::Mail:         return reMail;
-				case InputFilterType::Url:          return reUrl;
+				case InputFilterType::Integer:  return reInt;
+				case InputFilterType::Float:    return reFlt;
+				case InputFilterType::Hex:      return reHex;
+				case InputFilterType::Email:    return reMail;
+				case InputFilterType::URL:      return reUrl;
+				case InputFilterType::Phone:    return rePhone;
+				case InputFilterType::Username: return reUser;
+				case InputFilterType::Digits:   return reDigit;
+				case InputFilterType::Alpha:    return reAlpha;
+				case InputFilterType::Alnum:    return reAlnum;
+				case InputFilterType::Slug:     return reSlug;
+				case InputFilterType::Filename: return reFile;
 				case InputFilterType::Text:
-				default:                      return reText;
+				case InputFilterType::Multiline:
+				case InputFilterType::None:
+				case InputFilterType::Custom:
+				default:                        return reText;
 			}
 		}
 		/// Strict regex used on commit/blur: requires a fully-formed value.
 		static const std::regex& _GetInputStrictRegex(InputFilterType t) {
-			static const std::regex reInt (R"(-?\d+)",                       std::regex::optimize);
-			static const std::regex reFlt (R"(-?(\d+\.?\d*|\.\d+))",         std::regex::optimize);
-			static const std::regex reMail(R"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", std::regex::optimize);
-			return (t == InputFilterType::IntegerValue) ? reInt
-			     : (t == InputFilterType::FloatValue)   ? reFlt
-			     : (t == InputFilterType::Mail)         ? reMail
-			     : _GetInputRegex(t);
+			static const std::regex reInt  (R"(-?\d+)",                                                                std::regex::optimize);
+			static const std::regex reFlt  (R"(-?(\d+\.?\d*|\.\d+)([eE][+\-]?\d+)?)",                                  std::regex::optimize);
+			static const std::regex reHex  (R"((0[xX])?[0-9A-Fa-f]+)",                                                 std::regex::optimize);
+			static const std::regex reMail (R"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})",                     std::regex::optimize);
+			static const std::regex reUrl  (R"((https?|ftp|file)://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%\-]+)",           std::regex::optimize);
+			static const std::regex rePhone(R"(\+?\d[\d ()\-]{6,})",                                                   std::regex::optimize);
+			static const std::regex reUser (R"([A-Za-z0-9_][A-Za-z0-9_.\-]{1,31})",                                    std::regex::optimize);
+			static const std::regex reSlug (R"([a-z0-9](?:[a-z0-9\-]{0,62}[a-z0-9])?)",                                std::regex::optimize);
+			static const std::regex reFile (R"([^/\\:*?\"<>|][^/\\:*?\"<>|]{0,254})",                                  std::regex::optimize);
+			switch (t) {
+				case InputFilterType::Integer:  return reInt;
+				case InputFilterType::Float:    return reFlt;
+				case InputFilterType::Hex:      return reHex;
+				case InputFilterType::Email:    return reMail;
+				case InputFilterType::URL:      return reUrl;
+				case InputFilterType::Phone:    return rePhone;
+				case InputFilterType::Username: return reUser;
+				case InputFilterType::Slug:     return reSlug;
+				case InputFilterType::Filename: return reFile;
+				default:                        return _GetInputRegex(t);
+			}
 		}
 		/// Format a NumericValue into its display string, integer or float
 		/// formatting per the original arithmetic type stored in @c v.type.
@@ -3424,9 +3464,9 @@ namespace UI {
 				// Relâcher les drags de scrollbars inline.
 				_EndContainerScrollDrags();
 
-				if (m_pressed != ECS::NullEntity && m_ctx.IsAlive(m_pressed)) { 
+				if (m_pressed != ECS::NullEntity && m_ctx.IsAlive(m_pressed)) {
 					if (auto *w = m_ctx.Get<Widget>(m_pressed))
-						Reset(w->state, WidgetStateFlag::Pressed);
+						w->state &= ~WidgetStateFlag::Pressed;
 					if (m_pressed == m_hovered) {
 						auto *pw = m_ctx.Get<Widget>(m_pressed);
 						// Suppress click for reorderable ListBox that was actively dragged.
@@ -3488,7 +3528,7 @@ namespace UI {
 			// Reset all hover flags.
 			m_ctx.Each<Widget>([](ECS::EntityId, Widget &w) {
 				w.wasHovered = Has(w.state, WidgetStateFlag::Hovered);
-				w.state = Reset(w.state, WidgetStateFlag::Hovered);
+				w.state &= ~WidgetStateFlag::Hovered;
 			});
 
 			// Only mark as hovered if the widget actually supports it.
@@ -3692,11 +3732,12 @@ namespace UI {
 			if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
 				if (auto *fw = m_ctx.Get<Widget>(m_focused)) {
 					// Retrait du flag Focused
-					fw->state = Reset(fw->state, WidgetStateFlag::Focused);
+					fw->state &= ~WidgetStateFlag::Focused;
 				}
 
-				// Numeric Input: on blur, reformat text from the canonical value
-				// (commits any in-progress edit that was strictly valid).
+				// On blur, commit the edit: numeric Inputs round-trip through the
+				// strict regex + clamp, plain text Inputs run an optional commit
+				// pattern check and revert if the value is malformed.
 				if (auto *w2 = m_ctx.Get<Widget>(m_focused); w2 && w2->type == WidgetType::Input) {
 					auto *id = m_ctx.Get<InputData>(m_focused);
 					auto *nv = m_ctx.Get<NumericValue>(m_focused);
@@ -3709,6 +3750,21 @@ namespace UI {
 						c->text = _FormatNumeric(*nv);
 						c->cursor = (int)c->text.size();
 						c->ClearSelection();
+					} else if (id && c && !id->commitPattern.empty()) {
+						// Plain text Input with a custom commitPattern: revert
+						// the field to the last committed value if the regex
+						// fails. The committed text is cached in
+						// InputData::lastCommitted on focus gain (see below).
+						try {
+							std::regex re(id->commitPattern);
+							if (!std::regex_match(c->text, re)) {
+								c->text = id->lastCommitted;
+								c->cursor = (int)c->text.size();
+								c->ClearSelection();
+							} else {
+								id->lastCommitted = c->text;
+							}
+						} catch (...) { /* ignore bad regex */ }
 					}
 				}
 				auto *cb = m_ctx.Get<Callbacks>(m_focused);
@@ -3732,14 +3788,38 @@ namespace UI {
 						c->cursor = (int)c->text.size();
 						c->ClearSelection();
 					}
+					// Snapshot last committed text for commitPattern rollback.
+					if (auto *id = m_ctx.Get<InputData>(m_focused); id && c)
+						id->lastCommitted = c->text;
 				}
 				auto *cb = m_ctx.Get<Callbacks>(m_focused);
 				if (cb && cb->onFocusGain) cb->onFocusGain();
 			}
 		}
 
+		// Return a copy of the children IDs sorted so that:
+		//   • higher zOffset values come last (drawn on top)
+		//   • ties keep their original DFS / document order
+		// Caller iterates the result for paint (front of list = behind),
+		// or in reverse for hit-test (back of list = topmost).
+		[[nodiscard]] std::vector<ECS::EntityId> _ChildrenZSorted(ECS::EntityId e) const {
+			std::vector<ECS::EntityId> v;
+			auto *ch = m_ctx.Get<Children>(e);
+			if (!ch || ch->ids.empty()) return v;
+			v = ch->ids;
+			std::stable_sort(v.begin(), v.end(),
+				[this](ECS::EntityId a, ECS::EntityId b) {
+					auto* la = m_ctx.Get<LayoutProps>(a);
+					auto* lb = m_ctx.Get<LayoutProps>(b);
+					int za = la ? la->zOffset : 0;
+					int zb = lb ? lb->zOffset : 0;
+					return za < zb;
+				});
+			return v;
+		}
+
 		[[nodiscard]] ECS::EntityId _HitTest(ECS::EntityId e, FPoint p) const {
-			if (!m_ctx.IsAlive(e)) 
+			if (!m_ctx.IsAlive(e))
 				return ECS::NullEntity;
 			auto *w = m_ctx.Get<Widget>(e);
 			auto *cr = m_ctx.Get<ComputedRect>(e);
@@ -3747,13 +3827,13 @@ namespace UI {
 				return ECS::NullEntity;
 			if (!cr->clip.Contains(p))
 				return ECS::NullEntity;
-			auto *ch = m_ctx.Get<Children>(e);
-			if (ch)
-				for (int i = (int)ch->ids.size() - 1; i >= 0; --i) {
-					ECS::EntityId h = _HitTest(ch->ids[i], p);
-					if (h != ECS::NullEntity)
-						return h;
-				}
+			// Walk children in Z-then-tree order, topmost first.
+			auto sorted = _ChildrenZSorted(e);
+			for (int i = (int)sorted.size() - 1; i >= 0; --i) {
+				ECS::EntityId h = _HitTest(sorted[i], p);
+				if (h != ECS::NullEntity)
+					return h;
+			}
 			return cr->screen.Contains(p) ? e : ECS::NullEntity;
 		}
 
@@ -3762,11 +3842,11 @@ namespace UI {
 			auto *w = m_ctx.Get<Widget>(m_focused);
 			if (!w || !Has(w->behavior, WidgetBehaviorFlag::Enable | WidgetBehaviorFlag::Focusable)) return;
 
-			// Filter against the InputFilterType regex if a typed-Input filter is set.
+			// Filter against the InputFilterType regex / per-input validator if set.
 			std::string_view tv{txt};
 			if (w->type == WidgetType::Input) {
 				if (auto *id = m_ctx.Get<InputData>(m_focused);
-				    id && id->type != InputFilterType::Text) {
+				    id && id->type != InputFilterType::Text && id->type != InputFilterType::None) {
 					if (auto *c = m_ctx.Get<EditableContent>(m_focused)) {
 						// Build the prospective text (replacing selection if any).
 						std::string prospective = c->text;
@@ -3775,8 +3855,18 @@ namespace UI {
 						a = std::clamp(a, 0, (int)prospective.size());
 						b = std::clamp(b, 0, (int)prospective.size());
 						prospective.replace(a, b - a, txt);
-						if (!std::regex_match(prospective, _GetInputRegex(id->type)))
-							return; // reject the keystroke
+						// Enforce optional max length first (cheaper than regex).
+						if (id->maxLength > 0 && (int)prospective.size() > id->maxLength)
+							return;
+						// Built-in regex per filter type — skipped for Custom (the
+						// app-supplied validator below is fully authoritative).
+						if (id->type != InputFilterType::Custom) {
+							if (!std::regex_match(prospective, _GetInputRegex(id->type)))
+								return;
+						}
+						// App-supplied per-keystroke validator (final gate).
+						if (id->onValidate && !id->onValidate(prospective))
+							return;
 					}
 				}
 			}
@@ -4219,39 +4309,79 @@ namespace UI {
 			return true;
 		}
 
+		// Returns true when the widget's subtree is visible & enabled (ancestor-aware).
+		[[nodiscard]] bool _IsFocusable(ECS::EntityId e) const {
+			if (!m_ctx.IsAlive(e)) return false;
+			auto *w  = m_ctx.Get<Widget>(e);
+			if (!w) return false;
+			if (!Has(w->behavior, WidgetBehaviorFlag::Visible))   return false;
+			if (!Has(w->behavior, WidgetBehaviorFlag::Enable))    return false;
+			if (!Has(w->behavior, WidgetBehaviorFlag::Focusable)) return false;
+			auto *cr = m_ctx.Get<ComputedRect>(e);
+			if (!cr || cr->clip.w <= 0.f || cr->clip.h <= 0.f)    return false;
+			// Closed popups have their Visible flag cleared, so they're filtered above.
+			return true;
+		}
+
+		// Recursive collector that prunes subtrees whose container is hidden/disabled.
 		void _CollectFocusables(ECS::EntityId e, std::vector<ECS::EntityId> &out) const {
 			auto *w = m_ctx.Get<Widget>(e);
-			if (!w || !Has(w->behavior, WidgetBehaviorFlag::Visible | WidgetBehaviorFlag::Enable)) return;
+			if (!w) return;
+			// Prune the entire subtree if the container itself is hidden or disabled —
+			// that's what was missing before: a button inside an invisible/disabled
+			// row would still get added to the focus ring.
+			if (!Has(w->behavior, WidgetBehaviorFlag::Visible)) return;
+			if (!Has(w->behavior, WidgetBehaviorFlag::Enable))  return;
 
 			if (Has(w->behavior, WidgetBehaviorFlag::Focusable)) {
-				// Only add if the widget is actually on-screen (clip rect has positive area).
 				auto *cr = m_ctx.Get<ComputedRect>(e);
 				if (cr && cr->clip.w > 0.f && cr->clip.h > 0.f)
 					out.push_back(e);
 			}
 
-			if (auto *ch = m_ctx.Get<Children>(e)) {
+			if (auto *ch = m_ctx.Get<Children>(e))
 				for (ECS::EntityId c : ch->ids)
 					_CollectFocusables(c, out);
-			}
+		}
+
+		// If a modal popup is open, return it. Focus traversal is then restricted
+		// to its subtree so the user can't Tab into widgets behind the popup.
+		[[nodiscard]] ECS::EntityId _ActiveModalPopup() const {
+			ECS::EntityId modal = ECS::NullEntity;
+			m_ctx.template Each<PopupData, Widget>(
+				[&modal](ECS::EntityId e, const PopupData& pd, const Widget& w) {
+					if (!pd.open) return;
+					if (!Has(w.behavior, WidgetBehaviorFlag::Visible)) return;
+					// Last-opened popup wins (entities are spawned monotonically).
+					if (e > modal) modal = e;
+				});
+			return modal;
 		}
 
 		void _CycleFocus(bool reverse = false) {
-			std::vector<ECS::EntityId> foc; 
-			_CollectFocusables(m_root, foc);
+			std::vector<ECS::EntityId> foc;
+			ECS::EntityId scope = _ActiveModalPopup();
+			if (scope == ECS::NullEntity) scope = m_root;
+			_CollectFocusables(scope, foc);
+			// Higher Z-offset widgets are reached first within the natural tab order.
+			std::stable_sort(foc.begin(), foc.end(),
+				[this](ECS::EntityId a, ECS::EntityId b) {
+					auto* la = m_ctx.Get<LayoutProps>(a);
+					auto* lb = m_ctx.Get<LayoutProps>(b);
+					int za = la ? la->zOffset : 0;
+					int zb = lb ? lb->zOffset : 0;
+					return za < zb; // stable: equal-Z keeps DFS document order
+				});
 			if (foc.empty()) return;
 
 			auto it = std::ranges::find(foc, m_focused);
 			ECS::EntityId nextFocus;
-
 			if (it == foc.end()) {
 				nextFocus = reverse ? foc.back() : foc.front();
+			} else if (reverse) {
+				nextFocus = (it == foc.begin()) ? foc.back() : *std::prev(it);
 			} else {
-				if (reverse) {
-					nextFocus = (it == foc.begin()) ? foc.back() : *std::prev(it);
-				} else {
-					nextFocus = (std::next(it) == foc.end()) ? foc.front() : *std::next(it);
-				}
+				nextFocus = (std::next(it) == foc.end()) ? foc.front() : *std::next(it);
 			}
 
 			_SetFocus(nextFocus);
@@ -4501,7 +4631,7 @@ namespace UI {
 				os->radius = {4.f, 4.f, 4.f, 4.f};
 			}
 			if (auto *w = m_ctx.Get<Widget>(d->overlayId)) {
-				w->behavior = Set(w->behavior, WidgetBehaviorFlag::ScrollableY);
+				w->behavior |= WidgetBehaviorFlag::ScrollableY;
 			}
 
 			// Création des éléments
@@ -4520,8 +4650,8 @@ namespace UI {
 					is->bgHoveredColor = s->bgHoveredColor;
 				}
 				if (auto *iw = m_ctx.Get<Widget>(itemCont)) {
-					iw->behavior = Set(iw->behavior, WidgetBehaviorFlag::Hoverable);
-					iw->behavior = Set(iw->behavior, WidgetBehaviorFlag::Selectable);
+					iw->behavior |= WidgetBehaviorFlag::Hoverable;
+					iw->behavior |= WidgetBehaviorFlag::Selectable;
 				}
 				
 				// Ajout du clic
@@ -4566,23 +4696,21 @@ namespace UI {
 		}
 
 		void _RenderNode(ECS::EntityId e) {
-		   if (!m_ctx.IsAlive(e)) return; 
+		   if (!m_ctx.IsAlive(e)) return;
 			auto *w  = m_ctx.Get<Widget>(e);
 			auto *cr = m_ctx.Get<ComputedRect>(e);
 			if (!w || !cr) return;
 
 			if (!Has(w->behavior, WidgetBehaviorFlag::Visible)) return;
-			
+
 			if (cr->outer_clip.w <= 0.f || cr->outer_clip.h <= 0.f) return;
 
 			m_renderer.SetClipRect(FRectToRect(cr->outer_clip));
 			_DrawWidget(e);
-			
-			auto *ch = m_ctx.Get<Children>(e);
-			if (ch) {
-				for (ECS::EntityId c : ch->ids) {
-					_RenderNode(c);
-				}
+
+			// Children drawn back-to-front by zOffset (stable sort preserves doc order).
+			for (ECS::EntityId c : _ChildrenZSorted(e)) {
+				_RenderNode(c);
 			}
 		}
 

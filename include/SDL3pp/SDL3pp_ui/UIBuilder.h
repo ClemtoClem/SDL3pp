@@ -1,7 +1,7 @@
 #pragma once
 
 #include "UIComponents.h"
-#include "UISystem.h"
+#include "UIContext.h"
 #include "UIValue.h"
 
 #include <functional>
@@ -29,10 +29,10 @@ namespace SDL::UI {
 
 	template <typename Derived>
 	struct BuilderBase {
-		System&       system;
+		Context&       system;
 		ECS::EntityId id;
 
-		BuilderBase(System& s, ECS::EntityId e) : system(s), id(e) {}
+		BuilderBase(Context& s, ECS::EntityId e) : system(s), id(e) {}
 
 		operator ECS::EntityId() const noexcept { return id; }
 		[[nodiscard]] ECS::EntityId Id() const noexcept { return id; }
@@ -103,21 +103,49 @@ namespace SDL::UI {
 			return _self();
 		}
 
-		// ── Pointer callbacks ───────────────────────────────────────────────
-		Derived& OnMousePress  (std::function<void(SDL::MouseButton)> cb)      { system.OnPress(id, std::move(cb));      return _self(); }
-		Derived& OnMousePress  (std::function<void()> cb)                      { system.OnPress(id, [cb](SDL::MouseButton){ cb(); }); return _self(); }
-		Derived& OnMouseRelease(std::function<void(SDL::MouseButton)> cb)      { system.OnRelease(id, std::move(cb));    return _self(); }
-		Derived& OnMouseRelease(std::function<void()> cb)                      { system.OnRelease(id, [cb](SDL::MouseButton){ cb(); }); return _self(); }
-		Derived& OnMouseEnter  (std::function<void()> cb)                      { system.OnMouseEnter(id, std::move(cb)); return _self(); }
-		Derived& OnMouseLeave  (std::function<void()> cb)                      { system.OnMouseLeave(id, std::move(cb)); return _self(); }
-		Derived& OnClick       (std::function<void(SDL::MouseButton)> cb)      { system.OnClick(id, std::move(cb));      return _self(); }
-		Derived& OnClick       (std::function<void()> cb)                      { system.OnClick(id, [cb](SDL::MouseButton){ cb(); }); return _self(); }
-		Derived& OnDoubleClick (std::function<void(SDL::MouseButton)> cb)      { system.OnDoubleClick(id, std::move(cb));return _self(); }
-		Derived& OnDoubleClick (std::function<void()> cb)                      { system.OnDoubleClick(id, [cb](SDL::MouseButton){ cb(); }); return _self(); }
-		Derived& OnMultiClick  (std::function<void(SDL::MouseButton, int)> cb) { system.OnMultiClick(id, std::move(cb)); return _self(); }
-		Derived& OnFocusGain   (std::function<void()> cb)                      { system.OnFocusGain(id, std::move(cb));  return _self(); }
-		Derived& OnFocusLose   (std::function<void()> cb)                      { system.OnFocusLose(id, std::move(cb));  return _self(); }
+		// ── Z-order / layering (IndexSystem) ────────────────────────────────
+		/// Place this widget (and its subtree) on an explicit plane. Higher layers
+		/// draw on top of and receive events before lower ones.
+		Derived& Layer(UILayer l) {
+			auto& lp = _Ensure<LayerProps>();
+			lp.layer = l; lp.inherit = false;
+			return _self();
+		}
+		/// Fine ordering within (or near) the resolved layer. Keep small relative to
+		/// the 1000-unit plane spacing of UILayer.
+		Derived& ZOffset(int z) { _Ensure<LayerProps>().zOffset = z; return _self(); }
 
+		// ── Portal attachment (popups / dropdowns / tooltips) ───────────────
+		/// Anchor this widget for clipping: Parent (default flow), Root or Window to
+		/// escape ancestor clipping (so a popup is not cut off by its container).
+		Derived& Portal(PopupAttach a) {
+			auto& lp = _Ensure<LayerProps>();
+			lp.attach = a;
+			if (a != PopupAttach::Target) lp.attachTarget = ECS::NullEntity;
+			return _self();
+		}
+		/// Portal onto an explicit target entity's clip rect.
+		Derived& Portal(ECS::EntityId target) {
+			auto& lp = _Ensure<LayerProps>();
+			lp.attach = PopupAttach::Target; lp.attachTarget = target;
+			return _self();
+		}
+
+		// ── Animation / transitions (AnimationSystem) ───────────────────────
+		/// Opt this widget into smooth, CSS-like transitions on the given channels.
+		Derived& Animate(AnimChannel ch = AnimChannel::All) {
+			_Ensure<AnimationStyle>().channels = ch;
+			_Ensure<AnimationState>();
+			return _self();
+		}
+		/// Configure transition timing (and opt in if not already animated).
+		Derived& Transition(float seconds, Easing e = Easing::EaseOut,
+		                     AnimChannel ch = AnimChannel::Color | AnimChannel::Toggle | AnimChannel::Opacity) {
+			auto& as = _Ensure<AnimationStyle>();
+			as.duration = seconds; as.easing = e; as.channels = ch;
+			_Ensure<AnimationState>();
+			return _self();
+		}
 	protected:
 		Derived& _self() noexcept { return static_cast<Derived&>(*this); }
 
@@ -181,6 +209,39 @@ namespace SDL::UI {
 		using Base::Base;
 		Derived& OnTouchFingerEvent(std::function<void(const SDL::TouchFingerEvent&)> cb) {
 			this->system.OnTouchFingerEvent(this->id, std::move(cb));
+			return this->_self();
+		}
+	};
+
+	template <typename Derived, typename Base = BuilderBase<Derived>>
+	struct ClickableMixin : Base {
+		using Base::Base;
+		Derived& OnClick(std::function<void(SDL::MouseButton)> cb) {
+			this->system.OnClick(this->id, std::move(cb));
+			return this->_self();
+		}
+		Derived& OnClick(std::function<void()> cb) {
+			this->system.OnClick(this->id, [cb = std::move(cb)](SDL::MouseButton) { cb(); });
+			return this->_self();
+		}
+		Derived& OnPress(std::function<void(SDL::MouseButton)> cb) {
+			this->system.OnPress(this->id, std::move(cb));
+			return this->_self();
+		}
+		Derived& OnRelease(std::function<void(SDL::MouseButton)> cb) {
+			this->system.OnRelease(this->id, std::move(cb));
+			return this->_self();
+		}
+		Derived& OnDoubleClick(std::function<void(SDL::MouseButton)> cb) {
+			this->system.OnDoubleClick(this->id, std::move(cb));
+			return this->_self();
+		}
+		Derived& OnMouseEnter(std::function<void()> cb) {
+			this->system.OnMouseEnter(this->id, std::move(cb));
+			return this->_self();
+		}
+		Derived& OnMouseLeave(std::function<void()> cb) {
+			this->system.OnMouseLeave(this->id, std::move(cb));
 			return this->_self();
 		}
 	};
@@ -502,20 +563,23 @@ namespace SDL::UI {
 	// ==================================================================================
 
 	// ── Separator ────────────────────────────────────────────────────────────────
-	struct SeparatorBuilder
-		: BorderMixin<SeparatorBuilder,
+	struct SeparatorBuilder:
 		  SpacingMixin<SeparatorBuilder,
 		  TransformMixin<SeparatorBuilder,
-		  TooltipMixin<SeparatorBuilder>>>>
+		  TooltipMixin<SeparatorBuilder>>>
 	{
-		using BorderMixin::BorderMixin;
+		using SpacingMixin::SpacingMixin;
 
-		SeparatorBuilder& Thickness(float t) {
-			this->template _Ensure<BorderStyle>().dimensions.top = t;
+		SeparatorBuilder& SeparatorThickness(float t) {
+			this->template _Ensure<SeparatorData>().thickness = t;
 			return this->_self();
 		}
-		SeparatorBuilder& Color(const SDL::Color& c) {
-			this->template _Ensure<BorderStyle>().color = c;
+		SeparatorBuilder& SeparatorColor(const SDL::Color& c) {
+			this->template _Ensure<SeparatorData>().color = c;
+			return this->_self();
+		}
+		SeparatorBuilder& SeparatorOrientation(Orientation o) {
+			this->template _Ensure<SeparatorData>().orientation = o;
 			return this->_self();
 		}
 	};
@@ -539,7 +603,7 @@ namespace SDL::UI {
 	{
 		using ImageMixin::ImageMixin;
 
-		ImageBuilder& Fit(ImageFit f) {
+		ImageBuilder& FitImage(ImageFit f) {
 			this->template _Ensure<ImageData>().fit = f;
 			return this->_self();
 		}
@@ -623,7 +687,8 @@ namespace SDL::UI {
 		  SoundMixin<ButtonBuilder,
 		  StateableMixin<ButtonBuilder,
 		  EditableMixin<ButtonBuilder,
-		  TooltipMixin<ButtonBuilder>>>>>>>>>>
+		  ClickableMixin<ButtonBuilder,
+		  TooltipMixin<ButtonBuilder>>>>>>>>>>>
 	{
 		using BackgroundMixin::BackgroundMixin;
 	};
@@ -655,7 +720,7 @@ namespace SDL::UI {
 		using BackgroundMixin::BackgroundMixin;
 
 		RadioBuilder& Group(std::string_view grp) {
-			if (auto* rb = this->system.GetCtx().template Get<RadioData>(this->id))
+			if (auto* rb = this->system.GetCtx().template Get<RadioState>(this->id))
 				rb->group = std::string(grp);
 			return this->_self();
 		}
@@ -777,7 +842,7 @@ namespace SDL::UI {
 		using BackgroundMixin::BackgroundMixin;
 
 		ScrollBarBuilder& TrackSize(float s) {
-			if (auto* sb = this->system.GetCtx().template Get<ScrollBarData>(this->id))
+			if (auto* sb = this->system.GetCtx().template Get<ScrollBarConfig>(this->id))
 				sb->trackSize = s;
 			return this->_self();
 		}
@@ -869,8 +934,9 @@ namespace SDL::UI {
 		  TextStyleMixin<ListBoxBuilder,
 		  SpacingMixin<ListBoxBuilder,
 		  TransformMixin<ListBoxBuilder,
+		  ClickableMixin<ListBoxBuilder,
 		  ScrollableMixin<ListBoxBuilder,
-		  TooltipMixin<ListBoxBuilder>>>>>>>
+		  TooltipMixin<ListBoxBuilder>>>>>>>>
 	{
 		using BackgroundMixin::BackgroundMixin;
 
@@ -1012,9 +1078,9 @@ namespace SDL::UI {
 	{
 		using BackgroundMixin::BackgroundMixin;
 
-		SplitterBuilder& Ratio   (float r) { if (auto* sd = this->system.GetCtx().template Get<SplitterData>(this->id)) sd->ratio    = r; return this->_self(); }
-		SplitterBuilder& MinRatio(float r) { if (auto* sd = this->system.GetCtx().template Get<SplitterData>(this->id)) sd->minRatio = r; return this->_self(); }
-		SplitterBuilder& MaxRatio(float r) { if (auto* sd = this->system.GetCtx().template Get<SplitterData>(this->id)) sd->maxRatio = r; return this->_self(); }
+		SplitterBuilder& Ratio   (float r) { if (auto* ss = this->system.GetCtx().template Get<SplitterState>(this->id))  ss->ratio    = r; return this->_self(); }
+		SplitterBuilder& MinRatio(float r) { if (auto* sc = this->system.GetCtx().template Get<SplitterConfig>(this->id)) sc->minRatio = r; return this->_self(); }
+		SplitterBuilder& MaxRatio(float r) { if (auto* sc = this->system.GetCtx().template Get<SplitterConfig>(this->id)) sc->maxRatio = r; return this->_self(); }
 		SplitterBuilder& OnChange(std::function<void(float)> cb) {
 			this->system.OnChange(this->id, std::move(cb));
 			return this->_self();
@@ -1054,13 +1120,13 @@ namespace SDL::UI {
 			return this->_self();
 		}
 		ColorPickerBuilder& AllowAlpha(bool a = true) {
-			if (auto* cp = this->system.GetCtx().template Get<ColorPickerData>(this->id))
+			if (auto* cp = this->system.GetCtx().template Get<ColorPickerConfig>(this->id))
 				cp->allowAlpha = a;
 			return this->_self();
 		}
 		ColorPickerBuilder& PickedColor(SDL::Color c)  { this->system.SetPickedColor(this->id, c); return this->_self(); }
-		ColorPickerBuilder& PickerColorA(SDL::Color c) { if (auto* cp = this->system.GetCtx().template Get<ColorPickerData>(this->id)) cp->colorA = c; return this->_self(); }
-		ColorPickerBuilder& PickerColorB(SDL::Color c) { if (auto* cp = this->system.GetCtx().template Get<ColorPickerData>(this->id)) cp->colorB = c; return this->_self(); }
+		ColorPickerBuilder& PickerColorA(SDL::Color c) { if (auto* cp = this->system.GetCtx().template Get<ColorPickerConfig>(this->id)) cp->colorA = c; return this->_self(); }
+		ColorPickerBuilder& PickerColorB(SDL::Color c) { if (auto* cp = this->system.GetCtx().template Get<ColorPickerConfig>(this->id)) cp->colorB = c; return this->_self(); }
 	};
 
 	// ── Popup ─────────────────────────────────────────────────────────────────────
@@ -1075,10 +1141,10 @@ namespace SDL::UI {
 	{
 		using BackgroundMixin::BackgroundMixin;
 
-		PopupBuilder& Resizable(bool r = true) { if (auto* p = this->system.GetCtx().template Get<PopupData>(this->id)) p->resizable = r; return this->_self(); }
-		PopupBuilder& Modal    (bool m = true) { if (auto* p = this->system.GetCtx().template Get<PopupData>(this->id)) p->modal     = m; return this->_self(); }
+		PopupBuilder& Resizable(bool r = true) { if (auto* p = this->system.GetCtx().template Get<PopupConfig>(this->id)) p->resizable = r; return this->_self(); }
+		PopupBuilder& Modal    (bool m = true) { if (auto* p = this->system.GetCtx().template Get<PopupConfig>(this->id)) p->modal     = m; return this->_self(); }
 		PopupBuilder& OnClose  (std::function<void()> cb) {
-			if (auto* p = this->system.GetCtx().template Get<PopupData>(this->id)) p->onClose = std::move(cb);
+			if (auto* p = this->system.GetCtx().template Get<PopupConfig>(this->id)) p->onClose = std::move(cb);
 			return this->_self();
 		}
 		PopupBuilder& PopupOpen(bool v = true) { this->system.SetPopupOpen(this->id, v); return this->_self(); }
@@ -1233,26 +1299,39 @@ namespace SDL::UI {
 	namespace Theme {
 
 		inline auto PrimaryButton(SDL::Color color) {
-			return [color](auto& builder) {
+			SDL::Color bdColor = color.Brighten(40);
+			return [color, bdColor](auto& builder) mutable {
 				builder
-					.BgColor(color)
-					.BgHoveredColor({SDL::Clamp8(color.r + 20), SDL::Clamp8(color.g + 20), SDL::Clamp8(color.b + 20), color.a})
-					.BgPressedColor({SDL::Clamp8(color.r * 0.8f), SDL::Clamp8(color.g * 0.8f), SDL::Clamp8(color.b * 0.8f), color.a})
-					.TextColor({235, 235, 245, 255})
-					.Borders(0.f)
-					.Radius(4.f);
+					.BgColor         (color)
+					.BgHoveredColor  (color.Brighten(25))
+					.BgPressedColor  (color.Darken(35))
+					.BgDisabledColor (color.Darken(50).SetA(160))
+					.BdColor         (bdColor)
+					.BdHoveredColor  (bdColor)
+					.BdPressedColor  (bdColor)
+					.BdDisabledColor (bdColor.Darken(50))
+					.TextColor       ({235, 235, 245, 255})
+					.TextHoveredColor({255, 255, 255, 255})
+					.TextPressedColor({255, 255, 255, 255})
+					.Borders         (1.f)
+					.Radius          (6.f);
 			};
 		}
 
 		inline auto GhostButton() {
-			return [](auto& builder) {
+			SDL::Color bdColor = {70, 75, 100, 200};
+			return [bdColor](auto& builder) mutable {
 				builder
-					.BgColor       ({0, 0, 0, 0})
-					.BgHoveredColor({50, 50, 60, 128})
-					.BgPressedColor({70, 70, 80, 200})
-					.TextColor     ({235, 235, 245, 255})
-					.Borders(0.f)
-					.Radius(4.f);
+					.BgColor        ({0, 0, 0, 0})
+					.BgHoveredColor ({50, 55, 80, 80})
+					.BgPressedColor ({20, 22, 36, 100})
+					.BdColor        (bdColor)
+					.BdHoveredColor (bdColor)
+					.BdPressedColor (bdColor)
+					.BdDisabledColor(bdColor.Darken(50).SetA(160))
+					.TextColor      ({235, 235, 245, 255})
+					.Borders        (1.f)
+					.Radius         (6.f);
 			};
 		}
 
@@ -1262,108 +1341,138 @@ namespace SDL::UI {
 					.BgColor       ({0, 0, 0, 0})
 					.BgHoveredColor({0, 0, 0, 0})
 					.BgPressedColor({0, 0, 0, 0})
-					.Borders(0.f);
+					.Radius        (0.f)
+					.Borders       (0.f);
+			};
+		}
+
+		inline auto Card() {
+			return [](auto& builder) {
+				builder
+					.BgColor({26, 28, 40, 255})
+					.BdColor({50, 54, 78, 255})
+					.Borders(1.f)
+					.Radius (8.f);
+			};
+		}
+
+		inline auto CardLight() {
+			SDL::Color bdColor = {210, 213, 225, 255};
+			return [bdColor](auto& builder) mutable {
+				builder
+					.BgColor({248, 249, 252, 255})
+					.BgHoveredColor({235, 238, 248, 255})
+					.BgPressedColor({215, 220, 238, 255})
+					.BdColor(bdColor)
+					.BdHoveredColor(bdColor)
+					.BdPressedColor(bdColor)
+					.TextColor({30, 32, 42, 255})
+					.TextHoveredColor({10, 12, 22, 255})
+					.TextDisabledColor({160, 162, 175, 200})
+					.TextPlaceholderColor({160, 162, 175, 180})
+					.Borders(1.f)
+					.Radius (8.f);
 			};
 		}
 
 	} // namespace Theme
 
 	// ==================================================================================
-	// Builder Factory Method Implementations (deferred — System must be complete)
+	// Builder Factory Method Implementations (deferred — Context must be complete)
 	// ==================================================================================
 
-	inline ContainerBuilder System::Container() {
+	inline ContainerBuilder Context::Container() {
 		return ContainerBuilder{*this, MakeContainer()};
 	}
 
-	inline LabelBuilder System::Label(std::string_view text) {
+	inline LabelBuilder Context::Label(std::string_view text) {
 		return LabelBuilder{*this, MakeLabel(text)};
 	}
 
-	inline ButtonBuilder System::Button(std::string_view text) {
+	inline ButtonBuilder Context::Button(std::string_view text) {
 		return ButtonBuilder{*this, MakeButton(text)};
 	}
 
-	inline ToggleBuilder System::Toggle(std::string_view text) {
+	inline ToggleBuilder Context::Toggle(std::string_view text) {
 		return ToggleBuilder{*this, MakeToggle(text)};
 	}
 
-	inline RadioBuilder System::Radio(std::string_view group, std::string_view text) {
+	inline RadioBuilder Context::Radio(std::string_view group, std::string_view text) {
 		return RadioBuilder{*this, MakeRadio(group, text)};
 	}
 
-	inline ScrollBarBuilder System::ScrollBar(float contentSize, float viewSize, Orientation o) {
+	inline ScrollBarBuilder Context::ScrollBar(float contentSize, float viewSize, Orientation o) {
 		return ScrollBarBuilder{*this, MakeScrollBar(contentSize, viewSize, 10.f, o)};
 	}
 
-	inline SeparatorBuilder System::Separator() {
+	inline SeparatorBuilder Context::Separator() {
 		return SeparatorBuilder{*this, MakeSeparator()};
 	}
 
-	inline InputBuilder System::Input(std::string_view placeholder) {
+	inline InputBuilder Context::Input(std::string_view placeholder) {
 		return InputBuilder{*this, MakeInput(placeholder)};
 	}
 
-	inline ImageBuilder System::Image(std::string_view key, ImageFit fit) {
+	inline ImageBuilder Context::Image(std::string_view key, ImageFit fit) {
 		return ImageBuilder{*this, MakeImage(key, fit)};
 	}
 
-	inline CanvasBuilder System::Canvas(std::function<void(SDL::Event&)> eventCb,
+	inline CanvasBuilder Context::Canvas(std::function<void(SDL::Event&)> eventCb,
 	                                          std::function<void(float)> updateCb,
 	                                          std::function<void(RendererRef, FRect)> renderCb) {
 		return CanvasBuilder{*this, MakeCanvas(std::move(eventCb), std::move(updateCb), std::move(renderCb))};
 	}
 
-	inline TextAreaBuilder System::TextArea(std::string_view text, std::string_view placeholder) {
+	inline TextAreaBuilder Context::TextArea(std::string_view text, std::string_view placeholder) {
 		return TextAreaBuilder{*this, MakeTextArea(text, placeholder)};
 	}
 
-	inline ListBoxBuilder System::ListBoxWidget(const std::vector<std::string>& items) {
+	inline ListBoxBuilder Context::ListBoxWidget(const std::vector<std::string>& items) {
 		return ListBoxBuilder{*this, MakeListBox(items)};
 	}
 
-	inline GraphBuilder System::GradedGraph() {
+	inline GraphBuilder Context::GradedGraph() {
 		return GraphBuilder{*this, MakeGraph()};
 	}
 
-	inline ComboBoxBuilder System::ComboBox(const std::vector<std::string>& items, int sel) {
+	inline ComboBoxBuilder Context::ComboBox(const std::vector<std::string>& items, int sel) {
 		return ComboBoxBuilder{*this, MakeComboBox(items, sel)};
 	}
 
-	inline TabViewBuilder System::TabView() {
+	inline TabViewBuilder Context::TabView() {
 		return TabViewBuilder{*this, MakeTabView()};
 	}
 
-	inline ExpanderBuilder System::Expander(std::string_view label, bool expanded) {
+	inline ExpanderBuilder Context::Expander(std::string_view label, bool expanded) {
 		return ExpanderBuilder{*this, MakeExpander(label, expanded)};
 	}
 
-	inline SplitterBuilder System::Splitter(Orientation o, float ratio) {
+	inline SplitterBuilder Context::Splitter(Orientation o, float ratio) {
 		return SplitterBuilder{*this, MakeSplitter(o, ratio)};
 	}
 
-	inline SpinnerBuilder System::Spinner(float speed) {
+	inline SpinnerBuilder Context::Spinner(float speed) {
 		return SpinnerBuilder{*this, MakeSpinner(speed)};
 	}
 
-	inline BadgeBuilder System::Badge(std::string_view text) {
+	inline BadgeBuilder Context::Badge(std::string_view text) {
 		return BadgeBuilder{*this, MakeBadge(text)};
 	}
 
-	inline ColorPickerBuilder System::ColorPicker(ColorPickerPalette palette, float step) {
+	inline ColorPickerBuilder Context::ColorPicker(ColorPickerPalette palette, float step) {
 		return ColorPickerBuilder{*this, MakeColorPicker(palette, step)};
 	}
 
-	inline PopupBuilder System::Popup(std::string_view title,
+	inline PopupBuilder Context::Popup(std::string_view title,
 	                                  bool closable, bool draggable, bool resizable) {
 		return PopupBuilder{*this, MakePopup(title, closable, draggable, resizable)};
 	}
 
-	inline TreeBuilder System::Tree() {
+	inline TreeBuilder Context::Tree() {
 		return TreeBuilder{*this, MakeTree()};
 	}
 
-	inline MenuBarBuilder System::MenuBar() {
+	inline MenuBarBuilder Context::MenuBar() {
 		return MenuBarBuilder{*this, MakeMenuBar()};
 	}
 

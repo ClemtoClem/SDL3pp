@@ -1,6 +1,8 @@
 #pragma once
 
 #include "UIComponents.h"
+#include "UIIndexSystem.h"
+#include "UIFocusSystem.h"
 #include "../SDL3pp_ecs.h"
 #include "../SDL3pp_events.h"
 #include "../SDL3pp_rect.h"
@@ -14,11 +16,11 @@
 
 namespace SDL::UI {
 
-	class UILayoutSystem;
-	class System;
+	class Context;
+	class LayoutSystem;  // Forward declaration
 
 	// ==================================================================================
-	// UIEventSystem — pointer / keyboard / scroll dispatch
+	// EventSystem — pointer / keyboard / scroll dispatch
 	// ==================================================================================
 	//
 	// Two-phase event flow:
@@ -34,9 +36,9 @@ namespace SDL::UI {
 	//
 	// ==================================================================================
 
-	class UIEventSystem {
+	class EventSystem {
 	public:
-		UIEventSystem(ECS::Context& ctx, UILayoutSystem& layout, System& sys);
+		EventSystem(ECS::Context& ctx, IndexSystem& index, FocusSystem& focus, LayoutSystem& layout, Context& sys);
 
 		void Feed(const SDL::Event& ev);
 		void Process(ECS::EntityId root);
@@ -50,13 +52,15 @@ namespace SDL::UI {
 
 		void _AdvanceFocus(ECS::EntityId root, bool forward);
 
-		/// Called by System after construction so _SetFocus can start/stop text input.
+		/// Called by Context after construction so _SetFocus can start/stop text input.
 		std::function<void(bool)> onTextInputActive;
 
 	private:
 		ECS::Context&    m_ctx;
-		UILayoutSystem&  m_layout;
-		System&          m_sys;
+		IndexSystem&     m_index;
+		FocusSystem&     m_focus;
+		LayoutSystem&    m_layout;
+		Context&          m_sys;
 
 		// ── Focus / hover / press tracking ───────────────────────────────────
 		ECS::EntityId    m_focused = ECS::NullEntity;
@@ -86,19 +90,18 @@ namespace SDL::UI {
 		void          _DispatchKey  (const SDL::Event& ev);
 		void          _HandleTextInput(ECS::EntityId e, const std::string& text);
 		void          _HandleListBoxNavigation(ECS::EntityId e, SDL::Scancode scancode);
-		void          _CollectFocusable(ECS::EntityId root, std::vector<ECS::EntityId>& out) const;
 
 		void _SetFocus(ECS::EntityId e);
 	};
 
 	// ==================================================================================
-	// Implementation: UIEventSystem
+	// Implementation: EventSystem
 	// ==================================================================================
 
-	inline UIEventSystem::UIEventSystem(ECS::Context& ctx, UILayoutSystem& layout, System& sys)
-		: m_ctx(ctx), m_layout(layout), m_sys(sys) {}
+	inline EventSystem::EventSystem(ECS::Context& ctx, IndexSystem& index, FocusSystem& focus, LayoutSystem& layout, Context& sys)
+		: m_ctx(ctx), m_index(index), m_focus(focus), m_layout(layout), m_sys(sys) {}
 
-	inline void UIEventSystem::Feed(const SDL::Event& ev) {
+	inline void EventSystem::Feed(const SDL::Event& ev) {
 		// Update mouse state
 		if (ev.type == SDL::EVENT_MOUSE_MOTION) {
 			m_mouseDelta = {ev.motion.x - m_mousePos.x, ev.motion.y - m_mousePos.y};
@@ -127,7 +130,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIEventSystem::Process(ECS::EntityId root) {
+	inline void EventSystem::Process(ECS::EntityId root) {
 		if (!m_ctx.IsAlive(root)) return;
 		m_root = root;
 
@@ -170,7 +173,7 @@ namespace SDL::UI {
 		m_mouseReleased = false;
 	}
 
-	inline void UIEventSystem::ClearTransientState() noexcept {
+	inline void EventSystem::ClearTransientState() noexcept {
 		m_mousePressed = false;
 		m_mouseReleased = false;
 		m_scrollX = 0.f;
@@ -178,14 +181,14 @@ namespace SDL::UI {
 		m_clickCount = 0;
 	}
 
-	inline void UIEventSystem::_SetFocus(ECS::EntityId e) {
+	inline void EventSystem::_SetFocus(ECS::EntityId e) {
 		if (m_focused == e) return;
 
 		// Unfocus previous
 		if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
 			auto *pw = m_ctx.Get<Widget>(m_focused);
 			if (pw) pw->states &= ~WidgetStateFlag::Focused;
-			if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onFocusLose) {
+			if (auto *cb = m_ctx.Get<FocusCbs>(m_focused); cb && cb->onFocusLose) {
 				cb->onFocusLose();
 			}
 			// Stop text input when leaving an Input/TextArea
@@ -199,7 +202,7 @@ namespace SDL::UI {
 		if (m_focused != ECS::NullEntity && m_ctx.IsAlive(m_focused)) {
 			auto *nw = m_ctx.Get<Widget>(m_focused);
 			if (nw) nw->states |= WidgetStateFlag::Focused;
-			if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onFocusGain) {
+			if (auto *cb = m_ctx.Get<FocusCbs>(m_focused); cb && cb->onFocusGain) {
 				cb->onFocusGain();
 			}
 			// Start text input when focusing an Input/TextArea
@@ -209,33 +212,29 @@ namespace SDL::UI {
 		}
 	}
 
-	inline ECS::EntityId UIEventSystem::_HitTest(ECS::EntityId root, FPoint p) const {
+	inline ECS::EntityId EventSystem::_HitTest(ECS::EntityId root, FPoint p) const {
 		if (!m_ctx.IsAlive(root)) return ECS::NullEntity;
 
-		auto *w = m_ctx.Get<Widget>(root);
-		auto *cr = m_ctx.Get<ComputedRect>(root);
-		if (!w || !cr || !Has(w->behavior, WidgetBehaviorFlag::Visible)) return ECS::NullEntity;
-
-		if (!cr->outer_clip.Contains(p)) return ECS::NullEntity;
-
-		// Check children first (depth-first, reverse order for top-to-bottom layering)
-		auto *ch = m_ctx.Get<Children>(root);
-		if (ch) {
-			for (int i = (int)ch->ids.size() - 1; i >= 0; --i) {
-				ECS::EntityId result = _HitTest(ch->ids[i], p);
-				if (result != ECS::NullEntity) return result;
-			}
+		// Scan the IndexSystem draw/event list back-to-front: the topmost-drawn
+		// (highest layer, then latest in document order) hoverable widget whose
+		// clipped bounds contain the pointer wins. This keeps event order identical
+		// to draw order, so popups/dropdowns on higher layers intercept events before
+		// the content beneath them regardless of tree position.
+		const auto& list = m_index.GetDrawList();
+		for (auto it = list.rbegin(); it != list.rend(); ++it) {
+			ECS::EntityId e = it->entity;
+			if (!m_ctx.IsAlive(e)) continue;
+			auto *w  = m_ctx.Get<Widget>(e);
+			auto *cr = m_ctx.Get<ComputedRect>(e);
+			if (!w || !cr) continue;
+			if (!Has(w->behavior, WidgetBehaviorFlag::Visible))   continue;
+			if (!Has(w->behavior, WidgetBehaviorFlag::Hoverable)) continue;
+			if (cr->outer_clip.Contains(p)) return e;
 		}
-
-		// Check self (only if hoverable)
-		if (Has(w->behavior, WidgetBehaviorFlag::Hoverable)) {
-			return root;
-		}
-
 		return ECS::NullEntity;
 	}
 
-	inline void UIEventSystem::_DispatchHover(ECS::EntityId root) {
+	inline void EventSystem::_DispatchHover(ECS::EntityId root) {
 		ECS::EntityId newHover = _HitTest(root, m_mousePos);
 
 		// Clear old hover
@@ -253,12 +252,12 @@ namespace SDL::UI {
 		// Trigger hover callbacks
 		if (newHover != m_hovered) {
 			if (m_hovered != ECS::NullEntity && m_ctx.IsAlive(m_hovered)) {
-				if (auto *cb = m_ctx.Get<Callbacks>(m_hovered); cb && cb->onMouseLeave) {
+				if (auto *cb = m_ctx.Get<PointerCbs>(m_hovered); cb && cb->onMouseLeave) {
 					cb->onMouseLeave();
 				}
 			}
 			if (newHover != ECS::NullEntity && m_ctx.IsAlive(newHover)) {
-				if (auto *cb = m_ctx.Get<Callbacks>(newHover); cb && cb->onMouseEnter) {
+				if (auto *cb = m_ctx.Get<PointerCbs>(newHover); cb && cb->onMouseEnter) {
 					cb->onMouseEnter();
 				}
 			}
@@ -266,7 +265,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIEventSystem::_DispatchPress(ECS::EntityId target) {
+	inline void EventSystem::_DispatchPress(ECS::EntityId target) {
 		m_pressed = target;
 
 		auto *w = m_ctx.Get<Widget>(target);
@@ -279,58 +278,65 @@ namespace SDL::UI {
 
 		// Begin drag for various widget types
 		if (w->type == WidgetType::Slider) {
-			if (auto *sd = m_ctx.Get<SliderData>(target)) {
-				auto *nv = m_ctx.Get<NumericValue<float>>(target);
-				auto *cr = m_ctx.Get<ComputedRect>(target);
-				if (nv && cr) {
-					sd->drag = true;
-					sd->dragStartPos = (sd->orientation == Orientation::Horizontal) ? m_mousePos.x : m_mousePos.y;
-					sd->dragStartVal = nv->value;
-				}
+			auto *sc = m_ctx.Get<SliderConfig>(target);
+			auto *si = m_ctx.Get<SliderInteraction>(target);
+			auto *nv = m_ctx.Get<NumericValue<float>>(target);
+			if (sc && si && nv) {
+				si->drag = true;
+				si->dragStartPos = (sc->orientation == Orientation::Horizontal) ? m_mousePos.x : m_mousePos.y;
+				si->dragStartVal = nv->value;
 			}
 		} else if (w->type == WidgetType::ScrollBar) {
-			if (auto *sb = m_ctx.Get<ScrollBarData>(target)) {
-				sb->drag = true;
-				sb->dragStartPos = (sb->orientation == Orientation::Vertical) ? m_mousePos.y : m_mousePos.x;
-				sb->dragStartOff = sb->offset;
+			auto *sc = m_ctx.Get<ScrollBarConfig>(target);
+			auto *ss = m_ctx.Get<ScrollBarState>(target);
+			auto *si = m_ctx.Get<ScrollBarInteraction>(target);
+			if (sc && ss && si) {
+				si->drag = true;
+				si->dragStartPos = (sc->orientation == Orientation::Vertical) ? m_mousePos.y : m_mousePos.x;
+				si->dragStartOff = ss->offset;
 			}
 		} else if (w->type == WidgetType::Knob) {
-			if (auto *kd = m_ctx.Get<KnobData>(target)) {
-				auto *cr = m_ctx.Get<ComputedRect>(target);
-				auto *nv = m_ctx.Get<NumericValue<float>>(target);
-				if (cr && nv) {
-					kd->drag = true;
-					kd->dragStartY = m_mousePos.y;
-					kd->dragStartVal = nv->value;
-					float cx = cr->absolute.x + cr->absolute.w * 0.5f;
-					float cy = cr->absolute.y + cr->absolute.h * 0.5f;
-					kd->dragStartAngle = std::atan2(m_mousePos.y - cy, m_mousePos.x - cx) * (180.f / 3.14159265f);
-				}
+			auto *kc = m_ctx.Get<KnobConfig>(target);
+			auto *ki = m_ctx.Get<KnobInteraction>(target);
+			auto *cr = m_ctx.Get<ComputedRect>(target);
+			auto *nv = m_ctx.Get<NumericValue<float>>(target);
+			if (kc && ki && cr && nv) {
+				ki->drag = true;
+				ki->dragStartY = m_mousePos.y;
+				ki->dragStartVal = nv->value;
+				float cx = cr->absolute.x + cr->absolute.w * 0.5f;
+				float cy = cr->absolute.y + cr->absolute.h * 0.5f;
+				ki->dragStartAngle = std::atan2(m_mousePos.y - cy, m_mousePos.x - cx) * (180.f / 3.14159265f);
 			}
 		} else if (w->type == WidgetType::Splitter) {
-			if (auto *spl = m_ctx.Get<SplitterData>(target)) {
-				spl->dragging = true;
-				spl->dragStart = (spl->orientation == Orientation::Horizontal) ? m_mousePos.x : m_mousePos.y;
-				spl->dragRatio = spl->ratio;
+			auto *sc = m_ctx.Get<SplitterConfig>(target);
+			auto *ss = m_ctx.Get<SplitterState>(target);
+			auto *si = m_ctx.Get<SplitterInteraction>(target);
+			if (sc && ss && si) {
+				si->dragging = true;
+				si->dragStart = (sc->orientation == Orientation::Horizontal) ? m_mousePos.x : m_mousePos.y;
+				si->dragRatio = ss->ratio;
 			}
 		} else if (w->type == WidgetType::ColorPicker) {
-			if (auto *cp = m_ctx.Get<ColorPickerData>(target)) {
-				cp->dragging = true;
+			if (auto *ci = m_ctx.Get<ColorPickerInteraction>(target)) {
+				ci->dragging = true;
 			}
 		}
 	}
 
-	inline void UIEventSystem::_DispatchDrag(ECS::EntityId target) {
+	inline void EventSystem::_DispatchDrag(ECS::EntityId target) {
 		auto *w = m_ctx.Get<Widget>(target);
 		if (!w) return;
 
 		// Slider drag
 		if (w->type == WidgetType::Slider) {
-			if (auto *sd = m_ctx.Get<SliderData>(target); sd && sd->drag) {
+			auto *sc = m_ctx.Get<SliderConfig>(target);
+			auto *si = m_ctx.Get<SliderInteraction>(target);
+			if (sc && si && si->drag) {
 				auto *nv = m_ctx.Get<NumericValue<float>>(target);
 				auto *cr = m_ctx.Get<ComputedRect>(target);
 				if (nv && cr) {
-					bool h = (sd->orientation == Orientation::Horizontal);
+					bool h = (sc->orientation == Orientation::Horizontal);
 					SDL::FBox pad = {};
 					if (auto* sps = m_ctx.Get<SpacingStyle>(target)) pad = sps->padding;
 					float trackLen = h
@@ -338,14 +344,14 @@ namespace SDL::UI {
 						: (cr->absolute.h - pad.top  - pad.bottom - 16.f);
 					if (trackLen > 0.f) {
 						float cur = h ? m_mousePos.x : m_mousePos.y;
-						float ddx = cur - sd->dragStartPos;
+						float ddx = cur - si->dragStartPos;
 						float v = SDL::Clamp(
-							(float)(sd->dragStartVal + ddx / trackLen * (nv->max - nv->min)),
+							(float)(si->dragStartVal + ddx / trackLen * (nv->max - nv->min)),
 							nv->min, nv->max);
 						if (nv->step > 0.f) v = nv->min + std::round((v - nv->min) / nv->step) * nv->step;
 						if (v != nv->value) {
 							nv->value = v;
-							if (auto *cb = m_ctx.Get<Callbacks>(target); cb && cb->onChange) {
+							if (auto *cb = m_ctx.Get<ValueCbs>(target); cb && cb->onChange) {
 								cb->onChange((float)v);
 							}
 						}
@@ -353,56 +359,65 @@ namespace SDL::UI {
 				}
 			}
 		} else if (w->type == WidgetType::ScrollBar) {
-			if (auto *sb = m_ctx.Get<ScrollBarData>(target); sb && sb->drag) {
-				bool v = (sb->orientation == Orientation::Vertical);
-				float cur = v ? m_mousePos.y : m_mousePos.x;
-				float dx = cur - sb->dragStartPos;
-				float ratio = (sb->viewSize > 0.f && sb->contentSize > sb->viewSize)
-					? sb->viewSize / sb->contentSize : 1.f;
-				float maxOff = SDL::Max(0.f, sb->contentSize - sb->viewSize);
+			auto *sc = m_ctx.Get<ScrollBarConfig>(target);
+			auto *ss = m_ctx.Get<ScrollBarState>(target);
+			auto *si = m_ctx.Get<ScrollBarInteraction>(target);
+			if (sc && ss && si && si->drag) {
+				bool vert = (sc->orientation == Orientation::Vertical);
+				float cur = vert ? m_mousePos.y : m_mousePos.x;
+				float dx = cur - si->dragStartPos;
+				float ratio = (ss->viewSize > 0.f && ss->contentSize > ss->viewSize)
+					? ss->viewSize / ss->contentSize : 1.f;
+				float maxOff = SDL::Max(0.f, ss->contentSize - ss->viewSize);
 				float doff = (ratio > 0.f) ? dx / ratio : 0.f;
-				float noff = SDL::Clamp(sb->dragStartOff + doff, 0.f, maxOff);
-				if (noff != sb->offset) {
-					sb->offset = noff;
-					if (auto *cb = m_ctx.Get<Callbacks>(target); cb && cb->onScroll) {
+				float noff = SDL::Clamp(si->dragStartOff + doff, 0.f, maxOff);
+				if (noff != ss->offset) {
+					ss->offset = noff;
+					m_layout.MarkDirty(target);
+					if (auto *cb = m_ctx.Get<ValueCbs>(target); cb && cb->onScroll) {
 						cb->onScroll(noff);
 					}
 				}
 			}
 		} else if (w->type == WidgetType::Knob) {
-			if (auto *kd = m_ctx.Get<KnobData>(target); kd && kd->drag) {
+			auto *ki = m_ctx.Get<KnobInteraction>(target);
+			if (ki && ki->drag) {
 				auto *cr = m_ctx.Get<ComputedRect>(target);
 				auto *nv = m_ctx.Get<NumericValue<float>>(target);
 				if (cr && nv) {
 					float cx = cr->absolute.x + cr->absolute.w * 0.5f;
 					float cy = cr->absolute.y + cr->absolute.h * 0.5f;
 					float curAngle = std::atan2(m_mousePos.y - cy, m_mousePos.x - cx) * (180.f / 3.14159265f);
-					float dAngle = curAngle - kd->dragStartAngle;
+					float dAngle = curAngle - ki->dragStartAngle;
 					if (dAngle > 180.f) dAngle -= 360.f;
 					if (dAngle < -180.f) dAngle += 360.f;
-					double newVal = SDL::Clamp(kd->dragStartVal + dAngle / 270.0 * (nv->max - nv->min), nv->min, nv->max);
+					double newVal = SDL::Clamp(ki->dragStartVal + dAngle / 270.0 * (nv->max - nv->min), nv->min, nv->max);
 					if (newVal != nv->value) {
 						nv->value = newVal;
-						if (auto *cb = m_ctx.Get<Callbacks>(target); cb && cb->onChange) {
+						if (auto *cb = m_ctx.Get<ValueCbs>(target); cb && cb->onChange) {
 							cb->onChange((float)newVal);
 						}
 					}
-					kd->dragStartAngle = curAngle;
-					kd->dragStartVal = nv->value;
+					ki->dragStartAngle = curAngle;
+					ki->dragStartVal = nv->value;
 				}
 			}
 		} else if (w->type == WidgetType::Splitter) {
-			if (auto *spl = m_ctx.Get<SplitterData>(target); spl && spl->dragging) {
+			auto *sc = m_ctx.Get<SplitterConfig>(target);
+			auto *ss = m_ctx.Get<SplitterState>(target);
+			auto *si = m_ctx.Get<SplitterInteraction>(target);
+			if (sc && ss && si && si->dragging) {
 				auto *cr = m_ctx.Get<ComputedRect>(target);
 				if (cr) {
-					bool horiz = (spl->orientation == Orientation::Horizontal);
+					bool horiz = (sc->orientation == Orientation::Horizontal);
 					float cur = horiz ? m_mousePos.x : m_mousePos.y;
 					float total = horiz ? cr->absolute.w : cr->absolute.h;
 					float start = horiz ? cr->absolute.x : cr->absolute.y;
-					float nr = SDL::Clamp((cur - start) / SDL::Max(1.f, total), spl->minRatio, spl->maxRatio);
-					if (nr != spl->ratio) {
-						spl->ratio = nr;
-						if (auto *cb = m_ctx.Get<Callbacks>(target); cb && cb->onChange) {
+					float nr = SDL::Clamp((cur - start) / SDL::Max(1.f, total), sc->minRatio, sc->maxRatio);
+					if (nr != ss->ratio) {
+						ss->ratio = nr;
+						m_layout.MarkDirty(target);
+						if (auto *cb = m_ctx.Get<ValueCbs>(target); cb && cb->onChange) {
 							cb->onChange(nr);
 						}
 					}
@@ -411,35 +426,35 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIEventSystem::_DispatchRelease(ECS::EntityId target) {
-		auto *w = m_ctx.Get<Widget>(target);
-		auto *cb = m_ctx.Get<Callbacks>(target);
+	inline void EventSystem::_DispatchRelease(ECS::EntityId target) {
+		auto *w  = m_ctx.Get<Widget>(target);
+		auto *pc = m_ctx.Get<PointerCbs>(target);
+		auto *vc = m_ctx.Get<ValueCbs>(target);
 
 		if (w) w->states &= ~WidgetStateFlag::Pressed;
 
 		// Clear drag flags
-		if (auto *sd = m_ctx.Get<SliderData>(target)) sd->drag = false;
-		if (auto *sb = m_ctx.Get<ScrollBarData>(target)) sb->drag = false;
-		if (auto *kd = m_ctx.Get<KnobData>(target)) kd->drag = false;
-		if (auto *spl = m_ctx.Get<SplitterData>(target)) spl->dragging = false;
-		if (auto *cp = m_ctx.Get<ColorPickerData>(target)) cp->dragging = false;
+		if (auto *si = m_ctx.Get<SliderInteraction>(target)) si->drag = false;
+		if (auto *si = m_ctx.Get<ScrollBarInteraction>(target)) si->drag = false;
+		if (auto *ki = m_ctx.Get<KnobInteraction>(target)) ki->drag = false;
+		if (auto *si = m_ctx.Get<SplitterInteraction>(target)) si->dragging = false;
+		if (auto *ci = m_ctx.Get<ColorPickerInteraction>(target)) ci->dragging = false;
 
 		// Trigger click callback if released on the pressed target
 		if (m_hovered == target && w && Has(w->behavior, WidgetBehaviorFlag::Enable) && Has(w->behavior, WidgetBehaviorFlag::Selectable)) {
 			// Toggle: flip checked state + fire onToggle
 			if (w->type == WidgetType::Toggle) {
-				if (auto* tog = m_ctx.Get<ToggleData>(target)) {
+				if (auto* tog = m_ctx.Get<ToggleState>(target)) {
 					tog->checked = !tog->checked;
 					if (Has(w->states, WidgetStateFlag::Checked)) w->states &= ~WidgetStateFlag::Checked;
 					else                                          w->states |=  WidgetStateFlag::Checked;
-					if (cb && cb->onToggle) cb->onToggle(tog->checked);
+					if (vc && vc->onToggle) vc->onToggle(tog->checked);
 				}
 			}
 			// Radio: set checked, deselect other members of same group
 			else if (w->type == WidgetType::Radio) {
-				if (auto* rd = m_ctx.Get<RadioData>(target); rd && !rd->checked) {
-					// Deselect all other radios in the same group
-					m_ctx.Each<RadioData>([&](ECS::EntityId other, RadioData& otherRd) {
+				if (auto* rd = m_ctx.Get<RadioState>(target); rd && !rd->checked) {
+					m_ctx.Each<RadioState>([&](ECS::EntityId other, RadioState& otherRd) {
 						if (other != target && otherRd.group == rd->group && otherRd.checked) {
 							otherRd.checked = false;
 							if (auto* ow = m_ctx.Get<Widget>(other))
@@ -448,19 +463,19 @@ namespace SDL::UI {
 					});
 					rd->checked = true;
 					w->states |= WidgetStateFlag::Checked;
-					if (cb && cb->onToggle) cb->onToggle(true);
+					if (vc && vc->onToggle) vc->onToggle(true);
 				}
 			}
 
-			if (cb && cb->onClick) {
-				cb->onClick(m_lastButton);
+			if (pc && pc->onClick) {
+				pc->onClick(m_lastButton);
 			}
 		}
 
 		m_pressed = ECS::NullEntity;
 	}
 
-	inline void UIEventSystem::_DispatchScroll(ECS::EntityId target, float dx, float dy) {
+	inline void EventSystem::_DispatchScroll(ECS::EntityId target, float dx, float dy) {
 		if (!m_ctx.IsAlive(target)) return;
 
 		// Walk up the hierarchy to find the nearest scrollable container
@@ -493,18 +508,18 @@ namespace SDL::UI {
 					float maxScrollX = SDL::Max(0.f, lp->contentW - viewW);
 					lp->scrollX = SDL::Clamp(lp->scrollX - dx * 20.f, 0.f, maxScrollX);
 				}
-				w->dirty |= DirtyFlag::Layout | DirtyFlag::Render;
+				m_layout.MarkDirty(scrollable);
 			}
-			auto *cb = m_ctx.Get<Callbacks>(scrollable);
+			auto *cb = m_ctx.Get<ValueCbs>(scrollable);
 			if (cb && cb->onScroll) cb->onScroll(dy);
 		} else {
 			// No scrollable container found — still fire callback on original target
-			auto *cb = m_ctx.Get<Callbacks>(target);
+			auto *cb = m_ctx.Get<ValueCbs>(target);
 			if (cb && cb->onScroll) cb->onScroll(dy);
 		}
 	}
 
-	inline void UIEventSystem::_DispatchKey(const SDL::Event& ev) {
+	inline void EventSystem::_DispatchKey(const SDL::Event& ev) {
 		if (ev.type != SDL::EVENT_KEY_DOWN) return;
 		if (m_focused == ECS::NullEntity || !m_ctx.IsAlive(m_focused)) return;
 
@@ -543,10 +558,8 @@ namespace SDL::UI {
 					deleted = true;
 				}
 				if (deleted) {
-					if (auto *w2 = m_ctx.Get<Widget>(m_focused)) {
-						w2->dirty |= DirtyFlag::Layout | DirtyFlag::Render;
-					}
-					if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onTextChange) {
+					m_layout.MarkDirty(m_focused);
+					if (auto *cb = m_ctx.Get<ValueCbs>(m_focused); cb && cb->onTextChange) {
 						cb->onTextChange(te->text);
 					}
 				}
@@ -564,10 +577,8 @@ namespace SDL::UI {
 					deleted = true;
 				}
 				if (deleted) {
-					if (auto *w2 = m_ctx.Get<Widget>(m_focused)) {
-						w2->dirty |= DirtyFlag::Layout | DirtyFlag::Render;
-					}
-					if (auto *cb = m_ctx.Get<Callbacks>(m_focused); cb && cb->onTextChange) {
+					m_layout.MarkDirty(m_focused);
+					if (auto *cb = m_ctx.Get<ValueCbs>(m_focused); cb && cb->onTextChange) {
 						cb->onTextChange(te->text);
 					}
 				}
@@ -684,7 +695,7 @@ namespace SDL::UI {
 			else if (scancode == SDL_SCANCODE_RETURN) {
 				if (w->type == WidgetType::Input) {
 					// Fire onClick for Input widgets
-					auto *cb = m_ctx.Get<Callbacks>(m_focused);
+					auto *cb = m_ctx.Get<PointerCbs>(m_focused);
 					if (cb && cb->onClick) {
 						cb->onClick(SDL::BUTTON_LEFT);
 					}
@@ -725,13 +736,16 @@ namespace SDL::UI {
 						if (ow) {
 							if (cbd->open) ow->behavior |= WidgetBehaviorFlag::Visible;
 							else           ow->behavior &= ~WidgetBehaviorFlag::Visible;
+							m_layout.MarkDirty(cbd->overlay);
 						}
 					}
 				} else if (scancode == SDL_SCANCODE_ESCAPE && cbd->open) {
 					cbd->open = false;
 					if (cbd->overlay != ECS::NullEntity && m_ctx.IsAlive(cbd->overlay)) {
-						if (auto *ow = m_ctx.Get<Widget>(cbd->overlay))
+						if (auto *ow = m_ctx.Get<Widget>(cbd->overlay)) {
 							ow->behavior &= ~WidgetBehaviorFlag::Visible;
+							m_layout.MarkDirty(cbd->overlay);
+						}
 					}
 				}
 			}
@@ -746,6 +760,7 @@ namespace SDL::UI {
 						if (cw) {
 							if (exd->expanded) cw->behavior |= WidgetBehaviorFlag::Visible;
 							else               cw->behavior &= ~WidgetBehaviorFlag::Visible;
+							m_layout.MarkDirty(exd->contentEntity);
 						}
 					}
 				}
@@ -754,17 +769,18 @@ namespace SDL::UI {
 		// ── Button / Toggle / Radio: Enter/Space to activate ─────────────────────────
 		else if (w->type == WidgetType::Button || w->type == WidgetType::Toggle || w->type == WidgetType::Radio) {
 			if (scancode == SDL_SCANCODE_RETURN || scancode == SDL_SCANCODE_SPACE) {
-				auto *cb = m_ctx.Get<Callbacks>(m_focused);
+				auto *pc = m_ctx.Get<PointerCbs>(m_focused);
+				auto *vc = m_ctx.Get<ValueCbs>(m_focused);
 				if (w->type == WidgetType::Toggle) {
-					if (auto* tog = m_ctx.Get<ToggleData>(m_focused)) {
+					if (auto* tog = m_ctx.Get<ToggleState>(m_focused)) {
 						tog->checked = !tog->checked;
 						if (tog->checked) w->states |=  WidgetStateFlag::Checked;
 						else              w->states &= ~WidgetStateFlag::Checked;
-						if (cb && cb->onToggle) cb->onToggle(tog->checked);
+						if (vc && vc->onToggle) vc->onToggle(tog->checked);
 					}
 				} else if (w->type == WidgetType::Radio) {
-					if (auto* rd = m_ctx.Get<RadioData>(m_focused); rd && !rd->checked) {
-						m_ctx.Each<RadioData>([&](ECS::EntityId other, RadioData& otherRd) {
+					if (auto* rd = m_ctx.Get<RadioState>(m_focused); rd && !rd->checked) {
+						m_ctx.Each<RadioState>([&](ECS::EntityId other, RadioState& otherRd) {
 							if (other != m_focused && otherRd.group == rd->group && otherRd.checked) {
 								otherRd.checked = false;
 								if (auto* ow = m_ctx.Get<Widget>(other))
@@ -773,10 +789,10 @@ namespace SDL::UI {
 						});
 						rd->checked = true;
 						w->states |= WidgetStateFlag::Checked;
-						if (cb && cb->onToggle) cb->onToggle(true);
+						if (vc && vc->onToggle) vc->onToggle(true);
 					}
 				}
-				if (cb && cb->onClick) cb->onClick(SDL::BUTTON_LEFT);
+				if (pc && pc->onClick) pc->onClick(SDL::BUTTON_LEFT);
 			}
 		}
 	}
@@ -785,7 +801,7 @@ namespace SDL::UI {
 
 	// Handler for TextArea text input - could be called from Process()
 	// when handling SDL_TEXTINPUT events
-	inline void UIEventSystem::_HandleTextInput(ECS::EntityId e, const std::string& text) {
+	inline void EventSystem::_HandleTextInput(ECS::EntityId e, const std::string& text) {
 		auto *te = m_ctx.Get<TextEdit>(e);
 		auto *ts = m_ctx.Get<TextSelection>(e);
 		if (!te || !ts) return;
@@ -917,12 +933,10 @@ namespace SDL::UI {
 			te->cursor += (int)toInsert.length();
 
 			// Mark layout dirty
-			if (w) {
-				w->dirty |= DirtyFlag::Layout | DirtyFlag::Render;
-			}
+			m_layout.MarkDirty(e);
 
 			// Fire onChange callback
-			auto *cb = m_ctx.Get<Callbacks>(e);
+			auto *cb = m_ctx.Get<ValueCbs>(e);
 			if (cb && cb->onTextChange) {
 				cb->onTextChange(te->text);
 			}
@@ -930,7 +944,7 @@ namespace SDL::UI {
 	}
 
 	// Handler for ListBox item selection via keyboard
-	inline void UIEventSystem::_HandleListBoxNavigation(ECS::EntityId e, SDL::Scancode scancode) {
+	inline void EventSystem::_HandleListBoxNavigation(ECS::EntityId e, SDL::Scancode scancode) {
 		auto *ilv = m_ctx.Get<ItemListView>(e);
 		if (!ilv || ilv->items.empty()) return;
 
@@ -955,7 +969,7 @@ namespace SDL::UI {
 		}
 		else if (scancode == SDL_SCANCODE_RETURN || scancode == SDL_SCANCODE_SPACE) {
 			// Activate current selection
-			auto *cb = m_ctx.Get<Callbacks>(e);
+			auto *cb = m_ctx.Get<PointerCbs>(e);
 			if (cb && cb->onClick) {
 				cb->onClick(SDL::BUTTON_LEFT);
 			}
@@ -964,46 +978,19 @@ namespace SDL::UI {
 
 		// Fire onTreeSelect if index changed
 		if (ilv->selectedIndex != prevIdx) {
-			auto *cb = m_ctx.Get<Callbacks>(e);
+			auto *cb = m_ctx.Get<ItemCbs>(e);
 			if (cb && cb->onTreeSelect) {
 				cb->onTreeSelect(ilv->selectedIndex, false);
 			}
 		}
 	}
 
-	inline void UIEventSystem::_CollectFocusable(ECS::EntityId e, std::vector<ECS::EntityId>& out) const {
-		if (!m_ctx.IsAlive(e)) return;
-		auto *w = m_ctx.Get<Widget>(e);
-		if (!w || !Has(w->behavior, WidgetBehaviorFlag::Visible) || !Has(w->behavior, WidgetBehaviorFlag::Enable))
-			return;
-		if (Has(w->behavior, WidgetBehaviorFlag::Focusable))
-			out.push_back(e);
-		auto *ch = m_ctx.Get<Children>(e);
-		if (ch) {
-			for (ECS::EntityId cid : ch->ids)
-				_CollectFocusable(cid, out);
-		}
-	}
-
-	inline void UIEventSystem::_AdvanceFocus(ECS::EntityId root, bool forward) {
+	inline void EventSystem::_AdvanceFocus(ECS::EntityId root, bool forward) {
+		// Focus-ring traversal is owned by FocusSystem; EventSystem only commits the
+		// result (focus gain/lose callbacks + text-input lifecycle live in _SetFocus).
 		ECS::EntityId treeRoot = (root != ECS::NullEntity) ? root : m_root;
-		if (!m_ctx.IsAlive(treeRoot)) return;
-
-		std::vector<ECS::EntityId> focusable;
-		_CollectFocusable(treeRoot, focusable);
-		if (focusable.empty()) return;
-
-		if (!forward) std::reverse(focusable.begin(), focusable.end());
-
-		// Find current position and advance
-		auto it = std::find(focusable.begin(), focusable.end(), m_focused);
-		ECS::EntityId next = ECS::NullEntity;
-		if (it == focusable.end() || std::next(it) == focusable.end()) {
-			next = focusable.front();
-		} else {
-			next = *std::next(it);
-		}
-		_SetFocus(next);
+		ECS::EntityId next = m_focus.Next(treeRoot, m_focused, forward);
+		if (next != ECS::NullEntity) _SetFocus(next);
 	}
 
 } // namespace SDL::UI

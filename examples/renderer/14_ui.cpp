@@ -101,7 +101,7 @@ struct Main {
 	SDL::ResourcePool&   uiPool{ *rm.CreatePool("ui") };
 
 	SDL::ECS::Context  ecs_context;
-	SDL::UI::System    ui{ ecs_context, renderer, mixer, uiPool };
+	SDL::UI::Context    ui{ ecs_context, renderer, mixer, uiPool };
 	SDL::FrameTimer    timer{ 60.f };
 
 	// ── Pages / tab buttons ───────────────────────────────────────────────────

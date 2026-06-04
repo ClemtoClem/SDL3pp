@@ -4459,21 +4459,21 @@ inline OwnArray<WindowRef> GetWindows() {
  * @sa Window.Destroy
  */
 inline Window CreateWindow(StringParam title,
-													 const PointRaw& size,
-													 WindowFlags flags) {
+		const PointRaw& size,
+		WindowFlags flags) {
 	return Window(std::move(title), size, flags);
 }
 
 inline Window::Window(StringParam title,
-											const PointRaw& size,
-											WindowFlags flags)
+		const PointRaw& size,
+		WindowFlags flags)
 	: m_resource(SDL_CreateWindow(title, size.x, size.y, flags)) {
 }
 
 inline Window::Window(WindowRef parent,
-											const PointRaw& offset,
-											const PointRaw& size,
-											WindowFlags flags)
+		const PointRaw& offset,
+		const PointRaw& size,
+		WindowFlags flags)
 	: m_resource(
 			SDL_CreatePopupWindow(parent, offset.x, offset.y, size.x, size.y, flags)) {
 }

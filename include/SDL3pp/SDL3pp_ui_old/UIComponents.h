@@ -175,6 +175,10 @@ namespace UI {
 		Align alignSelfV    = Align::Stretch;  ///< Cross-axis alignment in InRow / Stack (vertical).
 		AttachLayout attach = AttachLayout::Relative;
 		BoxSizing boxSizing = BoxSizing::BorderBox;
+		/// Stacking order within the same parent / layer. Higher values draw on
+		/// top of (and receive input before) lower ones. Default 0; popups and
+		/// menus typically use positive values. Used by render/hit-test/focus.
+		int       zOffset   = 0;
 		float gap 			= 4.f;             ///< Gap between children in InColumn / InLine / Stack (px).  Does not apply to Separator.
 		float scrollX = 0.f, scrollY = 0.f;
 		float contentW = 0.f, contentH = 0.f;
@@ -376,6 +380,19 @@ namespace UI {
 	/// by @ref type.
 	struct InputData {
 		InputFilterType type      = InputFilterType::Text;   ///< Filter / value mode.
+
+		// ── Optional user-supplied validators ─────────────────────────────
+		/// Returns true if the prospective text (post-insertion) is acceptable.
+		/// Called BEFORE the regex check; when set, allows fully-custom validation.
+		/// Use with InputFilterType::Custom (or layer over the built-in filter).
+		std::function<bool(const std::string&)> onValidate;
+		/// Maximum number of characters (0 = no limit). Enforced on insertion.
+		int maxLength = 0;
+		/// Override the strict commit regex (used on blur / Enter). When set, this
+		/// pattern must match the full text for the value to be accepted.
+		std::string commitPattern;
+		/// Last text known to be valid — restored when blur fails commitPattern.
+		std::string lastCommitted;
 
 		// ── Optional child button entity IDs (for layouts that wire the
 		//     increment/decrement arrows as separate Button widgets).

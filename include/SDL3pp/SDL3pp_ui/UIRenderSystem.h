@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UIComponents.h"
+#include "UIIndexSystem.h"
 #include "../SDL3pp_ecs.h"
 #include "../SDL3pp_render.h"
 #include "../SDL3pp_resources.h"
@@ -13,8 +14,7 @@
 
 namespace SDL::UI {
 
-	class UILayoutSystem;
-	class System;
+	class Context;
 
 	// ==================================================================================
 	// DrawCtx — per-entity resolved style context for rendering
@@ -30,25 +30,49 @@ namespace SDL::UI {
 		const SpacingStyle*    sp       = nullptr;
 		const ScrollbarStyle*  sb       = nullptr;
 
+		// ── Eased transition factors [0,1] (from AnimationState; else hard 0/1) ──
+		float hoverT   = 0.f;
+		float pressT   = 0.f;
+		float focusT   = 0.f;
+		float checkedT = 0.f;
+		float opacity  = 1.f;   ///< Global multiplier on every colour's alpha.
+
+		// Composite the per-state colours in priority order (low→high): a factor of
+		// 0 leaves the colour untouched and 1 fully selects it, so when factors are
+		// hard 0/1 this reproduces the original discrete state precedence exactly,
+		// while intermediate values cross-fade (CSS-like :hover/:active transitions).
+		[[nodiscard]] static SDL::Color _Mix(SDL::Color a, SDL::Color b, float t) noexcept {
+			auto m = [t](Uint8 x, Uint8 y) {
+				float v = x + (int(y) - int(x)) * t + 0.5f;   // t may overshoot (EaseOutBack)
+				return (Uint8)(v < 0.f ? 0.f : (v > 255.f ? 255.f : v));
+			};
+			return {m(a.r, b.r), m(a.g, b.g), m(a.b, b.b), m(a.a, b.a)};
+		}
+		[[nodiscard]] SDL::Color _Op(SDL::Color c) const noexcept {
+			c.a = (Uint8)(c.a * opacity + 0.5f);
+			return c;
+		}
+
 		// ── Convenience accessors with defaults ─────────────────────────────────
 		[[nodiscard]] SDL::Color BgColor() const noexcept {
-			if (!bg) return {22, 22, 30, 255};
-			if (Has(states, WidgetStateFlag::Pressed))  return bg->selectedColor;
-			if (Has(states, WidgetStateFlag::Focused))  return bg->focusedColor;
-			if (Has(states, WidgetStateFlag::Hovered))  return bg->hoveredColor;
-			if (Has(states, WidgetStateFlag::Checked))  return bg->checkedColor;
-			return bg->color;
+			if (!bg) return _Op({22, 22, 30, 255});
+			SDL::Color c = bg->color;
+			c = _Mix(c, bg->checkedColor,  checkedT);
+			c = _Mix(c, bg->hoveredColor,  hoverT);
+			c = _Mix(c, bg->focusedColor,  focusT);
+			c = _Mix(c, bg->selectedColor, pressT);
+			return _Op(c);
 		}
 		[[nodiscard]] SDL::Color BdColor() const noexcept {
-			if (!bd) return {55, 58, 78, 255};
-			if (Has(states, WidgetStateFlag::Focused))  return bd->focusedColor;
-			if (Has(states, WidgetStateFlag::Hovered))  return bd->hoveredColor;
-			return bd->color;
+			if (!bd) return _Op({55, 58, 78, 255});
+			SDL::Color c = bd->color;
+			c = _Mix(c, bd->hoveredColor, hoverT);
+			c = _Mix(c, bd->focusedColor, focusT);
+			return _Op(c);
 		}
 		[[nodiscard]] SDL::Color TextColor() const noexcept {
-			if (!ts) return {215, 215, 220, 255};
-			if (Has(states, WidgetStateFlag::Hovered))  return ts->hoveredColor;
-			return ts->color;
+			if (!ts) return _Op({215, 215, 220, 255});
+			return _Op(_Mix(ts->color, ts->hoveredColor, hoverT));
 		}
 		[[nodiscard]] SDL::FCorners Radius() const noexcept {
 			return bd ? bd->radius : SDL::FCorners{5.f, 5.f, 5.f, 5.f};
@@ -125,14 +149,14 @@ namespace SDL::UI {
 	}
 
 	// ==================================================================================
-	// UIRenderSystem — render + animate pipeline
+	// RenderSystem — render + animate pipeline
 	// ==================================================================================
 
-	class UIRenderSystem {
+	class RenderSystem {
 	public:
-		UIRenderSystem(ECS::Context& ctx, RendererRef renderer, ResourcePool& pool,
-		               UILayoutSystem& layout, System& sys);
-		~UIRenderSystem();
+		RenderSystem(ECS::Context& ctx, RendererRef renderer, ResourcePool& pool,
+		               IndexSystem& index, Context& sys);
+		~RenderSystem();
 
 		void Process       (ECS::EntityId root, ECS::EntityId focused);
 		void ProcessAnimate(float dt, ECS::EntityId root);
@@ -144,8 +168,8 @@ namespace SDL::UI {
 		ECS::Context&        m_ctx;
 		RendererRef          m_renderer;
 		ResourcePool&        m_pool;
-		UILayoutSystem&      m_layout;
-		System&              m_sys;
+		IndexSystem&         m_index;
+		Context&              m_sys;
 		WidgetRenderRegistry m_registry;
 
 #if defined(SDL3PP_ENABLE_TTF)
@@ -178,7 +202,7 @@ namespace SDL::UI {
 		void _FillRect (const FRect& r, SDL::Color c, float op = 1.f);
 		void _FillRR   (const FRect& r, SDL::Color c, float radius, float op = 1.f);
 		void _StrokeRR (const FRect& r, SDL::Color c, const SDL::FBox& borders, float radius, float op = 1.f);
-		void _DrawScrollBar(const FRect& rect, const ScrollBarData& sb, const DrawCtx& dctx);
+		void _DrawScrollBar(const FRect& rect, Orientation orient, float contentSize, float viewSize, float offset, const DrawCtx& dctx);
 		void _DrawHueBar(const FRect& rect, float op = 1.f);
 
 		struct ScrollViewInfo {
@@ -191,16 +215,16 @@ namespace SDL::UI {
 	};
 
 	// ==================================================================================
-	// Implementation: UIRenderSystem
+	// Implementation: RenderSystem
 	// ==================================================================================
 
-	inline UIRenderSystem::UIRenderSystem(ECS::Context& ctx, RendererRef renderer, ResourcePool& pool,
-	                                       UILayoutSystem& layout, System& sys)
-		: m_ctx(ctx), m_renderer(renderer), m_pool(pool), m_layout(layout), m_sys(sys) {
+	inline RenderSystem::RenderSystem(ECS::Context& ctx, RendererRef renderer, ResourcePool& pool,
+	                                       IndexSystem& index, Context& sys)
+		: m_ctx(ctx), m_renderer(renderer), m_pool(pool), m_index(index), m_sys(sys) {
 		_RegisterBuiltinRenderers();
 	}
 
-	inline UIRenderSystem::~UIRenderSystem() {
+	inline RenderSystem::~RenderSystem() {
 #if defined(SDL3PP_ENABLE_TTF)
 		m_ctx.Each<TextCache>([](ECS::EntityId, TextCache &tc) {
 			tc.text = SDL::Text{};
@@ -208,21 +232,40 @@ namespace SDL::UI {
 #endif
 	}
 
-	inline DrawCtx UIRenderSystem::_MakeCtx(ECS::EntityId e) const noexcept {
+	inline DrawCtx RenderSystem::_MakeCtx(ECS::EntityId e) const noexcept {
 		DrawCtx dctx;
-		if (auto* w = m_ctx.Get<Widget>(e)) dctx.states = w->states;
+		WidgetStateFlag st = WidgetStateFlag::None;
+		if (auto* w = m_ctx.Get<Widget>(e)) { dctx.states = w->states; st = w->states; }
 		dctx.bg = m_ctx.Get<BackgroundStyle>(e);
 		dctx.bd = m_ctx.Get<BorderStyle>(e);
 		dctx.ts = m_ctx.Get<TextStyle>(e);
 		dctx.ac = m_ctx.Get<AccentStyle>(e);
 		dctx.sp = m_ctx.Get<SpacingStyle>(e);
 		dctx.sb = m_ctx.Get<ScrollbarStyle>(e);
+
+		// Transition factors: eased progress if the widget is animated, else a hard
+		// 0/1 snapshot of the current state (identical to the pre-animation look).
+		if (auto* an = m_ctx.Get<AnimationState>(e)) {
+			Easing ease = Easing::EaseOut;
+			if (auto* as = m_ctx.Get<AnimationStyle>(e)) ease = as->easing;
+			dctx.hoverT   = EaseEval(ease, an->hoverT);
+			dctx.pressT   = EaseEval(ease, an->pressT);
+			dctx.focusT   = EaseEval(ease, an->focusT);
+			dctx.checkedT = EaseEval(ease, an->checkedT);
+			dctx.opacity  = an->opacity;
+		} else {
+			dctx.hoverT   = Has(st, WidgetStateFlag::Hovered) ? 1.f : 0.f;
+			dctx.pressT   = Has(st, WidgetStateFlag::Pressed) ? 1.f : 0.f;
+			dctx.focusT   = Has(st, WidgetStateFlag::Focused) ? 1.f : 0.f;
+			dctx.checkedT = Has(st, WidgetStateFlag::Checked) ? 1.f : 0.f;
+		}
+		if (auto* tf = m_ctx.Get<TransformStyle>(e)) dctx.opacity *= tf->opacity;
 		return dctx;
 	}
 
-	inline void UIRenderSystem::Process(ECS::EntityId root, [[maybe_unused]] ECS::EntityId focused) {
+	inline void RenderSystem::Process(ECS::EntityId root, [[maybe_unused]] ECS::EntityId focused) {
 		if (!m_ctx.IsAlive(root)) return;
-		auto& drawList = m_layout.GetDrawList();
+		auto& drawList = m_index.GetDrawList();
 		for (const auto& call : drawList) {
 			if (!m_ctx.IsAlive(call.entity)) continue;
 			auto *w  = m_ctx.Get<Widget>(call.entity);
@@ -239,15 +282,15 @@ namespace SDL::UI {
 		m_renderer.SetClipRect(SDL_Rect{}); // Clear clip
 	}
 
-	inline void UIRenderSystem::ProcessAnimate(float dt, ECS::EntityId root) {
+	inline void RenderSystem::ProcessAnimate(float dt, ECS::EntityId root) {
 		(void)dt; (void)root;
 	}
 
-	inline void UIRenderSystem::_RegisterBuiltinRenderers() {
+	inline void RenderSystem::_RegisterBuiltinRenderers() {
 		// Default no-op — users can register custom renderers via GetRegistry()
 	}
 
-	inline void UIRenderSystem::_DrawWidget(ECS::EntityId e, const DrawCtx& dctx, const FRect& rect) {
+	inline void RenderSystem::_DrawWidget(ECS::EntityId e, const DrawCtx& dctx, const FRect& rect) {
 		auto *w = m_ctx.Get<Widget>(e);
 		if (!w) return;
 
@@ -273,7 +316,7 @@ namespace SDL::UI {
 		m_registry.Dispatch(e, m_renderer, dctx, rect, m_ctx);
 	}
 
-	inline void UIRenderSystem::_DrawBackground(const FRect& rect, const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawBackground(const FRect& rect, const DrawCtx& dctx) {
 		SDL::Color col = dctx.BgColor();
 		if (col.a == 0) return;
 
@@ -344,7 +387,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawLabel(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawLabel(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const DrawCtx& dctx) {
 		auto *te = m_ctx.Get<TextEdit>(e);
 		if (!te || te->text.empty()) return;
 
@@ -355,7 +398,7 @@ namespace SDL::UI {
 		_DrawText(e, te->text, rect, ha, va);
 	}
 
-	inline void UIRenderSystem::_DrawButton(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawButton(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
 		auto *te = m_ctx.Get<TextEdit>(e);
 
 		SDL::Color bgColor = dctx.BgColor();
@@ -369,13 +412,14 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawSlider(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
-		auto *sd = m_ctx.Get<SliderData>(e);
+	inline void RenderSystem::_DrawSlider(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
+		auto *sc = m_ctx.Get<SliderConfig>(e);
+		auto *si = m_ctx.Get<SliderInteraction>(e);
 		auto *nv = m_ctx.Get<NumericValue<float>>(e);
-		if (!sd || !nv) return;
+		if (!sc || !nv) return;
 
 		SDL::FBox pad = dctx.Padding();
-		bool h = (sd->orientation == Orientation::Horizontal);
+		bool h = (sc->orientation == Orientation::Horizontal);
 		float trackLen = h ? (rect.w - pad.left - pad.right) : (rect.h - pad.top - pad.bottom);
 		float thumbSize = 16.f;
 		float normVal = nv->GetNorm<float>();
@@ -401,11 +445,11 @@ namespace SDL::UI {
 		_FillRR(track, dctx.TrackColor(), 4.f);
 		_FillRR(fill,  dctx.FillColor(),  4.f);
 
-		SDL::Color thumbCol = sd->drag ? dctx.FillColor() : dctx.ThumbColor();
+		SDL::Color thumbCol = (si && si->drag) ? dctx.FillColor() : dctx.ThumbColor();
 		_FillRR(thumb, thumbCol, 8.f);
 	}
 
-	inline void UIRenderSystem::_DrawProgress(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawProgress(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
 		auto *nv = m_ctx.Get<NumericValue<float>>(e);
 		if (!nv) return;
 
@@ -419,10 +463,10 @@ namespace SDL::UI {
 		_StrokeRR(rect, dctx.BdColor(), {1, 1, 1, 1}, 4.f);
 	}
 
-	inline void UIRenderSystem::_DrawKnob(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
-		auto *kd = m_ctx.Get<KnobData>(e);
+	inline void RenderSystem::_DrawKnob(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
 		auto *nv = m_ctx.Get<NumericValue<float>>(e);
-		if (!kd || !nv) return;
+		if (!nv) return;
+		(void)m_ctx.Get<KnobConfig>(e); // ensure component present
 
 		float cx = rect.x + rect.w * 0.5f;
 		float cy = rect.y + rect.h * 0.5f;
@@ -456,8 +500,8 @@ namespace SDL::UI {
 		m_renderer.RenderFillCircle({cx, cy}, innerRadius * 0.3f);
 	}
 
-	inline void UIRenderSystem::_DrawToggle(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const DrawCtx& dctx) {
-		auto *tog = m_ctx.Get<ToggleData>(e);
+	inline void RenderSystem::_DrawToggle(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const DrawCtx& dctx) {
+		auto *tog = m_ctx.Get<ToggleState>(e);
 		if (!tog) return;
 
 		constexpr float sw = 40.f;
@@ -465,12 +509,20 @@ namespace SDL::UI {
 		float sx = rect.x + 4.f;
 		float sy = rect.y + (rect.h - sh) * 0.5f;
 
-		SDL::Color bgColor = tog->checked ?
-			SDL::Color{80, 200, 100, 255} : SDL::Color{100, 100, 100, 255};
+		// Eased on/off progress: animated when ToggleAnim is driven, else snap.
+		float t = tog->checked ? 1.f : 0.f;
+		if (auto* ta = m_ctx.Get<ToggleAnim>(e)) {
+			Easing ease = Easing::EaseOut;
+			if (auto* as = m_ctx.Get<AnimationStyle>(e)) ease = as->easing;
+			t = EaseEval(ease, ta->animT);
+		}
 
-		_FillRR({sx, sy, sw, sh}, bgColor, sh * 0.5f);
+		SDL::Color offC{100, 100, 100, 255}, onC{80, 200, 100, 255};
+		_FillRR({sx, sy, sw, sh}, DrawCtx::_Mix(offC, onC, t), sh * 0.5f);
 
-		float knobX = tog->checked ? (sx + sw - sh * 0.4f) : (sx + sh * 0.4f);
+		float knobMin = sx + sh * 0.4f;
+		float knobMax = sx + sw - sh * 0.4f;
+		float knobX   = knobMin + (knobMax - knobMin) * t;
 		m_renderer.SetDrawColor({255, 255, 255, 255});
 		m_renderer.RenderFillCircle({knobX, sy + sh * 0.5f}, sh * 0.35f);
 
@@ -481,8 +533,8 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawRadio(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
-		auto *rd = m_ctx.Get<RadioData>(e);
+	inline void RenderSystem::_DrawRadio(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
+		auto *rd = m_ctx.Get<RadioState>(e);
 		if (!rd) return;
 
 		float radius = SDL::Min(rect.w, rect.h) * 0.25f;
@@ -504,7 +556,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawInput(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawInput(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
 		auto *te = m_ctx.Get<TextEdit>(e);
 		if (!te) return;
 
@@ -536,7 +588,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawTextArea(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawTextArea(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
 		auto *te = m_ctx.Get<TextEdit>(e);
 		auto *ta = m_ctx.Get<TextAreaData>(e);
 		auto *lp = m_ctx.Get<LayoutProps>(e);
@@ -577,16 +629,11 @@ namespace SDL::UI {
 		bool showY = lp->contentH > viewH;
 		if (showY) {
 			FRect sbRect{rect.x + rect.w - sbt, rect.y + pad.top, sbt, viewH};
-			ScrollBarData sb{};
-			sb.orientation = Orientation::Vertical;
-			sb.contentSize = lp->contentH;
-			sb.viewSize = viewH;
-			sb.offset = lp->scrollY;
-			_DrawScrollBar(sbRect, sb, dctx);
+			_DrawScrollBar(sbRect, Orientation::Vertical, lp->contentH, viewH, lp->scrollY, dctx);
 		}
 	}
 
-	inline void UIRenderSystem::_DrawListBox(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawListBox(ECS::EntityId e, const FRect& rect, const DrawCtx& dctx) {
 		auto *lb = m_ctx.Get<ListBoxData>(e);
 		auto *lp = m_ctx.Get<LayoutProps>(e);
 		auto *ilv = m_ctx.Get<ItemListView>(e);
@@ -631,16 +678,11 @@ namespace SDL::UI {
 		bool showY = lp->contentH > viewH;
 		if (showY) {
 			FRect sbRect{rect.x + rect.w - sbt, rect.y + pad.top, sbt, viewH};
-			ScrollBarData sb{};
-			sb.orientation = Orientation::Vertical;
-			sb.contentSize = lp->contentH;
-			sb.viewSize = viewH;
-			sb.offset = lp->scrollY;
-			_DrawScrollBar(sbRect, sb, dctx);
+			_DrawScrollBar(sbRect, Orientation::Vertical, lp->contentH, viewH, lp->scrollY, dctx);
 		}
 	}
 
-	inline void UIRenderSystem::_DrawImage(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawImage(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const DrawCtx& dctx) {
 		auto *id = m_ctx.Get<ImageData>(e);
 		if (!id || id->key.empty()) return;
 
@@ -686,7 +728,7 @@ namespace SDL::UI {
 		                         SDL_FRect{fitRect.x, fitRect.y, fitRect.w, fitRect.h});
 	}
 
-	inline void UIRenderSystem::_DrawCanvas(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const DrawCtx& dctx) {
+	inline void RenderSystem::_DrawCanvas(ECS::EntityId e, const FRect& rect, [[maybe_unused]] const DrawCtx& dctx) {
 		auto *cd = m_ctx.Get<CanvasData>(e);
 		if (!cd || !cd->renderCb) return;
 		cd->renderCb(m_renderer, rect);
@@ -694,13 +736,13 @@ namespace SDL::UI {
 
 	// ── Helper implementations ───────────────────────────────────────────────────────
 
-	inline void UIRenderSystem::_FillRect(const FRect& r, SDL::Color c, float op) {
+	inline void RenderSystem::_FillRect(const FRect& r, SDL::Color c, float op) {
 		c.a = (uint8_t)(c.a * op);
 		m_renderer.SetDrawColor(c);
 		m_renderer.RenderFillRect(r);
 	}
 
-	inline void UIRenderSystem::_FillRR(const FRect& r, SDL::Color c, float radius, float op) {
+	inline void RenderSystem::_FillRR(const FRect& r, SDL::Color c, float radius, float op) {
 		c.a = (uint8_t)(c.a * op);
 		m_renderer.SetDrawColor(c);
 		if (radius > 0.f) {
@@ -711,7 +753,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_StrokeRR(const FRect& r, SDL::Color c, const SDL::FBox& borders,
+	inline void RenderSystem::_StrokeRR(const FRect& r, SDL::Color c, const SDL::FBox& borders,
 	                                       [[maybe_unused]] float radius, float op) {
 		if (borders.left <= 0.f && borders.right <= 0.f && borders.top <= 0.f && borders.bottom <= 0.f)
 			return;
@@ -727,7 +769,7 @@ namespace SDL::UI {
 			m_renderer.RenderFillRect(FRect{r.x + r.w - borders.right, r.y, borders.right, r.h});
 	}
 
-	inline UIRenderSystem::ScrollViewInfo UIRenderSystem::_ComputeScrollView(const FRect& r,
+	inline RenderSystem::ScrollViewInfo RenderSystem::_ComputeScrollView(const FRect& r,
 	                                                                          const LayoutProps& lp,
 	                                                                          const Widget& w,
 	                                                                          const DrawCtx& dctx) const {
@@ -754,7 +796,7 @@ namespace SDL::UI {
 		return v;
 	}
 
-	inline void UIRenderSystem::_DrawHueBar(const FRect& rect, [[maybe_unused]] float op) {
+	inline void RenderSystem::_DrawHueBar(const FRect& rect, [[maybe_unused]] float op) {
 		const SDL::Color hues[7] = {
 			{255, 0, 0, 255}, {255, 255, 0, 255}, {0, 255, 0, 255},
 			{0, 255, 255, 255}, {0, 0, 255, 255}, {255, 0, 255, 255},
@@ -768,11 +810,13 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UIRenderSystem::_DrawScrollBar(const FRect& rect, const ScrollBarData& sb, const DrawCtx& dctx) {
-		if (sb.contentSize <= sb.viewSize) return;
+	inline void RenderSystem::_DrawScrollBar(const FRect& rect, Orientation orient,
+	                                           float contentSize, float viewSize,
+	                                           float offset, const DrawCtx& dctx) {
+		if (contentSize <= viewSize) return;
 
-		float ratio = SDL::Clamp(sb.viewSize / sb.contentSize, 0.05f, 1.f);
-		bool isVert = (sb.orientation == Orientation::Vertical);
+		float ratio = SDL::Clamp(viewSize / contentSize, 0.05f, 1.f);
+		bool isVert = (orient == Orientation::Vertical);
 
 		SDL::Color trackCol = dctx.sb ? dctx.sb->trackColor : SDL::Color{42, 44, 58, 200};
 		SDL::Color thumbCol = dctx.sb ? dctx.sb->thumbColor : SDL::Color{100, 160, 230, 220};
@@ -782,8 +826,8 @@ namespace SDL::UI {
 
 		float thumbLen = isVert ? (rect.h * ratio) : (rect.w * ratio);
 		float maxOffset = isVert ? (rect.h - thumbLen) : (rect.w - thumbLen);
-		float offsetRatio = (sb.contentSize - sb.viewSize > 0.f)
-			? (sb.offset / (sb.contentSize - sb.viewSize)) : 0.f;
+		float offsetRatio = (contentSize - viewSize > 0.f)
+			? (offset / (contentSize - viewSize)) : 0.f;
 		float thumbPos = maxOffset * offsetRatio;
 
 		FRect thumb;
@@ -798,7 +842,7 @@ namespace SDL::UI {
 		m_renderer.RenderFillRoundedRect(thumb, scrollThumbCorners);
 	}
 
-	// NOTE: UIRenderSystem::_DrawText is defined in UISystem.h (after System is fully declared)
-	// so it can use System::ResolveFont / System::EnsureText for proper SDL_ttf rendering.
+	// NOTE: RenderSystem::_DrawText is defined in UISystem.h (after Context is fully declared)
+	// so it can use Context::ResolveFont / Context::EnsureText for proper SDL_ttf rendering.
 
 } // namespace SDL::UI

@@ -997,6 +997,7 @@ public:
 			m_videoFrameQ.Reset();
 			m_clockOffset.store(0.0);
 			m_audioBytesTotal.store(0);
+			m_firstAudioPtsSet.store(false);
 			if (m_audioStream) m_audioStream.Clear();
 		}
 
@@ -1033,6 +1034,7 @@ public:
 		m_currentPts.store(0.0);
 		m_clockOffset.store(0.0);
 		m_audioBytesTotal.store(0);
+		m_firstAudioPtsSet.store(false);
 		m_currentSubtitle.clear();
 		_SetState(PlaybackState::Stopped);
 	}
@@ -1061,6 +1063,7 @@ public:
 			m_clockOffset.store(seconds);
 			m_audioBytesTotal.store(0);
 			m_currentPts.store(seconds);
+			m_firstAudioPtsSet.store(true); // seek target is authoritative, don't re-anchor on first decoded frame
 		}
 
 		if (wasPlaying) {
@@ -1148,6 +1151,7 @@ public:
 		if (ok) {
 			_InitAudio();
 			m_clockOffset.store(savedPts);
+			m_firstAudioPtsSet.store(true); // savedPts is authoritative
 			m_file.Seek(savedPts);
 		}
 		if (wasPlaying) {
@@ -1234,17 +1238,25 @@ public:
 		// Update subtitle
 		_UpdateSubtitle(clock);
 
-		// Pop and upload due video frames
-		bool newFrame = false;
+		// Pop due video frames. Strategy: pop ALL frames whose pts is <= clock,
+		// keeping only the most recent one (drop earlier ones to catch up if we're
+		// late). This prevents both stale frames being displayed and the previous
+		// "frames shown ~33 ms early" desync caused by the old +1/30 tolerance.
+		bool       newFrame  = false;
 		MediaFrame frame;
+		MediaFrame latest;
+		bool       hasLatest = false;
 		while (m_videoFrameQ.Peek(frame)) {
-			if (frame.pts <= clock + 1.0 / 30.0) {
-				if (m_videoFrameQ.TryPop(frame)) {
-					_UploadFrame(frame);
-					newFrame = true;
-					if (m_cbFrame) m_cbFrame();
-				}
+			if (frame.pts > clock) break;
+			if (m_videoFrameQ.TryPop(frame)) {
+				latest    = std::move(frame);
+				hasLatest = true;
 			} else break;
+		}
+		if (hasLatest) {
+			_UploadFrame(latest);
+			newFrame = true;
+			if (m_cbFrame) m_cbFrame();
 		}
 
 		// Handle end of file
@@ -1295,6 +1307,7 @@ private:
 	bool                 m_muted            = false;
 	std::atomic<int64_t> m_audioBytesTotal{0};  ///< float32 bytes pushed to SDL
 	std::atomic<double>  m_clockOffset{0.0};    ///< base time after last seek
+	std::atomic<bool>    m_firstAudioPtsSet{false}; ///< latched on first decoded audio frame after start/seek
 
 	// ── Playback state ────────────────────────────────────────────────────────
 
@@ -1387,6 +1400,7 @@ private:
 		m_audioStream = nullptr;
 		m_audioBytesTotal.store(0);
 		m_clockOffset.store(0.0);
+		m_firstAudioPtsSet.store(false);
 	}
 
 	// ── Frame upload ──────────────────────────────────────────────────────────
@@ -1533,6 +1547,24 @@ private:
 
 	void _ProcessAudioFrame(AVFrame* frame, SwrContext* swr) {
 		if (!m_audioStream) return;
+
+		// Anchor the master clock on the first audio frame after start.
+		// Many files have a non-zero first audio PTS; without this, video
+		// frames (which carry true PTS values) drift relative to audio.
+		if (!m_firstAudioPtsSet.load(std::memory_order_acquire)) {
+			int ai = m_file.GetActiveAudioTrack();
+			auto* fmt = m_file.GetFormatCtx();
+			if (ai >= 0 && fmt && ai < (int)fmt->nb_streams) {
+				AVStream* st = fmt->streams[ai];
+				int64_t ts = (frame->best_effort_timestamp != AV_NOPTS_VALUE)
+					? frame->best_effort_timestamp : frame->pts;
+				if (ts != AV_NOPTS_VALUE && st->time_base.num > 0) {
+					double pts = (double)ts * av_q2d(st->time_base);
+					if (pts > 0.0) m_clockOffset.store(pts);
+				}
+			}
+			m_firstAudioPtsSet.store(true, std::memory_order_release);
+		}
 
 		int outSamples = (int)av_rescale_rnd(
 			swr_get_delay(swr, frame->sample_rate) + frame->nb_samples,

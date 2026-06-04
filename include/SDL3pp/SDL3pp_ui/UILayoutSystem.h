@@ -11,33 +11,29 @@
 
 namespace SDL::UI {
 
-	class System;  // Forward declaration
+	class Context;  // Forward declaration
 
 	// ==================================================================================
-	// UILayoutSystem — Measure + Place pipeline
+	// LayoutSystem — Measure + Place pipeline
 	// ==================================================================================
 	//
 	// Owns:
 	//   - the dirty flag that controls when a recalculation runs
-	//   - the flattened draw-list (built in the same pass as Place) consumed by
-	//     UIRenderSystem to avoid recursive tree traversal at render time
+	//   - geometry (ComputedRect: measured / relative / absolute / inner+outer clip)
+	//
+	// The flattened, z-ordered draw/event list is produced separately by IndexSystem
+	// (which reads the ComputedRect clips written here); RenderSystem and the event
+	// hit-test consume that list.
 	//
 	// API:
-	//   - Process(root, viewport): runs Measure + Place + draw-list build if dirty.
+	//   - Process(root, viewport): runs Measure + Place + clip propagation if dirty.
 	//   - MarkDirty():             requests a recalculation on the next Process call.
-	//   - GetDrawList():           returns the latest flattened draw list.
 	//
 	// ==================================================================================
 
-	class UILayoutSystem {
+	class LayoutSystem {
 	public:
-		struct DrawCall {
-			ECS::EntityId entity;
-			FRect         clipRect;
-			int           zIndex;
-		};
-
-		UILayoutSystem(ECS::Context& ctx, System& sys);
+		LayoutSystem(ECS::Context& ctx, Context& sys);
 
 		void Process(ECS::EntityId root, FRect viewport);
 
@@ -45,14 +41,12 @@ namespace SDL::UI {
 		void                 MarkDirty(ECS::EntityId e);  ///< Mark a specific subtree (and its ancestors) dirty.
 		[[nodiscard]] bool   IsDirty()  const noexcept     { return m_dirty; }
 
-		[[nodiscard]] const std::vector<DrawCall>& GetDrawList() const noexcept { return m_drawList; }
-
 	private:
 		ECS::Context&         m_ctx;
-		System&               m_sys;
+		Context&               m_sys;
 		bool                  m_dirty   = true;
 		FRect                 m_viewport = {};
-		std::vector<DrawCall> m_drawList;
+		FRect                 m_rootClip = {};  ///< Clip used by widgets portaled to the root.
 
 		// ── Spacing / scrollbar helpers ───────────────────────────────────────────
 		[[nodiscard]] const SpacingStyle& _Sp(ECS::EntityId e) const noexcept {
@@ -68,7 +62,6 @@ namespace SDL::UI {
 		FPoint _Measure      (ECS::EntityId e, const LayoutContext& ctx);
 		void   _Place        (ECS::EntityId e, FRect rect, const LayoutContext& ctx);
 		FPoint _IntrinsicSize(ECS::EntityId e);
-		void   _BuildDrawList(ECS::EntityId root);
 		void   _ClearDirtyLayout(ECS::EntityId root);
 		void   _UpdateClips(ECS::EntityId e, FRect parentClip);
 
@@ -82,26 +75,33 @@ namespace SDL::UI {
 	};
 
 	// ==================================================================================
-	// Implementation: UILayoutSystem
+	// Implementation: LayoutSystem
 	// ==================================================================================
 
-	inline UILayoutSystem::UILayoutSystem(ECS::Context& ctx, System& sys) : m_ctx(ctx), m_sys(sys) {}
+	inline LayoutSystem::LayoutSystem(ECS::Context& ctx, Context& sys) : m_ctx(ctx), m_sys(sys) {}
 
-	inline void UILayoutSystem::Process(ECS::EntityId root, FRect viewport) {
+	inline void LayoutSystem::Process(ECS::EntityId root, FRect viewport) {
 		if (!m_ctx.IsAlive(root)) return;
+		// If viewport changed (e.g. window resize), mark layout dirty to recalculate all geometry
+		if (m_viewport != viewport) {
+			m_dirty = true;
+		}
 		m_viewport = viewport;
 		if (m_dirty) {
 			LayoutContext rootCtx = _MakeRootCtx(viewport);
 			_Measure(root, rootCtx);
 			_Place(root, viewport, rootCtx);
+			if (auto* rcr = m_ctx.Get<ComputedRect>(root))
+				m_rootClip = rcr->absolute.GetIntersection(viewport);
+			else
+				m_rootClip = viewport;
 			_UpdateClips(root, viewport);
-			_BuildDrawList(root);
 			_ClearDirtyLayout(root);
 			m_dirty = false;
 		}
 	}
 
-	inline void UILayoutSystem::MarkDirty(ECS::EntityId e) {
+	inline void LayoutSystem::MarkDirty(ECS::EntityId e) {
 		if (!m_ctx.IsAlive(e)) return;
 		m_dirty = true;
 		auto *parent = m_ctx.Get<Parent>(e);
@@ -111,7 +111,7 @@ namespace SDL::UI {
 	}
 
 
-	inline void UILayoutSystem::_ContainerScrollbars(const Widget& w, const LayoutProps& lp, ECS::EntityId e,
+	inline void LayoutSystem::_ContainerScrollbars(const Widget& w, const LayoutProps& lp, ECS::EntityId e,
 	                                                  float cW, float cH, bool& outShowX, bool& outShowY) const noexcept {
 		outShowX = outShowY = false;
 		if (w.type != WidgetType::Container && w.type != WidgetType::ListBox &&
@@ -135,7 +135,7 @@ namespace SDL::UI {
 			outShowY = (lp.contentH > cH - sbt);
 	}
 
-	inline LayoutContext UILayoutSystem::_MakeRootCtx(FRect viewport) const noexcept {
+	inline LayoutContext LayoutSystem::_MakeRootCtx(FRect viewport) const noexcept {
 		LayoutContext ctx;
 		ctx.windowSize = {viewport.w, viewport.h};
 		ctx.rootSize = {viewport.w, viewport.h};
@@ -146,7 +146,7 @@ namespace SDL::UI {
 		return ctx;
 	}
 
-	inline LayoutContext UILayoutSystem::_MakeChildCtx(ECS::EntityId parent, const LayoutContext& parentCtx) const noexcept {
+	inline LayoutContext LayoutSystem::_MakeChildCtx(ECS::EntityId parent, const LayoutContext& parentCtx) const noexcept {
 		LayoutContext ctx = parentCtx;
 		if (!m_ctx.IsAlive(parent)) return ctx;
 		auto *lp = m_ctx.Get<LayoutProps>(parent);
@@ -157,7 +157,7 @@ namespace SDL::UI {
 		return ctx;
 	}
 
-	inline FPoint UILayoutSystem::_IntrinsicSize(ECS::EntityId e) {
+	inline FPoint LayoutSystem::_IntrinsicSize(ECS::EntityId e) {
 		auto *w = m_ctx.Get<Widget>(e);
 		if (!w) return {};
 		float ch = _TextHeight(e);
@@ -216,7 +216,7 @@ namespace SDL::UI {
 		case WidgetType::ColorPicker:
 			return {220.f, 240.f};
 		case WidgetType::Popup: {
-			auto *pd = m_ctx.Get<PopupData>(e);
+			auto *pd = m_ctx.Get<PopupConfig>(e);
 			return {320.f, 240.f + (pd ? pd->headerH : 28.f)};
 		}
 		case WidgetType::Tree:
@@ -228,7 +228,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline FPoint UILayoutSystem::_Measure(ECS::EntityId e, const LayoutContext& ctx) {
+	inline FPoint LayoutSystem::_Measure(ECS::EntityId e, const LayoutContext& ctx) {
 		if (!m_ctx.IsAlive(e)) return {};
 		auto *w  = m_ctx.Get<Widget>(e);
 		auto *lp = m_ctx.Get<LayoutProps>(e);
@@ -543,7 +543,7 @@ namespace SDL::UI {
 		return cr->measured;
 	}
 
-	inline void UILayoutSystem::_Place(ECS::EntityId e, FRect rect, const LayoutContext& ctx) {
+	inline void LayoutSystem::_Place(ECS::EntityId e, FRect rect, const LayoutContext& ctx) {
 		if (!m_ctx.IsAlive(e)) return;
 
 		auto *w  = m_ctx.Get<Widget>(e);
@@ -565,7 +565,7 @@ namespace SDL::UI {
 		} else if (w->type == WidgetType::TabView) {
 			if (auto *tvd = m_ctx.Get<TabViewData>(e); tvd && tvd->tabLocation != TabLocation::Bottom) topInset = tvd->tabHeight;
 		} else if (w->type == WidgetType::Popup) {
-			if (auto *pd = m_ctx.Get<PopupData>(e)) topInset = pd->headerH;
+			if (auto *pd = m_ctx.Get<PopupConfig>(e)) topInset = pd->headerH;
 		}
 		float ch2 = SDL::Max(0.f, self.h - topInset - sp.padding.bottom);
 
@@ -579,20 +579,21 @@ namespace SDL::UI {
 		}
 
 		if (w->type == WidgetType::Splitter) {
-			auto *spl = m_ctx.Get<SplitterData>(e);
-			if (spl && ch->ids.size() >= 2) {
-				bool horiz = (spl->orientation == Orientation::Horizontal);
+			auto *sc  = m_ctx.Get<SplitterConfig>(e);
+			auto *ss  = m_ctx.Get<SplitterState>(e);
+			if (sc && ss && ch->ids.size() >= 2) {
+				bool horiz = (sc->orientation == Orientation::Horizontal);
 				float ox = self.x + sp.padding.left;
 				float oy = self.y + sp.padding.top;
-				float first  = horiz ? cw * spl->ratio : ch2 * spl->ratio;
-				float second = horiz ? cw - first - spl->handleSize : ch2 - first - spl->handleSize;
+				float first  = horiz ? cw * ss->ratio : ch2 * ss->ratio;
+				float second = horiz ? cw - first - sc->handleSize : ch2 - first - sc->handleSize;
 				second = SDL::Max(0.f, second);
 				if (m_ctx.IsAlive(ch->ids[0])) {
 					_Place(ch->ids[0], horiz ? FRect{ox, oy, first, ch2} : FRect{ox, oy, cw, first}, ctx);
 				}
 				if (m_ctx.IsAlive(ch->ids[1])) {
-					_Place(ch->ids[1], horiz ? FRect{ox + first + spl->handleSize, oy, second, ch2} :
-					                           FRect{ox, oy + first + spl->handleSize, cw, second}, ctx);
+					_Place(ch->ids[1], horiz ? FRect{ox + first + sc->handleSize, oy, second, ch2} :
+					                           FRect{ox, oy + first + sc->handleSize, cw, second}, ctx);
 				}
 			}
 			return;
@@ -953,7 +954,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UILayoutSystem::_UpdateClips(ECS::EntityId e, FRect parentClip) {
+	inline void LayoutSystem::_UpdateClips(ECS::EntityId e, FRect parentClip) {
 		if (!m_ctx.IsAlive(e)) return;
 
 		auto *w  = m_ctx.Get<Widget>(e);
@@ -962,7 +963,22 @@ namespace SDL::UI {
 		auto *cr = m_ctx.Get<ComputedRect>(e);
 		if (!w || !lp || !cr) return;
 
-		cr->inner_clip = cr->absolute.GetIntersection(parentClip);
+		// Portal attachment: a floating widget (popup / dropdown / tooltip) clips to
+		// its anchor instead of its tree parent, so it is not cut off by an ancestor.
+		FRect effParentClip = parentClip;
+		if (auto* lay = m_ctx.Get<LayerProps>(e)) {
+			switch (lay->attach) {
+			case PopupAttach::Root:   effParentClip = m_rootClip; break;
+			case PopupAttach::Window: effParentClip = m_viewport; break;
+			case PopupAttach::Target:
+				if (auto* tcr = m_ctx.Get<ComputedRect>(lay->attachTarget))
+					effParentClip = tcr->inner_clip;
+				break;
+			case PopupAttach::Parent: break;
+			}
+		}
+
+		cr->inner_clip = cr->absolute.GetIntersection(effParentClip);
 		if (bs) cr->outer_clip = cr->inner_clip.Extend(bs->dimensions);
 		else    cr->outer_clip = cr->inner_clip;
 
@@ -1013,27 +1029,7 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void UILayoutSystem::_BuildDrawList(ECS::EntityId root) {
-		m_drawList.clear();
-		std::function<void(ECS::EntityId, int)> traverse = [&](ECS::EntityId e, int z) {
-			if (!m_ctx.IsAlive(e)) return;
-			auto *w = m_ctx.Get<Widget>(e);
-			auto *cr = m_ctx.Get<ComputedRect>(e);
-			if (!w || !cr || !Has(w->behavior, WidgetBehaviorFlag::Visible)) return;
-
-			m_drawList.push_back({e, cr->inner_clip, z});
-
-			auto *ch = m_ctx.Get<Children>(e);
-			if (ch) {
-				for (size_t i = 0; i < ch->ids.size(); ++i) {
-					traverse(ch->ids[i], z + 1);
-				}
-			}
-		};
-		traverse(root, 0);
-	}
-
-	inline void UILayoutSystem::_ClearDirtyLayout(ECS::EntityId root) {
+	inline void LayoutSystem::_ClearDirtyLayout(ECS::EntityId root) {
 		std::function<void(ECS::EntityId)> traverse = [&](ECS::EntityId e) {
 			if (!m_ctx.IsAlive(e)) return;
 			auto *w = m_ctx.Get<Widget>(e);

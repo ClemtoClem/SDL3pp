@@ -1272,10 +1272,8 @@ inline std::optional<Event> WaitEventTimeout(Sint32 timeoutMS) {
  * @sa PushEvent
  * @sa WaitEvent
  */
-inline bool WaitEventTimeout(Event* event,
-														 std::chrono::milliseconds timeoutDuration) {
-	return WaitEventTimeout(event,
-													Sint32(std::max(timeoutDuration.count(), Sint64(1))));
+inline bool WaitEventTimeout(Event* event, std::chrono::milliseconds timeoutDuration) {
+	return WaitEventTimeout(event, Sint32(std::max(timeoutDuration.count(), Sint64(1))));
 }
 
 /**
@@ -1526,8 +1524,7 @@ inline void SetEventFilter(EventSurfaceFilter filter, void* userdata) {
 inline void SetEventFilter(EventSurfaceFilterCB filter) {
 	static EventSurfaceFilterCB StaticSurfaceFilter;
 	StaticSurfaceFilter = std::move(filter);
-	SetEventFilter([](void*, Event* event) { return StaticSurfaceFilter(event); },
-								 nullptr);
+	SetEventFilter([](void*, Event* event) { return StaticSurfaceFilter(event); }, nullptr);
 }
 
 /**

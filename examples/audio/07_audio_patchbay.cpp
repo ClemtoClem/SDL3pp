@@ -50,7 +50,7 @@ namespace pal {
 
 enum class BlockType   { AudioIn, AudioOut, Filter, Amp, Mixer, Scope, Spectrum, Osc, Delay, Playlist };
 enum class FilterMode  { LowPass, HighPass, BandStop };
-enum class MixMode     { Add, Multiply, Average };
+enum class MixMode     { Add, Multiply, Average, WeightedDynamic }; // Ajout du mode WeightedDynamic
 enum class PortDir     { In, Out };
 enum class OscShape    { Sine = 0, Square, Triangle, Sawtooth, Noise };
 enum class TriggerMode { Free = 0, Rising, Falling };
@@ -95,7 +95,6 @@ static MBI MSep() { return MBI::Sep(); }
 
 static bool LoadAudioToFloatMono(const std::string& path, int targetSampleRate, std::vector<float>& outSamples) {
     outSamples.clear();
-    // Primary: SDL_mixer AudioDecoder handles WAV, OGG, FLAC, MP3.
     try {
         SDL::AudioSpec dstSpec{};
         dstSpec.format   = SDL::AUDIO_F32;
@@ -113,7 +112,7 @@ static bool LoadAudioToFloatMono(const std::string& path, int targetSampleRate, 
         }
         if (!outSamples.empty()) return true;
     } catch (...) {}
-    // Fallback: SDL_LoadWAV for plain WAV.
+    
     SDL_AudioSpec spec{};
     Uint8* buf = nullptr;
     Uint32 len = 0;
@@ -160,7 +159,6 @@ struct DSPNode {
     std::vector<SDL::ECS::EntityId> uiOutPorts;
 };
 
-// Composants d'états spécifiques
 struct AudioInState {
     SDL::AudioStream stream;
     int selDeviceIdx = 0;
@@ -208,22 +206,15 @@ struct SpectrumState {
 };
 
 struct ScopeState {
-    // Display frame
     std::vector<float> displayData;
-
-    // Trigger config (written from main thread, read from audio thread)
     TriggerMode trigMode  = TriggerMode::Free;
     float       trigLevel = 0.f;
-    float       vScale    = 1.f;   // vertical gain (1 = ±1.0 fills screen)
-
-    // Internal trigger state (audio thread only)
+    float       vScale    = 1.f;
     bool  trigArmed    = true;
     float prevSample   = 0.f;
     bool  collecting   = false;
     int   collectCount = 0;
     std::vector<float> collectBuf;
-
-    // UI entities
     SDL::ECS::EntityId lblTrigLevel;
     SDL::ECS::EntityId lblVScale;
 };
@@ -232,7 +223,7 @@ struct OscState {
     OscShape  shape = OscShape::Sine;
     float     freq  = 440.f;
     float     amp   = 0.5f;
-    uint64_t  playbackNs = 0; // nanoseconds of audio committed to AudioOut
+    uint64_t  playbackNs = 0;
     SDL::ECS::EntityId lblFreq, lblAmp;
 };
 
@@ -241,15 +232,12 @@ struct PlaylistState {
     SDL::ECS::EntityId uiExplorerPopup = SDL::ECS::NullEntity;
     SDL::ECS::EntityId uiSlider;
     SDL::ECS::EntityId uiTimeLbl;
-
     std::vector<std::string> tracks;
     int currentTrack = -1;
-    
     int pendingTrackToLoad = -1;
     std::vector<float> currentAudioData;
     size_t playbackPos = 0;
     float durationSec = 0.f;
-
     bool isPlaying = false;
     bool isAutoplay = true;
     bool isLooping = false;
@@ -286,7 +274,6 @@ struct Main {
     SDL::FPoint        mousePos = {};
     int                s_nextId = 1;
 
-    // Multithreading pour l'audio
     std::atomic<bool> m_audioRunning{true};
     std::thread m_audioThread;
     std::mutex m_audioMutex;
@@ -298,8 +285,7 @@ struct Main {
 			if (arg == "--verbose") SDL::SetLogPriorities(SDL::LOG_PRIORITY_VERBOSE);
 			if (arg == "--debug")   SDL::SetLogPriorities(SDL::LOG_PRIORITY_DEBUG);
 		}
-		SDL::SetAppMetadata("SDL3pp audio patchbay", "1.0",
-							"com.example.audio_patchbay");
+		SDL::SetAppMetadata("SDL3pp audio patchbay", "1.0", "com.example.audio_patchbay");
         SDL::Init(SDL::INIT_VIDEO | SDL::INIT_AUDIO);
         SDL::TTF::Init();
         SDL::MIX::Init();
@@ -324,11 +310,9 @@ struct Main {
         _RescanDevices();
         _BuildUI();
         
-        // Démarrage du thread audio
         m_audioThread = std::thread([this]() {
             while (m_audioRunning) {
                 std::unique_lock<std::mutex> lock(m_audioMutex);
-                // Le thread attend 5ms pour boucler, tout en conservant le verrou pour traiter le graphe
                 m_audioCv.wait_for(lock, std::chrono::milliseconds(5), [this] { return !m_audioRunning; });
                 if (!m_audioRunning) break;
                 _ProcessGraph();
@@ -354,10 +338,10 @@ struct Main {
             catch (...) { m_playNames.push_back(std::format("Play {}", i)); }
             
         std::lock_guard<std::mutex> lock(m_audioMutex);
-        ecs.Each<AudioInState>([&](SDL::ECS::EntityId /*e*/, AudioInState& st) {
+        ecs.Each<AudioInState>([&](SDL::ECS::EntityId, AudioInState& st) {
             if (auto* d = ecs.Get<SDL::UI::ComboBoxData>(st.cbDev)) d->items = m_recNames;
         });
-        ecs.Each<AudioOutState>([&](SDL::ECS::EntityId /*e*/, AudioOutState& st) {
+        ecs.Each<AudioOutState>([&](SDL::ECS::EntityId, AudioOutState& st) {
             if (auto* d = ecs.Get<SDL::UI::ComboBoxData>(st.cbDev)) d->items = m_playNames;
         });
     }
@@ -395,8 +379,6 @@ struct Main {
             .Padding(4.f).AttachTo(m_rootId);
 
         SDL::ECS::EntityId popId = popup.Id();
-
-        // Default tree root = home directory
         const char* home = SDL::GetUserFolder(SDL::FOLDER_HOME);
         const char* treeRoot = home ? home : SDL::GetBasePath();
         
@@ -418,7 +400,6 @@ struct Main {
         });
 
         auto topRow = ui.Row("topR_" + bid, 4.f).GrowW(100.f).Children(pathInput, goBtn);
-
         ui.AddTreeNode(treeId, {treeRoot, treeRoot, 0, true, false});
 
         ui.OnTreeSelect(treeId, [this, playlistId, pathId, treeId](int idx, bool hasKids) {
@@ -473,7 +454,6 @@ struct Main {
 
         auto layout = ui.Column("layout_" + bid, 4.f, 4.f).GrowW(100.f).GrowH(100.f).Children(topRow, tree);
         ui.GetBuilder(popId).Child(layout);
-        
         return popId;
     }
 
@@ -492,7 +472,7 @@ struct Main {
             case BlockType::AudioOut: title="Audio Out"; sz={260, 140}; color=pal::PURPLE; numIn=1; numOut=0; break;
             case BlockType::Filter:   title="Filter"; sz={210, 220}; color=pal::ORANGE; numIn=1; numOut=1; break;
             case BlockType::Amp:      title="Amplifier"; sz={175, 95}; color=pal::GREEN; numIn=1; numOut=1; break;
-            case BlockType::Mixer:    title="Mixer"; sz={180, 160}; color=pal::TEAL; numIn=3; numOut=1; break;
+            case BlockType::Mixer:    title="Mixer"; sz={180, 185}; color=pal::TEAL; numIn=3; numOut=1; break; // Hauteur légèrement augmentée pour le 4ème radio button
             case BlockType::Scope:    title="Scope"; sz={260, 290}; color=pal::GREEN; numIn=1; numOut=0; break;
             case BlockType::Spectrum: title="Spectrum"; sz={320, 300}; color=pal::ACCENT; numIn=1; numOut=0; break;
             case BlockType::Osc:      title="Oscillator"; sz={220, 270}; color=pal::RED; numIn=0; numOut=1; break;
@@ -540,7 +520,6 @@ struct Main {
         switch(type) {
             case BlockType::AudioIn: {
                 AudioInState st;
-                
                 auto togIn = ui.Toggle("togIn_" + bid, "On").OnToggle([this, eId](bool v) {
                     std::lock_guard<std::mutex> lk(m_audioMutex);
                     if (auto* s = ecs.Get<AudioInState>(eId)) s->enabled = v;
@@ -568,7 +547,6 @@ struct Main {
                 }).GrowW(100.f).Id();
 
                 auto rowT = ui.Row("rt_" + bid, 8.f).AlignChildrenV(Align::Center).Children(ui.Label("lbT_" + bid, "Device:").FontSize(10.f), togIn);
-
                 b.Children(rowT, ui.GetBuilder(st.cbDev),
                            ui.Label("srl_" + bid, "Sample Rate:").FontSize(10.f), ui.GetBuilder(cbSR), 
                            ui.Label("szl_" + bid, "Buffer Size:").FontSize(10.f), ui.GetBuilder(cbSz));
@@ -579,7 +557,6 @@ struct Main {
             }
             case BlockType::AudioOut: {
                 AudioOutState st;
-                
                 auto togOut = ui.Toggle("togOut_" + bid, "On").OnToggle([this, eId](bool v) {
                     std::lock_guard<std::mutex> lk(m_audioMutex);
                     if (auto* s = ecs.Get<AudioOutState>(eId)) s->enabled = v;
@@ -593,7 +570,6 @@ struct Main {
                 }).GrowW(100.f).Id();
 
                 auto rowT = ui.Row("rt_" + bid, 8.f).AlignChildrenV(Align::Center).Children(ui.Label("lbT_" + bid, "Device:").FontSize(10.f), togOut);
-
                 b.Children(rowT, ui.GetBuilder(st.cbDev));
                 
                 _OpenAudioOut(*ecs.Get<DSPNode>(eId), st);
@@ -638,24 +614,19 @@ struct Main {
             }
             case BlockType::Scope: {
                 ScopeState st;
-
-                // ── Canvas ──────────────────────────────────────────────────
                 auto cv = ui.Canvas("cvs_" + bid, nullptr, nullptr,
                 [this, eId](SDL::RendererRef r, SDL::FRect rect) {
                     constexpr int kCols = 10, kRows = 8;
                     const float cx = rect.x, cy = rect.y, cw = rect.w, ch = rect.h;
                     const float midY = cy + ch * 0.5f, midX = cx + cw * 0.5f;
 
-                    // Background
                     r.SetDrawColor({10, 13, 22, 255}); r.RenderFillRect(rect);
 
-                    // Grid
                     for (int i = 0; i <= kCols; ++i) {
                         float x = cx + cw * (float)i / kCols;
                         bool center = (i == kCols / 2);
                         r.SetDrawColor(center ? SDL::Color{40,50,75,255} : SDL::Color{20,24,38,255});
                         r.RenderLine({x, cy}, {x, cy + ch});
-                        // Sub-ticks on center horizontal
                         r.SetDrawColor({30, 36, 55, 255});
                         for (int j = 1; j < 5; ++j) {
                             float sx = cx + cw * ((float)(i * 5 + j) / (kCols * 5));
@@ -667,7 +638,6 @@ struct Main {
                         bool center = (i == kRows / 2);
                         r.SetDrawColor(center ? SDL::Color{40,50,75,255} : SDL::Color{20,24,38,255});
                         r.RenderLine({cx, y}, {cx + cw, y});
-                        // Sub-ticks on center vertical
                         r.SetDrawColor({30, 36, 55, 255});
                         for (int j = 1; j < 5; ++j) {
                             float sy = cy + ch * ((float)(i * 5 + j) / (kRows * 5));
@@ -679,13 +649,11 @@ struct Main {
                     auto* st = ecs.Get<ScopeState>(eId);
                     if (!st) return;
 
-                    // Trigger level line (dashed orange)
                     if (st->trigMode != TriggerMode::Free) {
                         float ty = SDL::Clamp(midY - st->trigLevel * st->vScale * ch * 0.5f, cy, cy + ch);
                         r.SetDrawColor({230, 145, 30, 200});
                         for (float x = cx; x < cx + cw - 1.f; x += 8.f)
                             r.RenderLine({x, ty}, {SDL::Min(x + 5.f, cx + cw - 1.f), ty});
-                        // Edge marker (arrow-like)
                         r.SetDrawColor({230, 145, 30, 255});
                         float dir = (st->trigMode == TriggerMode::Rising) ? -4.f : 4.f;
                         r.RenderLine({cx,      ty},       {cx + 6.f, ty});
@@ -693,7 +661,6 @@ struct Main {
                         r.RenderLine({cx + 6.f, ty + dir},{cx + 12.f, ty + dir});
                     }
 
-                    // Waveform
                     if (!st->displayData.empty()) {
                         r.SetDrawColor(pal::GREEN);
                         int n = (int)st->displayData.size();
@@ -707,12 +674,9 @@ struct Main {
                             px = nx; py = ny;
                         }
                     }
-
-                    // Border
                     r.SetDrawColor({40, 50, 75, 200}); r.RenderRect(rect);
                 }).GrowW(100.f).GrowH(100.f);
 
-                // ── Trigger mode ─────────────────────────────────────────────
                 auto trigRow = ui.Row("trow_" + bid, 4.f).GrowW(100.f);
                 trigRow.Child(ui.Label("trlbl_" + bid, "Trig:").FontSize(9.f));
                 for (int i = 0; i < 3; ++i) {
@@ -732,7 +696,6 @@ struct Main {
                     trigRow.Child(rb);
                 }
 
-                // ── Trigger level ─────────────────────────────────────────────
                 st.lblTrigLevel = ui.Label("tll_" + bid, "Level: 0.00").FontSize(9.f).Id();
                 auto trigSlider = ui.Slider("tls_" + bid, -1.f, 1.f, 0.f, 0.005f).GrowW(100.f)
                     .OnChange<float>([this, eId](float v) {
@@ -744,7 +707,6 @@ struct Main {
                             ui.SetText(s->lblTrigLevel, std::format("Level: {:+.2f}", v));
                     });
 
-                // ── V-Scale ───────────────────────────────────────────────────
                 st.lblVScale = ui.Label("vsl_" + bid, "V-Scale: ×1.00").FontSize(9.f).Id();
                 auto vScaleSlider = ui.Slider("vss_" + bid, 0.1f, 4.f, 1.f, 0.05f).GrowW(100.f)
                     .OnChange<float>([this, eId](float v) {
@@ -775,8 +737,12 @@ struct Main {
                 auto addr = ui.Radio("add_" + bid, "mx_" + bid, "Add").OnToggle([this, eId](bool v){ if(v) ecs.Get<MixerState>(eId)->mode=MixMode::Add; });
                 auto mulr = ui.Radio("mul_" + bid, "mx_" + bid, "Multiply").OnToggle([this, eId](bool v){ if(v) ecs.Get<MixerState>(eId)->mode=MixMode::Multiply; });
                 auto avgr = ui.Radio("avg_" + bid, "mx_" + bid, "Average").OnToggle([this, eId](bool v){ if(v) ecs.Get<MixerState>(eId)->mode=MixMode::Average; });
+                
+                // Ajout de la nouvelle option d'interface graphique pour l'algorithme demandé
+                auto wdyr = ui.Radio("wdy_" + bid, "mx_" + bid, "Weighted Dynamic").OnToggle([this, eId](bool v){ if(v) ecs.Get<MixerState>(eId)->mode=MixMode::WeightedDynamic; });
+                
                 ui.SetChecked(addr.Id(), true);
-                b.Children(addr, mulr, avgr);
+                b.Children(addr, mulr, avgr, wdyr);
                 ecs.Add<MixerState>(eId, std::move(st));
                 break;
             }
@@ -842,7 +808,6 @@ struct Main {
                 });
 
                 auto rowTop = ui.Row("rTop_" + bid, 2.f).GrowW(100.f).Children(btnAdd, btnClear, btnRem);
-                
                 auto lst = ui.ListBoxWidget("plist_" + bid).GrowW(100.f).GrowH(100.f);
                 st.uiList = lst.Id();
 
@@ -873,7 +838,6 @@ struct Main {
                 });
 
                 auto rowCtrl = ui.Row("rCtrl_" + bid, 2.f).GrowW(100.f).AlignChildrenV(Align::Center).Children(btnPlay, btnStop, togAuto, togLoop);
-
                 auto slProg = ui.Slider("prog_" + bid, 0.f, 1.f, 0.f, 0.01f).GrowW(100.f).OnChange<float>([this, eId](float v) {
                     std::lock_guard<std::mutex> lk(m_audioMutex);
                     if (auto* ps = ecs.Get<PlaylistState>(eId)) {
@@ -886,7 +850,6 @@ struct Main {
                 st.uiTimeLbl = lblTime.Id();
 
                 auto rowProg = ui.Row("rProg_" + bid, 6.f).GrowW(100.f).AlignChildrenV(Align::Center).Children(slProg, lblTime);
-
                 b.Children(rowTop, lst, rowCtrl, rowProg);
                 ecs.Add<PlaylistState>(eId, std::move(st));
                 break;
@@ -951,8 +914,6 @@ struct Main {
     }
 
     void _ProcessGraph() {
-        // Remarque : cette fonction est toujours appelée avec m_audioMutex verrouillé par la lambda du thread
-
         std::unordered_map<SDL::ECS::EntityId, std::vector<SDL::ECS::EntityId>> adj;
         for (auto e : blocks) adj[e] = {};
         for (auto& c : connections) adj[c.fromNode].push_back(c.toNode);
@@ -990,7 +951,7 @@ struct Main {
                     if (st && st->enabled && st->stream && inBus && inBus->valid) {
                         if (st->stream.GetQueued() < node->sampleRate * 0.1f * sizeof(float)) {
                             st->stream.PutData(std::span<const float>{inBus->samples.data(), inBus->samples.size()});
-                            inBus->valid = false; // marque comme consommé pour synchroniser les sources
+                            inBus->valid = false;
                         }
                     }
                     break;
@@ -1048,20 +1009,53 @@ struct Main {
                     auto* st = ecs.Get<MixerState>(e);
                     auto& out = *node->outputs[0].bus;
                     if (!st) break;
+
                     std::fill(out.samples.begin(), out.samples.end(), st->mode == MixMode::Multiply ? 1.f : 0.f);
+                    
+                    // Compter le nombre de flux d'entrées réellement actifs / connectés
                     int active = 0;
                     for (auto& p : node->inputs) {
-                        if (!p.bus || !p.bus->valid) continue;
-                        ++active;
-                        for (int i = 0; i < node->bufferSize; ++i) {
-                            if (st->mode == MixMode::Add) out.samples[i] += p.bus->samples[i];
-                            else if (st->mode == MixMode::Multiply) out.samples[i] *= p.bus->samples[i];
-                            else out.samples[i] += p.bus->samples[i];
+                        if (p.bus && p.bus->valid) {
+                            ++active;
                         }
                     }
-                    if (st->mode == MixMode::Average && active > 0)
-                        for (float& s : out.samples) s /= active;
-                    out.valid = active > 0;
+
+                    if (st->mode == MixMode::WeightedDynamic) {
+                        if (active == 0) {
+                            out.Clear();
+                        } else {
+                            // Algorithme personnalisé : s(t) = (e1(t)*V1 + e2(t)*V2 + ...) / N
+                            for (int i = 0; i < node->bufferSize; ++i) {
+                                float sum = 0.f;
+                                for (auto& p : node->inputs) {
+                                    if (p.bus && p.bus->valid) {
+                                        // On récupère la valeur de l'échantillon. 
+                                        // Note : Les gains individuels V_n s'ils ont été appliqués en amont 
+                                        // (par un bloc Amp par exemple) sont déjà intégrés dans p.bus->samples.
+                                        sum += p.bus->samples[i]; 
+                                    }
+                                }
+                                out.samples[i] = sum / static_cast<float>(active);
+                            }
+                            out.valid = true;
+                        }
+                    } else {
+                        // Traitement originel pour Add, Multiply et Average
+                        int processed = 0;
+                        for (auto& p : node->inputs) {
+                            if (!p.bus || !p.bus->valid) continue;
+                            ++processed;
+                            for (int i = 0; i < node->bufferSize; ++i) {
+                                if (st->mode == MixMode::Add) out.samples[i] += p.bus->samples[i];
+                                else if (st->mode == MixMode::Multiply) out.samples[i] *= p.bus->samples[i];
+                                else out.samples[i] += p.bus->samples[i]; // Mode Average originel
+                            }
+                        }
+                        if (st->mode == MixMode::Average && processed > 0) {
+                            for (float& s : out.samples) s /= processed;
+                        }
+                        out.valid = processed > 0;
+                    }
                     break;
                 }
                 case BlockType::Scope: {
@@ -1133,18 +1127,14 @@ struct Main {
                     auto* st = ecs.Get<OscState>(e);
                     auto& out = *node->outputs[0].bus;
                     if (!st) break;
-                    if (out.valid) break; // buffer précédent pas encore consommé par AudioOut
+                    if (out.valid) break;
 
-                    // Temps de lecture en nanosecondes (base de temps SDL exacte)
-                    // Chaque sample avance de 1 000 000 000 / sampleRate ns
-                    const uint64_t nsPerBuffer = (uint64_t)node->bufferSize * 1'000'000'000ULL
-                                                  / (uint64_t)node->sampleRate;
+                    const uint64_t nsPerBuffer = (uint64_t)node->bufferSize * 1'000'000'000ULL / (uint64_t)node->sampleRate;
                     const double twoPi  = 2.0 * M_PI;
                     const double nsToSec = 1e-9;
 
                     for (int i = 0; i < node->bufferSize; ++i) {
-                        uint64_t sampleNs = st->playbackNs
-                                          + (uint64_t)i * 1'000'000'000ULL / (uint64_t)node->sampleRate;
+                        uint64_t sampleNs = st->playbackNs + (uint64_t)i * 1'000'000'000ULL / (uint64_t)node->sampleRate;
                         double t  = (double)sampleNs * nsToSec;
                         double ph = std::fmod((double)st->freq * t, 1.0) * twoPi;
                         float s = 0.f;
@@ -1164,7 +1154,7 @@ struct Main {
                     auto& out = *node->outputs[0].bus;
 
                     if (!st || !st->isPlaying) { out.Clear(); break; }
-                    if (out.valid) break; // buffer précédent pas encore consommé par AudioOut
+                    if (out.valid) break;
 
                     if (!st->currentAudioData.empty()) {
                         int toCopy = node->bufferSize;
@@ -1172,12 +1162,16 @@ struct Main {
                         
                         if (available < toCopy) {
                             if (available > 0) {
-                                std::copy(st->currentAudioData.begin() + st->playbackPos, 
-                                          st->currentAudioData.end(), out.samples.begin());
+                                std::copy(st->currentAudioData.begin() + st->playbackPos, st->currentAudioData.end(), out.samples.begin());
                             }
+                            
+                            int remainder = SDL::Max(0, available);
+                            std::fill(out.samples.begin() + remainder, out.samples.end(), 0.f);
+
                             st->playbackPos = st->currentAudioData.size();
                             
-                            st->isPlaying = false;
+                            st->isPlaying = false; 
+                            
                             if (st->isAutoplay) {
                                 int next = st->currentTrack + 1;
                                 if (next >= (int)st->tracks.size()) {
@@ -1189,9 +1183,7 @@ struct Main {
                                 st->pendingTrackToLoad = st->currentTrack;
                             }
                         } else {
-                            std::copy(st->currentAudioData.begin() + st->playbackPos, 
-                                      st->currentAudioData.begin() + st->playbackPos + toCopy, 
-                                      out.samples.begin());
+                            std::copy(st->currentAudioData.begin() + st->playbackPos, st->currentAudioData.begin() + st->playbackPos + toCopy, out.samples.begin());
                             st->playbackPos += toCopy;
                         }
                         out.valid = true;
@@ -1226,7 +1218,7 @@ struct Main {
                         r.SetDrawColor(pal::WIRE);
                         
                         std::array<SDL::FPoint, 4> pts = {p0, SDL::FPoint{p0.x + bend, p0.y}, SDL::FPoint{p3.x - bend, p3.y}, p3};
-                        r.RenderBezierCurve(pts, 0.01f); // 0.01 = 100 segments
+                        r.RenderBezierCurve(pts, 0.01f);
                     }
                 }
             }
@@ -1283,12 +1275,10 @@ struct Main {
         timer.Begin();
         rm.UpdateAll();
 
-        // 1. Processus de chargement audio pour Playlist (en dehors du mutex audio principal pour ne pas ralentir le process)
         ecs.Each<PlaylistState>([&](SDL::ECS::EntityId eId, PlaylistState& ps) {
             if (ps.pendingTrackToLoad != -1) {
                 int next = ps.pendingTrackToLoad;
                 ps.pendingTrackToLoad = -1;
-                
                 auto* node = ecs.Get<DSPNode>(eId);
                 if (node && next >= 0 && next < (int)ps.tracks.size()) {
                     std::vector<float> samples;
@@ -1299,7 +1289,6 @@ struct Main {
                         ps.playbackPos = 0;
                         ps.durationSec = (float)ps.currentAudioData.size() / node->sampleRate;
                         ps.isPlaying = true;
-                        
                         if (auto* ld = ui.GetListBoxData(ps.uiList)) {
                             ld->selectedIndex = next;
                             ui.MarkLayoutDirty();
@@ -1309,10 +1298,8 @@ struct Main {
             }
         });
 
-        // 2. Mises à jour UI avec lock sécurisé
         {
             std::lock_guard<std::mutex> lock(m_audioMutex);
-            
             ecs.Each<FilterState>([&](SDL::ECS::EntityId, FilterState& st) { ui.SetText(st.lblCutoff, std::format("Cutoff: {:.0f} Hz", st.cutoffHz)); });
             ecs.Each<AmpState>([&](SDL::ECS::EntityId, AmpState& st) { ui.SetText(st.lblGain, std::format("Gain: {:.2f}x", st.gain)); });
             ecs.Each<DelayState>([&](SDL::ECS::EntityId, DelayState& st) { ui.SetText(st.lblMs, std::format("Delay: {:.0f} ms", st.delayMs)); });
@@ -1325,20 +1312,16 @@ struct Main {
                 }
             });
 
-            // Update Playlist Slider & Time
             ecs.Each<PlaylistState>([&](SDL::ECS::EntityId eId, PlaylistState& ps) {
                 float currentSec = 0.f;
                 auto* node = ecs.Get<DSPNode>(eId);
                 if (node && !ps.currentAudioData.empty()) {
                     currentSec = (float)ps.playbackPos / node->sampleRate;
                 }
-                
                 if (ps.durationSec > 0.f) {
                     ui.SetValue(ps.uiSlider, currentSec / ps.durationSec);
-                    int cm = (int)currentSec / 60;
-                    int cs = (int)currentSec % 60;
-                    int dm = (int)ps.durationSec / 60;
-                    int ds = (int)ps.durationSec % 60;
+                    int cm = (int)currentSec / 60; int cs = (int)currentSec % 60;
+                    int dm = (int)ps.durationSec / 60; int ds = (int)ps.durationSec % 60;
                     ui.SetText(ps.uiTimeLbl, std::format("{:02d}:{:02d} / {:02d}:{:02d}", cm, cs, dm, ds));
                 } else {
                     ui.SetValue(ps.uiSlider, 0.f);
@@ -1358,7 +1341,6 @@ struct Main {
                         ecs.DestroyEntity(ps->uiExplorerPopup);
                     }
                 }
-
                 ui.RemoveChild(m_rootId, e);
                 ecs.DestroyEntity(e);
                 blocks.erase(std::remove(blocks.begin(), blocks.end(), e), blocks.end());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UIComponents.h"
+#include "UIPipeline.h"
 #include "../SDL3pp_ecs.h"
 #include "../SDL3pp_error.h"
 #include "../SDL3pp_mixer.h"
@@ -60,16 +61,14 @@ namespace SDL::UI {
 	struct MenuBarBuilder;
 	struct ItemBuilder;
 
-	class UIFactory;
-	class UILayoutSystem;
-	class UIEventSystem;
-	class UIRenderSystem;
+	class Factory;
+	class UIPipeline;
 
 	// ==================================================================================
-	// System — public façade orchestrating all UI sub-systems
+	// Context — public façade orchestrating all UI sub-systems
 	// ==================================================================================
 
-	class System {
+	class Context {
 	public:
 		struct ResolvedFont {
 			std::string key;
@@ -83,10 +82,8 @@ namespace SDL::UI {
 		MixerRef       m_mixer;
 		ResourcePool&  m_pool;
 
-		std::unique_ptr<UIFactory>       m_factory;
-		std::unique_ptr<UILayoutSystem>  m_layout;
-		std::unique_ptr<UIEventSystem>   m_events;
-		std::unique_ptr<UIRenderSystem>  m_render;
+		std::unique_ptr<Factory>    m_factory;
+		std::unique_ptr<UIPipeline> m_pipeline;
 
 		ECS::EntityId  m_root = ECS::NullEntity;
 
@@ -106,10 +103,10 @@ namespace SDL::UI {
 		ECS::EntityId _FindByTagInTree(ECS::EntityId root, std::string_view tag) const;
 
 	public:
-		System(ECS::Context& ctx, RendererRef r, MixerRef m, ResourcePool& pool);
-		~System();
-		System(const System&)            = delete;
-		System& operator=(const System&) = delete;
+		Context(ECS::Context& ctx, RendererRef r, MixerRef m, ResourcePool& pool);
+		~Context();
+		Context(const Context&)            = delete;
+		Context& operator=(const Context&) = delete;
 
 		// ── Pipeline ─────────────────────────────────────────────────────────
 		void ProcessEvent(const SDL::Event& ev);
@@ -121,7 +118,7 @@ namespace SDL::UI {
 		[[nodiscard]] ResourcePool& GetPool()     noexcept { return m_pool; }
 		[[nodiscard]] RendererRef   GetRenderer() noexcept { return m_renderer; }
 		[[nodiscard]] MixerRef      GetMixer()    noexcept { return m_mixer; }
-		[[nodiscard]] UIFactory&    GetFactory()  noexcept { return *m_factory; }
+		[[nodiscard]] Factory&      GetFactory()  noexcept { return *m_factory; }
 
 		void StartTextInput();
 		void StopTextInput();
@@ -151,7 +148,7 @@ namespace SDL::UI {
 		[[nodiscard]] ECS::EntityId FindByTagIn(ECS::EntityId root, std::string_view tag) const;
 
 		// ──────────────────────────────────────────────────────────────────────
-		// Factory — entity creation (delegates to UIFactory)
+		// Factory — entity creation (delegates to Factory)
 		// ──────────────────────────────────────────────────────────────────────
 
 		void SetTag(ECS::EntityId e, std::string_view tag);
@@ -269,9 +266,9 @@ namespace SDL::UI {
 		[[nodiscard]] SpacingStyle& GetSpacing (ECS::EntityId e);
 		[[nodiscard]] TextEdit&     GetContent (ECS::EntityId e);
 
-		[[nodiscard]] MenuBarData*     GetMenuBarData    (ECS::EntityId e);
-		[[nodiscard]] ColorPickerData* GetColorPickerData(ECS::EntityId e);
-		[[nodiscard]] PopupData*       GetPopupData      (ECS::EntityId e);
+		[[nodiscard]] MenuBarData*       GetMenuBarData    (ECS::EntityId e);
+		[[nodiscard]] ColorPickerState* GetColorPickerData(ECS::EntityId e);
+		[[nodiscard]] PopupConfig*      GetPopupData      (ECS::EntityId e);
 		[[nodiscard]] TreeData*        GetTreeData       (ECS::EntityId e);
 		[[nodiscard]] ListBoxData*     GetListBoxData    (ECS::EntityId e);
 		[[nodiscard]] GraphData*       GetGraphData      (ECS::EntityId e);
@@ -476,32 +473,29 @@ namespace SDL::UI {
 	};
 
 	// ==================================================================================
-	// Implementation: System
+	// Implementation: Context
 	// ==================================================================================
 
-	inline System::System(ECS::Context& ctx, RendererRef r, MixerRef m, ResourcePool& pool)
+	inline Context::Context(ECS::Context& ctx, RendererRef r, MixerRef m, ResourcePool& pool)
 		: m_ctx(ctx), m_renderer(r), m_mixer(m), m_pool(pool) {
-		m_factory = std::make_unique<UIFactory>(*this, ctx);
-		m_layout  = std::make_unique<UILayoutSystem>(ctx, *this);
-		m_events  = std::make_unique<UIEventSystem>(ctx, *m_layout, *this);
-		m_render  = std::make_unique<UIRenderSystem>(ctx, r, pool, *m_layout, *this);
+		m_factory  = std::make_unique<Factory>(*this, ctx);
+		m_pipeline = std::make_unique<UIPipeline>(*this, ctx, r, m, pool);
 
-		m_events->onTextInputActive = [this](bool start) {
+		m_pipeline->onTextInputActive = [this](bool start) {
 			if (start) StartTextInput();
 			else       StopTextInput();
 		};
 	}
 
-	inline System::~System() = default;
+	inline Context::~Context() = default;
 
-	inline void System::ProcessEvent(const SDL::Event& ev) {
-		if (m_events) m_events->Feed(ev);
+	inline void Context::ProcessEvent(const SDL::Event& ev) {
+		if (m_pipeline) m_pipeline->FeedEvent(ev);
 	}
 
-	inline void System::Update(float dt) {
+	inline void Context::Update(float dt) {
 		if (m_root == ECS::NullEntity || !m_ctx.IsAlive(m_root)) return;
 
-		if (m_events) m_events->Process(m_root);
 		FRect viewport = {0, 0, 1024.f, 768.f};
 		if (m_renderer) {
 			try {
@@ -510,45 +504,44 @@ namespace SDL::UI {
 				viewport.h = (float)size.y;
 			} catch (...) {}
 		}
-		if (m_layout) m_layout->Process(m_root, viewport);
-		if (m_render) m_render->ProcessAnimate(dt, m_root);
+		if (m_pipeline) m_pipeline->Update(m_root, viewport, dt);
 	}
 
-	inline void System::Render() {
+	inline void Context::Render() {
 		if (m_root == ECS::NullEntity || !m_ctx.IsAlive(m_root)) return;
-		if (m_render) m_render->Process(m_root, ECS::NullEntity);
+		if (m_pipeline) m_pipeline->Render(m_root);
 	}
 
-	inline void System::SetRoot(ECS::EntityId e) {
+	inline void Context::SetRoot(ECS::EntityId e) {
 		m_root = e;
-		if (m_layout) m_layout->MarkDirty();
+		if (m_pipeline) m_pipeline->MarkLayoutDirty();
 	}
 
-	inline void System::AppendChild(ECS::EntityId parent, ECS::EntityId child) {
+	inline void Context::AppendChild(ECS::EntityId parent, ECS::EntityId child) {
 		if (m_factory) m_factory->AppendChild(parent, child);
 	}
 
-	inline void System::RemoveChild(ECS::EntityId parent, ECS::EntityId child) {
+	inline void Context::RemoveChild(ECS::EntityId parent, ECS::EntityId child) {
 		if (m_factory) m_factory->RemoveChild(parent, child);
 	}
 
-	inline void System::SetDefaultFont(std::string_view path, float ptsize) {
+	inline void Context::SetDefaultFont(std::string_view path, float ptsize) {
 		m_defaultFontPath = std::string(path);
 		m_defaultFontSize = ptsize;
 	}
 
-	inline void System::UseDebugFont(float ptsize) {
+	inline void Context::UseDebugFont(float ptsize) {
 		m_defaultFontPath.clear();
 		m_defaultFontSize = ptsize;
 		m_usedDebugFontPerDefault = true;
 	}
 
-	inline const std::string& System::GetDefaultFontPath() const noexcept { return m_defaultFontPath; }
-	inline float              System::GetDefaultFontSize()  const noexcept { return m_defaultFontSize; }
+	inline const std::string& Context::GetDefaultFontPath() const noexcept { return m_defaultFontPath; }
+	inline float              Context::GetDefaultFontSize()  const noexcept { return m_defaultFontSize; }
 
 	// ── Tag search ───────────────────────────────────────────────────────────────
 
-	inline ECS::EntityId System::_FindByTagInTree(ECS::EntityId root, std::string_view tag) const {
+	inline ECS::EntityId Context::_FindByTagInTree(ECS::EntityId root, std::string_view tag) const {
 		if (!m_ctx.IsAlive(root)) return ECS::NullEntity;
 		if (auto* t = m_ctx.Get<Tag>(root))
 			if (t->value == tag) return root;
@@ -560,15 +553,15 @@ namespace SDL::UI {
 		return ECS::NullEntity;
 	}
 
-	inline ECS::EntityId System::FindByTag(std::string_view tag) const {
+	inline ECS::EntityId Context::FindByTag(std::string_view tag) const {
 		return _FindByTagInTree(m_root, tag);
 	}
 
-	inline ECS::EntityId System::FindByTagIn(ECS::EntityId root, std::string_view tag) const {
+	inline ECS::EntityId Context::FindByTagIn(ECS::EntityId root, std::string_view tag) const {
 		return _FindByTagInTree(root, tag);
 	}
 
-	inline ECS::EntityId System::FindByPath(std::string_view path) const {
+	inline ECS::EntityId Context::FindByPath(std::string_view path) const {
 		// Path format: "/seg1/seg2/..." where each segment is a tag value.
 		// "#N" matches entity id N numerically.
 		ECS::EntityId cur = m_root;
@@ -604,226 +597,245 @@ namespace SDL::UI {
 
 	// ── Factory delegates ────────────────────────────────────────────────────────
 
-	inline void System::SetTag(ECS::EntityId e, std::string_view tag) { m_factory->SetTag(e, tag); }
-	inline ECS::EntityId System::MakeContainer()       { return m_factory->MakeContainer(); }
-	inline ECS::EntityId System::MakeLabel    (std::string_view text) { return m_factory->MakeLabel(text); }
-	inline ECS::EntityId System::MakeButton   (std::string_view text) { return m_factory->MakeButton(text); }
-	inline ECS::EntityId System::MakeToggle   (std::string_view text) { return m_factory->MakeToggle(text); }
-	inline ECS::EntityId System::MakeRadio    (std::string_view group, std::string_view text) { return m_factory->MakeRadio(group, text); }
-	inline ECS::EntityId System::MakeSeparator()       { return m_factory->MakeSeparator(); }
-	inline ECS::EntityId System::MakeInput    (std::string_view placeholder) { return m_factory->MakeInput(InputFilterType::Text, placeholder); }
-	inline ECS::EntityId System::MakeInputFiltered(InputFilterType filter, std::string_view placeholder) { return m_factory->MakeInputFiltered(filter, placeholder); }
-	inline ECS::EntityId System::MakeScrollBar(float cS, float vS, float t, Orientation o) { return m_factory->MakeScrollBar(cS, vS, t, o); }
-	inline ECS::EntityId System::MakeImage    (std::string_view key, ImageFit fit) { return m_factory->MakeImage(key, fit); }
-	inline ECS::EntityId System::MakeCanvas   (std::function<void(SDL::Event&)> e, std::function<void(float)> u, std::function<void(RendererRef, FRect)> r) { return m_factory->MakeCanvas(std::move(e), std::move(u), std::move(r)); }
-	inline ECS::EntityId System::MakeListBox  (const std::vector<std::string>& items) { return m_factory->MakeListBox(items); }
-	inline ECS::EntityId System::MakeGraph    ()       { return m_factory->MakeGraph(); }
-	inline ECS::EntityId System::MakeTextArea (std::string_view text, std::string_view ph) { return m_factory->MakeTextArea(text, ph); }
-	inline ECS::EntityId System::MakeComboBox (const std::vector<std::string>& items, int sel) { return m_factory->MakeComboBox(items, sel); }
-	inline ECS::EntityId System::MakeTabView  ()       { return m_factory->MakeTabView(); }
-	inline ECS::EntityId System::MakeExpander (std::string_view label, bool expanded) { return m_factory->MakeExpander(label, expanded); }
-	inline ECS::EntityId System::MakeSplitter (Orientation o, float ratio) { return m_factory->MakeSplitter(o, ratio); }
-	inline ECS::EntityId System::MakeSpinner  (float speed) { return m_factory->MakeSpinner(speed); }
-	inline ECS::EntityId System::MakeBadge    (std::string_view text) { return m_factory->MakeBadge(text); }
-	inline ECS::EntityId System::MakeColorPicker(ColorPickerPalette p, float step) { return m_factory->MakeColorPicker(p, step); }
-	inline ECS::EntityId System::MakePopup    (std::string_view title, bool cl, bool dr, bool rs) { return m_factory->MakePopup(title, cl, dr, rs); }
-	inline ECS::EntityId System::MakeTree     ()       { return m_factory->MakeTree(); }
-	inline ECS::EntityId System::MakeMenuBar  ()       { return m_factory->MakeMenuBar(); }
+	inline void Context::SetTag(ECS::EntityId e, std::string_view tag) { m_factory->SetTag(e, tag); }
+	inline ECS::EntityId Context::MakeContainer()       { return m_factory->MakeContainer(); }
+	inline ECS::EntityId Context::MakeLabel    (std::string_view text) { return m_factory->MakeLabel(text); }
+	inline ECS::EntityId Context::MakeButton   (std::string_view text) { return m_factory->MakeButton(text); }
+	inline ECS::EntityId Context::MakeToggle   (std::string_view text) { return m_factory->MakeToggle(text); }
+	inline ECS::EntityId Context::MakeRadio    (std::string_view group, std::string_view text) { return m_factory->MakeRadio(group, text); }
+	inline ECS::EntityId Context::MakeSeparator()       { return m_factory->MakeSeparator(); }
+	inline ECS::EntityId Context::MakeInput    (std::string_view placeholder) { return m_factory->MakeInput(InputFilterType::Text, placeholder); }
+	inline ECS::EntityId Context::MakeInputFiltered(InputFilterType filter, std::string_view placeholder) { return m_factory->MakeInputFiltered(filter, placeholder); }
+	inline ECS::EntityId Context::MakeScrollBar(float cS, float vS, float t, Orientation o) { return m_factory->MakeScrollBar(cS, vS, t, o); }
+	inline ECS::EntityId Context::MakeImage    (std::string_view key, ImageFit fit) { return m_factory->MakeImage(key, fit); }
+	inline ECS::EntityId Context::MakeCanvas   (std::function<void(SDL::Event&)> e, std::function<void(float)> u, std::function<void(RendererRef, FRect)> r) { return m_factory->MakeCanvas(std::move(e), std::move(u), std::move(r)); }
+	inline ECS::EntityId Context::MakeListBox  (const std::vector<std::string>& items) { return m_factory->MakeListBox(items); }
+	inline ECS::EntityId Context::MakeGraph    ()       { return m_factory->MakeGraph(); }
+	inline ECS::EntityId Context::MakeTextArea (std::string_view text, std::string_view ph) { return m_factory->MakeTextArea(text, ph); }
+	inline ECS::EntityId Context::MakeComboBox (const std::vector<std::string>& items, int sel) { return m_factory->MakeComboBox(items, sel); }
+	inline ECS::EntityId Context::MakeTabView  ()       { return m_factory->MakeTabView(); }
+	inline ECS::EntityId Context::MakeExpander (std::string_view label, bool expanded) { return m_factory->MakeExpander(label, expanded); }
+	inline ECS::EntityId Context::MakeSplitter (Orientation o, float ratio) { return m_factory->MakeSplitter(o, ratio); }
+	inline ECS::EntityId Context::MakeSpinner  (float speed) { return m_factory->MakeSpinner(speed); }
+	inline ECS::EntityId Context::MakeBadge    (std::string_view text) { return m_factory->MakeBadge(text); }
+	inline ECS::EntityId Context::MakeColorPicker(ColorPickerPalette p, float step) { return m_factory->MakeColorPicker(p, step); }
+	inline ECS::EntityId Context::MakePopup    (std::string_view title, bool cl, bool dr, bool rs) { return m_factory->MakePopup(title, cl, dr, rs); }
+	inline ECS::EntityId Context::MakeTree     ()       { return m_factory->MakeTree(); }
+	inline ECS::EntityId Context::MakeMenuBar  ()       { return m_factory->MakeMenuBar(); }
 
 	template <typename T>
-	inline ECS::EntityId System::MakeSlider(NumericValue<T> v, Orientation o) {
+	inline ECS::EntityId Context::MakeSlider(NumericValue<T> v, Orientation o) {
 		return m_factory->MakeSlider(std::move(v), 12.f, o);
 	}
 	template <typename T>
-	inline ECS::EntityId System::MakeProgress(NumericValue<T> v, Orientation o) {
+	inline ECS::EntityId Context::MakeProgress(NumericValue<T> v, Orientation o) {
 		return m_factory->MakeProgress(std::move(v), 12.f, o);
 	}
 	template <typename T>
-	inline ECS::EntityId System::MakeKnob(NumericValue<T> v, KnobShape shape) {
+	inline ECS::EntityId Context::MakeKnob(NumericValue<T> v, KnobShape shape) {
 		return m_factory->MakeKnob(std::move(v), 80.f, shape);
 	}
 	template <typename T>
-	inline ECS::EntityId System::MakeInputValue(NumericValue<T> v) {
+	inline ECS::EntityId Context::MakeInputValue(NumericValue<T> v) {
 		return m_factory->MakeInputValue(std::move(v));
 	}
 
 	// ── Component accessors ──────────────────────────────────────────────────────
 
-	inline LayoutProps& System::GetLayout(ECS::EntityId e) {
+	inline LayoutProps& Context::GetLayout(ECS::EntityId e) {
 		static LayoutProps fallback;
 		if (auto* lp = m_ctx.Get<LayoutProps>(e)) return *lp;
 		return fallback;
 	}
 
-	inline SpacingStyle& System::GetSpacing(ECS::EntityId e) {
+	inline SpacingStyle& Context::GetSpacing(ECS::EntityId e) {
 		static SpacingStyle fallback;
 		if (auto* sp = m_ctx.Get<SpacingStyle>(e)) return *sp;
 		return fallback;
 	}
 
-	inline TextEdit& System::GetContent(ECS::EntityId e) {
+	inline TextEdit& Context::GetContent(ECS::EntityId e) {
 		static TextEdit fallback;
 		if (auto* te = m_ctx.Get<TextEdit>(e)) return *te;
 		return fallback;
 	}
 
-	inline MenuBarData*     System::GetMenuBarData    (ECS::EntityId e) { return m_ctx.Get<MenuBarData>(e); }
-	inline ColorPickerData* System::GetColorPickerData(ECS::EntityId e) { return m_ctx.Get<ColorPickerData>(e); }
-	inline PopupData*       System::GetPopupData      (ECS::EntityId e) { return m_ctx.Get<PopupData>(e); }
-	inline TreeData*        System::GetTreeData       (ECS::EntityId e) { return m_ctx.Get<TreeData>(e); }
-	inline ListBoxData*     System::GetListBoxData    (ECS::EntityId e) { return m_ctx.Get<ListBoxData>(e); }
-	inline GraphData*       System::GetGraphData      (ECS::EntityId e) { return m_ctx.Get<GraphData>(e); }
-	inline TextAreaData*    System::GetTextAreaData   (ECS::EntityId e) { return m_ctx.Get<TextAreaData>(e); }
-	inline TilesetData*     System::GetTilesetStyle   (ECS::EntityId e) { return m_ctx.Get<TilesetData>(e); }
+	inline MenuBarData*       Context::GetMenuBarData    (ECS::EntityId e) { return m_ctx.Get<MenuBarData>(e); }
+	inline ColorPickerState*  Context::GetColorPickerData(ECS::EntityId e) { return m_ctx.Get<ColorPickerState>(e); }
+	inline PopupConfig*       Context::GetPopupData      (ECS::EntityId e) { return m_ctx.Get<PopupConfig>(e); }
+	inline TreeData*        Context::GetTreeData       (ECS::EntityId e) { return m_ctx.Get<TreeData>(e); }
+	inline ListBoxData*     Context::GetListBoxData    (ECS::EntityId e) { return m_ctx.Get<ListBoxData>(e); }
+	inline GraphData*       Context::GetGraphData      (ECS::EntityId e) { return m_ctx.Get<GraphData>(e); }
+	inline TextAreaData*    Context::GetTextAreaData   (ECS::EntityId e) { return m_ctx.Get<TextAreaData>(e); }
+	inline TilesetData*     Context::GetTilesetStyle   (ECS::EntityId e) { return m_ctx.Get<TilesetData>(e); }
 
-	inline IconData& System::GetOrAddIconData(ECS::EntityId e) {
+	inline IconData& Context::GetOrAddIconData(ECS::EntityId e) {
 		if (auto* d = m_ctx.Get<IconData>(e)) return *d;
 		return m_ctx.Add<IconData>(e, IconData{});
 	}
 
 	// ── Property setters ─────────────────────────────────────────────────────────
 
-	inline void System::SetText(ECS::EntityId e, std::string_view text) {
+	inline void Context::SetText(ECS::EntityId e, std::string_view text) {
 		if (auto* te = m_ctx.Get<TextEdit>(e)) te->text = std::string(text);
 	}
 
 	template <typename T>
-	inline void System::SetValue(ECS::EntityId e, T v) {
+	inline void Context::SetValue(ECS::EntityId e, T v) {
 		if (auto* nv = m_ctx.Get<NumericValue<T>>(e)) nv->Set(v);
 	}
 	template <typename T>
-	inline void System::SetMinValue(ECS::EntityId e, T v) {
+	inline void Context::SetMinValue(ECS::EntityId e, T v) {
 		if (auto* nv = m_ctx.Get<NumericValue<T>>(e)) nv->min = v;
 	}
 	template <typename T>
-	inline void System::SetMaxValue(ECS::EntityId e, T v) {
+	inline void Context::SetMaxValue(ECS::EntityId e, T v) {
 		if (auto* nv = m_ctx.Get<NumericValue<T>>(e)) nv->max = v;
 	}
 
-	inline void System::SetChecked(ECS::EntityId e, bool b) {
-		if (auto* tog = m_ctx.Get<ToggleData>(e)) tog->checked = b;
-		if (auto* rad = m_ctx.Get<RadioData>(e))  rad->checked = b;
+	inline void Context::SetChecked(ECS::EntityId e, bool b) {
+		if (auto* tog = m_ctx.Get<ToggleState>(e)) tog->checked = b;
+		if (auto* rad = m_ctx.Get<RadioState>(e))  rad->checked = b;
 	}
 
-	inline void System::SetEnable(ECS::EntityId e, bool b) {
+	inline void Context::SetEnable(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::Enable;
 			else   w->behavior &= ~WidgetBehaviorFlag::Enable;
 		}
 	}
 
-	inline void System::SetVisible(ECS::EntityId e, bool b) {
-		if (auto* w = m_ctx.Get<Widget>(e)) {
-			if (b) w->behavior |= WidgetBehaviorFlag::Visible;
-			else   w->behavior &= ~WidgetBehaviorFlag::Visible;
-			if (m_layout) m_layout->MarkDirty();
+	inline void Context::SetVisible(ECS::EntityId e, bool b) {
+		auto* w = m_ctx.Get<Widget>(e);
+		if (!w) return;
+
+		// A widget that animates opacity fades instead of snapping: on show it starts
+		// transparent and the AnimationSystem fades it in; on hide it keeps drawing
+		// while fading out and is hidden (and dropped from the index) at opacity≈0.
+		auto* an = m_ctx.Get<AnimationState>(e);
+		bool fade = false;
+		if (an) {
+			auto* as = m_ctx.Get<AnimationStyle>(e);
+			fade = !as || Has(as->channels, AnimChannel::Opacity);
+		}
+
+		if (b) {
+			bool wasHidden = !Has(w->behavior, WidgetBehaviorFlag::Visible);
+			w->behavior |= WidgetBehaviorFlag::Visible;
+			if (an) { an->closing = false; if (fade && wasHidden) an->opacity = 0.f; }
+			if (m_pipeline) m_pipeline->MarkLayoutDirty();
+		} else if (fade && Has(w->behavior, WidgetBehaviorFlag::Visible)) {
+			an->closing = true;   // stays Visible until the fade-out completes
+		} else {
+			w->behavior &= ~WidgetBehaviorFlag::Visible;
+			if (m_pipeline) m_pipeline->MarkLayoutDirty();
 		}
 	}
 
-	inline void System::SetHoverable(ECS::EntityId e, bool b) {
+	inline void Context::SetHoverable(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::Hoverable;
 			else   w->behavior &= ~WidgetBehaviorFlag::Hoverable;
 		}
 	}
 
-	inline void System::SetSelectable(ECS::EntityId e, bool b) {
+	inline void Context::SetSelectable(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::Selectable;
 			else   w->behavior &= ~WidgetBehaviorFlag::Selectable;
 		}
 	}
 
-	inline void System::SetFocusable(ECS::EntityId e, bool b) {
+	inline void Context::SetFocusable(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::Focusable;
 			else   w->behavior &= ~WidgetBehaviorFlag::Focusable;
 		}
 	}
 
-	inline void System::SetDispatchEvent(ECS::EntityId e, bool b) {
+	inline void Context::SetDispatchEvent(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::DispatchEvent;
 			else   w->behavior &= ~WidgetBehaviorFlag::DispatchEvent;
 		}
 	}
 
-	inline void System::MarkLayoutDirty() { if (m_layout) m_layout->MarkDirty(); }
+	inline void Context::MarkLayoutDirty() { if (m_pipeline) m_pipeline->MarkLayoutDirty(); }
 
-	inline void System::SetScrollableX(ECS::EntityId e, bool b) {
+	inline void Context::SetScrollableX(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::ScrollableX;
 			else   w->behavior &= ~WidgetBehaviorFlag::ScrollableX;
 		}
 	}
-	inline void System::SetScrollableY(ECS::EntityId e, bool b) {
+	inline void Context::SetScrollableY(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::ScrollableY;
 			else   w->behavior &= ~WidgetBehaviorFlag::ScrollableY;
 		}
 	}
-	inline void System::SetScrollable(ECS::EntityId e, bool bx, bool by) { SetScrollableX(e, bx); SetScrollableY(e, by); }
+	inline void Context::SetScrollable(ECS::EntityId e, bool bx, bool by) { SetScrollableX(e, bx); SetScrollableY(e, by); }
 
-	inline void System::SetAutoScrollableX(ECS::EntityId e, bool b) {
+	inline void Context::SetAutoScrollableX(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::AutoScrollableX;
 			else   w->behavior &= ~WidgetBehaviorFlag::AutoScrollableX;
 		}
 	}
-	inline void System::SetAutoScrollableY(ECS::EntityId e, bool b) {
+	inline void Context::SetAutoScrollableY(ECS::EntityId e, bool b) {
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			if (b) w->behavior |= WidgetBehaviorFlag::AutoScrollableY;
 			else   w->behavior &= ~WidgetBehaviorFlag::AutoScrollableY;
 		}
 	}
-	inline void System::SetAutoScrollable(ECS::EntityId e, bool bx, bool by) { SetAutoScrollableX(e, bx); SetAutoScrollableY(e, by); }
+	inline void Context::SetAutoScrollable(ECS::EntityId e, bool bx, bool by) { SetAutoScrollableX(e, bx); SetAutoScrollableY(e, by); }
 
-	inline void System::SetScrollbarThickness(ECS::EntityId e, float t) {
+	inline void Context::SetScrollbarThickness(ECS::EntityId e, float t) {
 		if (auto* ss = m_ctx.Get<ScrollbarStyle>(e)) ss->thickness = t;
 		else m_ctx.Add<ScrollbarStyle>(e).thickness = t;
 	}
 
-	inline void System::SetScrollOffset(ECS::EntityId e, float off) {
+	inline void Context::SetScrollOffset(ECS::EntityId e, float off) {
 		if (auto* lp = m_ctx.Get<LayoutProps>(e)) lp->scrollY = off;
 	}
 
 	template <typename T>
-	inline void System::SetSliderMarkers(ECS::EntityId e, std::vector<T> markers) {
-		if (auto* sd = m_ctx.Get<SliderData>(e)) {
-			sd->markers.clear();
-			for (auto v : markers) sd->markers.push_back((float)v);
+	inline void Context::SetSliderMarkers(ECS::EntityId e, std::vector<T> markers) {
+		if (auto* sc = m_ctx.Get<SliderConfig>(e)) {
+			sc->markers.clear();
+			for (auto v : markers) sc->markers.push_back((float)v);
 		}
 	}
 
 	// ── ListBox ──────────────────────────────────────────────────────────────────
 
-	inline void System::SetListBoxItems(ECS::EntityId e, std::vector<std::string> items) {
+	inline void Context::SetListBoxItems(ECS::EntityId e, std::vector<std::string> items) {
 		m_factory->RebuildListBoxItems(e, std::move(items));
-		if (m_layout) m_layout->MarkDirty();
+		if (m_pipeline) m_pipeline->MarkLayoutDirty();
 	}
 
-	inline void System::SetListBoxSelection(ECS::EntityId e, int idx) {
+	inline void Context::SetListBoxSelection(ECS::EntityId e, int idx) {
 		if (auto* ilv = m_ctx.Get<ItemListView>(e)) ilv->selectedIndex = idx;
 	}
 
-	inline void System::SetListBoxReorderable(ECS::EntityId e, bool v) {
+	inline void Context::SetListBoxReorderable(ECS::EntityId e, bool v) {
 		if (auto* lb = m_ctx.Get<ListBoxData>(e)) lb->reorderable = v;
 	}
 
-	inline void System::SetListBoxOnReorder(ECS::EntityId e, std::function<void(int, int)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onItemReorder = std::move(cb);
+	inline void Context::SetListBoxOnReorder(ECS::EntityId e, std::function<void(int, int)> cb) {
+		if (auto* c = m_ctx.Get<ItemCbs>(e)) c->onItemReorder = std::move(cb);
 	}
 
 	// ── ComboBox ─────────────────────────────────────────────────────────────────
 
-	inline void System::SetComboBoxItems(ECS::EntityId e, std::vector<std::string> items) {
+	inline void Context::SetComboBoxItems(ECS::EntityId e, std::vector<std::string> items) {
 		auto* ilv = m_ctx.Get<ItemListView>(e);
 		int sel = ilv ? ilv->selectedIndex : 0;
 		m_factory->RebuildComboBoxItems(e, std::move(items), sel);
-		if (m_layout) m_layout->MarkDirty();
+		if (m_pipeline) m_pipeline->MarkLayoutDirty();
 	}
 
-	inline void System::SetComboBoxSelection(ECS::EntityId e, int idx) {
+	inline void Context::SetComboBoxSelection(ECS::EntityId e, int idx) {
 		auto* ilv = m_ctx.Get<ItemListView>(e);
 		if (!ilv) return;
 		ilv->selectedIndex = idx;
@@ -839,7 +851,7 @@ namespace SDL::UI {
 
 	// ── Expander ─────────────────────────────────────────────────────────────────
 
-	inline void System::SetExpanderExpanded(ECS::EntityId e, bool expanded) {
+	inline void Context::SetExpanderExpanded(ECS::EntityId e, bool expanded) {
 		auto* ed = m_ctx.Get<ExpanderData>(e);
 		if (!ed) return;
 		ed->expanded = expanded;
@@ -848,18 +860,18 @@ namespace SDL::UI {
 			SetVisible(ed->contentEntity, expanded);
 	}
 
-	inline void System::OnExpanderToggle(ECS::EntityId e, std::function<void(bool)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onToggle = std::move(cb);
+	inline void Context::OnExpanderToggle(ECS::EntityId e, std::function<void(bool)> cb) {
+		if (auto* c = m_ctx.Get<ValueCbs>(e)) c->onToggle = std::move(cb);
 	}
 
 	// ── TabView ───────────────────────────────────────────────────────────────────
 
-	inline void System::AddTabViewTab(ECS::EntityId e, std::string_view label, bool closable) {
+	inline void Context::AddTabViewTab(ECS::EntityId e, std::string_view label, bool closable) {
 		m_factory->AddTabViewTab(e, label, closable);
-		if (m_layout) m_layout->MarkDirty();
+		if (m_pipeline) m_pipeline->MarkLayoutDirty();
 	}
 
-	inline void System::SetActiveTab(ECS::EntityId e, int index) {
+	inline void Context::SetActiveTab(ECS::EntityId e, int index) {
 		auto* tvd = m_ctx.Get<TabViewData>(e);
 		if (!tvd) return;
 		for (int i = 0; i < (int)tvd->tabs.size(); ++i) {
@@ -869,16 +881,16 @@ namespace SDL::UI {
 		}
 		tvd->activeTab = index;
 		if (tvd->onTabChange) tvd->onTabChange(index);
-		if (m_layout) m_layout->MarkDirty();
+		if (m_pipeline) m_pipeline->MarkLayoutDirty();
 	}
 
 	// ── Tooltip ───────────────────────────────────────────────────────────────────
 
-	inline void System::EnsureTooltip(ECS::EntityId e, std::string_view text, float delay) {
+	inline void Context::EnsureTooltip(ECS::EntityId e, std::string_view text, float delay) {
 		m_factory->EnsureTooltip(e, text, delay);
 	}
 
-	inline void System::SetTooltipText(ECS::EntityId e, std::string_view t) {
+	inline void Context::SetTooltipText(ECS::EntityId e, std::string_view t) {
 		if (auto* td = m_ctx.Get<TooltipData>(e)) {
 			td->text = std::string(t);
 			if (td->labelEntity != ECS::NullEntity)
@@ -887,18 +899,18 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void System::SetTooltipDelay(ECS::EntityId e, float delay) {
+	inline void Context::SetTooltipDelay(ECS::EntityId e, float delay) {
 		if (auto* td = m_ctx.Get<TooltipData>(e)) td->delay = delay;
 	}
 
-	inline void System::SetTooltipVisible(ECS::EntityId e, bool v) {
+	inline void Context::SetTooltipVisible(ECS::EntityId e, bool v) {
 		if (auto* td = m_ctx.Get<TooltipData>(e)) {
 			td->visible = v;
 			if (td->entity != ECS::NullEntity) SetVisible(td->entity, v);
 		}
 	}
 
-	inline void System::RemoveTooltip(ECS::EntityId e) {
+	inline void Context::RemoveTooltip(ECS::EntityId e) {
 		if (auto* td = m_ctx.Get<TooltipData>(e)) {
 			if (td->entity != ECS::NullEntity && m_ctx.IsAlive(td->entity))
 				m_ctx.DestroyEntity(td->entity);
@@ -908,33 +920,33 @@ namespace SDL::UI {
 
 	// ── Graph ─────────────────────────────────────────────────────────────────────
 
-	inline void System::SetGraphData(ECS::EntityId e, std::vector<float> data) {
+	inline void Context::SetGraphData(ECS::EntityId e, std::vector<float> data) {
 		if (auto* gd = m_ctx.Get<GraphData>(e)) gd->data = std::move(data);
 	}
 
-	inline void System::SetGraphRange(ECS::EntityId e, float minV, float maxV) {
+	inline void Context::SetGraphRange(ECS::EntityId e, float minV, float maxV) {
 		if (auto* gd = m_ctx.Get<GraphData>(e)) { gd->minVal = minV; gd->maxVal = maxV; }
 	}
 
-	inline void System::SetGraphXRange(ECS::EntityId e, float xMin, float xMax) {
+	inline void Context::SetGraphXRange(ECS::EntityId e, float xMin, float xMax) {
 		if (auto* gd = m_ctx.Get<GraphData>(e)) { gd->xMin = xMin; gd->xMax = xMax; }
 	}
 
 	// ── ColorPicker ───────────────────────────────────────────────────────────────
 
-	inline void System::SetPickedColor(ECS::EntityId e, SDL::Color c) {
-		if (auto* cp = m_ctx.Get<ColorPickerData>(e)) cp->currentColor = c;
+	inline void Context::SetPickedColor(ECS::EntityId e, SDL::Color c) {
+		if (auto* cp = m_ctx.Get<ColorPickerState>(e)) cp->currentColor = c;
 	}
 
-	inline SDL::Color System::GetPickedColor(ECS::EntityId e) const {
-		if (auto* cp = m_ctx.Get<ColorPickerData>(e)) return cp->currentColor;
+	inline SDL::Color Context::GetPickedColor(ECS::EntityId e) const {
+		if (auto* cp = m_ctx.Get<ColorPickerState>(e)) return cp->currentColor;
 		return {0, 0, 0, 255};
 	}
 
 	// ── Popup ─────────────────────────────────────────────────────────────────────
 
-	inline void System::SetPopupOpen(ECS::EntityId e, bool open) {
-		if (auto* pd = m_ctx.Get<PopupData>(e)) pd->open = open;
+	inline void Context::SetPopupOpen(ECS::EntityId e, bool open) {
+		if (auto* ps = m_ctx.Get<PopupState>(e)) ps->open = open;
 		if (auto* w = m_ctx.Get<Widget>(e)) {
 			w->dirty |= DirtyFlag::All;
 			if (open) w->behavior |=  WidgetBehaviorFlag::Visible;
@@ -942,45 +954,45 @@ namespace SDL::UI {
 		}
 	}
 
-	inline void System::SetPopupTitle(ECS::EntityId e, std::string_view title) {
-		if (auto* pd = m_ctx.Get<PopupData>(e)) pd->title = std::string(title);
+	inline void Context::SetPopupTitle(ECS::EntityId e, std::string_view title) {
+		if (auto* pd = m_ctx.Get<PopupConfig>(e)) pd->title = std::string(title);
 	}
 
-	inline void System::AddPopupHeaderButton(ECS::EntityId e, std::string_view iconKey, std::function<void()> cb) {
-		if (auto* pd = m_ctx.Get<PopupData>(e))
+	inline void Context::AddPopupHeaderButton(ECS::EntityId e, std::string_view iconKey, std::function<void()> cb) {
+		if (auto* pd = m_ctx.Get<PopupConfig>(e))
 			pd->headerButtons.push_back({std::string(iconKey), std::move(cb)});
 	}
 
 	// ── Tree ──────────────────────────────────────────────────────────────────────
 
-	inline void System::AddTreeNode(ECS::EntityId e, const TreeNodeData& node) {
+	inline void Context::AddTreeNode(ECS::EntityId e, const TreeNodeData& node) {
 		auto* td = m_ctx.Get<TreeData>(e);
 		if (!td) return;
 		int idx = (int)td->nodes.size();
 		td->nodes.push_back(node);
 		m_factory->AddTreeNodeRow(e, node, idx);
-		if (m_layout) m_layout->MarkDirty();
+		if (m_pipeline) m_pipeline->MarkLayoutDirty();
 	}
 
-	inline void System::ClearTreeNodes(ECS::EntityId e) {
+	inline void Context::ClearTreeNodes(ECS::EntityId e) {
 		if (auto* td = m_ctx.Get<TreeData>(e)) td->nodes.clear();
 		m_factory->ClearTreeRows(e);
-		if (m_layout) m_layout->MarkDirty();
+		if (m_pipeline) m_pipeline->MarkLayoutDirty();
 	}
 
-	inline int System::GetTreeSelection(ECS::EntityId e) const {
+	inline int Context::GetTreeSelection(ECS::EntityId e) const {
 		if (auto* td = m_ctx.Get<TreeData>(e)) return td->selectedIndex;
 		return -1;
 	}
 
 	// ── MenuBar ───────────────────────────────────────────────────────────────────
 
-	inline void System::AddMenuBarMenu(ECS::EntityId e, MenuBarMenu menu) {
+	inline void Context::AddMenuBarMenu(ECS::EntityId e, MenuBarMenu menu) {
 		m_factory->AddMenuBarMenu(e, std::move(menu));
-		if (m_layout) m_layout->MarkDirty();
+		if (m_pipeline) m_pipeline->MarkLayoutDirty();
 	}
 
-	inline void System::CloseMenuBar(ECS::EntityId e) {
+	inline void Context::CloseMenuBar(ECS::EntityId e) {
 		if (auto* mb = m_ctx.Get<MenuBarData>(e)) {
 			mb->openMenu = -1;
 			if (mb->overlay != ECS::NullEntity) SetVisible(mb->overlay, false);
@@ -989,200 +1001,200 @@ namespace SDL::UI {
 
 	// ── Backgrounds & skins ───────────────────────────────────────────────────────
 
-	inline void System::SetBgGradient(ECS::EntityId e, BgGradient grad) {
+	inline void Context::SetBgGradient(ECS::EntityId e, BgGradient grad) {
 		if (auto* bg = m_ctx.Get<BackgroundStyle>(e))
 			bg->gradient = grad;
 	}
 
-	inline void System::RemoveBgGradient(ECS::EntityId e) {
+	inline void Context::RemoveBgGradient(ECS::EntityId e) {
 		if (auto* bg = m_ctx.Get<BackgroundStyle>(e)) bg->gradient.reset();
 	}
 
-	inline void System::SetTileset(ECS::EntityId e, TilesetData ts) {
+	inline void Context::SetTileset(ECS::EntityId e, TilesetData ts) {
 		if (auto* existing = m_ctx.Get<TilesetData>(e)) *existing = ts;
 		else m_ctx.Add<TilesetData>(e, ts);
 	}
 
-	inline void System::RemoveTileset(ECS::EntityId e) { m_ctx.Remove<TilesetData>(e); }
+	inline void Context::RemoveTileset(ECS::EntityId e) { m_ctx.Remove<TilesetData>(e); }
 
 	// ── Image ─────────────────────────────────────────────────────────────────────
 
-	inline void System::SetImageKey(ECS::EntityId e, std::string_view key, ImageFit fit) {
+	inline void Context::SetImageKey(ECS::EntityId e, std::string_view key, ImageFit fit) {
 		if (auto* id = m_ctx.Get<ImageData>(e)) { id->key = std::string(key); id->fit = fit; }
 		else m_ctx.Add<ImageData>(e, ImageData{std::string(key), fit});
 	}
 
 	// ── Grid layout ───────────────────────────────────────────────────────────────
 
-	inline LayoutGridProps& System::EnsureGridProps(ECS::EntityId e) {
+	inline LayoutGridProps& Context::EnsureGridProps(ECS::EntityId e) {
 		if (auto* gp = m_ctx.Get<LayoutGridProps>(e)) return *gp;
 		return m_ctx.Add<LayoutGridProps>(e);
 	}
 
-	inline void System::SetGridCols        (ECS::EntityId e, int n)       { EnsureGridProps(e).columns  = n; if (m_layout) m_layout->MarkDirty(e); }
-	inline void System::SetGridRows        (ECS::EntityId e, int n)       { EnsureGridProps(e).rows     = n; if (m_layout) m_layout->MarkDirty(e); }
-	inline void System::SetGridColSizing   (ECS::EntityId e, GridSizing s){ EnsureGridProps(e).colSizing = s; }
-	inline void System::SetGridRowSizing   (ECS::EntityId e, GridSizing s){ EnsureGridProps(e).rowSizing = s; }
-	inline void System::SetGridLines       (ECS::EntityId e, GridLines l) { EnsureGridProps(e).lines     = l; }
-	inline void System::SetGridLineColor   (ECS::EntityId e, SDL::Color c){ EnsureGridProps(e).lineColor = c; }
-	inline void System::SetGridLineThickness(ECS::EntityId e, float t)    { EnsureGridProps(e).lineThickness = t; }
+	inline void Context::SetGridCols        (ECS::EntityId e, int n)       { EnsureGridProps(e).columns  = n; if (m_pipeline) m_pipeline->MarkLayoutDirty(e); }
+	inline void Context::SetGridRows        (ECS::EntityId e, int n)       { EnsureGridProps(e).rows     = n; if (m_pipeline) m_pipeline->MarkLayoutDirty(e); }
+	inline void Context::SetGridColSizing   (ECS::EntityId e, GridSizing s){ EnsureGridProps(e).colSizing = s; }
+	inline void Context::SetGridRowSizing   (ECS::EntityId e, GridSizing s){ EnsureGridProps(e).rowSizing = s; }
+	inline void Context::SetGridLines       (ECS::EntityId e, GridLines l) { EnsureGridProps(e).lines     = l; }
+	inline void Context::SetGridLineColor   (ECS::EntityId e, SDL::Color c){ EnsureGridProps(e).lineColor = c; }
+	inline void Context::SetGridLineThickness(ECS::EntityId e, float t)    { EnsureGridProps(e).lineThickness = t; }
 
-	inline void System::SetGridCell(ECS::EntityId e, int col, int row, int colSpan, int rowSpan) {
+	inline void Context::SetGridCell(ECS::EntityId e, int col, int row, int colSpan, int rowSpan) {
 		if (auto* gc = m_ctx.Get<GridCell>(e)) { gc->col = col; gc->row = row; gc->colSpan = colSpan; gc->rowSpan = rowSpan; }
 		else m_ctx.Add<GridCell>(e, GridCell{col, row, colSpan, rowSpan});
 	}
 
 	// ── TextArea ─────────────────────────────────────────────────────────────────
 
-	inline void System::SetTextAreaContent(ECS::EntityId e, std::string_view text) {
+	inline void Context::SetTextAreaContent(ECS::EntityId e, std::string_view text) {
 		if (auto* te = m_ctx.Get<TextEdit>(e)) te->text = std::string(text);
 	}
-	inline void System::SetTextAreaHighlightColor([[maybe_unused]] ECS::EntityId e, [[maybe_unused]] SDL::Color c) {}
-	inline void System::SetTextAreaTabSize(ECS::EntityId e, int sz) {
+	inline void Context::SetTextAreaHighlightColor([[maybe_unused]] ECS::EntityId e, [[maybe_unused]] SDL::Color c) {}
+	inline void Context::SetTextAreaTabSize(ECS::EntityId e, int sz) {
 		if (auto* te = m_ctx.Get<TextEdit>(e)) te->tabSize = sz;
 	}
-	inline void System::AddTextAreaSpan(ECS::EntityId e, int start, int end, TextSpanStyle style) {
+	inline void Context::AddTextAreaSpan(ECS::EntityId e, int start, int end, TextSpanStyle style) {
 		if (auto* ts = m_ctx.Get<TextSpans>(e)) ts->Add(start, end, style);
 	}
-	inline void System::ClearTextAreaSpans(ECS::EntityId e) {
+	inline void Context::ClearTextAreaSpans(ECS::EntityId e) {
 		if (auto* ts = m_ctx.Get<TextSpans>(e)) ts->Clear();
 	}
-	inline void System::SetTextAreaReadOnly(ECS::EntityId e, bool ro) {
+	inline void Context::SetTextAreaReadOnly(ECS::EntityId e, bool ro) {
 		if (auto* te = m_ctx.Get<TextEdit>(e)) te->readOnly = ro;
 	}
-	inline const std::string& System::GetTextAreaContent(ECS::EntityId e) const {
+	inline const std::string& Context::GetTextAreaContent(ECS::EntityId e) const {
 		static std::string empty;
 		if (auto* te = m_ctx.Get<TextEdit>(e)) return te->text;
 		return empty;
 	}
-	inline bool System::GetTextAreaReadOnly(ECS::EntityId e) const {
+	inline bool Context::GetTextAreaReadOnly(ECS::EntityId e) const {
 		if (auto* te = m_ctx.Get<TextEdit>(e)) return te->readOnly;
 		return false;
 	}
 
 	// ── Canvas ────────────────────────────────────────────────────────────────────
 
-	inline void System::OnEventCanvas (ECS::EntityId e, std::function<void(SDL::Event&)> cb) {
+	inline void Context::OnEventCanvas (ECS::EntityId e, std::function<void(SDL::Event&)> cb) {
 		if (auto* cd = m_ctx.Get<CanvasData>(e)) cd->eventCb = std::move(cb);
 	}
-	inline void System::OnUpdateCanvas(ECS::EntityId e, std::function<void(float)> cb) {
+	inline void Context::OnUpdateCanvas(ECS::EntityId e, std::function<void(float)> cb) {
 		if (auto* cd = m_ctx.Get<CanvasData>(e)) cd->updateCb = std::move(cb);
 	}
-	inline void System::OnRenderCanvas(ECS::EntityId e, std::function<void(RendererRef, FRect)> cb) {
+	inline void Context::OnRenderCanvas(ECS::EntityId e, std::function<void(RendererRef, FRect)> cb) {
 		if (auto* cd = m_ctx.Get<CanvasData>(e)) cd->renderCb = std::move(cb);
 	}
 
 	// ── Callbacks ─────────────────────────────────────────────────────────────────
 
-	inline void System::OnPress      (ECS::EntityId e, std::function<void(SDL::MouseButton)> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onPress       = std::move(cb); }
-	inline void System::OnRelease    (ECS::EntityId e, std::function<void(SDL::MouseButton)> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onRelease     = std::move(cb); }
-	inline void System::OnClick      (ECS::EntityId e, std::function<void(SDL::MouseButton)> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onClick       = std::move(cb); }
-	inline void System::OnDoubleClick(ECS::EntityId e, std::function<void(SDL::MouseButton)> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onDoubleClick = std::move(cb); }
-	inline void System::OnMultiClick (ECS::EntityId e, std::function<void(SDL::MouseButton, int)> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onMultiClick  = std::move(cb); }
-	inline void System::OnMouseEnter (ECS::EntityId e, std::function<void()> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onMouseEnter = std::move(cb); }
-	inline void System::OnMouseLeave (ECS::EntityId e, std::function<void()> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onMouseLeave = std::move(cb); }
-	inline void System::OnFocusGain  (ECS::EntityId e, std::function<void()> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onFocusGain  = std::move(cb); }
-	inline void System::OnFocusLose  (ECS::EntityId e, std::function<void()> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onFocusLose  = std::move(cb); }
-	inline void System::OnDrag       (ECS::EntityId e, std::function<void(SDL::FPoint)> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onDrag = std::move(cb); }
-	inline void System::OnTouchFingerEvent(ECS::EntityId e, std::function<void(const SDL::TouchFingerEvent&)> cb) { if (auto* c = m_ctx.Get<Callbacks>(e)) c->onTouchFinger = std::move(cb); }
+	inline void Context::OnPress      (ECS::EntityId e, std::function<void(SDL::MouseButton)> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onPress       = std::move(cb); }
+	inline void Context::OnRelease    (ECS::EntityId e, std::function<void(SDL::MouseButton)> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onRelease     = std::move(cb); }
+	inline void Context::OnClick      (ECS::EntityId e, std::function<void(SDL::MouseButton)> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onClick       = std::move(cb); }
+	inline void Context::OnDoubleClick(ECS::EntityId e, std::function<void(SDL::MouseButton)> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onDoubleClick = std::move(cb); }
+	inline void Context::OnMultiClick (ECS::EntityId e, std::function<void(SDL::MouseButton, int)> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onMultiClick  = std::move(cb); }
+	inline void Context::OnMouseEnter (ECS::EntityId e, std::function<void()> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onMouseEnter = std::move(cb); }
+	inline void Context::OnMouseLeave (ECS::EntityId e, std::function<void()> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onMouseLeave = std::move(cb); }
+	inline void Context::OnFocusGain  (ECS::EntityId e, std::function<void()> cb) { if (auto* c = m_ctx.Get<FocusCbs>(e))   c->onFocusGain  = std::move(cb); }
+	inline void Context::OnFocusLose  (ECS::EntityId e, std::function<void()> cb) { if (auto* c = m_ctx.Get<FocusCbs>(e))   c->onFocusLose  = std::move(cb); }
+	inline void Context::OnDrag       (ECS::EntityId e, std::function<void(SDL::FPoint)> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onDrag = std::move(cb); }
+	inline void Context::OnTouchFingerEvent(ECS::EntityId e, std::function<void(const SDL::TouchFingerEvent&)> cb) { if (auto* c = m_ctx.Get<PointerCbs>(e)) c->onTouchFinger = std::move(cb); }
 
-	inline void System::OnChange(ECS::EntityId e, std::function<void(float)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onChange = std::move(cb);
+	inline void Context::OnChange(ECS::EntityId e, std::function<void(float)> cb) {
+		if (auto* c = m_ctx.Get<ValueCbs>(e)) c->onChange = std::move(cb);
 	}
 
 	template <typename T>
-	inline void System::OnChange(ECS::EntityId e, std::function<void(T)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e))
+	inline void Context::OnChange(ECS::EntityId e, std::function<void(T)> cb) {
+		if (auto* c = m_ctx.Get<ValueCbs>(e))
 			c->onChange = [cb = std::move(cb)](float v) { cb(static_cast<T>(v)); };
 	}
 
-	inline void System::OnColorChange(ECS::EntityId e, std::function<void(SDL::Color)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onColorChange = std::move(cb);
+	inline void Context::OnColorChange(ECS::EntityId e, std::function<void(SDL::Color)> cb) {
+		if (auto* c = m_ctx.Get<ValueCbs>(e)) c->onColorChange = std::move(cb);
 	}
 
-	inline void System::OnTextChange(ECS::EntityId e, std::function<void(const std::string&)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onTextChange = std::move(cb);
+	inline void Context::OnTextChange(ECS::EntityId e, std::function<void(const std::string&)> cb) {
+		if (auto* c = m_ctx.Get<ValueCbs>(e)) c->onTextChange = std::move(cb);
 	}
 
-	inline void System::OnToggle(ECS::EntityId e, std::function<void(bool)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onToggle = std::move(cb);
+	inline void Context::OnToggle(ECS::EntityId e, std::function<void(bool)> cb) {
+		if (auto* c = m_ctx.Get<ValueCbs>(e)) c->onToggle = std::move(cb);
 	}
 
-	inline void System::OnScroll(ECS::EntityId e, std::function<void(float)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onScroll = std::move(cb);
+	inline void Context::OnScroll(ECS::EntityId e, std::function<void(float)> cb) {
+		if (auto* c = m_ctx.Get<ValueCbs>(e)) c->onScroll = std::move(cb);
 	}
 
-	inline void System::OnScrollChange(ECS::EntityId e, std::function<void(SDL::FPoint, SDL::FPoint)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onScrollChange = std::move(cb);
+	inline void Context::OnScrollChange(ECS::EntityId e, std::function<void(SDL::FPoint, SDL::FPoint)> cb) {
+		if (auto* c = m_ctx.Get<ValueCbs>(e)) c->onScrollChange = std::move(cb);
 	}
 
-	inline void System::OnTreeSelect(ECS::EntityId e, std::function<void(int, bool)> cb) {
-		if (auto* c = m_ctx.Get<Callbacks>(e)) c->onTreeSelect = std::move(cb);
+	inline void Context::OnTreeSelect(ECS::EntityId e, std::function<void(int, bool)> cb) {
+		if (auto* c = m_ctx.Get<ItemCbs>(e)) c->onTreeSelect = std::move(cb);
 	}
 
 	// ── Getters ───────────────────────────────────────────────────────────────────
 
-	inline const std::string& System::GetText(ECS::EntityId e) const {
+	inline const std::string& Context::GetText(ECS::EntityId e) const {
 		static std::string empty;
 		if (auto* te = m_ctx.Get<TextEdit>(e)) return te->text;
 		return empty;
 	}
 
-	inline int   System::GetListBoxSelection(ECS::EntityId e) const {
+	inline int   Context::GetListBoxSelection(ECS::EntityId e) const {
 		if (auto* ilv = m_ctx.Get<ItemListView>(e)) return ilv->selectedIndex;
 		return -1;
 	}
 
-	inline float System::GetScrollOffset(ECS::EntityId e) const {
+	inline float Context::GetScrollOffset(ECS::EntityId e) const {
 		if (auto* lp = m_ctx.Get<LayoutProps>(e)) return lp->scrollY;
 		return 0.f;
 	}
 
-	inline FRect System::GetScreenRect(ECS::EntityId e) const {
+	inline FRect Context::GetScreenRect(ECS::EntityId e) const {
 		if (auto* cr = m_ctx.Get<ComputedRect>(e)) return cr->absolute;
 		return {};
 	}
 
-	inline bool System::IsChecked   (ECS::EntityId e) const {
-		if (auto* t = m_ctx.Get<ToggleData>(e)) return t->checked;
-		if (auto* r = m_ctx.Get<RadioData>(e))  return r->checked;
+	inline bool Context::IsChecked   (ECS::EntityId e) const {
+		if (auto* t = m_ctx.Get<ToggleState>(e)) return t->checked;
+		if (auto* r = m_ctx.Get<RadioState>(e))  return r->checked;
 		return false;
 	}
-	inline bool System::IsEnabled   (ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Enable);         return false; }
-	inline bool System::IsVisible   (ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Visible);         return false; }
-	inline bool System::IsHoverable (ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Hoverable);       return false; }
-	inline bool System::IsSelectable(ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Selectable);      return false; }
-	inline bool System::IsFocusable (ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Focusable);       return false; }
-	inline bool System::IsScrollableX(ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::ScrollableX|WidgetBehaviorFlag::AutoScrollableX); return false; }
-	inline bool System::IsScrollableY(ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::ScrollableY|WidgetBehaviorFlag::AutoScrollableY); return false; }
+	inline bool Context::IsEnabled   (ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Enable);         return false; }
+	inline bool Context::IsVisible   (ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Visible);         return false; }
+	inline bool Context::IsHoverable (ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Hoverable);       return false; }
+	inline bool Context::IsSelectable(ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Selectable);      return false; }
+	inline bool Context::IsFocusable (ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::Focusable);       return false; }
+	inline bool Context::IsScrollableX(ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::ScrollableX|WidgetBehaviorFlag::AutoScrollableX); return false; }
+	inline bool Context::IsScrollableY(ECS::EntityId e) const { if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->behavior, WidgetBehaviorFlag::ScrollableY|WidgetBehaviorFlag::AutoScrollableY); return false; }
 
-	inline bool System::IsHovered(ECS::EntityId e) const {
+	inline bool Context::IsHovered(ECS::EntityId e) const {
 		if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->states, WidgetStateFlag::Hovered);
 		return false;
 	}
-	inline bool System::IsFocused(ECS::EntityId e) const {
+	inline bool Context::IsFocused(ECS::EntityId e) const {
 		if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->states, WidgetStateFlag::Focused);
 		return false;
 	}
-	inline bool System::IsPressed(ECS::EntityId e) const {
+	inline bool Context::IsPressed(ECS::EntityId e) const {
 		if (auto* w = m_ctx.Get<Widget>(e)) return Has(w->states, WidgetStateFlag::Pressed);
 		return false;
 	}
 
-	inline void System::FocusNext() {
-		if (m_events) m_events->_AdvanceFocus(ECS::NullEntity, true);
+	inline void Context::FocusNext() {
+		if (m_pipeline) m_pipeline->AdvanceFocus(ECS::NullEntity, true);
 	}
-	inline void System::FocusPrev() {
-		if (m_events) m_events->_AdvanceFocus(ECS::NullEntity, false);
+	inline void Context::FocusPrev() {
+		if (m_pipeline) m_pipeline->AdvanceFocus(ECS::NullEntity, false);
 	}
 
-	inline void System::StartTextInput() {
+	inline void Context::StartTextInput() {
 		if (m_renderer) {
 			auto win = m_renderer.GetWindow();
 			if (win) win.StartTextInput();
 		}
 	}
-	inline void System::StopTextInput() {
+	inline void Context::StopTextInput() {
 		if (m_renderer) {
 			auto win = m_renderer.GetWindow();
 			if (win) win.StopTextInput();
@@ -1191,7 +1203,7 @@ namespace SDL::UI {
 
 	// ── Texture ───────────────────────────────────────────────────────────────────
 
-	inline SDL::TextureRef System::_EnsureTexture(const std::string& key, const std::string& path) {
+	inline SDL::TextureRef Context::_EnsureTexture(const std::string& key, const std::string& path) {
 		if (key.empty()) return nullptr;
 		auto h = m_pool.Get<SDL::Texture>(key);
 		if (h) return *h.get();
@@ -1200,7 +1212,7 @@ namespace SDL::UI {
 			wrapper = SDL::Texture(m_renderer, path.empty() ? key : path);
 		} catch (...) {
 			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
-			             std::format("UI::System: cannot open texture '{}'", path.empty() ? key : path));
+			             std::format("UI::Context: cannot open texture '{}'", path.empty() ? key : path));
 			return nullptr;
 		}
 		m_pool.Add<SDL::Texture>(key, std::move(wrapper));
@@ -1210,17 +1222,17 @@ namespace SDL::UI {
 
 	// ── Font ──────────────────────────────────────────────────────────────────────
 
-	inline SDL::RendererTextEngine* System::_EnsureEngine() {
+	inline SDL::RendererTextEngine* Context::_EnsureEngine() {
 		if (!m_engine.has_value()) {
 			try { m_engine.emplace(m_renderer); } catch (...) {
-				SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION, "UI::System: failed to create RendererTextEngine");
+				SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION, "UI::Context: failed to create RendererTextEngine");
 				return nullptr;
 			}
 		}
 		return &m_engine.value();
 	}
 
-	inline SDL::FontRef System::_EnsureFont(const std::string& key, float ptsize, const std::string& path) {
+	inline SDL::FontRef Context::_EnsureFont(const std::string& key, float ptsize, const std::string& path) {
 		if (key.empty() || ptsize <= 0.f) return nullptr;
 		auto h = m_pool.Get<SDL::Font>(key);
 		if (h) {
@@ -1232,7 +1244,7 @@ namespace SDL::UI {
 			wrapper = SDL::Font(path.empty() ? key : path, ptsize);
 		} catch (...) {
 			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
-			             std::format("UI::System: cannot open font '{}' at {:.2f}pt", path.empty() ? key : path, ptsize));
+			             std::format("UI::Context: cannot open font '{}' at {:.2f}pt", path.empty() ? key : path, ptsize));
 			return nullptr;
 		}
 		m_pool.Add<SDL::Font>(key, std::move(wrapper));
@@ -1244,7 +1256,7 @@ namespace SDL::UI {
 		return nullptr;
 	}
 
-	inline SDL::TextRef System::_EnsureText(ECS::EntityId e, SDL::FontRef font, const std::string& text) {
+	inline SDL::TextRef Context::_EnsureText(ECS::EntityId e, SDL::FontRef font, const std::string& text) {
 		if (!font || text.empty()) return nullptr;
 		auto* engine = _EnsureEngine();
 		if (!engine) return nullptr;
@@ -1260,14 +1272,14 @@ namespace SDL::UI {
 				cache->text = engine->CreateText(font, text);
 			} catch (const std::exception& ex) {
 				SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
-				             std::format("UI::System: Failed to create text for entity {}: {}", e, ex.what()));
+				             std::format("UI::Context: Failed to create text for entity {}: {}", e, ex.what()));
 				return nullptr;
 			}
 		}
 		return SDL::TextRef(cache->text.Get());
 	}
 
-	inline System::ResolvedFont System::_ResolveFont(ECS::EntityId e) {
+	inline Context::ResolvedFont Context::_ResolveFont(ECS::EntityId e) {
 		for (ECS::EntityId cur = e; cur != ECS::NullEntity && m_ctx.IsAlive(cur);) {
 			auto* ts = m_ctx.Get<TextStyle>(cur);
 			if (!ts) break;
@@ -1308,7 +1320,7 @@ namespace SDL::UI {
 
 	// ── Audio ─────────────────────────────────────────────────────────────────────
 
-	inline SDL::AudioRef System::_EnsureAudio(const std::string& key, const std::string& path) {
+	inline SDL::AudioRef Context::_EnsureAudio(const std::string& key, const std::string& path) {
 		if (key.empty()) return nullptr;
 		auto h = m_pool.Get<SDL::Audio>(key);
 		if (h) return *h.get();
@@ -1317,7 +1329,7 @@ namespace SDL::UI {
 			wrapper = SDL::Audio(m_mixer, path.empty() ? key : path, false);
 		} catch (...) {
 			SDL::LogWarn(SDL::LOG_CATEGORY_APPLICATION,
-			             std::format("UI::System: cannot open audio '{}'", path.empty() ? key : path));
+			             std::format("UI::Context: cannot open audio '{}'", path.empty() ? key : path));
 			return nullptr;
 		}
 		m_pool.Add<SDL::Audio>(key, std::move(wrapper));
@@ -1325,27 +1337,27 @@ namespace SDL::UI {
 		return h2 ? SDL::AudioRef(*h2.get()) : nullptr;
 	}
 
-	inline void System::_PlayAudio(SDL::AudioRef audio) {
+	inline void Context::_PlayAudio(SDL::AudioRef audio) {
 		if (m_mixer) m_mixer.PlayAudio(audio);
 	}
 
 	// ── Resource loading ──────────────────────────────────────────────────────────
 
-	inline void System::LoadTexture(std::string_view key, std::string_view path) { _EnsureTexture(std::string(key), std::string(path)); }
-	inline void System::LoadFont   (std::string_view key, std::string_view path) { _EnsureFont(std::string(key), m_defaultFontSize, std::string(path)); }
-	inline void System::LoadAudio  (std::string_view key, std::string_view path) { _EnsureAudio(std::string(key), std::string(path)); }
+	inline void Context::LoadTexture(std::string_view key, std::string_view path) { _EnsureTexture(std::string(key), std::string(path)); }
+	inline void Context::LoadFont   (std::string_view key, std::string_view path) { _EnsureFont(std::string(key), m_defaultFontSize, std::string(path)); }
+	inline void Context::LoadAudio  (std::string_view key, std::string_view path) { _EnsureAudio(std::string(key), std::string(path)); }
 
-	inline SDL::TextRef System::EnsureText(ECS::EntityId e, SDL::FontRef font, const std::string& text) { return _EnsureText(e, font, text); }
-	inline SDL::FontRef System::EnsureFont(const std::string& key, float ptsize, const std::string& path) { return _EnsureFont(key, ptsize, path); }
-	inline System::ResolvedFont System::ResolveFont(ECS::EntityId e) { return _ResolveFont(e); }
+	inline SDL::TextRef Context::EnsureText(ECS::EntityId e, SDL::FontRef font, const std::string& text) { return _EnsureText(e, font, text); }
+	inline SDL::FontRef Context::EnsureFont(const std::string& key, float ptsize, const std::string& path) { return _EnsureFont(key, ptsize, path); }
+	inline Context::ResolvedFont Context::ResolveFont(ECS::EntityId e) { return _ResolveFont(e); }
 
 	// ==================================================================================
-	// Deferred implementations for UILayoutSystem::_TextWidth/_TextHeight
-	// and UIRenderSystem::_DrawText
-	// (defined here to ensure System is fully defined)
+	// Deferred implementations for LayoutSystem::_TextWidth/_TextHeight
+	// and RenderSystem::_DrawText
+	// (defined here to ensure Context is fully defined)
 	// ==================================================================================
 
-	inline float UILayoutSystem::_TextWidth(const std::string& text, ECS::EntityId e) {
+	inline float LayoutSystem::_TextWidth(const std::string& text, ECS::EntityId e) {
 		if (text.empty()) return 0.f;
 		// Handle multi-line: return width of widest line
 		float maxW = 0.f;
@@ -1371,7 +1383,7 @@ namespace SDL::UI {
 		return maxW;
 	}
 
-	inline float UILayoutSystem::_TextHeight(ECS::EntityId e) {
+	inline float LayoutSystem::_TextHeight(ECS::EntityId e) {
 		auto rf   = m_sys.ResolveFont(e);
 		auto font = m_sys.EnsureFont(rf.key, rf.size);
 		float lineH = font ? (float)font.GetHeight() : rf.size;
@@ -1382,7 +1394,7 @@ namespace SDL::UI {
 		return lineH * (float)lines;
 	}
 
-	inline void UIRenderSystem::_DrawText(ECS::EntityId e, const std::string& text,
+	inline void RenderSystem::_DrawText(ECS::EntityId e, const std::string& text,
 	                                      const FRect& rect,
 	                                      TextHAlign hAlign, TextVAlign vAlign) {
 		if (text.empty()) return;
@@ -1418,39 +1430,39 @@ namespace SDL::UI {
 // Layout shortcuts and remaining builder-returning factory methods
 namespace SDL::UI {
 
-	inline ContainerBuilder System::Column(float gap, float pad, float marg) {
+	inline ContainerBuilder Context::Column(float gap, float pad, float marg) {
 		ECS::EntityId e = MakeContainer();
 		auto& sp = GetSpacing(e); sp.gap = gap; sp.padding = SDL::FBox(pad); sp.margin = SDL::FBox(marg);
 		return ContainerBuilder{*this, e};
 	}
 
-	inline ContainerBuilder System::Row(float gap, float pad, float marg) {
+	inline ContainerBuilder Context::Row(float gap, float pad, float marg) {
 		ECS::EntityId e = MakeContainer();
 		GetLayout(e).layout = Layout::InLine;
 		auto& sp = GetSpacing(e); sp.gap = gap; sp.padding = SDL::FBox(pad); sp.margin = SDL::FBox(marg);
 		return ContainerBuilder{*this, e};
 	}
 
-	inline ContainerBuilder System::Card(float gap, float marg) {
+	inline ContainerBuilder Context::Card(float gap, float marg) {
 		ECS::EntityId e = MakeContainer();
 		auto& sp = GetSpacing(e); sp.gap = gap; sp.margin = SDL::FBox(marg);
 		return ContainerBuilder{*this, e};
 	}
 
-	inline ContainerBuilder System::Stack(float gap, float pad, float marg) {
+	inline ContainerBuilder Context::Stack(float gap, float pad, float marg) {
 		ECS::EntityId e = MakeContainer();
 		GetLayout(e).layout = Layout::Stack;
 		auto& sp = GetSpacing(e); sp.gap = gap; sp.padding = SDL::FBox(pad); sp.margin = SDL::FBox(marg);
 		return ContainerBuilder{*this, e};
 	}
 
-	inline ContainerBuilder System::ScrollView(float gap) {
+	inline ContainerBuilder Context::ScrollView(float gap) {
 		auto b = Column(gap, 0.f);
 		b.SetAutoScrollable(false, true).Padding(0);
 		return b;
 	}
 
-	inline ContainerBuilder System::Grid(int columns, float gap, float pad) {
+	inline ContainerBuilder Context::Grid(int columns, float gap, float pad) {
 		ECS::EntityId e = MakeContainer();
 		GetLayout(e).layout = Layout::InGrid;
 		SetGridCols(e, columns);
@@ -1458,33 +1470,33 @@ namespace SDL::UI {
 		return ContainerBuilder{*this, e};
 	}
 
-	inline Builder System::SectionTitle(std::string_view text, SDL::Color color) {
+	inline Builder Context::SectionTitle(std::string_view text, SDL::Color color) {
 		ECS::EntityId e = MakeLabel(text);
 		if (auto* ts = m_ctx.Get<TextStyle>(e)) ts->color = color;
 		return Builder{*this, e};
 	}
 
 	template <typename T>
-	inline SliderBuilder System::Slider(NumericValue<T> v, Orientation o) {
+	inline SliderBuilder Context::Slider(NumericValue<T> v, Orientation o) {
 		return SliderBuilder{*this, MakeSlider(std::move(v), o)};
 	}
 
 	template <typename T>
-	inline ProgressBuilder System::Progress(NumericValue<T> v) {
+	inline ProgressBuilder Context::Progress(NumericValue<T> v) {
 		return ProgressBuilder{*this, MakeProgress(std::move(v))};
 	}
 
 	template <typename T>
-	inline KnobBuilder System::Knob(NumericValue<T> v, KnobShape shape) {
+	inline KnobBuilder Context::Knob(NumericValue<T> v, KnobShape shape) {
 		return KnobBuilder{*this, MakeKnob(std::move(v), shape)};
 	}
 
 	template <typename T>
-	inline InputBuilder System::InputValue(NumericValue<T> v) {
+	inline InputBuilder Context::InputValue(NumericValue<T> v) {
 		return InputBuilder{*this, MakeInputValue(std::move(v))};
 	}
 
-	inline Builder System::GetBuilder(ECS::EntityId e) {
+	inline Builder Context::GetBuilder(ECS::EntityId e) {
 		return Builder{*this, e};
 	}
 

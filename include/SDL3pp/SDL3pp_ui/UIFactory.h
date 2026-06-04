@@ -14,10 +14,10 @@
 
 namespace SDL::UI {
 
-	class System;
+	class Context;
 
 	// ==================================================================================
-	// UIFactory — single point of widget construction
+	// Factory — single point of widget construction
 	//
 	// _Spawn() attaches the universal bundle:
 	//   Widget (tag+type+behavior+states+dirty), LayoutProps, Callbacks, ComputedRect, Children, Parent.
@@ -34,9 +34,9 @@ namespace SDL::UI {
 	//   Tooltip    → container + label (created via EnsureTooltip)
 	// ==================================================================================
 
-	class UIFactory {
+	class Factory {
 	public:
-		UIFactory(System& sys, ECS::Context& ctx) : m_sys(sys), m_ctx(ctx) {}
+		Factory(Context& sys, ECS::Context& ctx) : m_sys(sys), m_ctx(ctx) {}
 
 		// ── Hierarchy management ─────────────────────────────────────────────
 		void AppendChild(ECS::EntityId parent, ECS::EntityId child) {
@@ -80,6 +80,9 @@ namespace SDL::UI {
 				_AttachVisual(cont);
 				auto& lp = *m_ctx.Get<LayoutProps>(cont);
 				lp.attach = AttachLayout::Fixed;
+				// Tooltip plane: above everything except modals, clipped to the root.
+				m_ctx.Add<LayerProps>(cont, LayerProps{
+					.layer = UILayer::Tooltip, .inherit = false, .attach = PopupAttach::Root});
 				auto& w   = *m_ctx.Get<Widget>(cont);
 				w.behavior &= ~WidgetBehaviorFlag::Visible; // hidden until triggered
 				w.behavior &= ~WidgetBehaviorFlag::DispatchEvent;
@@ -111,7 +114,7 @@ namespace SDL::UI {
 		ECS::EntityId MakeContainer() {
 			ECS::EntityId e = _Spawn(WidgetType::Container, _AutoScrollable());
 			_AttachVisual(e);
-			m_ctx.Add<ContainerScrollState>(e);
+			m_ctx.Add<ScrollThumbInteraction>(e);
 			return e;
 		}
 
@@ -134,6 +137,7 @@ namespace SDL::UI {
 			_AttachVisualText(e);
 			_AttachTransform(e);
 			_AttachSound(e);
+			_AttachAnimation(e, AnimChannel::Color);
 			m_ctx.Add<TextEdit>(e).text = std::string(text);
 			return e;
 		}
@@ -145,7 +149,9 @@ namespace SDL::UI {
 			_AttachSound(e);
 			m_ctx.Add<TextEdit>(e).text = std::string(text);
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(28.f);
-			m_ctx.Add<ToggleData>(e);
+			m_ctx.Add<ToggleState>(e);
+			m_ctx.Add<ToggleAnim>(e);
+			_AttachAnimation(e, AnimChannel::Color | AnimChannel::Toggle);
 			return e;
 		}
 
@@ -156,7 +162,7 @@ namespace SDL::UI {
 			_AttachSound(e);
 			m_ctx.Add<TextEdit>(e).text = std::string(text);
 			m_ctx.Get<LayoutProps>(e)->height = Value::Px(24.f);
-			m_ctx.Add<RadioData>(e, RadioData{std::string(group), false});
+			m_ctx.Add<RadioState>(e, RadioState{std::string(group), false});
 			return e;
 		}
 
@@ -184,8 +190,9 @@ namespace SDL::UI {
 			_AttachAccent(e);
 			_AttachSound(e);
 			m_ctx.Add<NumericValue<T>>(e, std::move(v));
-			SliderData sd; sd.orientation = o;
-			m_ctx.Add<SliderData>(e, sd);
+			SliderConfig sc; sc.orientation = o;
+			m_ctx.Add<SliderConfig>(e, sc);
+			m_ctx.Add<SliderInteraction>(e);
 			auto& lp = *m_ctx.Get<LayoutProps>(e);
 			if (o == Orientation::Horizontal) lp.height = Value::Px(thickness);
 			else                              lp.width  = Value::Px(thickness);
@@ -215,8 +222,9 @@ namespace SDL::UI {
 			_AttachAccent(e);
 			_AttachSound(e);
 			m_ctx.Add<NumericValue<T>>(e, std::move(v));
-			KnobData kd; kd.shape = shape;
-			m_ctx.Add<KnobData>(e, kd);
+			KnobConfig kc; kc.shape = shape;
+			m_ctx.Add<KnobConfig>(e, kc);
+			m_ctx.Add<KnobInteraction>(e);
 			auto& lp = *m_ctx.Get<LayoutProps>(e);
 			lp.width = lp.height = Value::Px(size);
 			return e;
@@ -228,11 +236,11 @@ namespace SDL::UI {
 			_AttachBackground(e);
 			_AttachAccent(e);
 			_AttachTransform(e);
-			ScrollBarData sd;
-			sd.contentSize = contentSize;
-			sd.viewSize    = viewSize;
-			sd.orientation = o;
-			m_ctx.Add<ScrollBarData>(e, sd);
+			ScrollBarConfig sc; sc.orientation = o;
+			m_ctx.Add<ScrollBarConfig>(e, sc);
+			ScrollBarState ss; ss.contentSize = contentSize; ss.viewSize = viewSize;
+			m_ctx.Add<ScrollBarState>(e, ss);
+			m_ctx.Add<ScrollBarInteraction>(e);
 			auto& lp = *m_ctx.Get<LayoutProps>(e);
 			if (o == Orientation::Vertical) lp.width  = Value::Px(thickness);
 			else                            lp.height = Value::Px(thickness);
@@ -286,7 +294,7 @@ namespace SDL::UI {
 			m_ctx.Add<TextSelection>(e);
 			m_ctx.Add<TextSpans>(e);
 			m_ctx.Add<TextAreaData>(e);
-			m_ctx.Add<ContainerScrollState>(e);
+			m_ctx.Add<ScrollThumbInteraction>(e);
 			m_ctx.Get<SpacingStyle>(e)->padding = {6.f, 6.f, 6.f, 6.f};
 			return e;
 		}
@@ -323,7 +331,7 @@ namespace SDL::UI {
 			_AttachVisualText(e);
 			_AttachTransform(e);
 			_AttachSound(e);
-			m_ctx.Add<ContainerScrollState>(e);
+			m_ctx.Add<ScrollThumbInteraction>(e);
 			m_ctx.Get<SpacingStyle>(e)->padding = {2.f, 2.f, 2.f, 2.f};
 
 			auto& lbd = m_ctx.Add<ListBoxData>(e);
@@ -383,7 +391,7 @@ namespace SDL::UI {
 			// Overlay container (Fixed, hidden by default)
 			ECS::EntityId ov = _Spawn(WidgetType::Container, _AutoScrollable());
 			_AttachVisual(ov);
-			m_ctx.Add<ContainerScrollState>(ov);
+			m_ctx.Add<ScrollThumbInteraction>(ov);
 			auto& ovLp = *m_ctx.Get<LayoutProps>(ov);
 			ovLp.attach = AttachLayout::Fixed;
 			ovLp.layout = Layout::InColumn;
@@ -423,7 +431,7 @@ namespace SDL::UI {
 			_AttachVisualText(e);
 			_AttachTransform(e);
 			_AttachSound(e);
-			m_ctx.Add<ContainerScrollState>(e);
+			m_ctx.Add<ScrollThumbInteraction>(e);
 			m_ctx.Get<SpacingStyle>(e)->padding = {2.f, 2.f, 2.f, 2.f};
 
 			auto& td = m_ctx.Add<TreeData>(e);
@@ -437,7 +445,7 @@ namespace SDL::UI {
 			return e;
 		}
 
-		/// @brief Add a node row entity to the tree. Called by System::AddTreeNode.
+		/// @brief Add a node row entity to the tree. Called by Context::AddTreeNode.
 		void AddTreeNodeRow(ECS::EntityId e, const TreeNodeData& node, int index) {
 			auto* td = m_ctx.Get<TreeData>(e);
 			if (!td || td->scrollView == ECS::NullEntity) return;
@@ -527,7 +535,7 @@ namespace SDL::UI {
 			// Content container (hidden unless active tab)
 			ECS::EntityId cnt = _SpawnContainer(_AutoScrollable());
 			_AttachVisual(cnt);
-			m_ctx.Add<ContainerScrollState>(cnt);
+			m_ctx.Add<ScrollThumbInteraction>(cnt);
 			m_ctx.Get<LayoutProps>(cnt)->layout = Layout::InColumn;
 			m_ctx.Get<LayoutProps>(cnt)->height = Value::Grow(100.f);
 			if (idx != tvd->activeTab) {
@@ -568,7 +576,7 @@ namespace SDL::UI {
 			// Content container
 			ECS::EntityId cnt = _SpawnContainer(_AutoScrollable());
 			_AttachVisual(cnt);
-			m_ctx.Add<ContainerScrollState>(cnt);
+			m_ctx.Add<ScrollThumbInteraction>(cnt);
 			m_ctx.Get<LayoutProps>(cnt)->layout = Layout::InColumn;
 			m_ctx.Get<LayoutProps>(cnt)->height = Value::Grow(100.f);
 			if (!expanded) {
@@ -610,7 +618,7 @@ namespace SDL::UI {
 			ECS::EntityId ov = _Spawn(WidgetType::Container,
 			                           WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable);
 			_AttachVisual(ov);
-			m_ctx.Add<ContainerScrollState>(ov);
+			m_ctx.Add<ScrollThumbInteraction>(ov);
 			auto& ovLp = *m_ctx.Get<LayoutProps>(ov);
 			ovLp.attach = AttachLayout::Fixed;
 			ovLp.layout = Layout::InColumn;
@@ -716,9 +724,11 @@ namespace SDL::UI {
 			_AttachVisual(e);
 			_AttachAccent(e);
 			_AttachSound(e);
-			auto& d = m_ctx.Add<ColorPickerData>(e);
+			auto& d = m_ctx.Add<ColorPickerConfig>(e);
 			d.palette       = palette;
 			d.precisionStep = step;
+			m_ctx.Add<ColorPickerState>(e);
+			m_ctx.Add<ColorPickerInteraction>(e);
 			return e;
 		}
 
@@ -730,13 +740,19 @@ namespace SDL::UI {
 			_AttachVisualText(e);
 			_AttachTransform(e);
 			_AttachSound(e);
-			auto& d = m_ctx.Add<PopupData>(e);
+			auto& d = m_ctx.Add<PopupConfig>(e);
 			d.title     = std::string(title);
 			d.closable  = closable;
 			d.draggable = draggable;
 			d.resizable = resizable;
+			m_ctx.Add<PopupState>(e);
+			m_ctx.Add<PopupInteraction>(e);
 			if (auto* lp = m_ctx.Get<LayoutProps>(e))
 				lp->attach = AttachLayout::Fixed;
+			// Lift the whole popup subtree onto the Popup plane and clip it to the
+			// root, so it draws above content and is never cut off by an ancestor.
+			m_ctx.Add<LayerProps>(e, LayerProps{
+				.layer = UILayer::Popup, .inherit = false, .attach = PopupAttach::Root});
 			if (auto* sp = m_ctx.Get<SpacingStyle>(e))
 				sp->padding = {4.f, 4.f, 4.f, d.headerH + 4.f};
 			return e;
@@ -747,14 +763,16 @@ namespace SDL::UI {
 			                          WidgetBehaviorFlag::Hoverable | WidgetBehaviorFlag::Selectable);
 			_AttachBackground(e);
 			_AttachTransform(e);
-			auto& d = m_ctx.Add<SplitterData>(e);
-			d.orientation = o;
-			d.ratio       = SDL::Clamp(ratio, d.minRatio, d.maxRatio);
+			auto& sc = m_ctx.Add<SplitterConfig>(e);
+			sc.orientation = o;
+			auto& ss = m_ctx.Add<SplitterState>(e);
+			ss.ratio = SDL::Clamp(ratio, sc.minRatio, sc.maxRatio);
+			m_ctx.Add<SplitterInteraction>(e);
 			return e;
 		}
 
 	private:
-		System&       m_sys;
+		Context&       m_sys;
 		ECS::Context& m_ctx;
 
 		static constexpr WidgetBehaviorFlag _Interactive() noexcept {
@@ -783,6 +801,15 @@ namespace SDL::UI {
 		void _AttachVisual    (ECS::EntityId e) { _AttachBackground(e); _AttachBorder(e); _AttachSpacing(e); _AttachTransform(e); }
 		void _AttachVisualText(ECS::EntityId e) { _AttachVisual(e); _AttachText(e); }
 
+		/// @brief Opt a widget into smooth transitions with the given channels.
+		void _AttachAnimation(ECS::EntityId e, AnimChannel channels) {
+			if (!m_ctx.Has<AnimationStyle>(e)) {
+				auto& as = m_ctx.Add<AnimationStyle>(e);
+				as.channels = channels;
+			}
+			if (!m_ctx.Has<AnimationState>(e)) m_ctx.Add<AnimationState>(e);
+		}
+
 		// ── Universal spawn ──────────────────────────────────────────────────
 		ECS::EntityId _Spawn(WidgetType type, WidgetBehaviorFlag extraBehavior = WidgetBehaviorFlag::None) {
 			ECS::EntityId e = m_ctx.CreateEntity();
@@ -790,7 +817,10 @@ namespace SDL::UI {
 			                      | WidgetBehaviorFlag::DispatchEvent | extraBehavior;
 			m_ctx.Add<Widget>(e, Widget{type, beh, WidgetStateFlag::None, DirtyFlag::All});
 			m_ctx.Add<LayoutProps>(e);
-			m_ctx.Add<Callbacks>(e);
+			m_ctx.Add<PointerCbs>(e);
+			m_ctx.Add<FocusCbs>(e);
+			m_ctx.Add<ValueCbs>(e);
+			m_ctx.Add<ItemCbs>(e);
 			m_ctx.Add<ComputedRect>(e);
 			m_ctx.Add<Children>(e);
 			m_ctx.Add<Parent>(e);

@@ -2,14 +2,14 @@
 #  Improved SDL3pp Makefile
 # ============================================================
 
-# ── Détection de l'OS (Gère le problème de recompilation continue sous Windows) ──
+# ── Détection de l'OS ──
 ifeq ($(OS),Windows_NT)
     EXE := .exe
 else
     EXE :=
 endif
 
-TARGET_NAME := Game
+TARGET_NAME := MiniGames
 LIB_NAME	:= SDL3pp
 
 CXX		  	:= g++
@@ -34,9 +34,13 @@ CPPFLAGS := -I$(INCDIR)
 LDLIBS := $(shell pkg-config --libs sdl3 sdl3-image sdl3-mixer sdl3-ttf sdl3-net 2>/dev/null) \
 		  $(shell pkg-config --libs vulkan 2>/dev/null) -lsqlite3
 
-# FFmpeg libraries – used only by the video player example
+# FFmpeg libraries
 FFMPEG_CFLAGS := $(shell pkg-config --cflags libavutil libavcodec libavformat libswscale libswresample 2>/dev/null)
 FFMPEG_LIBS   := $(shell pkg-config --libs   libavformat libavcodec libavutil libswscale libswresample 2>/dev/null)
+
+# Lua 5.4 — used by the tile/game-engine editor
+LUA_CFLAGS    := $(shell pkg-config --cflags lua5.4 2>/dev/null)
+LUA_LIBS      := $(shell pkg-config --libs   lua5.4 2>/dev/null)
 
 # ── Colours ─────────────────────────────────────────────────
 GREEN  := $(shell tput setaf 2 2>/dev/null)
@@ -84,35 +88,48 @@ $(APP_TARGET): $(LIB_TARGET)
 # ── Examples ────────────────────────────────────────────────
 EXAMPLE_SRCS := $(shell find examples -name '*.cpp' 2>/dev/null)
 EXAMPLE_OBJS := $(patsubst examples/%.cpp,$(BUILDDIR)/examples/%.o,$(EXAMPLE_SRCS))
-
-# Ajout de $(EXE) pour s'assurer que Make trouve la cible
 EXAMPLE_BINS := $(patsubst examples/%.cpp,$(BUILDDIR)/examples/%$(EXE),$(EXAMPLE_SRCS))
 
-examples: $(EXAMPLE_BINS)
+# 'make examples' construit d'abord la bibliothèque, puis tous les exemples.
+examples: $(LIB_TARGET) $(EXAMPLE_BINS)
 
-# 1. Compilation des objets pour les exemples (génère aussi les .d)
-# Règle spécifique : video player (nécessite les flags FFmpeg)
-$(BUILDDIR)/examples/demo/06_media_player.o: examples/demo/06_media_player.cpp | $(BUILDDIR)
-	@mkdir -p $(dir $@)
-	$(call print_yellow,"Compiling FFmpeg $<")
-	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FFMPEG_CFLAGS) -DSDL3PP_ENABLE_TTF -c $< -o $@
+# Cibler un binaire directement (ex: make build/examples/renderer/13_ui)
+# ne recompile QUE ce .cpp — aucune source de src/ n'est touchée.
+# La bibliothèque doit déjà exister (lancez 'make' une première fois).
+$(BUILDDIR)/examples/%$(EXE): $(BUILDDIR)/examples/%.o
+	$(call print_green,"Linking example $@")
+	@[ -f "$(LIB_TARGET)" ] || \
+		{ echo "$(YELLOW)$(LIB_TARGET) introuvable — lancez 'make' d'abord.$(RESET)"; exit 1; }
+	@$(CXX) $< -L$(BUILDDIR) -l$(LIB_NAME) $(LDLIBS) -o $@
 
-# Règle générique pour tous les autres exemples
 $(BUILDDIR)/examples/%.o: examples/%.cpp | $(BUILDDIR)
 	@mkdir -p $(dir $@)
 	$(call print_yellow,"Compiling example $<")
 	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@
 
-# 2. Édition de liens (linking) des exemples
-# Règle spécifique : video player (link avec FFmpeg)
-$(BUILDDIR)/examples/demo/06_media_player$(EXE): $(BUILDDIR)/examples/demo/06_media_player.o $(LIB_TARGET)
+# Exemple avec FFmpeg (flags supplémentaires)
+$(BUILDDIR)/examples/demo/06_media_player.o: examples/demo/06_media_player.cpp | $(BUILDDIR)
+	@mkdir -p $(dir $@)
+	$(call print_yellow,"Compiling FFmpeg $<")
+	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(FFMPEG_CFLAGS) -DSDL3PP_ENABLE_TTF -c $< -o $@
+
+$(BUILDDIR)/examples/demo/06_media_player$(EXE): $(BUILDDIR)/examples/demo/06_media_player.o
 	$(call print_green,"Linking FFmpeg $@")
+	@[ -f "$(LIB_TARGET)" ] || \
+		{ echo "$(YELLOW)$(LIB_TARGET) introuvable — lancez 'make' d'abord.$(RESET)"; exit 1; }
 	@$(CXX) $< -L$(BUILDDIR) -l$(LIB_NAME) $(LDLIBS) $(FFMPEG_LIBS) -o $@
 
-# Règle générique pour tous les autres exemples
-$(BUILDDIR)/examples/%$(EXE): $(BUILDDIR)/examples/%.o $(LIB_TARGET)
-	$(call print_green,"Linking example $@")
-	@$(CXX) $< -L$(BUILDDIR) -l$(LIB_NAME) $(LDLIBS) -o $@
+# Tile editor — needs Lua 5.4 (script workspace + node-graph script blocks)
+$(BUILDDIR)/examples/demo/03_tile_editor.o: examples/demo/03_tile_editor.cpp | $(BUILDDIR)
+	@mkdir -p $(dir $@)
+	$(call print_yellow,"Compiling Lua $<")
+	@$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(LUA_CFLAGS) -DSDL3PP_TILE_EDITOR_LUA -c $< -o $@
+
+$(BUILDDIR)/examples/demo/03_tile_editor$(EXE): $(BUILDDIR)/examples/demo/03_tile_editor.o
+	$(call print_green,"Linking Lua $@")
+	@[ -f "$(LIB_TARGET)" ] || \
+		{ echo "$(YELLOW)$(LIB_TARGET) introuvable — lancez 'make' d'abord.$(RESET)"; exit 1; }
+	@$(CXX) $< -L$(BUILDDIR) -l$(LIB_NAME) $(LDLIBS) $(LUA_LIBS) -o $@
 
 # ── Shaders ────────────────────────────────────────────────
 GLSLC		   := glslc
@@ -175,5 +192,4 @@ doc-open:
 	@xdg-open docs/html/index.html || open docs/html/index.html || echo "Ouvrez docs/html/index.html manuellement"
 
 # ── Dependencies ───────────────────────────────────────────
-# On inclut maintenant les dépendances du projet principal ET des exemples
 -include $(OBJECTS:.o=.d) $(EXAMPLE_OBJS:.o=.d)

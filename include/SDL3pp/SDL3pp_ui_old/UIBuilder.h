@@ -411,6 +411,18 @@ namespace UI {
 			sys.GetLayout(id).attach = a;
 			return *this;
 		}
+		/**
+		 * @brief Set the widget's Z-offset within its parent layer.
+		 *
+		 * Higher values draw on top of (and receive input before) lower ones.
+		 * Default is 0; use positive values for popups, menus and tooltips so
+		 * they sit above neighbouring widgets, negative values for backdrops.
+		 * Affects render order, hit-testing and Tab-cycle order.
+		 */
+		Builder &Z(int z) {
+			sys.GetLayout(id).zOffset = z;
+			return *this;
+		}
 		/** @brief Position the widget absolutely within its parent using Values. */
 		Builder &Absolute(Value x, Value y) {
 			auto &l = sys.GetLayout(id);
@@ -1182,7 +1194,8 @@ namespace UI {
 	inline Builder System::Input(std::string_view n, const std::string &ph) { return {*this, MakeInput(n, ph)}; }
 	template <is_numeric_value T>
 	inline Builder System::InputValue(std::string_view n, T minValue, T maxValue, T value, T step) {
-		return {*this, MakeInputValue<T>(n, minValue, maxValue, value, step)};
+		// MakeInputValue takes (n, value, min, max, step) — reorder accordingly.
+		return {*this, MakeInputValue<T>(n, value, minValue, maxValue, step)};
 	}
 	template <is_numeric_value T>
 	inline Builder System::Knob(std::string_view n, T minValue, T maxValue, T value, T step, KnobShape shape) {
@@ -1282,8 +1295,9 @@ namespace UI {
 		return Builder(*this, MakeColorPicker(n, palette, step));
 	}
 	inline Builder System::Popup(std::string_view n, const std::string &title,
-	                             bool closable, bool draggable, bool resizable) {
-		return Builder(*this, MakePopup(n, title, closable, draggable, resizable));
+	                             bool closable, bool draggable, bool resizable,
+	                             AttachLayout attach) {
+		return Builder(*this, MakePopup(n, title, closable, draggable, resizable, attach));
 	}
 	inline Builder System::Tree(std::string_view n) {
 		return Builder(*this, MakeTree(n));

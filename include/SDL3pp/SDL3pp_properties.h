@@ -92,9 +92,7 @@ constexpr PropertyType PROPERTY_TYPE_BOOLEAN =
  *
  * @sa Properties.Enumerate
  */
-using EnumeratePropertiesCallback = void(SDLCALL*)(void* userdata,
-																									 PropertiesID props,
-																									 const char* name);
+using EnumeratePropertiesCallback = void(SDLCALL*)(void* userdata, PropertiesID props, const char* name);
 
 /**
  * A callback used to enumerate all the properties in a group of properties.
