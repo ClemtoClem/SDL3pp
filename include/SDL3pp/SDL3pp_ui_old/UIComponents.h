@@ -1,6 +1,6 @@
 #pragma once
 #include "UIValue.h"
-#include "../SDL3pp_ecs.h"
+#include "../SDL3pp_engine/ECS.h"
 #include "../SDL3pp_events.h"
 #include "../SDL3pp_ttf.h"
 #include <algorithm>

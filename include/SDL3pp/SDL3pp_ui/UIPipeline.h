@@ -12,7 +12,7 @@
 #include "UIIndexSystem.h"
 #include "UIBatchingSystem.h"
 
-#include "../SDL3pp_ecs.h"
+#include "../SDL3pp_engine/ECS.h"
 #include "../SDL3pp_render.h"
 #include "../SDL3pp_mixer.h"
 #include "../SDL3pp_resources.h"

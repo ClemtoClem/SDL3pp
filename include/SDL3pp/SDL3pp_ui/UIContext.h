@@ -2,7 +2,7 @@
 
 #include "UIComponents.h"
 #include "UIPipeline.h"
-#include "../SDL3pp_ecs.h"
+#include "../SDL3pp_engine/ECS.h"
 #include "../SDL3pp_error.h"
 #include "../SDL3pp_mixer.h"
 #include "../SDL3pp_render.h"

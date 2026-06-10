@@ -2,7 +2,7 @@
 
 #include "UIComponents.h"
 #include "UIIndexSystem.h"
-#include "../SDL3pp_ecs.h"
+#include "../SDL3pp_engine/ECS.h"
 #include "../SDL3pp_render.h"
 #include "../SDL3pp_resources.h"
 #include "../SDL3pp_ttf.h"

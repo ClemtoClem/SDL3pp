@@ -3,8 +3,8 @@
 #include "../ECS/Components.hpp"
 #include <SDL3pp/SDL3pp_log.h>		  // Logger
 #include <SDL3pp/SDL3pp.h>
-#include <SDL3pp/SDL3pp_ecs.h>
-#include <SDL3pp/SDL3pp_scene.h>
+#include <SDL3pp/SDL3pp_engine.h>
+#include <SDL3pp/SDL3pp_engine.h>
 #include <SDL3pp/SDL3pp_resources.h>
 #include <format>
 #include <string>

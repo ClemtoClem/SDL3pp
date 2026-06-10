@@ -3,7 +3,7 @@
 #include "../Core/Camera.hpp"
 #include <SDL3pp/SDL3pp_log.h>		  // Logger
 #include <SDL3pp/SDL3pp_stdinc.h>
-#include <SDL3pp/SDL3pp_ecs.h>
+#include <SDL3pp/SDL3pp_engine.h>
 #include <SDL3pp/SDL3pp_keyboard.h>
 #include <SDL3pp/SDL3pp_events.h>
 #include <cmath>

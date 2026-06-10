@@ -3,7 +3,7 @@
 #include "UIComponents.h"
 #include "UIIndexSystem.h"
 #include "UIFocusSystem.h"
-#include "../SDL3pp_ecs.h"
+#include "../SDL3pp_engine/ECS.h"
 #include "../SDL3pp_events.h"
 #include "../SDL3pp_rect.h"
 #include "../SDL3pp_clipboard.h"

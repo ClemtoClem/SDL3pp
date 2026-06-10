@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Chunk.h"
-#include <SDL3pp/SDL3pp_math3D.h>
+#include <SDL3pp/SDL3pp_engine/Math3D.h>
 #include <cmath>
 
 // Camera FPS (Y-up, regarde par défaut vers -Z).

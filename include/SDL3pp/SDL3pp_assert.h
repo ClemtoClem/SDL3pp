@@ -238,9 +238,7 @@ using AssertData = SDL_AssertData;
  * @since This function is available since SDL 3.2.0.
  */
 inline AssertState ReportAssertion(AssertData* data,
-																	 StringParam func,
-																	 StringParam file,
-																	 int line) {
+	StringParam func, StringParam file, int line) {
 	return SDL_ReportAssertion(data, func, file, line);
 }
 

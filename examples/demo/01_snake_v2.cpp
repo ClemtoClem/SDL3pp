@@ -7,8 +7,8 @@
 #include <SDL3pp/SDL3pp.h>
 #include <SDL3pp/SDL3pp_main.h>
 
-#include <SDL3pp/SDL3pp_ecs.h>
-#include <SDL3pp/SDL3pp_scene.h>
+#include <SDL3pp/SDL3pp_engine.h>
+#include <SDL3pp/SDL3pp_engine.h>
 #include <SDL3pp/SDL3pp_ui.h>
 #include <SDL3pp/SDL3pp_dataScripts.h>
 #include <SDL3pp/SDL3pp_mixer.h>

@@ -1,5 +1,5 @@
-#ifndef SDL3PP_UI_H_
-#define SDL3PP_UI_H_
+#ifndef SDL3PP_UI_UMBRELLA_H_
+#define SDL3PP_UI_UMBRELLA_H_
 
 /**
  * @file SDL3pp_ui.h
@@ -233,4 +233,4 @@
 #include "SDL3pp_ui/UIPipeline.h"
 #include "SDL3pp_ui/UIBuilder.h"
 #endif
-#endif /* SDL3PP_UI_H_ */
+#endif /* SDL3PP_UI_UMBRELLA_H_ */

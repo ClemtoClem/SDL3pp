@@ -1,7 +1,7 @@
 /*
  * renderer/12_scene_graph.cpp
  *
- * Scene graph demo using SDL3pp_ecs.h + SDL3pp_scene.h.
+ * Scene graph demo using SDL3pp_engine.h + SDL3pp_engine.h.
  *
  * Demonstrates:
  *  - Building a 2-D scene hierarchy (parent → child entities)
@@ -32,8 +32,8 @@
 #include <SDL3pp/SDL3pp.h>
 #include <SDL3pp/SDL3pp_main.h>
 #include <SDL3pp/SDL3pp_image.h>
-#include <SDL3pp/SDL3pp_ecs.h>
-#include <SDL3pp/SDL3pp_scene.h>
+#include <SDL3pp/SDL3pp_engine.h>
+#include <SDL3pp/SDL3pp_engine.h>
 
 #include <cmath>
 #include <format>

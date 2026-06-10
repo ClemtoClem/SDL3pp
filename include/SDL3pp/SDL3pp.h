@@ -79,12 +79,13 @@
 
 // Additionnal functionnalities
 #include "SDL3pp_resources.h"
-#include "SDL3pp_math3D.h"
-#include "SDL3pp_ecs.h"
-#include "SDL3pp_scene.h"
+#include "SDL3pp_engine/Engine.h"
 #include "SDL3pp_dataScripts.h"
 #include "SDL3pp_surfaceFilters.h"
 #include "SDL3pp_audioProcessing.h"
+
+
+#include "SDL3pp_engine.h"
 #include "SDL3pp_ui.h"
 
 #endif /* SDL3PP_H_ */

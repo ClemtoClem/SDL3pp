@@ -1,7 +1,7 @@
 #pragma once
 
 #include "UIIndexSystem.h"
-#include "../SDL3pp_ecs.h"
+#include "../SDL3pp_engine/ECS.h"
 
 #include <vector>
 

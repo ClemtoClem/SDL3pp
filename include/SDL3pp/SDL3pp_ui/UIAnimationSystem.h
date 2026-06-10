@@ -2,7 +2,7 @@
 
 #include "UIComponents.h"
 #include "UILayoutSystem.h"
-#include "../SDL3pp_ecs.h"
+#include "../SDL3pp_engine/ECS.h"
 
 namespace SDL::UI {
 

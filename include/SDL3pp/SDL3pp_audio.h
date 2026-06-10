@@ -439,16 +439,12 @@ constexpr AudioFormat AUDIO_F32 = SDL_AUDIO_F32; ///< AUDIO_F32
  * @since This function is available since SDL 3.2.0.
  */
 constexpr AudioFormat DefineAudioFormat(bool sign,
-																				bool bigendian,
-																				bool flt,
-																				Uint16 size) {
+	bool bigendian, bool flt, Uint16 size) {
 	return AudioFormat(sign, bigendian, flt, size);
 }
 
 constexpr AudioFormat::AudioFormat(bool sign,
-																	 bool bigendian,
-																	 bool flt,
-																	 Uint16 size)
+	bool bigendian, bool flt, Uint16 size)
 	: m_audioFormat(
 			AudioFormatRaw(SDL_DEFINE_AUDIO_FORMAT(sign, bigendian, flt, size))) {
 }
@@ -641,9 +637,7 @@ constexpr bool AudioFormat::IsUnsigned() const {
  * @sa AudioDevice.SetPostmixCallback
  */
 using AudioPostmixCallback = void(SDLCALL*)(void* userdata,
-																						const AudioSpec* spec,
-																						float* buffer,
-																						int buflen);
+	const AudioSpec* spec, float* buffer, int buflen);
 
 /**
  * A callback that fires when data is about to be fed to an audio device.
@@ -722,9 +716,7 @@ using AudioPostmixCB =
  * @sa AudioStream.SetPutCallback
  */
 using AudioStreamCallback = void(SDLCALL*)(void* userdata,
-																					 AudioStreamRaw stream,
-																					 int additional_amount,
-																					 int total_amount);
+	AudioStreamRaw stream, int additional_amount, int total_amount);
 
 /**
  * A callback that fires when data passes through an AudioStream.
@@ -1387,8 +1379,7 @@ public:
 	 * @sa AudioStream.ResumeDevice
 	 */
 	AudioStream OpenStream(OptionalRef<const AudioSpec> spec,
-												 AudioStreamCallback callback,
-												 void* userdata);
+		AudioStreamCallback callback, void* userdata);
 
 	/**
 	 * Convenience function for straightforward audio init for the common case.
@@ -1441,8 +1432,7 @@ public:
 	 * @sa AudioStream.GetDevice
 	 * @sa AudioStream.ResumeDevice
 	 */
-	AudioStream OpenStream(OptionalRef<const AudioSpec> spec,
-												 AudioStreamCB callback);
+	AudioStream OpenStream(OptionalRef<const AudioSpec> spec, AudioStreamCB callback);
 };
 
 /**
@@ -1580,8 +1570,7 @@ constexpr int AudioFrameSize(const AudioSpec& x) {
  * @sa AudioStream.SetPutCallback
  */
 using AudioStreamDataCompleteCallback = void(SDLCALL*)(void* userdata,
-																											 const void* buf,
-																											 int buflen);
+	const void* buf, int buflen);
 
 /**
  * A callback that fires for completed AudioStream.PutDataNoCopy() data.
@@ -1753,9 +1742,9 @@ public:
 	 * @sa AudioStream.ResumeDevice
 	 */
 	AudioStream(AudioDeviceRef devid,
-							OptionalRef<const AudioSpec> spec = std::nullopt,
-							AudioStreamCallback callback = nullptr,
-							void* userdata = nullptr);
+		OptionalRef<const AudioSpec> spec = std::nullopt,
+		AudioStreamCallback callback = nullptr,
+		void* userdata = nullptr);
 
 	/**
 	 * Convenience function for straightforward audio init for the common case.
@@ -1811,8 +1800,7 @@ public:
 	 * @sa AudioStream.ResumeDevice
 	 */
 	AudioStream(AudioDeviceRef devid,
-							OptionalRef<const AudioSpec> spec,
-							AudioStreamCB callback);
+		OptionalRef<const AudioSpec> spec, AudioStreamCB callback);
 
 	/// Destructor
 	~AudioStream() { SDL_DestroyAudioStream(m_resource); }
@@ -4213,8 +4201,7 @@ inline void AudioStream::SetInputChannelMap(std::span<int> chmap) {
  *
  * @sa AudioStream.SetInputChannelMap
  */
-inline void SetAudioStreamOutputChannelMap(AudioStreamRef stream,
-																					 std::span<int> chmap) {
+inline void SetAudioStreamOutputChannelMap(AudioStreamRef stream, std::span<int> chmap) {
 	CheckError(SDL_SetAudioStreamOutputChannelMap(
 		stream, chmap.data(), NarrowS32(chmap.size())));
 }
@@ -4304,9 +4291,7 @@ inline void AudioStream::PutData(SourceBytes buf) {
  * @sa AudioStream.GetQueued
  */
 inline void PutAudioStreamDataNoCopy(AudioStreamRef stream,
-																		 SourceBytes buf,
-																		 AudioStreamDataCompleteCallback callback,
-																		 void* userdata) {
+	SourceBytes buf, AudioStreamDataCompleteCallback callback, void* userdata) {
 	CheckError(SDL_PutAudioStreamDataNoCopy(
 		stream, buf.data(), NarrowS32(buf.size_bytes()), callback, userdata));
 }
@@ -4353,23 +4338,18 @@ inline void PutAudioStreamDataNoCopy(AudioStreamRef stream,
  * @sa AudioStream.GetQueued
  */
 inline void PutAudioStreamDataNoCopy(AudioStreamRef stream,
-																		 SourceBytes buf,
-																		 AudioStreamDataCompleteCB callback) {
+	SourceBytes buf, AudioStreamDataCompleteCB callback) {
 	using Wrapper = CallbackWrapper<AudioStreamDataCompleteCB>;
 	PutAudioStreamDataNoCopy(stream,
-													 std::move(buf),
-													 &Wrapper::CallOnce,
-													 Wrapper::Wrap(std::move(callback)));
+		std::move(buf), &Wrapper::CallOnce, Wrapper::Wrap(std::move(callback)));
 }
 
 inline void AudioStream::PutDataNoCopy(SourceBytes buf,
-																			 AudioStreamDataCompleteCallback callback,
-																			 void* userdata) {
+	AudioStreamDataCompleteCallback callback, void* userdata) {
 	SDL::PutAudioStreamDataNoCopy(m_resource, std::move(buf), callback, userdata);
 }
 
-inline void AudioStream::PutDataNoCopy(SourceBytes buf,
-																			 AudioStreamDataCompleteCB callback) {
+inline void AudioStream::PutDataNoCopy(SourceBytes buf, AudioStreamDataCompleteCB callback) {
 	SDL::PutAudioStreamDataNoCopy(
 		m_resource, std::move(buf), std::move(callback));
 }
@@ -4423,16 +4403,13 @@ inline void AudioStream::PutDataNoCopy(SourceBytes buf,
  * @sa AudioStream.GetQueued
  */
 inline void PutAudioStreamPlanarData(AudioStreamRef stream,
-																		 const void* const* channel_buffers,
-																		 int num_channels,
-																		 int num_samples) {
+	const void* const* channel_buffers, int num_channels, int num_samples) {
 	CheckError(SDL_PutAudioStreamPlanarData(
 		stream, channel_buffers, num_channels, num_samples));
 }
 
 inline void AudioStream::PutPlanarData(const void* const* channel_buffers,
-																			 int num_channels,
-																			 int num_samples) {
+	int num_channels, int num_samples) {
 	SDL::PutAudioStreamPlanarData(
 		m_resource, channel_buffers, num_channels, num_samples);
 }
@@ -4786,8 +4763,7 @@ inline void AudioStreamLock::Reset() {
  * @sa AudioStream.SetPutCallback
  */
 inline void SetAudioStreamGetCallback(AudioStreamRef stream,
-																			AudioStreamCallback callback,
-																			void* userdata) {
+	AudioStreamCallback callback, void* userdata) {
 	CheckError(SDL_SetAudioStreamGetCallback(stream, callback, userdata));
 }
 
@@ -4890,8 +4866,7 @@ inline void AudioStream::SetGetCallback(AudioStreamCB callback) {
  * @sa AudioStream.SetGetCallback
  */
 inline void SetAudioStreamPutCallback(AudioStreamRef stream,
-																			AudioStreamCallback callback,
-																			void* userdata) {
+	AudioStreamCallback callback, void* userdata) {
 	CheckError(SDL_SetAudioStreamPutCallback(stream, callback, userdata));
 }
 
@@ -4938,13 +4913,11 @@ inline void SetAudioStreamPutCallback(AudioStreamRef stream,
  *
  * @sa AudioStream.SetGetCallback
  */
-inline void SetAudioStreamPutCallback(AudioStreamRef stream,
-																			AudioStreamCB callback) {
+inline void SetAudioStreamPutCallback(AudioStreamRef stream, AudioStreamCB callback) {
 	SetAudioStreamPutCallback(stream, callback.wrapper, callback.data);
 }
 
-inline void AudioStream::SetPutCallback(AudioStreamCallback callback,
-																				void* userdata) {
+inline void AudioStream::SetPutCallback(AudioStreamCallback callback, void* userdata) {
 	SDL::SetAudioStreamPutCallback(m_resource, callback, userdata);
 }
 
@@ -5034,9 +5007,7 @@ inline void AudioStream::Destroy() { DestroyAudioStream(Release()); }
  * @sa AudioStream.ResumeDevice
  */
 inline AudioStream OpenAudioDeviceStream(AudioDeviceRef devid,
-																				 OptionalRef<const AudioSpec> spec,
-																				 AudioStreamCallback callback = nullptr,
-																				 void* userdata = nullptr) {
+	OptionalRef<const AudioSpec> spec, AudioStreamCallback callback = nullptr, void* userdata = nullptr) {
 	return AudioStream(devid, spec, callback, userdata);
 }
 
@@ -5094,19 +5065,16 @@ inline AudioStream OpenAudioDeviceStream(AudioDeviceRef devid,
  * @sa AudioStream.ResumeDevice
  */
 inline AudioStream OpenAudioDeviceStream(AudioDeviceRef devid,
-																				 OptionalRef<const AudioSpec> spec,
-																				 AudioStreamCB callback) {
+	OptionalRef<const AudioSpec> spec, AudioStreamCB callback) {
 	return AudioStream(devid, spec, callback);
 }
 
 inline AudioStream AudioDevice::OpenStream(OptionalRef<const AudioSpec> spec,
-																					 AudioStreamCallback callback,
-																					 void* userdata) {
+	AudioStreamCallback callback, void* userdata) {
 	return AudioStream(m_resource, spec, callback, userdata);
 }
 
-inline AudioStream AudioDevice::OpenStream(OptionalRef<const AudioSpec> spec,
-																					 AudioStreamCB callback) {
+inline AudioStream AudioDevice::OpenStream(OptionalRef<const AudioSpec> spec, AudioStreamCB callback) {
 	return AudioStream(m_resource, spec, callback);
 }
 
@@ -5162,8 +5130,7 @@ inline AudioStream AudioDevice::OpenStream(OptionalRef<const AudioSpec> spec,
  * @since This function is available since SDL 3.2.0.
  */
 inline void SetAudioPostmixCallback(AudioDeviceRef devid,
-																		AudioPostmixCallback callback,
-																		void* userdata) {
+	AudioPostmixCallback callback, void* userdata) {
 	CheckError(SDL_SetAudioPostmixCallback(devid, callback, userdata));
 }
 
@@ -5217,13 +5184,11 @@ inline void SetAudioPostmixCallback(AudioDeviceRef devid,
  *
  * @since This function is available since SDL 3.2.0.
  */
-inline void SetAudioPostmixCallback(AudioDeviceRef devid,
-																		AudioPostmixCB callback) {
+inline void SetAudioPostmixCallback(AudioDeviceRef devid, AudioPostmixCB callback) {
 	SetAudioPostmixCallback(devid, callback.wrapper, callback.data);
 }
 
-inline void AudioDevice::SetPostmixCallback(AudioPostmixCallback callback,
-																						void* userdata) {
+inline void AudioDevice::SetPostmixCallback(AudioPostmixCallback callback, void* userdata) {
 	SDL::SetAudioPostmixCallback(m_resource, callback, userdata);
 }
 
@@ -5299,8 +5264,7 @@ inline void AudioDevice::SetPostmixCallback(AudioPostmixCB callback) {
  * @sa LoadWAV
  */
 inline OwnArray<Uint8> LoadWAV_IO(IOStreamRef src,
-																	AudioSpec* spec,
-																	bool closeio = false) {
+	AudioSpec* spec, bool closeio = false) {
 	Uint8* buf;
 	Uint32 len;
 	if (!SDL_LoadWAV_IO(src, closeio, spec, &buf, &len)) return {};
@@ -5370,9 +5334,7 @@ inline OwnArray<Uint8> LoadWAV(StringParam path, AudioSpec* spec) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void MixAudio(Uint8* dst,
-										 SourceBytes src,
-										 AudioFormat format,
-										 float volume) {
+	SourceBytes src, AudioFormat format, float volume) {
 	CheckError(SDL_MixAudio(
 		dst, src.data_as<Uint8>(), format, NarrowS32(src.size_bytes()), volume));
 }
@@ -5409,9 +5371,7 @@ inline void MixAudio(Uint8* dst,
  * @since This function is available since SDL 3.2.0.
  */
 inline void MixAudio(TargetBytes dst,
-										 SourceBytes src,
-										 AudioFormat format,
-										 float volume) {
+	SourceBytes src, AudioFormat format, float volume) {
 	if (dst.size_bytes() < src.size_bytes()) {
 		MixAudio(dst.data_as<Uint8>(),
 						 SourceBytes{src.data(), dst.size_bytes()},
@@ -5444,16 +5404,12 @@ inline void MixAudio(TargetBytes dst,
  * @since This function is available since SDL 3.2.0.
  */
 inline OwnArray<Uint8> ConvertAudioSamples(const AudioSpec& src_spec,
-																					 SourceBytes src_data,
-																					 const AudioSpec& dst_spec) {
+	SourceBytes src_data, const AudioSpec& dst_spec) {
 	Uint8* buf;
 	int len;
 	CheckError(SDL_ConvertAudioSamples(&src_spec,
-																		 src_data.data_as<Uint8>(),
-																		 NarrowS32(src_data.size_bytes()),
-																		 &dst_spec,
-																		 &buf,
-																		 &len));
+		src_data.data_as<Uint8>(), NarrowS32(src_data.size_bytes()),
+		&dst_spec, &buf, &len));
 	return OwnArray<Uint8>{buf, size_t(len)};
 }
 

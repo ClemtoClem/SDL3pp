@@ -207,11 +207,11 @@ struct Main {
 
 | Header | Description |
 |---|---|
-| `SDL3pp_ecs.h` | Sparse-set Entity Component System with O(1) add/get/remove, archetype queries and a system registry |
-| `SDL3pp_scene.h` | 2D scene graph built on the ECS: `Transform2D` propagation, `Sprite` z-ordering, `SceneCamera`, tweens, signals |
+| `SDL3pp_engine.h` | Sparse-set Entity Component System with O(1) add/get/remove, archetype queries and a system registry |
+| `SDL3pp_engine.h` | 2D scene graph built on the ECS: `Transform2D` propagation, `Sprite` z-ordering, `SceneCamera`, tweens, signals |
 | `SDL3pp_ui.h` | Retained-mode UI framework backed by the ECS: full layout engine (Flexbox-inspired + 2-D grid), widgets (Button, Label, Slider, Toggle, Input, TextArea, Canvas, …), a responsive value system (`Px`, `Pw`, `Ph`, `Auto`, …) and per-widget `minWidth` / `maxWidth` / `minHeight` / `maxHeight` constraints |
 | `SDL3pp_resources.h` | Async resource pool with ref-counting (`ResourceHandle<T>`), background loading and optional progress tracking |
-| `SDL3pp_math3D.h` | 3D math: vectors, matrices, quaternions, frustums |
+| `SDL3pp_engine/Math3D.h` | 3D math: vectors, matrices, quaternions, frustums |
 | `SDL3pp_surfaceFilters.h` | CPU-side image filters (blur, sharpen, colour matrix, …) |
 | `SDL3pp_audioProcessing.h` | Audio DSP helpers: FFT, spectrum analysis, signal generation |
 | `SDL3pp_dataScripts.h` | Lightweight data-script parser for asset and configuration files |
@@ -607,11 +607,11 @@ struct Main {
 
 | En-tête | Description |
 |---|---|
-| `SDL3pp_ecs.h` | Système entité-composant (ECS) à ensemble creux avec ajout/accès/suppression en O(1), requêtes par archétype et registre de systèmes |
-| `SDL3pp_scene.h` | Graphe de scène 2D construit sur l'ECS : propagation de `Transform2D`, tri en Z des `Sprite`, `SceneCamera`, tweens, signaux |
+| `SDL3pp_engine.h` | Système entité-composant (ECS) à ensemble creux avec ajout/accès/suppression en O(1), requêtes par archétype et registre de systèmes |
+| `SDL3pp_engine.h` | Graphe de scène 2D construit sur l'ECS : propagation de `Transform2D`, tri en Z des `Sprite`, `SceneCamera`, tweens, signaux |
 | `SDL3pp_ui.h` | Framework d'interface en mode retenu adossé à l'ECS : moteur de mise en page complet (inspiré de Flexbox + grille 2D `Layout::InGrid`), widgets (Button, Label, Slider, Toggle, Input, TextArea, Canvas, …), système de valeurs réactives (`Px`, `Pw`, `Ph`, `Auto`, …) et contraintes de taille par widget (`minWidth` / `maxWidth` / `minHeight` / `maxHeight`) |
 | `SDL3pp_resources.h` | Pool de ressources asynchrone avec comptage de références (`ResourceHandle<T>`), chargement en arrière-plan et suivi optionnel de la progression |
-| `SDL3pp_math3D.h` | Mathématiques 3D : vecteurs, matrices, quaternions, frustums |
+| `SDL3pp_engine/Math3D.h` | Mathématiques 3D : vecteurs, matrices, quaternions, frustums |
 | `SDL3pp_surfaceFilters.h` | Filtres d'image côté CPU (flou, netteté, matrice de couleur, …) |
 | `SDL3pp_audioProcessing.h` | Assistants DSP audio : FFT, analyse de spectre, génération de signal |
 | `SDL3pp_dataScripts.h` | Analyseur syntaxique de scripts de données léger pour les fichiers d'assets et de configuration |

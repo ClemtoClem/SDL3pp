@@ -4,7 +4,7 @@
 // ══════════════════════════════════════════════════════════════════════════
 #include "Chunk.h"
 #include "Noise.h"
-#include <SDL3pp/SDL3pp_ecs.h>
+#include <SDL3pp/SDL3pp_engine.h>
 #include <unordered_map>
 #include <cstdint>
 #include <cmath>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "UIComponents.h"
-#include "../SDL3pp_ecs.h"
+#include "../SDL3pp_engine/ECS.h"
 #include "../SDL3pp_render.h"
 #include "../SDL3pp_stdinc.h"
 

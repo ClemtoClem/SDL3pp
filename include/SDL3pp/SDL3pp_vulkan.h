@@ -175,9 +175,9 @@ inline std::span<char const* const> Vulkan_GetInstanceExtensions() {
  * @sa Vulkan_DestroySurface
  */
 inline void Vulkan_CreateSurface(WindowRef window,
-																 VkInstance instance,
-																 const struct VkAllocationCallbacks* allocator,
-																 VkSurfaceKHR* surface) {
+	VkInstance instance,
+	const struct VkAllocationCallbacks* allocator,
+	VkSurfaceKHR* surface) {
 	CheckError(SDL_Vulkan_CreateSurface(window, instance, allocator, surface));
 }
 
@@ -205,8 +205,8 @@ inline void Vulkan_CreateSurface(WindowRef window,
  * @sa Vulkan_CreateSurface
  */
 inline void Vulkan_DestroySurface(VkInstance instance,
-																	VkSurfaceKHR surface,
-																	const struct VkAllocationCallbacks* allocator) {
+	VkSurfaceKHR surface,
+	const struct VkAllocationCallbacks* allocator) {
 	SDL_Vulkan_DestroySurface(instance, surface, allocator);
 }
 
@@ -227,8 +227,8 @@ inline void Vulkan_DestroySurface(VkInstance instance,
  * @sa Vulkan_GetInstanceExtensions
  */
 inline bool Vulkan_GetPresentationSupport(VkInstance instance,
-																					VkPhysicalDevice physicalDevice,
-																					Uint32 queueFamilyIndex) {
+	VkPhysicalDevice physicalDevice,
+	Uint32 queueFamilyIndex) {
 	return SDL_Vulkan_GetPresentationSupport(
 		instance, physicalDevice, queueFamilyIndex);
 }

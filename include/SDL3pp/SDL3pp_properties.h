@@ -70,7 +70,8 @@ constexpr PropertyType PROPERTY_TYPE_STRING =
 constexpr PropertyType PROPERTY_TYPE_NUMBER =
 	SDL_PROPERTY_TYPE_NUMBER; ///< NUMBER
 
-constexpr PropertyType PROPERTY_TYPE_FLOAT = SDL_PROPERTY_TYPE_FLOAT; ///< FLOAT
+constexpr PropertyType PROPERTY_TYPE_FLOAT =
+	SDL_PROPERTY_TYPE_FLOAT; ///< FLOAT
 
 constexpr PropertyType PROPERTY_TYPE_BOOLEAN =
 	SDL_PROPERTY_TYPE_BOOLEAN; ///< BOOLEAN
@@ -348,9 +349,7 @@ public:
 	 * @sa CleanupPropertyCallback
 	 */
 	void SetPointerPropertyWithCleanup(StringParam name,
-																		 void* value,
-																		 CleanupPropertyCallback cleanup,
-																		 void* userdata);
+		void* value, CleanupPropertyCallback cleanup, void* userdata);
 
 	/**
 	 * Set a pointer property in a group of properties with a cleanup function
@@ -381,8 +380,7 @@ public:
 	 * @sa CleanupPropertyCallback
 	 */
 	void SetPointerPropertyWithCleanup(StringParam name,
-																		 void* value,
-																		 CleanupPropertyCB cleanup);
+		void* value, CleanupPropertyCB cleanup);
 
 	/**
 	 * Set a pointer property in a group of properties.
@@ -1011,10 +1009,7 @@ inline void PropertiesLock::Reset() {
  * @sa CleanupPropertyCallback
  */
 inline void SetPointerPropertyWithCleanup(PropertiesRef props,
-																					StringParam name,
-																					void* value,
-																					CleanupPropertyCallback cleanup,
-																					void* userdata) {
+	StringParam name, void* value, CleanupPropertyCallback cleanup, void* userdata) {
 	CheckError(
 		SDL_SetPointerPropertyWithCleanup(props, name, value, cleanup, userdata));
 }
@@ -1048,15 +1043,10 @@ inline void SetPointerPropertyWithCleanup(PropertiesRef props,
  * @sa CleanupPropertyCallback
  */
 inline void SetPointerPropertyWithCleanup(PropertiesRef props,
-																					StringParam name,
-																					void* value,
-																					CleanupPropertyCB cleanup) {
+	StringParam name, void* value, CleanupPropertyCB cleanup) {
 	using Wrapper = CallbackWrapper<CleanupPropertyCB>;
 	SDL_SetPointerPropertyWithCleanup(props,
-																		std::move(name),
-																		value,
-																		&Wrapper::CallOnce,
-																		Wrapper::Wrap(std::move(cleanup)));
+		std::move(name), value, &Wrapper::CallOnce, Wrapper::Wrap(std::move(cleanup)));
 }
 
 inline void Properties::SetPointerPropertyWithCleanup(
@@ -1069,8 +1059,7 @@ inline void Properties::SetPointerPropertyWithCleanup(
 }
 
 inline void Properties::SetPointerPropertyWithCleanup(StringParam name,
-																											void* value,
-																											CleanupPropertyCB cleanup) {
+	void* value, CleanupPropertyCB cleanup) {
 	SDL::SetPointerPropertyWithCleanup(
 		m_resource, std::move(name), value, std::move(cleanup));
 }
@@ -1097,8 +1086,7 @@ inline void Properties::SetPointerPropertyWithCleanup(StringParam name,
  * @sa Properties.SetStringProperty
  */
 inline void SetPointerProperty(PropertiesRef props,
-															 StringParam name,
-															 void* value) {
+	StringParam name, void* value) {
 	CheckError(SDL_SetPointerProperty(props, name, value));
 }
 
@@ -1125,8 +1113,7 @@ inline void Properties::SetPointerProperty(StringParam name, void* value) {
  * @sa Properties.GetStringProperty
  */
 inline void SetStringProperty(PropertiesRef props,
-															StringParam name,
-															StringParam value) {
+	StringParam name, StringParam value) {
 	CheckError(SDL_SetStringProperty(props, name, value));
 }
 
@@ -1149,8 +1136,7 @@ inline void Properties::SetStringProperty(StringParam name, StringParam value) {
  * @sa Properties.GetNumberProperty
  */
 inline void SetNumberProperty(PropertiesRef props,
-															StringParam name,
-															Sint64 value) {
+	StringParam name, Sint64 value) {
 	CheckError(SDL_SetNumberProperty(props, name, value));
 }
 
@@ -1195,8 +1181,7 @@ inline void Properties::SetFloatProperty(StringParam name, float value) {
  * @sa Properties.GetBooleanProperty
  */
 inline void SetBooleanProperty(PropertiesRef props,
-															 StringParam name,
-															 bool value) {
+	StringParam name, bool value) {
 	CheckError(SDL_SetBooleanProperty(props, name, value));
 }
 
@@ -1278,13 +1263,11 @@ inline PropertyType Properties::GetPropertyType(StringParam name) {
  * @sa Properties.SetPointerProperty
  */
 inline void* GetPointerProperty(PropertiesRef props,
-																StringParam name,
-																void* default_value) {
+	StringParam name, void* default_value) {
 	return SDL_GetPointerProperty(props, name, default_value);
 }
 
-inline void* Properties::GetPointerProperty(StringParam name,
-																						void* default_value) {
+inline void* Properties::GetPointerProperty(StringParam name, void* default_value) {
 	return SDL::GetPointerProperty(m_resource, std::move(name), default_value);
 }
 
@@ -1311,13 +1294,12 @@ inline void* Properties::GetPointerProperty(StringParam name,
  * @sa Properties.SetStringProperty
  */
 inline const char* GetStringProperty(PropertiesRef props,
-																		 StringParam name,
-																		 StringParam default_value) {
+	StringParam name, StringParam default_value) {
 	return SDL_GetStringProperty(props, name, default_value);
 }
 
 inline const char* Properties::GetStringProperty(StringParam name,
-																								 StringParam default_value) {
+	StringParam default_value) {
 	return SDL::GetStringProperty(
 		m_resource, std::move(name), std::move(default_value));
 }
@@ -1343,13 +1325,11 @@ inline const char* Properties::GetStringProperty(StringParam name,
  * @sa Properties.SetNumberProperty
  */
 inline Sint64 GetNumberProperty(PropertiesRef props,
-																StringParam name,
-																Sint64 default_value) {
+	StringParam name, Sint64 default_value) {
 	return SDL_GetNumberProperty(props, name, default_value);
 }
 
-inline Sint64 Properties::GetNumberProperty(StringParam name,
-																						Sint64 default_value) {
+inline Sint64 Properties::GetNumberProperty(StringParam name, Sint64 default_value) {
 	return SDL::GetNumberProperty(m_resource, std::move(name), default_value);
 }
 
@@ -1374,8 +1354,7 @@ inline Sint64 Properties::GetNumberProperty(StringParam name,
  * @sa Properties.SetFloatProperty
  */
 inline float GetFloatProperty(PropertiesRef props,
-															StringParam name,
-															float default_value) {
+	StringParam name, float default_value) {
 	return SDL_GetFloatProperty(props, name, default_value);
 }
 
@@ -1404,8 +1383,7 @@ inline float Properties::GetFloatProperty(StringParam name, float default_value)
  * @sa Properties.SetBooleanProperty
  */
 inline bool GetBooleanProperty(PropertiesRef props,
-															 StringParam name,
-															 bool default_value) {
+	StringParam name, bool default_value) {
 	return SDL_GetBooleanProperty(props, name, default_value);
 }
 
@@ -1448,8 +1426,7 @@ inline void Properties::ClearProperty(StringParam name) {
  * @since This function is available since SDL 3.2.0.
  */
 inline void EnumerateProperties(PropertiesRef props,
-																EnumeratePropertiesCallback callback,
-																void* userdata) {
+	EnumeratePropertiesCallback callback, void* userdata) {
 	CheckError(SDL_EnumerateProperties(props, callback, userdata));
 }
 
@@ -1467,8 +1444,7 @@ inline void EnumerateProperties(PropertiesRef props,
  *
  * @since This function is available since SDL 3.2.0.
  */
-inline void EnumerateProperties(PropertiesRef props,
-																EnumeratePropertiesCB callback) {
+inline void EnumerateProperties(PropertiesRef props, EnumeratePropertiesCB callback) {
 	return EnumerateProperties(
 		props,
 		[](void* userdata, PropertiesID props, const char* name) {

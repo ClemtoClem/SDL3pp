@@ -23,9 +23,9 @@
 #define SDL3PP_MAIN_USE_CALLBACKS 1
 #include <SDL3pp/SDL3pp.h>
 #include <SDL3pp/SDL3pp_main.h>
-#include <SDL3pp/SDL3pp_ecs.h>
-#include <SDL3pp/SDL3pp_scene.h>
-#include <SDL3pp/SDL3pp_math3D.h>
+#include <SDL3pp/SDL3pp_engine.h>
+#include <SDL3pp/SDL3pp_engine.h>
+#include <SDL3pp/SDL3pp_engine/Math3D.h>
 #include <SDL3pp/SDL3pp_image.h>
 #include <SDL3pp/SDL3pp_ttf.h>
 #include <SDL3pp/SDL3pp_mixer.h>

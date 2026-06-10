@@ -18,7 +18,7 @@
 #include <SDL3pp/SDL3pp_image.h>      // IMG_LoadTexture  (no explicit IMG_Init needed in SDL3)
 #include <SDL3pp/SDL3pp_resources.h>  // ResourceManager / ResourcePool
 #include <SDL3pp/SDL3pp_ui.h>         // UI::System + Builder DSL
-#include <SDL3pp/SDL3pp_scene.h>      // SceneBuilder / SceneGraph
+#include <SDL3pp/SDL3pp_engine.h>      // SceneBuilder / SceneGraph
 #include <SDL3pp/SDL3pp_timer.h>      // FrameTimer
 #include <SDL3pp/SDL3pp_log.h>		  // Logger
 
